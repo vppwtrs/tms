@@ -3,26 +3,31 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { Button, Field, Input } from '../components/ui'
 
 /**
- * หน้าเข้าสู่ระบบแบบสองทาง
+ * หน้าเข้าสู่ระบบช่องเดียว
  *
- * แยกเป็นสองแท็บ ไม่ใช่ช่องเดียวแล้วเดาเอง — เพราะเดาผิดแล้วผู้ใช้ไม่มีทางรู้ว่าผิดตรงไหน
- * พนักงานออฟฟิศที่พิมพ์รหัส TMS ลงช่องของคนขับจะเจอ "รหัสผิด" ทั้งที่รหัสถูก
+ * เดิมเป็นสองแท็บให้ผู้ใช้เลือกเองว่าจะเข้าทางไหน แล้วพบว่าเลือกผิดกันจริง —
+ * admin เป็นบัญชีของระบบนี้ล้วน ไม่มีตัวตนใน TMS (ตั้งใจ: admin ไม่ยุ่งกับระบบบริษัท
+ * ดึงข้อมูลไม่ได้) แต่ก็ไม่ใช่คนขับ จึงไม่รู้ว่าตัวเองควรกดแท็บไหน
  *
- * **ป้ายแท็บบอกว่ารหัสไหน ไม่ใช่ว่าคุณเป็นใคร** — ตอนแรกใช้ป้ายตามตำแหน่งงาน
- * ("พนักงานออฟฟิศ" / "พนักงานขับรถ") แล้วพัง เพราะ admin เป็นบัญชีของระบบนี้ล้วน
- * ไม่มีตัวตนใน TMS (ตั้งใจให้เป็นแบบนั้น — admin ไม่ยุ่งกับระบบบริษัท ดึงข้อมูลไม่ได้)
- * แต่ก็ไม่ใช่คนขับ จึงไม่มีประตูให้เข้าสักบาน สุดท้ายไปกรอกฝั่ง TMS แล้วเจอ
- * "เข้าสู่ระบบ TMS ไม่สำเร็จ" ทั้งที่รหัสถูก — error ที่ชี้ไปผิดทางสนิท
+ * ตอนนี้ระบบตัดสินให้จาก **รูปแบบของสิ่งที่พิมพ์** ไม่ใช่ให้คนเลือก:
  *
- * ฝั่งบริษัทเตือนให้ชัดว่ากำลังจะพิมพ์รหัสของบริษัท ไม่ใช่รหัสของเรา
- * คนที่คุ้นกับการเห็นข้อความแบบนี้จะสังเกตออกเองเวลาเจอหน้าปลอมที่ไม่มีมัน
+ *   มี @  → อีเมล → บัญชีของระบบนี้ (Supabase Auth) — admin กับคนขับ
+ *   ไม่มี → ชื่อผู้ใช้ → บัญชีบริษัท (TMS ผ่าน gateway) — พนักงานออฟฟิศ
+ *
+ * **ตัดสินก่อนส่ง ไม่ใช่ลองยิงทีละทาง** ถ้าลอง Supabase ก่อนแล้วค่อยไป TMS
+ * รหัสของบริษัทจะถูกส่งขึ้นคลาวด์ทุกครั้งที่พนักงานออฟฟิศล็อกอิน ซึ่งขัดกับกติกา
+ * ข้อสำคัญที่สุดของโปรเจ็คนี้ (ดู STATUS.md — รหัสบริษัทห้ามอยู่บนคลาวด์)
+ * กฎ @ ตัดสินได้ตั้งแต่ก่อนมีคำขอออกไป จึงไม่มีรหัสหลงทางสักครั้งเดียว
+ *
+ * ข้อความใต้ฟอร์มยังเตือนเรื่องรหัสบริษัทไว้เหมือนเดิม — คนที่คุ้นกับการเห็น
+ * ข้อความแบบนี้จะสังเกตออกเองเวลาเจอหน้าปลอมที่ไม่มีมัน
  */
 
-type Tab = 'office' | 'driver'
+/** อีเมลเท่านั้นที่เป็นบัญชีของระบบนี้ — ชื่อผู้ใช้ TMS ไม่มีวันมี @ */
+const isEmail = (v: string): boolean => v.includes('@')
 
 export default function CloudLogin(): React.JSX.Element {
   const { loginOffice, loginDriver, pendingName } = useCloudAuth()
-  const [tab, setTab] = useState<Tab>('office')
   const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,21 +37,16 @@ export default function CloudLogin(): React.JSX.Element {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    const id = user.trim()
     try {
-      if (tab === 'office') await loginOffice(user.trim(), password)
-      else await loginDriver(user.trim(), password)
+      if (isEmail(id)) await loginDriver(id, password)
+      else await loginOffice(id, password)
       setPassword('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ')
     } finally {
       setLoading(false)
     }
-  }
-
-  const switchTab = (t: Tab): void => {
-    setTab(t)
-    setError(null)
-    setPassword('')
   }
 
   if (pendingName) {
@@ -80,24 +80,15 @@ export default function CloudLogin(): React.JSX.Element {
         <h1>ระบบบริหารจัดการขนส่ง</h1>
         <p className="login-sub">Transport Management System</p>
 
-        <div className="login-tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'office'}
-                  className={tab === 'office' ? 'on' : ''} onClick={() => switchTab('office')}>
-            บัญชีบริษัท (TMS)
-          </button>
-          <button type="button" role="tab" aria-selected={tab === 'driver'}
-                  className={tab === 'driver' ? 'on' : ''} onClick={() => switchTab('driver')}>
-            บัญชีระบบนี้
-          </button>
-        </div>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Field label={tab === 'office' ? 'ชื่อผู้ใช้ TMS บริษัท' : 'อีเมล'} required>
+          <Field label="ชื่อผู้ใช้ TMS หรืออีเมล" required>
             <Input
               value={user}
               onChange={(e) => setUser(e.target.value)}
-              placeholder={tab === 'office' ? 'ชื่อผู้ใช้ที่ใช้เข้า TMS' : 'you@example.com'}
-              type={tab === 'office' ? 'text' : 'email'}
+              placeholder="ชื่อผู้ใช้ TMS บริษัท หรือ you@example.com"
+              /* type="text" เสมอ — ใส่ type="email" ไม่ได้เพราะช่องนี้รับชื่อผู้ใช้ TMS ด้วย
+                 เบราว์เซอร์จะฟ้องว่ารูปแบบผิดตั้งแต่ยังไม่ทันกดปุ่ม */
+              type="text"
               autoFocus
               autoComplete="username"
             />
@@ -119,19 +110,11 @@ export default function CloudLogin(): React.JSX.Element {
         </div>
 
         <div className="login-hint">
-          {tab === 'office' ? (
-            <>
-              สำหรับ<b>พนักงานออฟฟิศ</b> ใช้ <b>ชื่อผู้ใช้และรหัสผ่านของ TMS บริษัท</b> —
-              ระบบส่งไปตรวจกับ TMS ตัวจริง ไม่เก็บรหัสของคุณไว้ที่ไหนทั้งสิ้น<br />
-              เข้าครั้งแรกต้องรอผู้ดูแลอนุมัติก่อนถึงจะใช้งานได้
-            </>
-          ) : (
-            <>
-              สำหรับ<b>ผู้ดูแลระบบและพนักงานขับรถ</b> ใช้อีเมลและรหัสผ่านที่ระบบนี้ออกให้ —
-              <b>ไม่ใช่รหัสของ TMS</b><br />
-              ลืมรหัสผ่านให้แจ้งผู้ดูแลระบบตั้งใหม่ให้
-            </>
-          )}
+          <b>พนักงานออฟฟิศ</b> ใช้ชื่อผู้ใช้และรหัสผ่านของ <b>TMS บริษัท</b> —
+          ระบบส่งไปตรวจกับ TMS ตัวจริง ไม่เก็บรหัสของคุณไว้ที่ไหนทั้งสิ้น
+          เข้าครั้งแรกต้องรอผู้ดูแลอนุมัติก่อน<br />
+          <b>ผู้ดูแลระบบและพนักงานขับรถ</b> ใช้อีเมลกับรหัสผ่านที่ระบบนี้ออกให้ —
+          <b>ไม่ใช่รหัสของ TMS</b>
         </div>
       </form>
     </div>
