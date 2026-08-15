@@ -1,0 +1,3135 @@
+/* ============================================================
+   Design Tokens v5 — Aurora (ขาว · ชมพู · ฟ้า · ม่วง)
+   3 ชั้น: global → semantic → component
+   อ้างอิง: Aurora dashboard design system (สกัดจากระบบจริงที่
+   ใช้งาน — ผ่านการวัดในเบราว์เซอร์จริง), Atlassian token
+   hierarchy, Material 3 motion, WCAG 2.2 AA
+   หลัก: พื้นหลังขาวอมม่วง #FAF9FD (ไม่ใช่ #FFF ล้วน) ·
+        periwinkle #6C7BE8 + violet #8A6BD1 (หม่น ~12% ไม่ใช่
+        ค่า default ของ framework) · เงาอมม่วง · รัศมีไล่ตาม
+        ขนาดชิ้นงาน · gradient ใช้แค่ 3–5 จุดทั้งระบบ ·
+        สี = สถานะเท่านั้น
+   ทุกค่าตรวจ AA ด้วย web/scripts/contrast.mjs
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ============ Layer 1 · GLOBAL — ค่าดิบ (raw values) ============ */
+
+  /* Primary : Violet — ม่วงหม่น สุภาพ เหมาะกับข้อมูลคน */
+  --violet-900: #2c2150;
+  --violet-800: #3e2f6b;
+  --violet-700: #533f8c;
+  --violet-600: #6b52ad;
+  --violet-500: #8a6bd1;
+  --violet-400: #a78be0;
+  --violet-300: #c3b0ec;
+  --violet-200: #dcd1f5;
+  --violet-100: #ede7fb;
+  --violet-050: #f6f2fe;
+
+  /* Secondary : Periwinkle — ฟ้าอมม่วง */
+  --blue-700: #3c4ba8;
+  --blue-600: #4e5fc7;
+  --blue-500: #6c7be8;
+  --blue-400: #8d99ee;
+  --blue-300: #b0b9f4;
+  --blue-200: #d0d6fa;
+  --blue-100: #e7eafd;
+  --blue-050: #f3f5fe;
+
+  /* Accent : Rose Quartz — ชมพูหม่น ไม่สดแบบไลฟ์สไตล์แอป */
+  --rose-700: #b4576f;
+  --rose-600: #d06a87;
+  --rose-500: #e8829f;
+  --rose-400: #f09fb6;
+  --rose-300: #f6bfd0;
+  --rose-200: #fadce5;
+  --rose-100: #fdedf2;
+
+  /* Neutral — ขาวอมม่วง (ไม่ใช่เทากลาง) */
+  --paper: #faf9fd;      /* พื้นหลังหลัก — ขาวอมม่วง จ้อง 8 ชม. ไม่ล้า */
+  --paper-deep: #f1eff8; /* พื้นผิวรองเข้มสุด */
+  --surface: #ffffff;    /* การ์ด/แผง */
+  --surface-2: #fbfafe;
+  --line: #e7e4f1;
+  --line-soft: #f0edf7;
+  --ink: #241f33;
+  --ink-2: #4a4360;
+  --muted: #706a86;
+  --faint: #6f6a85; /* เข้มกว่า Aurora ดั้งเดิม — ผ่าน AA บนขาว/พื้นอ่อน */
+
+  /* Status — คู่ "สีตัวอักษร + พื้นอ่อน" เสมอ
+     ตัวอักษรเข้มขึ้นจาก Aurora ดั้งเดิมเล็กน้อย เพื่อผ่าน AA
+     4.5:1 บนพื้นอ่อน (ตรวจแล้ว: 4.6–5.7:1 ทุกคู่) */
+  --ok: #1f7a5f;
+  --ok-bg: #e4f5ef;
+  --warn: #8f5a15;
+  --warn-bg: #fcf1df;
+  --danger: #b8405b;
+  --danger-bg: #fce9ee;
+  --info: #4e5fc7;
+  --info-bg: #e7eafd;
+  --neutral: #5f5a74;
+  --neutral-bg: #efedf6;
+
+  /* Data-viz — ม่วง → ฟ้า → ชมพู สเกลเดียวทั้งระบบ (ห้ามสุ่มสี) */
+  --viz-1: #6b52ad;
+  --viz-2: #6c7be8;
+  --viz-3: #8a6bd1;
+  --viz-4: #8d99ee;
+  --viz-5: #e8829f;
+  --viz-6: #a78be0;
+  --viz-7: #b0b9f4;
+  --viz-8: #f09fb6;
+
+  /* Gradients — ใช้แค่ 3–5 จุดในทั้งระบบเท่านั้น */
+  --grad-brand: linear-gradient(135deg, #6c7be8 0%, #8a6bd1 55%, #e8829f 100%);
+  --grad-soft: linear-gradient(135deg, var(--blue-050), var(--violet-050) 50%, var(--rose-100));
+
+  /* สเกลมุม — ไล่ตามขนาดชิ้นงาน: ปุ่ม/ฟิลด์ 12 · การ์ด 16 · โมดัล 22 · ป้ายเต็มโค้ง */
+  --r-sm: 12px;   /* ปุ่ม/ฟิลด์/แท็บ */
+  --r-md: 16px;   /* การ์ด */
+  --r-lg: 22px;   /* โมดัล/drawer */
+  --r-xl: 26px;   /* แผงใหญ่ (login) */
+  --r-full: 999px; /* ป้าย/avatar */
+  --r-8: 8px;
+  --r-12: 12px;
+  --r-16: 16px;
+  --r-18: 18px;
+  --r-22: 22px;
+  --r-30: 30px;
+
+  /* สเกลระยะ — 4px ลงตัว (ห้าม 15px/22px โผล่) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+
+  /* สเกลฟอนต์ — ตระหนี่ (body 14 · xs 11.5 เป็นหลัก) */
+  --font-xs: 11.5px;
+  --font-sm: 13px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --font-xl: 20px;
+  --font-2xl: 26px;
+  --font-3xl: 32px;
+  --font-display-lg: 40px;
+
+  /* ตระกูลฟอนต์ — ไทยต้องมาก่อน (ไม่งั้นสระลอย) */
+  /* Aurora ใช้ sans ตัวเดียวทั้งระบบ — ลำดับชั้นมาจากน้ำหนัก/ขนาด ไม่ใช่การสลับตระกูล
+     (--font-serif เดิมถูกถอดออก: นิยามไว้แต่ไม่มีคอมโพเนนต์ใดเรียกใช้เลย) */
+  --font-sans: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, monospace;
+
+  /* Elevation — 3 ระดับเท่านั้น เงาอมม่วง (ไม่ใช่เทาดำ) */
+  --sh-1: 0 1px 2px rgba(44, 33, 80, 0.05), 0 1px 3px rgba(44, 33, 80, 0.04);
+  --sh-2: 0 2px 4px rgba(44, 33, 80, 0.05), 0 8px 18px -8px rgba(44, 33, 80, 0.14);
+  --sh-3: 0 12px 34px -12px rgba(44, 33, 80, 0.26), 0 2px 8px rgba(44, 33, 80, 0.07);
+  --sh-brand: 0 6px 18px -6px rgba(107, 82, 173, 0.45);
+  --sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  /* alias เดิม (กันหัก) */
+  --shadow-sm: var(--sh-1);
+  --shadow: var(--sh-2);
+  --shadow-lg: var(--sh-3);
+
+  /* Motion primitives — duration + easing ตายตัว (Material 3) */
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 300ms;
+  --ease: cubic-bezier(0.32, 0.72, 0.28, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.5, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ============ Layer 2 · SEMANTIC — บทบาทการใช้งาน ============ */
+
+  /* พื้นผิว/หมึก/เส้น — map จาก Layer 1 (ชื่อ semantic เดิมที่
+     คอมโพเนนต์ใช้กันอยู่ ยังคงเดิม เปลี่ยนแค่ค่าด้านหลัง) */
+  --bg: var(--paper);
+  --bg-deep: var(--paper-deep);
+  --surface-3: var(--paper-deep);
+  --ink-soft: var(--ink-2);
+  --line-strong: #d5d0e6;
+  --accent-tint: rgba(107, 82, 173, 0.06);
+
+  /* สีแบรนด์ — violet หลัก */
+  --accent: var(--violet-600);
+  --accent-strong: var(--violet-700);
+  --accent-050: var(--violet-050);
+  --accent-soft: var(--violet-100);
+
+  /* สถานะ — semantic + alias -050/-bg (components ใช้ทั้งสองชื่อ)
+     ชื่อ danger/danger-bg/info/info-bg/neutral/neutral-bg นิยาม
+     ใน Layer 1 แล้ว (ห้าม self-reference ซ้ำที่นี่) */
+  --success: var(--ok);
+  --success-050: var(--ok-bg);
+  --success-bg: var(--ok-bg);
+  --warning: var(--warn);
+  --warning-050: var(--warn-bg);
+  --warning-bg: var(--warn-bg);
+  --danger-050: var(--danger-bg);
+  --info-050: var(--info-bg);
+
+  /* มุม — แผนที่จาก global scale */
+  --radius-sm: var(--r-sm);
+  --radius: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+
+  /* ฟอนต์ — display ใช้ sans น้ำหนักสูง (Aurora ไม่ใช้ serif) */
+  --font: var(--font-sans);
+  --font-display: var(--font-sans);
+
+  /* ขนาดโครงสร้าง */
+  --sidebar-width: 268px;
+  --topbar-height: 68px;
+
+  /* Motion semantic */
+  --motion-fast: var(--dur-1);
+  --motion-base: var(--dur-2);
+  --motion-enter: var(--dur-3);
+  --motion-leave: var(--dur-2);
+  --ease-enter: var(--ease-out);
+  --ease-leave: var(--ease-in);
+
+  /* ============ Layer 3 · COMPONENT — ต่อคอมโพเนนต์ ============ */
+
+  /* Card — การ์ด 16px เงา 1 */
+  --card-bg: var(--surface);
+  --card-border: rgba(44, 33, 80, 0.09);
+  --card-border-hover: rgba(44, 33, 80, 0.16);
+  --card-pad: 22px;
+
+  /* Button — ปุ่ม 12px */
+  --btn-accent-bg: var(--violet-600);
+  --btn-accent-color: #ffffff;
+  --btn-accent-hover: var(--violet-700);
+  --btn-primary-bg: var(--ink);
+  --btn-primary-color: #f2f0fb;
+  --btn-primary-hover: #1b1626;
+  --btn-danger-hover: #a93a54;
+  --btn-success-hover: #1f7a5f;
+
+  /* Form */
+  --input-border: rgba(44, 33, 80, 0.22);
+  --input-focus-ring: rgba(107, 82, 173, 0.16);
+
+  /* Table */
+  --table-head: var(--faint);
+  --table-row-hover: rgba(107, 82, 173, 0.055);
+
+  /* Link */
+  --link: var(--violet-700);
+  --link-hover: var(--violet-800);
+
+  /* Sidebar — ขาวอมม่วง (ไม่ใช่แถบดำ) + radial แบรนด์จาง
+     active ใช้ gradient ม่วงเข้ม (ไม่ใช่ grad-brand) เพราะขาวต้อง
+     ผ่าน AA บนทุกจุดของ gradient (ตรวจ: 6.4:1 ตรงกลาง) */
+  --sidebar-bg: var(--surface);
+  --sidebar-bg-hover: rgba(107, 82, 173, 0.07);
+  --sidebar-text: var(--ink-2);
+  --sidebar-text-strong: var(--ink);
+  --sidebar-active-bg: linear-gradient(135deg, #6b52ad 0%, #5d4ba8 100%);
+  --sidebar-active-text: #ffffff;
+  --sidebar-line: rgba(44, 33, 80, 0.1);
+
+  /* Nav-badge — rose เข้มพอให้ขาวผ่าน AA (4.63:1) */
+  --nav-badge-bg: var(--rose-700);
+
+  /* Topbar */
+  --topbar-bg: color-mix(in srgb, var(--bg) 55%, var(--surface) 45%);
+
+  /* Focus ring — violet-500 ทึบ 3px
+     ต้อง ≥ 3:1 กับพื้นที่ล้อมรอบ (WCAG 2.2 · 1.4.11 non-text contrast)
+     violet-300 ของเดิมได้แค่ ~1.9:1 บนขาว → ยกมาเป็น violet-500 (4.1:1)
+     --focus-ring-soft ใช้เป็น "แสงรอง" ใต้ ring เท่านั้น ไม่ใช้เดี่ยว ๆ */
+  --focus-ring: var(--violet-500);
+  --focus-ring-soft: rgba(139, 107, 209, 0.35);
+}
+
+/* ============================================================
+   Dark mode — "Aurora กลางคืน"
+   ปรับสัมพันธ์กันทั้งชุดด้วยมือ ไม่ใช่กลับสีอัตโนมัติ:
+     • พื้นเป็นน้ำเงิน-ม่วงเข้ม #14111F ไม่ใช่ดำสนิท — ดำสนิทกับ
+       ตัวหนังสือขาวทำให้เกิด halation (ตัวอักษรเรืองแสง) อ่านนาน ๆ ล้า
+     • สีสถานะสว่างขึ้น: ค่ากลางวันถูกทำให้เข้มเพื่อผ่าน AA บนพื้นขาว
+       เอามาใช้บนพื้นเข้มตรง ๆ จะจมทันที
+     • เงาเปลี่ยนเป็นดำ — เงาอมม่วงบนพื้นม่วงเข้มมองไม่เห็น
+     • gradient แบรนด์คงเดิม เป็นจุดยึดว่ายังเป็นระบบเดียวกัน
+   ตัวสลับอยู่ที่ topbar · จำใน localStorage · ครั้งแรกตาม
+   prefers-color-scheme ของเครื่อง (จัดการใน main.tsx)
+   ============================================================ */
+:root[data-theme='dark'] {
+  /* บอกเบราว์เซอร์ให้ใช้ชุดมืดกับของที่ CSS แตะไม่ได้ —
+     scrollbar, ลูกศร <select>, ปฏิทินของ input[type=date]
+     ไม่ใส่บรรทัดนี้จะเห็นแถบเลื่อนขาวโพลนพาดอยู่บนพื้นเข้ม */
+  color-scheme: dark;
+
+  /* พื้นผิว/หมึก */
+  --paper: #14111f;
+  --paper-deep: #0f0d18;
+  --surface: #1c1830;
+  --surface-2: #221d3a;
+  --line: #322b4d;
+  --line-soft: #282242;
+  --ink: #edeaf7;
+  --ink-2: #cfc9e4;
+  --muted: #a49dbd;
+  --faint: #9b94b4;
+
+  /* เฉดอ่อนของแบรนด์ต้องพลิกเป็นเข้ม ไม่งั้นพื้นป้าย/ไอคอนจะขาวโพลน */
+  --violet-050: #201a38;
+  --violet-100: #2a2246;
+  --violet-200: #382e5c;
+  --blue-050: #1a1c33;
+  --blue-100: #232645;
+  --rose-100: #2e1e2a;
+  --rose-200: #3d2635;
+
+  /* สถานะ — สว่างขึ้นให้ผ่าน AA บนพื้นเข้ม */
+  --ok: #4cbf9c;
+  --ok-bg: #16302a;
+  --warn: #e0ae5c;
+  --warn-bg: #322715;
+  --danger: #ee8098;
+  --danger-bg: #331e26;
+  --info: #93a0f2;
+  --info-bg: #1f2444;
+  --neutral: #a49dbd;
+  --neutral-bg: #262038;
+
+  /* Data-viz — เลื่อนไปโทนอ่อนของสเกลเดิม (ยังเป็นชุดเดียวกัน) */
+  --viz-1: #8a6bd1;
+  --viz-2: #8d99ee;
+  --viz-3: #a78be0;
+  --viz-4: #b0b9f4;
+  --viz-5: #f09fb6;
+  --viz-6: #c3b0ec;
+  --viz-7: #d0d6fa;
+  --viz-8: #f6bfd0;
+
+  --grad-soft: linear-gradient(135deg, #1a1c33, #201a38 50%, #2e1e2a);
+
+  /* เงา — ดำ ไม่ใช่ม่วง */
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --sh-2: 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 20px -8px rgba(0, 0, 0, 0.55);
+  --sh-3: 0 14px 38px -14px rgba(0, 0, 0, 0.75);
+  --sh-brand: 0 6px 18px -6px rgba(107, 82, 173, 0.55);
+  --sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* semantic/component ที่ hard-code rgba ไว้ — ต้องพลิกตามด้วย */
+  --line-strong: #3f3760;
+  --accent: var(--violet-400);
+  --accent-strong: var(--violet-300);
+  --accent-tint: rgba(167, 139, 224, 0.1);
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-border-hover: rgba(255, 255, 255, 0.14);
+  --btn-accent-bg: var(--violet-600);
+  --btn-accent-hover: var(--violet-500);
+  --btn-primary-bg: var(--violet-500);
+  --btn-primary-color: #120e19;
+  --btn-primary-hover: var(--violet-400);
+  --btn-danger-hover: #f295a8;
+  --btn-success-hover: #6ad0b1;
+  --input-border: rgba(255, 255, 255, 0.18);
+  --input-focus-ring: rgba(167, 139, 224, 0.22);
+  --table-row-hover: rgba(167, 139, 224, 0.07);
+  --link: var(--violet-300);
+  --link-hover: var(--violet-200);
+  --sidebar-text: var(--ink-2);
+  --sidebar-bg-hover: rgba(167, 139, 224, 0.1);
+  --sidebar-line: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: linear-gradient(135deg, #6b52ad 0%, #5d4ba8 100%);
+  --nav-badge-bg: var(--rose-600);
+  --focus-ring: var(--violet-300);
+  --focus-ring-soft: rgba(195, 176, 236, 0.35);
+}
+
+/* ภาพและกราฟ SVG สว่างจ้าบนพื้นเข้ม — ลดลงเล็กน้อยตอนไม่ได้โฟกัส */
+:root[data-theme='dark'] img:not([src$='.svg']) {
+  filter: brightness(0.92);
+}
+
+/* Hallmark · audit+redesign: Aurora (คงธีมเดิม) · แก้ P0 print / focus-ring,
+   P1 typography ไทย (uppercase+tracking), P2 gradient budget / touch target
+   pre-emit critique: P5 H4 E5 S5 R5 V4 */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* กันเนื้อหาหลุดแนวนอนบนจอ 320px — clip ไม่ใช่ hidden (hidden จะฆ่า position:sticky ของ topbar) */
+  overflow-x: clip;
+}
+
+body {
+  font-family: var(--font);
+  font-size: var(--font-md);
+  color: var(--ink);
+  background:
+    radial-gradient(1100px 540px at 88% -8%, rgba(108, 123, 232, 0.09), transparent 62%),
+    radial-gradient(900px 480px at -6% 108%, rgba(232, 130, 159, 0.07), transparent 55%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ตัวเลขความกว้างเท่ากัน — เฉพาะจุดที่เป็นตัวเลขจริง (ไม่บังคับทั้งเอกสาร
+   เพราะ tnum ทำให้ข้อความปนตัวเลขในประโยคดูห่างผิดจังหวะ) */
+.num,
+.metric-num,
+.metric-value,
+.stat-value,
+.pagination,
+table tbody td,
+time {
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+/* หัวข้อ — sans น้ำหนักสูง (Aurora ไม่ใช้ serif display) */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 660;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+a:hover {
+  color: var(--link-hover);
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* focus ring — 3px (WCAG 2.4.7 + 2.4.11 non-text contrast ≥ 3:1)
+   ใช้ --focus-ring (violet-500 ทึบ) ไม่ใช่สีโปร่ง — โปร่งบนพื้นขาวได้แค่ ~1.1:1
+   ไม่ตั้ง border-radius ที่นี่: outline ยุคใหม่โค้งตามมุมของชิ้นงานเอง
+   (ของเดิมตั้ง 8px ทำให้ปุ่ม pill/การ์ดมุม 16-22px ถูกบีบเป็น 8px ตอนโฟกัส) */
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(139, 107, 209, 0.24);
+}
+
+/* scrollbar เรียบง่าย โทนม่วง */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ============================================================
+   Components — Aurora
+   รัศมีไล่ตามขนาดชิ้นงาน · เงาอมม่วง 3 ระดับ · gradient 3–5 จุด
+   ============================================================ */
+
+/* ===== ตัวอักษร — ลำดับชั้นจากน้ำหนัก (Aurora: h1 22/660, h2 16/640) =====
+   กติกาไทย 2 ข้อที่ใช้ทั้งไฟล์นี้:
+   1) ห้าม text-transform: uppercase บนป้ายที่มีข้อความไทย — ไทยไม่มีตัวพิมพ์ใหญ่
+      จึงไม่ได้อะไรกลับมา แต่ได้ letter-spacing ที่ผลักสระ/วรรณยุกต์ห่างพยัญชนะ
+   2) ห้าม letter-spacing ติดลบบนข้อความไทย — สระบน/ล่างจะชนตัวข้างเคียง
+      (ตัวเลขล้วนยังใช้ tracking ติดลบได้ เพราะไม่มีรูปสระ) */
+.page-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 660;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.page-subtitle {
+  color: var(--muted);
+  font-size: var(--font-sm);
+  margin-top: 6px;
+  letter-spacing: 0.01em;
+}
+.text-muted {
+  color: var(--muted);
+}
+.text-sm {
+  font-size: var(--font-sm);
+}
+.text-xs {
+  font-size: var(--font-xs);
+}
+.text-strong {
+  font-weight: 700;
+}
+.text-danger {
+  color: var(--danger);
+}
+.text-success {
+  color: var(--success);
+}
+.text-warning {
+  color: var(--warning);
+}
+.text-lg {
+  font-size: var(--font-lg);
+}
+
+/* ===== หัวข้อส่วน — บรรทัดเดียว =====
+   เดิมเป็น .layer-head: เลขวงกลม + h2 + ย่อหน้า "ทำไมต้องดู" ทำให้หน้ารายงาน
+   มีย่อหน้าอธิบาย 4 ก้อนก่อนเห็นข้อมูลจริงสักตัว — ตอนนี้เหลือหัวข้อ + เส้นคั่น
+   (คำอธิบายย้ายไปอยู่บรรทัด subtitle ข้างหัวการ์ด ซึ่งอยู่ติดของที่มันอธิบายจริง ๆ) */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: var(--space-7) 0 var(--space-4);
+}
+.section-head:first-child {
+  margin-top: 0;
+}
+.section-head h2 {
+  font-size: var(--font-lg);
+  font-weight: 640;
+  color: var(--ink);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+/* เส้นคั่นยืดเต็มความกว้างที่เหลือ — แทนกล่อง/ป้ายเลข */
+.section-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* ===== Card — การ์ด 16px เงา 1 (Aurora §6) ===== */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+  box-shadow: var(--sh-1);
+  transition: transform var(--motion-base) var(--ease-enter), box-shadow var(--motion-base) var(--ease-enter), border-color var(--motion-base) var(--ease-enter);
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sh-2);
+  border-color: var(--card-border-hover);
+}
+.card-title {
+  font-size: var(--font-lg);
+  font-weight: 640;
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  /* ห่อบรรทัดได้ — ไม่งั้นหัวข้อกับคำอธิบายแย่งพื้นที่กันจนคำไทยแตกกลางคำ */
+  flex-wrap: wrap;
+}
+/* คำอธิบายลงบรรทัดใหม่เต็มความกว้างเสมอ ส่วนลิงก์ (เช่น "ดูทั้งหมด →")
+   ยังอยู่ขวาบรรทัดเดียวกับหัวข้อ เพราะไม่ได้ตั้ง flex-basis */
+.card-subtitle {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+/* ===== Button — ปุ่ม 12px (Aurora: ปุ่ม/ฟิลด์ 12) ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ink);
+  transition: transform var(--motion-fast) var(--ease-enter), background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+  white-space: nowrap;
+}
+/* ยกตัวเฉพาะปุ่มสั่งการหลัก — ปุ่มไอคอนในแถวตารางไม่ยก
+   (เดิมยกทุกปุ่ม เลื่อนเมาส์ผ่านคอลัมน์ "จัดการ" แล้วปุ่มเด้งไล่กันทั้งแถว) */
+.btn-primary:hover:not(:disabled),
+.btn-accent:hover:not(:disabled),
+.btn-danger:hover:not(:disabled),
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+/* กำลังทำงาน ≠ ใช้ไม่ได้ — คงสีปุ่มไว้ จางแค่พอบอกว่ากดซ้ำไม่ได้ */
+.btn[data-loading] {
+  opacity: 0.8;
+  cursor: progress;
+}
+/* ฟิลด์ที่กรอกผิด — ขอบแดงคู่กับข้อความ .field-error (สีอย่างเดียวไม่พอ WCAG 1.4.1) */
+.input[aria-invalid='true'],
+.select[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.input[aria-invalid='true']:focus,
+.select[aria-invalid='true']:focus,
+.textarea[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px var(--danger-bg);
+}
+.btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-color);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+}
+.btn-accent {
+  background: var(--btn-accent-bg);
+  color: var(--btn-accent-color);
+}
+.btn-accent:hover:not(:disabled) {
+  background: var(--btn-accent-hover);
+}
+.btn-outline {
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  border-color: rgba(44, 33, 80, 0.14);
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+  border-color: rgba(44, 33, 80, 0.22);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(107, 82, 173, 0.08);
+  color: var(--ink);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--btn-danger-hover);
+}
+.btn-success {
+  background: var(--success);
+  color: #fff;
+}
+.btn-success:hover:not(:disabled) {
+  background: var(--btn-success-hover);
+}
+.btn-sm {
+  padding: 7px 14px;
+  font-size: 12.5px;
+  border-radius: var(--radius-sm);
+}
+.btn-lg {
+  padding: 12px 24px;
+  font-size: var(--font-md);
+  border-radius: var(--radius-sm);
+}
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--r-full);
+}
+/* นิ้วโป้ง — บนอุปกรณ์สัมผัส ปุ่มทุกตัวต้องกดโดนอย่างน้อย 44px
+   ขยายเฉพาะ "พื้นที่กด" ด้วย ::after ไม่ขยายตัวปุ่มที่ตาเห็น เลย์เอาต์จึงไม่ขยับ */
+@media (pointer: coarse) {
+  .btn {
+    position: relative;
+  }
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 50% 0 0 50%;
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+/* ปุ่มที่ใส่ไอคอนล้วน (ไม่มีข้อความ) → ให้กลมแม้ไม่มี class btn-icon */
+.btn:has(> svg:only-child) {
+  padding-left: 9px;
+  padding-right: 9px;
+}
+.btn-sm:has(> svg:only-child) {
+  padding-left: 7px;
+  padding-right: 7px;
+}
+.btn .spin {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ===== Badge — ป้ายเต็มโค้ง จุดกลม + คู่สีข้อความ/พื้น (Aurora §4.4) ===== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: var(--r-full);
+  font-size: var(--font-xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.badge-pending,
+.badge-normal {
+  background: var(--neutral-bg);
+  color: var(--neutral);
+}
+.badge-assigned,
+.badge-planned {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.badge-in_transit,
+.badge-in_progress {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.badge-in_transit .dot,
+.badge-in_progress .dot {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.badge-delivered,
+.badge-completed,
+.badge-available {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.badge-cancelled,
+.badge-inactive {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.badge-maintenance,
+.badge-off_duty {
+  background: var(--neutral-bg);
+  color: var(--neutral);
+}
+.badge-urgent {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.badge-urgent .dot {
+  animation: pulse 1.1s ease-in-out infinite;
+}
+.badge-verified {
+  background: var(--success-bg);
+  color: var(--success);
+}
+/* โทนกลาง ๆ — ใช้กับสิ่งที่ไม่ใช่สถานะของโดเมน (เช่น บทบาทผู้ใช้)
+   ชื่อโทนด้านบนผูกกับชื่อสถานะจริง จึงเอามาใช้ซ้ำไม่ได้โดยไม่ทำให้ความหมายเพี้ยน */
+.badge-accent {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.badge-neutral {
+  background: var(--neutral-bg);
+  color: var(--neutral);
+}
+.badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* ===== Table — หัวตัวพิมพ์เล็กเงียบ + ตัวเลขชิดขวา tabular (Aurora §4.2) ===== */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+/* หัวตาราง — เงียบด้วย "ขนาด + น้ำหนัก + สีจาง" ไม่ใช่ uppercase/tracking
+   (หัวตารางทั้งระบบเป็นภาษาไทย: เลขที่ / ปลายทาง / สถานะ / สร้างเมื่อ) */
+.table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  background: transparent;
+  color: var(--table-head);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.table tbody td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr {
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.table tbody tr:hover {
+  background: var(--table-row-hover);
+}
+/* specificity เท่ากันกับ thead th → หัวตัวเลขชิดขวาตรงกับตัวเลข */
+.table .num,
+.table thead th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  /* จำนวนเงินห้ามตัดบรรทัดแยกสัญลักษณ์สกุลออกจากตัวเลข ("7,400" / "฿") */
+  white-space: nowrap;
+}
+/* เซลล์เลขที่เอกสาร — mono + ห้ามตัดบรรทัด (ORD-2026-0065 เคยแตก 3 บรรทัด) */
+.cell-no {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+/* วันที่ห้ามตัดบรรทัด — "10 ส.ค. 2569" เคยแตกเป็น 3 บรรทัดในคอลัมน์แคบ */
+.cell-date {
+  white-space: nowrap;
+}
+/* กลุ่มปุ่มท้ายแถว — ต้องไม่แตะ <th> ของหัวตาราง
+   th ที่โดน display:flex จะหลุดจาก layout ของตาราง เส้นใต้ไปเกาะความสูง
+   ของข้อความแทนความสูงของแถว → เส้นหัวตารางเหลื่อมกันเฉพาะคอลัมน์สุดท้าย */
+.table tbody .actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  /* ห่อบรรทัดแทนที่จะล้นออกนอกตาราง — ปุ่มท้ายแถวเคยถูกตัดหายบนจอ < 1280px */
+  flex-wrap: wrap;
+}
+/* หัวคอลัมน์จัดการ — ชิดขวาให้ตรงกับปุ่มข้างล่าง แต่ยังเป็น table-cell ปกติ */
+.table thead th.actions {
+  text-align: right;
+}
+.table tbody tr.row-new {
+  animation: flashRow 1.2s ease-out;
+}
+
+/* ===== Tabs — แถบสลับมุมมองในหน้ารายละเอียด ===== */
+.tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-5);
+}
+.tab {
+  border: none;
+  background: transparent;
+  padding: 9px 14px;
+  font-family: inherit;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  /* ชดเชยเส้น 1px ของแถบ ให้เส้นใต้แท็บที่เลือกทับพอดี ไม่เหลื่อม */
+  margin-bottom: -1px;
+  transition: color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+.tab-count {
+  margin-left: 4px;
+  font-size: var(--font-xs);
+  font-weight: 500;
+  color: var(--faint);
+}
+
+/* ===== HelpTip — ปุ่ม ? อธิบายศัพท์เฉพาะ ===== */
+/* ปุ่ม ? — วงกลมยังดู 16px เท่าเดิม แต่พื้นที่กดจริง 24×24
+   (WCAG 2.2 · 2.5.8 Target Size (Minimum) ขั้นต่ำ 24×24 CSS px — ของเดิม 16 ตก) */
+.help-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  margin-left: 2px;
+  vertical-align: -6px;
+  cursor: help;
+  transition: border-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+}
+/* วงกลมที่ตาเห็น = pseudo-element 16px ตรงกลางพื้นที่กด 24px */
+.help-tip::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+}
+.help-tip {
+  position: relative;
+  /* isolate = จำกัด z-index:-1 ของวงกลมไว้ในตัวปุ่มเอง
+     ไม่งั้นวงกลมจะมุดลงไปหลังพื้นการ์ด/แถวตารางแล้วหายไป */
+  isolation: isolate;
+}
+.help-tip:hover {
+  color: var(--ink);
+}
+.help-tip:hover::before {
+  background: var(--surface-3);
+  border-color: var(--faint);
+}
+
+/* ===== Form ===== */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.field label .req {
+  color: var(--danger);
+}
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 9px 13px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-md);
+  color: var(--ink);
+  background: var(--surface);
+  transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+}
+.input,
+.select {
+  height: 40px;
+}
+/* โฟกัสด้วยเมาส์ — ขอบเข้มขึ้น + แสงม่วงจาง (สุภาพ ไม่รบกวนตอนกรอกฟอร์ม) */
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--violet-500);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+/* โฟกัสด้วยคีย์บอร์ด — ต้องเห็นชัดจริง ≥ 3:1
+   ของเดิมใส่ outline:none บน :focus ซึ่ง specificity สูงกว่า :focus-visible
+   ทั่วไป → คนใช้ Tab จะเหลือแค่แสงม่วง alpha .16 (~1.1:1) มองแทบไม่เห็น */
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--faint);
+}
+.textarea {
+  resize: vertical;
+  min-height: 74px;
+}
+.field-error {
+  color: var(--danger);
+  font-size: var(--font-xs);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+.form-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 720px) {
+  .form-grid,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Modal — โมดัล 22px เงา 3 (Aurora §6) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 22, 56, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 44px 16px 16px;
+  z-index: 100;
+  overflow-y: auto;
+  animation: fadeIn 0.18s ease-out;
+}
+.modal-panel {
+  background: var(--surface);
+  border: 1px solid rgba(44, 33, 80, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--sh-3);
+  width: 100%;
+  max-width: 560px;
+  animation: scaleIn 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.modal-panel.modal-lg {
+  max-width: 780px;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-title {
+  font-size: var(--font-lg);
+  font-weight: 650;
+}
+.modal-body {
+  padding: 20px 24px;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* ===== ยูทิลิตี้เลย์เอาต์ — แทน inline style ที่เขียนซ้ำทุกหน้า ===== */
+/* สองคอลัมน์เท่ากัน (ตาราง/กราฟคู่) — ยุบเป็นคอลัมน์เดียวบนจอแคบ */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+  margin-bottom: var(--space-5);
+}
+/* ตารางที่อยู่ในการ์ดอยู่แล้ว — ไม่ต้องมีขอบ/เงา/ขอบในซ้อนอีกชั้น */
+.card-flush {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+/* ระยะห่างระหว่างบล็อกเนื้อหา — เลิกใช้ style={{ marginBottom: 20 }} */
+.stack {
+  margin-bottom: var(--space-5);
+}
+@media (max-width: 1100px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Toast ===== */
+.toast-viewport {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 200;
+  max-width: 380px;
+}
+.toast-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--ink);
+  color: #f2f0fb;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--sh-3);
+  font-size: var(--font-sm);
+  animation: slideInRight 0.24s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.toast-item.toast-leave {
+  animation: slideOutRight 0.2s ease-in forwards;
+}
+.toast-item .toast-icon {
+  font-size: 15px;
+  line-height: 1.3;
+}
+.toast-success .toast-icon {
+  color: #6fceab;
+}
+.toast-error .toast-icon {
+  color: #f09fb6;
+}
+.toast-warning .toast-icon {
+  color: #e0ae5c;
+}
+
+/* ===== Metric card — KPI (Aurora §4.1: แถบ gradient ด้านบน + ตัวเลข sans 650) ===== */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+/* แถบบางด้านบน — signature ของ KPI
+   ใช้ "สีเดียว" ไม่ใช่ --grad-brand: หน้า CustomerDetail วาง stat-card 4 ใบเรียงกัน
+   ถ้าแต่ละใบมีแถบไล่เฉด ม่วง→ฟ้า→ชมพู จะได้สายรุ้ง 4 แถบซ้อน ซึ่งขัดกฎของธีมเอง
+   (tokens.css: "gradient ใช้แค่ 3–5 จุดทั้งระบบ") — โควตา gradient สงวนไว้ให้
+   โลโก้ · avatar · โลโก้หน้าล็อกอิน · เมนูที่เลือกอยู่ เท่านั้น */
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 0 0 99px 99px;
+  background: var(--accent);
+}
+.stat-card .stat-icon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stat-card .stat-label {
+  color: var(--muted);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+.stat-card .stat-value {
+  font-family: var(--font-display);
+  font-size: var(--font-3xl);
+  font-weight: 650;
+  margin-top: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+.stat-card .stat-foot {
+  margin-top: 10px;
+  font-size: var(--font-xs);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== Dashboard hero — north-star metric (F-pattern: สำคัญสุดบนซ้าย) ===== */
+.dash-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  background:
+    radial-gradient(420px 260px at 92% -20%, rgba(232, 130, 159, 0.14), transparent 70%),
+    radial-gradient(360px 240px at -6% 110%, rgba(108, 123, 232, 0.12), transparent 65%),
+    linear-gradient(135deg, var(--surface) 0%, var(--violet-050) 100%);
+  border: 1px solid rgba(44, 33, 80, 0.09);
+  border-radius: var(--radius-lg);
+  padding: 26px 30px;
+  margin-bottom: var(--space-6);
+}
+.dash-hero:hover {
+  border-color: rgba(44, 33, 80, 0.16);
+}
+.hero-greet {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 660;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.hero-sub {
+  color: var(--muted);
+  font-size: var(--font-sm);
+  margin-top: 6px;
+}
+.hero-metric {
+  text-align: right;
+}
+.metric-label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--muted);
+}
+.metric-value {
+  font-family: var(--font-display);
+  font-size: var(--font-display-lg);
+  font-weight: 650;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+  letter-spacing: -0.03em;
+}
+.metric-currency {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.metric-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 4px 11px;
+  border-radius: var(--r-full);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  background: var(--success-bg);
+  color: var(--success);
+}
+.metric-chip.down {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.metric-chip.flat {
+  background: var(--neutral-bg);
+  color: var(--neutral);
+}
+
+/* ===== AI สรุปประจำวัน — หนึ่งการ์ดสรุป + next-best-action ===== */
+.ai-card {
+  margin-bottom: var(--space-6);
+}
+.ai-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-title svg {
+  color: var(--accent);
+}
+.ai-headline {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+/* รายการ AI — แถวแบนคั่นด้วย hairline (ตัดกล่องซ้อน ลด visual complexity) */
+.ai-list {
+  display: flex;
+  flex-direction: column;
+}
+.ai-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 2px;
+  font-size: var(--font-sm);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+}
+.ai-item:last-child {
+  border-bottom: none;
+}
+.ai-item-main {
+  flex: 1;
+  min-width: 0;
+}
+.ai-item b {
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.ai-item b::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.ai-detail {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.ai-danger b {
+  color: var(--danger);
+}
+.ai-warn b {
+  color: var(--warning);
+}
+.ai-info b {
+  color: var(--info);
+}
+.ai-success b {
+  color: var(--success);
+}
+
+/* ===== แถบเมตริก — หนึ่งการ์ด 3 ตัว แบ่งด้วย hairline (Linear-style) ===== */
+.metrics-band {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 18px 6px 14px;
+  margin-bottom: var(--space-5);
+}
+.metrics-band-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+/* 4 ช่องต่อแถว + ค่าเป็นจำนวนเงิน → ลดขนาดตัวเลขลง ไม่งั้นเบียดกันในช่องแคบ */
+.metrics-band-4 .metric-num {
+  font-size: 26px;
+}
+.metrics-band-4 .metric-cell {
+  padding: 10px 18px;
+}
+.metric-cell {
+  padding: 10px 22px;
+  min-width: 0;
+}
+.metric-cell + .metric-cell {
+  border-left: 1px solid var(--line);
+}
+.metric-num {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 650;
+  line-height: 1.15;
+  margin-top: 7px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+.metric-foot {
+  margin-top: 7px;
+  font-size: var(--font-xs);
+  color: var(--muted);
+}
+.metric-foot.warn {
+  color: var(--danger);
+  font-weight: 600;
+}
+.metric-foot .up {
+  color: var(--success);
+  font-weight: 650;
+}
+.metric-foot .down {
+  color: var(--danger);
+  font-weight: 650;
+}
+.ai-action {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  transition: transform var(--motion-fast) var(--ease-enter), color var(--motion-fast) var(--ease-standard);
+}
+.ai-action:hover {
+  transform: translateX(2px);
+}
+
+/* ===== Sidebar / Layout — ขาวอมม่วง + radial แบรนด์จาง (Aurora §4.3) ===== */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: var(--sidebar-width);
+  background:
+    radial-gradient(110% 45% at 8% 0%, var(--violet-050), transparent 70%),
+    radial-gradient(90% 40% at 100% 100%, var(--rose-100), transparent 70%),
+    var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--sidebar-line);
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  transition: transform var(--motion-enter) var(--ease-emphasized);
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--sidebar-line);
+}
+.sidebar-brand .logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--grad-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--sh-brand);
+}
+.sidebar-brand .logo svg {
+  stroke: #fff;
+}
+.sidebar-brand .brand-name {
+  font-family: var(--font-display);
+  color: var(--sidebar-text-strong);
+  font-weight: 660;
+  font-size: 16px;
+  line-height: 1.35;
+}
+.sidebar-brand .brand-sub {
+  font-size: 11px;
+  color: var(--faint);
+}
+.sidebar-nav {
+  flex: 1;
+  padding: 14px 14px;
+  overflow-y: auto;
+}
+/* หัวข้อกลุ่มเมนู — ไทยล้วน ("งานประจำวัน" / "ข้อมูลหลัก") จึงไม่ใช้ uppercase
+   ความเงียบมาจากขนาดเล็ก + สีจาง แทน tracking กว้าง */
+.nav-section {
+  font-size: var(--font-xs);
+  font-weight: 650;
+  color: var(--faint);
+  padding: 16px 12px 7px;
+}
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--sidebar-text);
+  font-weight: 550;
+  font-size: var(--font-md);
+  margin-bottom: 2px;
+  position: relative;
+  transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+}
+.nav-link:hover {
+  background: var(--sidebar-bg-hover);
+  color: var(--sidebar-text-strong);
+}
+.nav-link.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
+  box-shadow: var(--sh-brand);
+}
+.nav-link.active svg {
+  color: #fff;
+}
+.nav-link svg {
+  flex-shrink: 0;
+  color: var(--sidebar-text);
+}
+.nav-badge {
+  margin-left: auto;
+  background: var(--nav-badge-bg);
+  color: #fff;
+  font-size: var(--font-xs);
+  font-weight: 650;
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+}
+.sidebar-foot {
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--sidebar-line);
+  font-size: var(--font-xs);
+  color: var(--faint);
+}
+.sidebar-version {
+  padding: 8px 12px 0;
+}
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--sidebar-text);
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 550;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.collapse-btn:hover {
+  background: var(--sidebar-bg-hover);
+  color: var(--sidebar-text-strong);
+}
+.collapse-btn svg {
+  flex-shrink: 0;
+  transition: transform var(--motion-base) var(--ease-out);
+}
+
+/* ===== เมนูย่อ 268 → 78px (Ctrl + [) =====
+   ซ่อนข้อความด้วย display:none ไม่ใช่ opacity — ถ้าเหลือกล่องไว้
+   ไอคอนจะถูกดันไปทางซ้าย ไม่ตรงกลางแถบที่ย่อแล้ว */
+.app-shell.is-collapsed {
+  --sidebar-width: 78px;
+}
+.sidebar,
+.main {
+  transition: width var(--motion-enter) var(--ease-emphasized), margin-left var(--motion-enter) var(--ease-emphasized), transform var(--motion-enter) var(--ease-emphasized);
+}
+.is-collapsed .nav-label,
+.is-collapsed .brand-text,
+.is-collapsed .sidebar-version {
+  display: none;
+}
+.is-collapsed .sidebar-brand {
+  padding: 22px 0 18px;
+  justify-content: center;
+  gap: 0;
+}
+.is-collapsed .nav-link,
+.is-collapsed .collapse-btn {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+.is-collapsed .collapse-btn svg {
+  transform: rotate(180deg);
+}
+/* หัวข้อกลุ่มอ่านไม่ออกอยู่แล้วตอนย่อ — แทนด้วยเส้นคั่นสั้น ๆ */
+.is-collapsed .nav-section {
+  font-size: 0;
+  padding: 12px 0 8px;
+}
+.is-collapsed .nav-section::after {
+  content: '';
+  display: block;
+  width: 26px;
+  height: 1px;
+  margin: 0 auto;
+  background: var(--sidebar-line);
+}
+/* badge เกาะมุมขวาบนของไอคอน ไม่ใช่มุมของกล่องเมนู */
+.is-collapsed .nav-badge {
+  position: absolute;
+  top: 5px;
+  right: 14px;
+  margin: 0;
+  min-width: 8px;
+  height: 8px;
+  padding: 0;
+  font-size: 0;
+  border: 2px solid var(--sidebar-bg);
+}
+
+/* tooltip ตอนย่อ — โผล่เฉพาะตอนเมนูย่อเท่านั้น */
+.nav-tip {
+  display: none;
+}
+.is-collapsed .nav-link {
+  position: relative;
+}
+.is-collapsed .nav-link .nav-tip {
+  display: block;
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  border-radius: var(--r-8);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--font-xs);
+  font-weight: 550;
+  white-space: nowrap;
+  box-shadow: var(--sh-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+  z-index: 60;
+}
+.is-collapsed .nav-link:hover .nav-tip,
+.is-collapsed .nav-link:focus-visible .nav-tip {
+  opacity: 1;
+}
+.main {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* min-height ไม่ใช่ height — ถ้าล็อกความสูงตายตัว เนื้อในที่ตัดบรรทัด
+   (วันที่ไทยยาว ๆ บนจอแคบ หรือผู้ใช้ขยายตัวอักษรของระบบ) จะล้นออกนอกกรอบ
+   แล้วไปทับเนื้อหาข้างล่าง เพราะ overflow เป็น visible */
+.topbar {
+  min-height: var(--topbar-height);
+  flex-shrink: 0;
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-7);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: blur(8px);
+}
+.topbar .crumb {
+  font-weight: 700;
+  font-size: var(--font-lg);
+  color: var(--ink);
+}
+.topbar .date-tag {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+/* จอแคบใช้วันที่แบบสั้น ("13 ส.ค. 2569") แทนแบบเต็ม — สลับด้วย CSS
+   ไม่ใช่ resize listener เพื่อไม่ให้ค่าตอน SSR/เทสต่างจากตอนรันจริง */
+.date-short {
+  display: none;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--grad-brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--font-sm);
+}
+.user-meta {
+  line-height: 1.25;
+}
+.user-meta .name {
+  font-weight: 650;
+  font-size: var(--font-sm);
+}
+.user-meta .role {
+  font-size: var(--font-xs);
+  color: var(--muted);
+}
+.content {
+  padding: var(--space-7) 40px;
+  flex: 1;
+  max-width: 1560px;
+  width: 100%;
+}
+.page-enter {
+  animation: fadeUp 0.24s ease-out;
+}
+
+/* burger สำหรับจอเล็ก */
+.burger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  padding: 6px;
+}
+
+/* ===== ตัวกรอง / toolbar ===== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+.toolbar .spacer {
+  flex: 1;
+}
+.search-box {
+  position: relative;
+  min-width: 230px;
+}
+.search-box svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--faint);
+}
+.search-box .input {
+  padding-left: 36px;
+}
+
+/* ===== หน้า Dashboard — bento ===== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.kpi-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+/* bento — การ์ดขนาดต่างกัน (Stripe/Linear): ตัวหลักกว้าง 2 ช่อง */
+.dash-bento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+  align-items: stretch;
+}
+.bento-wide {
+  grid-column: span 2;
+}
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  font-size: var(--font-sm);
+  margin-bottom: 8px;
+  transition: transform var(--motion-fast) var(--ease-enter), box-shadow var(--motion-fast) var(--ease-enter);
+}
+.alert-item:hover {
+  transform: translateX(2px);
+}
+.alert-item.alert-urgent {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.alert-item.alert-overdue {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+/* ===== Dispatch board ===== */
+.trip-card {
+  border: 1px solid rgba(44, 33, 80, 0.09);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  transition: transform var(--motion-fast) var(--ease-enter), box-shadow var(--motion-fast) var(--ease-enter), border-color var(--motion-fast) var(--ease-enter);
+  animation: fadeUp var(--motion-enter) var(--ease-enter);
+}
+.trip-card:hover {
+  box-shadow: var(--sh-1);
+  border-color: rgba(44, 33, 80, 0.16);
+}
+.trip-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.trip-head .trip-no {
+  font-weight: 700;
+  font-size: var(--font-lg);
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
+}
+.trip-route {
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+.trip-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: var(--font-sm);
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.trip-meta b {
+  color: var(--ink);
+}
+.trip-orders {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.trip-order-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--font-sm);
+  padding: 6px 8px;
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+.trip-order-row .grow {
+  flex: 1;
+}
+/* ===== บล็อกความพร้อมทรัพยากร (ภาพรวม) ===== */
+.res-block + .res-block {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.res-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 8px;
+}
+.res-list {
+  margin-top: 8px;
+}
+.res-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 4px 0;
+  font-size: var(--font-sm);
+}
+
+.capacity-bar {
+  height: 6px;
+  background: var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.capacity-bar .fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--success);
+  transition: width var(--motion-enter) var(--ease-standard);
+}
+.capacity-bar .fill.warn {
+  background: var(--warning);
+}
+.capacity-bar .fill.over {
+  background: var(--danger);
+}
+
+/* ===== อื่น ๆ ===== */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--muted);
+}
+.empty-state .icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+.empty-state h2 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface) 50%, var(--surface-3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s infinite;
+  border-radius: var(--radius-sm);
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: var(--space-4);
+  font-size: var(--font-sm);
+  color: var(--muted);
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: var(--font-xs);
+  color: var(--muted);
+}
+.chart-legend .item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.chart-legend .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(1100px 480px at 85% -12%, rgba(108, 123, 232, 0.16), transparent 62%),
+    radial-gradient(900px 520px at -8% 112%, rgba(232, 130, 159, 0.12), transparent 55%),
+    var(--bg);
+}
+.login-card {
+  width: 100%;
+  max-width: 412px;
+  background: var(--surface);
+  border: 1px solid rgba(44, 33, 80, 0.1);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--sh-3);
+  padding: 40px 38px;
+  animation: scaleIn 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.login-card .logo-big {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: var(--grad-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  box-shadow: var(--sh-brand);
+}
+.login-card .logo-big svg {
+  stroke: #fff;
+}
+.login-card h1 {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+.login-card .login-sub {
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  margin-bottom: 26px;
+}
+.login-hint {
+  margin-top: 18px;
+  padding: 13px 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid rgba(44, 33, 80, 0.12);
+  font-size: var(--font-xs);
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1100px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .kpi-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dash-grid,
+  .dash-bento {
+    grid-template-columns: 1fr;
+  }
+  .bento-wide {
+    grid-column: span 1;
+  }
+}
+@media (max-width: 1100px) {
+  .metrics-band-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  /* แถวที่ 2 ของแบบ 4 ช่อง — เส้นแบ่งกลับเป็นแนวนอน ไม่งั้นเส้นตั้งลอยกลางอากาศ */
+  .metrics-band-4 .metric-cell:nth-child(odd) {
+    border-left: none;
+  }
+  .metrics-band-4 .metric-cell:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+  }
+}
+@media (max-width: 900px) {
+  .metrics-band,
+  .metrics-band-4 {
+    grid-template-columns: 1fr;
+  }
+  .metric-cell + .metric-cell {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+  }
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: var(--sh-3);
+  }
+  /* เหลือเฉพาะ transform (สไลด์เมนู) — ตัด width/margin-left ออก
+     ไม่งั้นตอนหมุนจอหรือแป้นพิมพ์เด้ง main จะไล่ margin-left จาก 268 → 0
+     ให้เห็นเป็นเนื้อหาเลื่อนซ้อนกันประมาณ 0.3 วินาที */
+  .sidebar,
+  .main {
+    transition: transform var(--motion-enter) var(--ease-emphasized);
+  }
+  .main {
+    margin-left: 0;
+  }
+  .burger {
+    display: inline-flex;
+  }
+  .content {
+    padding: var(--space-4);
+  }
+  .date-long {
+    display: none;
+  }
+  .date-short {
+    display: inline;
+  }
+  .user-meta {
+    display: none;
+  }
+  .hero-metric {
+    text-align: left;
+    width: 100%;
+  }
+}
+@media (max-width: 560px) {
+  .kpi-grid,
+  .kpi-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .toolbar .search-box {
+    min-width: 100%;
+  }
+}
+
+/* ===== หน้า ข้อมูล CSV ===== */
+.csv-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.csv-step-num {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--violet-700);
+  background: var(--violet-100);
+}
+.csv-error-banner {
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* ===== ใบนำส่ง (BOL) — เอกสาร A4 พิมพ์ได้ ===== */
+.bol-doc {
+  background: #fff;
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  padding: 28px 30px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.bol-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 2px solid #1a1a1a;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+.bol-org {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+}
+.bol-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+.bol-no {
+  text-align: right;
+}
+.bol-sub {
+  color: #6b7280;
+  font-size: 12px;
+  margin-top: 3px;
+}
+.bol-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.bol-sec {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4b5563;
+  margin-bottom: 6px;
+}
+.bol-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.bol-table th,
+.bol-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+}
+.bol-table th {
+  width: 120px;
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.bol-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bol-route {
+  margin: 16px 0;
+  padding: 12px 14px;
+  background: #f7f7f5;
+  border-radius: 8px;
+}
+.bol-route-line {
+  font-size: 15px;
+}
+.bol-arrow {
+  margin: 0 8px;
+  color: #6b7280;
+}
+.bol-muted {
+  color: #6b7280;
+  font-size: 12.5px;
+}
+.bol-goods {
+  margin-bottom: 12px;
+}
+.bol-goods thead th {
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 12.5px;
+}
+.bol-notes {
+  margin: 10px 0 18px;
+  font-size: 13px;
+}
+.bol-sign {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  margin-top: 44px;
+}
+.bol-sign > div {
+  flex: 1;
+  text-align: center;
+}
+.bol-sign-line {
+  border-bottom: 1px solid #1a1a1a;
+  margin-bottom: 6px;
+  height: 34px;
+}
+.bol-sign-label {
+  font-size: 12px;
+  color: #374151;
+}
+
+/* ===== พิมพ์ — หน้าเว็บ (รายงาน/PDF) และใบนำส่ง ===== */
+@media print {
+  /* รายงาน: ปิด chrome ของแอป ให้เหลือแต่เนื้อหา */
+  .sidebar,
+  .topbar,
+  .burger,
+  .toolbar,
+  .pagination {
+    display: none !important;
+  }
+  .main {
+    margin-left: 0 !important;
+  }
+  .content {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  /* ใบนำส่ง: แสดงเฉพาะเอกสาร
+     ⚠ ต้องผูกกับ body.printing-bol (BolModal ใส่ให้ตอน mount) เท่านั้น
+     ของเดิมเขียน `body *` ลอย ๆ จึงมีผลกับการพิมพ์ทุกหน้า → กด "พิมพ์ PDF"
+     ในหน้ารายงานแล้วได้กระดาษเปล่า เพราะไม่มี .bol-print-area ให้ปลดซ่อน */
+  body.printing-bol * {
+    visibility: hidden;
+  }
+  body.printing-bol .bol-print-area,
+  body.printing-bol .bol-print-area * {
+    visibility: visible;
+  }
+  .bol-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  body.printing-bol .modal-overlay {
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  body.printing-bol .modal-panel {
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  body.printing-bol .modal-header,
+  body.printing-bol .modal-footer {
+    display: none !important;
+  }
+  body.printing-bol .modal-body {
+    padding: 0 !important;
+  }
+  .bol-doc {
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 8px !important;
+    font-size: 12px;
+  }
+  .bol-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ===== ผู้ใช้และสิทธิ์ (หน้า /users) =====
+   หลัก: จอคอมเห็นทุกอย่างพร้อมกัน (ตาราง + สิทธิ์ทุกกลุ่มกางหมด)
+        มือถือเปลี่ยนรูปแบบ ไม่ใช่แค่ย่อ — ตาราง 6 คอลัมน์กับตารางสิทธิ์ 26 ช่อง
+        อ่านบนจอ 375px ไม่ได้จริง จึงเป็นการ์ดต่อคน + กลุ่มพับได้ */
+
+/* ---- ป้าย "ปรับเอง" ---- */
+.tag-custom {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--font-xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* ---- สวิตช์ ----
+   ทั้งแถวกดได้ ไม่ใช่แค่ตัวสวิตช์ — เป้าหมายกว้างเต็มความกว้างการ์ด */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-12);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.toggle-row:hover:not(:disabled) { background: var(--accent-tint); }
+.toggle-row:disabled { cursor: not-allowed; opacity: 0.55; }
+.toggle-text { flex: 1; min-width: 0; }
+.toggle-label {
+  display: block;
+  font-size: var(--font-sm);
+  font-weight: 550;
+  line-height: 1.45;
+}
+.toggle-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-xs);
+  color: var(--muted);
+  line-height: 1.5;
+}
+.toggle-row.warn .toggle-hint { color: var(--warning); }
+.toggle-track {
+  flex: 0 0 42px;
+  height: 24px;
+  border-radius: var(--r-full);
+  background: var(--line-strong);
+  position: relative;
+  transition: background var(--motion-base) var(--ease-standard);
+}
+.toggle-row.on .toggle-track { background: var(--accent); }
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--sh-1);
+  transition: transform var(--motion-base) var(--ease-out);
+}
+.toggle-row.on .toggle-knob { transform: translateX(18px); }
+
+/* ---- กลุ่มสิทธิ์ ---- */
+.perm-head { margin-bottom: var(--space-4); }
+.perm-warn {
+  margin: 0 0 var(--space-4);
+  padding: 10px 14px;
+  border-radius: var(--r-12);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--font-sm);
+  line-height: 1.6;
+}
+.perm-groups { display: flex; flex-direction: column; gap: var(--space-3); }
+.perm-group {
+  border: 1px solid var(--line);
+  border-radius: var(--r-12);
+  overflow: hidden;
+}
+.perm-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 4px 12px 4px 4px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.perm-group-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 620;
+  font-size: var(--font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.perm-group-count {
+  padding: 1px 9px;
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: var(--font-xs);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.perm-group-count.none { background: var(--neutral-bg); color: var(--neutral); }
+.perm-group-count.all { background: var(--success-bg); color: var(--success); }
+.perm-group-bulk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--font-xs);
+}
+.perm-group-bulk button {
+  min-height: 32px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.perm-group-bulk button:hover { text-decoration: underline; }
+.perm-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px var(--space-4);
+  padding: var(--space-2);
+}
+.perm-count { margin-right: auto; }
+
+/* ---- การ์ดผู้ใช้ (มือถือ) ---- */
+.user-cards { list-style: none; margin: 0; padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
+.user-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-12);
+  padding: var(--space-4);
+  background: var(--surface);
+}
+.user-card.off { opacity: 0.72; }
+.user-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.user-card-id { min-width: 0; }
+.user-card-name { font-weight: 640; line-height: 1.45; }
+.user-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+  font-size: var(--font-sm);
+  color: var(--muted);
+}
+.user-card-meta .tag-custom { margin-left: 0; }
+.user-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line-soft);
+}
+
+@media (max-width: 900px) {
+  /* มือถือ: กลุ่มที่ยังไม่กางต้องซ่อนจริง ไม่งั้นต้องเลื่อนผ่าน 26 สวิตช์ทุกครั้ง */
+  .perm-group:not(.open) .perm-list { display: none; }
+  .perm-list { grid-template-columns: 1fr; }
+  .perm-group-head { flex-wrap: wrap; }
+  .perm-count { flex-basis: 100%; margin: 0 0 var(--space-2); }
+}
+
+
+/* ===== งานของฉัน (หน้าคนขับ /my-jobs) =====
+   ออกแบบจากมือถือขึ้นมา ไม่ใช่ย่อจากจอคอม — คนขับใช้ในรถ มือเดียว แสงจ้า
+   จึงเป็นการ์ดเรียงลง ตัวอักษรใหญ่กว่าหน้าอื่น และปุ่มหลักเต็มความกว้าง */
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.job-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line-strong);
+  border-radius: var(--r-16);
+  box-shadow: var(--sh-1);
+  overflow: hidden;
+}
+/* แถบสีซ้าย = สถานะเที่ยว อ่านได้จากหางตาโดยไม่ต้องอ่านป้าย */
+.job-card.status-planned { border-left-color: var(--info); }
+.job-card.status-in_progress { border-left-color: var(--warning); }
+.job-card.status-completed { border-left-color: var(--success); }
+.job-card.status-cancelled { border-left-color: var(--danger); }
+
+.job-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--line-soft);
+}
+.job-no {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.job-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: var(--font-sm);
+}
+
+.job-stops {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.job-stop {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--line-soft);
+}
+.job-stop:last-child { border-bottom: none; }
+.job-stop-main { flex: 1; min-width: 0; }
+.job-stop-route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.job-stop-meta {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  line-height: 1.55;
+}
+.job-stop-note {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: var(--r-8);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: var(--font-sm);
+}
+.job-stop-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.job-pod-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--success);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+/* ปุ่มเดียว เต็มความกว้าง — ในรถไม่มีเวลาเล็งปุ่มเล็ก ๆ */
+.job-cta {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-2);
+  border-top: 1px solid var(--line-soft);
+}
+.job-cta .btn {
+  width: 100%;
+  min-height: 52px;
+  font-size: 16px;
+}
+
+@media (max-width: 700px) {
+  /* จอแคบ: ปุ่มโทร/นำทางย้ายลงมาอยู่ใต้ข้อความ เรียงแนวนอนเต็มความกว้าง */
+  .job-stop { flex-direction: column; gap: var(--space-3); }
+  .job-stop-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .job-stop-actions .btn { min-height: 40px; }
+}
+
+/* ตัวสลับการแสดงผลสองรูปแบบ — จุดตัดเดียวกับที่ sidebar หุบ (900px)
+   ต้องอยู่ท้ายไฟล์: specificity เท่ากับ .user-cards/.table-wrap ที่ตั้ง display เอง
+   ถ้าประกาศไว้ก่อน กฎหลังจะชนะแล้วทั้งสองรูปแบบจะโผล่พร้อมกัน */
+.only-mobile { display: none; }
+.only-desktop { display: block; }
+@media (max-width: 900px) {
+  .only-mobile { display: block; }
+  .only-desktop { display: none; }
+}
+
+/* ===== กล้องของคนขับ (CameraCapture) =====
+   ถ่ายในหน้าเว็บเอง ไม่เรียกแอปกล้องของเครื่อง — ดู components/CameraCapture.tsx */
+.cam-start { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; }
+
+.cam-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* พื้นหลังดำ + สูงจำกัด: กันภาพกระโดดตอน stream เริ่มมา และให้ปุ่มชัตเตอร์
+   อยู่ในระยะนิ้วโป้งเสมอเมื่อถือมือถือมือเดียว */
+.cam-video {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+
+.cam-controls {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+}
+
+.cam-shots { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+
+.cam-shot { position: relative; }
+
+.cam-shot img {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  display: block;
+}
+
+.cam-shot button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--danger);
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+}
+
+/* ===== หน้าคนขับ (เฟส A: หนึ่งงานเต็มจอ) =====
+   ใช้เฉพาะ token ที่มีอยู่แล้ว ไม่มีสีใหม่ — ที่เปลี่ยนคือลำดับความสำคัญ
+   ของข้อมูลและตำแหน่งปุ่ม ดู docs/PLAN-driver-ui.md */
+.driver-scope {
+  /* ขยายสเกลเฉพาะหน้านี้ — คนขับอ่านกลางแดดผ่านกระจกรถ ไม่ได้นั่งจ้องจอในออฟฟิศ */
+  --driver-tap: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* เผื่อที่ให้แถบปุ่มที่ตรึงล่างจอ ไม่ให้ทับเนื้อหาบรรทัดสุดท้าย */
+  padding-bottom: calc(var(--driver-tap) + var(--space-6));
+}
+
+.driver-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.driver-title {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+.driver-switch { align-self: stretch; min-height: 48px; }
+
+.job-focus {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--neutral);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--sh-1);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.job-focus.status-planned { border-left-color: var(--info); }
+.job-focus.status-in_progress { border-left-color: var(--warning); }
+.job-focus.status-completed { border-left-color: var(--success); }
+.job-focus.status-cancelled { border-left-color: var(--danger); }
+
+.job-focus-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.job-focus-head .job-no { margin: 0; }
+.job-focus-head .job-sub { margin: 4px 0 0; }
+
+/* ---- แถบขั้นตอน ---- */
+.job-progress {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 2px;
+}
+.job-progress-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  font-size: var(--font-xs);
+  color: var(--faint);
+  text-align: center;
+}
+/* เส้นเชื่อมระหว่างจุด — วาดด้วย ::before ของจุดถัดไป จะได้ไม่มีเส้นเกินท้ายแถว */
+.job-progress-step + .job-progress-step::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  right: 50%;
+  left: -50%;
+  height: 2px;
+  background: var(--line);
+}
+.job-progress-step.is-done + .job-progress-step::before { background: var(--ok); }
+.job-progress-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  position: relative;
+  z-index: 1;
+}
+.job-progress-step.is-done .job-progress-dot { background: var(--ok); border-color: var(--ok); }
+.job-progress-step.is-done .job-progress-label { color: var(--ink-2); }
+.job-progress-step.is-current .job-progress-dot { border-color: var(--warn); box-shadow: 0 0 0 4px var(--warn-bg); }
+.job-progress-step.is-current .job-progress-label { color: var(--ink); font-weight: 650; }
+
+/* ---- จุดส่งถัดไป ---- */
+.stop-focus-kicker {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--muted);
+  font-weight: 600;
+}
+.stop-focus {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* ตัวใหญ่สุดในจอ: ข้อมูลเดียวที่คนขับต้องอ่านให้ออกตั้งแต่แวบแรก */
+.stop-focus-dest {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.stop-focus-customer {
+  font-size: var(--font-lg);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.stop-focus-meta { font-size: var(--font-sm); color: var(--muted); }
+.stop-focus-note {
+  font-size: var(--font-sm);
+  color: var(--warn);
+  background: var(--warn-bg);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+.stop-focus-nophone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-sm);
+  color: var(--faint);
+}
+/* สองปุ่มกว้างเท่ากันคนละครึ่ง — กดด้วยนิ้วโป้งได้ทั้งซ้ายและขวา */
+.stop-focus-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.stop-focus-actions .btn { min-height: var(--driver-tap); }
+.stop-focus-pod { min-height: var(--driver-tap); }
+
+/* ---- จุดอื่นในเที่ยว: ย่อเหลือบรรทัดเดียว ---- */
+.stop-others { display: flex; flex-direction: column; gap: var(--space-2); }
+.stop-others-title {
+  font-size: var(--font-sm);
+  font-weight: 650;
+  color: var(--muted);
+  margin: 0;
+}
+.stop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.stop-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+}
+.stop-row:hover { background: var(--paper-deep); }
+.stop-row.is-active { border-color: var(--info); }
+.stop-row-dest { flex: 1; font-weight: 600; }
+.stop-row-mark {
+  width: 20px;
+  display: flex;
+  justify-content: center;
+  color: var(--ok);
+}
+.stop-row.is-done .stop-row-dest { color: var(--muted); font-weight: 500; }
+
+/* ---- แถบปุ่มหลักที่ตรึงล่างจอ ----
+   env(safe-area-inset-bottom) กันแถบ home ของ iPhone ทับปุ่ม */
+.job-cta-bar {
+  position: sticky;
+  bottom: 0;
+  margin: var(--space-2) calc(var(--space-5) * -1) calc(var(--space-5) * -1);
+  padding: var(--space-3) var(--space-5) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  z-index: 10;
+}
+.job-cta-bar .btn { width: 100%; min-height: var(--driver-tap); font-size: var(--font-base); }
+
+/* ---- ตัวเลือกเที่ยววิ่ง ---- */
+.trip-switch-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.trip-switch {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px var(--space-3);
+  align-items: center;
+  min-height: var(--driver-tap);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+}
+.trip-switch:hover { background: var(--paper-deep); }
+.trip-switch.is-active { border-color: var(--info); background: var(--info-bg); }
+.trip-switch-no { font-weight: 700; }
+.trip-switch-meta { grid-column: 1; font-size: var(--font-sm); color: var(--muted); }
+
+@media (max-width: 560px) {
+  /* จอแคบ: ชื่อปลายทางยังต้องอ่านออกจากระยะแขน */
+  .stop-focus-dest { font-size: var(--font-xl); }
+  .job-focus { padding: var(--space-4); }
+  .job-cta-bar {
+    margin: var(--space-2) calc(var(--space-4) * -1) calc(var(--space-4) * -1);
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}
+
+/* ===== Animation ทั้งหมด — ใช้ transform/opacity เท่านั้น (GPU) ===== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+}
+
+@keyframes slideBar {
+  from {
+    opacity: 0;
+    transform: scaleY(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes flashRow {
+  0% {
+    background: rgba(139, 107, 209, 0.22);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes growBar {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes donutIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* แถบความสูง bar chart — แอนิเมชันครั้งเดียวตอนเข้า */
+.bar-col .bar {
+  transform-origin: bottom;
+  animation: growBar var(--dur-3) var(--ease-enter) both;
+}
+.bar-col:nth-child(2) .bar {
+  animation-delay: 0.04s;
+}
+.bar-col:nth-child(3) .bar {
+  animation-delay: 0.08s;
+}
+.bar-col:nth-child(4) .bar {
+  animation-delay: 0.12s;
+}
+.bar-col:nth-child(5) .bar {
+  animation-delay: 0.16s;
+}
+.bar-col:nth-child(6) .bar {
+  animation-delay: 0.2s;
+}
+.bar-col:nth-child(7) .bar {
+  animation-delay: 0.24s;
+}
+.bar-col:nth-child(8) .bar {
+  animation-delay: 0.28s;
+}
+
+.line-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawLine 1.1s var(--ease-enter) forwards;
+}
+
+.donut-wrap {
+  animation: donutIn var(--motion-enter) var(--ease-enter);
+}
+
+/* ผู้ใช้ต้องการ motion น้อยลง → ปิด animation ทั้งหมด */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ===== เวอร์ชันไฟล์สำเร็จรูป — เพิ่มเติมจากระบบจริง ===== */
+/* แถบนำทางลอย (ไม่มีในเวอร์ชันรัน server) */
+.static-nav {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 4px; align-items: center; flex-wrap: wrap; max-width: 96vw;
+  background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(122, 99, 52, 0.2);
+  border-radius: 999px; padding: 7px 10px; box-shadow: 0 6px 22px rgba(60, 50, 30, 0.2);
+  z-index: 300; font-size: 12.5px; backdrop-filter: blur(6px);
+}
+.static-nav a {
+  color: #5b4a2a; text-decoration: none; font-weight: 600;
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+}
+.static-nav a:hover { background: #f4e9cd; }
+.static-nav .badge { color: #8a7f66; font-size: 11px; border-left: 1px solid #ddd5c2; padding-left: 10px; margin-left: 4px; }
+@media print { .static-nav { display: none; } }
+
+/* หน้าเข้าสู่ระบบ — เต็มจอแทน shell */
+#loginSection { display: none; }
+body.login-mode #loginSection { display: block; }
+body.login-mode .app-shell { display: none; }
+body.login-mode .static-nav { display: none; }

@@ -1,0 +1,9 @@
+﻿id,plate_no,brand,model,vehicle_type,capacity_kg,status,created_at
+1,กท-1234,Isuzu,D-Max,pickup,1500,available,2026-08-11 14:00:23
+2,ชน-4567,Toyota,Hilux Revo,pickup,1200,available,2026-08-11 14:00:23
+3,5กท-8901,Hino,300 Series,truck6,6000,available,2026-08-11 14:00:23
+4,6กท-2345,Isuzu,FRR,truck6,5500,maintenance,2026-08-11 14:00:23
+5,8กท-6789,Hino,500 Series,truck10,10000,available,2026-08-11 14:00:23
+6,9กท-0123,Volvo,FM 420,truck10,12000,on_trip,2026-08-11 14:00:23
+7,ฉช-3456,Isuzu,Elf FVR,reefer,4000,on_trip,2026-08-11 14:00:23
+8,กท-7890,Toyota,Hiace,van,900,available,2026-08-11 14:00:23

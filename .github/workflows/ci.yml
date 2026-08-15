@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    name: Typecheck · Tests (incl. a11y) · Build · WCAG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: ติดตั้ง dependencies
+        run: npm ci
+
+      - name: Typecheck (server + web)
+        run: npm run typecheck
+
+      - name: Unit tests (server) + axe-core a11y (web)
+        run: npm test
+
+      - name: Build production
+        run: npm run build
+
+      - name: WCAG AA audit (คอนทราสต์ทุกคู่สี)
+        run: node web/scripts/contrast.mjs

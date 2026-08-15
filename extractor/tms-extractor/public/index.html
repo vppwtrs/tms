@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TMS Extractor — Picking List + Item</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📦</text></svg>">
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login">
+  <form class="lbox" id="loginForm" autocomplete="on">
+    <h1>TMS Extractor</h1>
+    <p class="s">ดึง Picking List พร้อมชื่อ Item ออกเป็น CSV / Excel / JSON</p>
+
+    <div class="err hide" id="loginErr"></div>
+
+    <div class="f">
+      <label for="email">Email / Username</label>
+      <input id="email" name="username" type="text" autocomplete="username" required>
+    </div>
+    <div class="f">
+      <label for="pw">Password</label>
+      <input id="pw" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="f">
+      <label for="tenant">Tenant</label>
+      <input id="tenant" value="root">
+    </div>
+
+    <button class="btn" id="loginBtn" type="submit">เข้าสู่ระบบ</button>
+
+    <p class="hint">
+      ล็อคอินด้วย user TMS ของคุณเอง — เว็บนี้รันบนเครื่องคุณ ไม่เก็บรหัสผ่าน
+      ไม่เขียนลงไฟล์ และไม่ส่งไปที่อื่นนอกจาก <code>pdi.vespiario.net</code> ตัวจริง<br>
+      token เก็บใน sessionStorage ปิดแท็บแล้วหาย
+    </p>
+  </form>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hide">
+
+  <div class="top">
+    <button class="icon-btn" id="tgl" title="หุบ/ขยายแผงตัวกรอง  ( [ )"
+            aria-label="หุบหรือขยายแผงตัวกรอง" aria-expanded="true">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+    </button>
+    <div class="logo"><i>■</i> TMS Extractor</div>
+    <div class="who"><b id="whoName">—</b><span id="whoMail"></span></div>
+    <button class="out" id="logout">ออกจากระบบ</button>
+  </div>
+
+  <div class="main">
+
+    <!-- ---------- sidebar ---------- -->
+    <div class="scrim" id="scrim"></div>
+
+    <aside class="side" id="side">
+      <div class="side-body">
+
+        <div class="modes" id="modes" role="tablist" aria-label="เลือกรายงาน">
+          <button class="mode on" data-m="pl" role="tab" aria-selected="true">
+            <svg viewBox="0 0 24 24"><path d="M8 3h8a2 2 0 0 1 2 2v16l-6-3-6 3V5a2 2 0 0 1 2-2z"/></svg>
+            <span>Picking List</span>
+          </button>
+          <button class="mode" data-m="as" role="tab" aria-selected="false">
+            <svg viewBox="0 0 24 24"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+            <span>Actual Shipment</span>
+          </button>
+        </div>
+
+        <section class="grp" data-grp="src" data-open="1">
+          <button class="grp-h" title="แหล่งข้อมูล">
+            <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+            <span class="lb">แหล่งข้อมูล</span>
+            <span class="dot"></span>
+            <svg class="cv" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="grp-b">
+            <div class="f"><label for="wh">Warehouse</label><select id="wh"></select></div>
+          </div>
+        </section>
+
+        <section class="grp mode-as hide" data-grp="trip" data-open="1">
+          <button class="grp-h" title="ช่วงวันที่">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            <span class="lb">Trip Date</span>
+            <span class="dot"></span>
+            <svg class="cv" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="grp-b">
+            <div class="chips" id="tripChips">
+              <button type="button" class="chip on" data-r="y">เมื่อวาน</button>
+              <button type="button" class="chip" data-r="y7">7 วันย้อนหลัง</button>
+              <button type="button" class="chip" data-r="y30">30 วันย้อนหลัง</button>
+              <button type="button" class="chip" data-r="custom">กำหนดเอง</button>
+            </div>
+            <div class="range" id="tripBox">
+              <div class="rr"><span>จาก</span><input id="tFrom" type="date"></div>
+              <div class="rr"><span>ถึง</span><input id="tTo" type="date"></div>
+            </div>
+            <div class="rsum" id="tripSum"></div>
+            <label class="chk">
+              <input type="checkbox" id="asItems" checked>
+              <span>ดึงชื่อ item มาด้วย — แตกเป็นแถวละ item</span>
+            </label>
+            <p class="note-s">
+              ข้อมูลของวันปัจจุบันยังไม่ actual — รอบข้อมูลปิดและส่งหลังเที่ยงคืน
+              ค่าเริ่มต้นจึงเป็นเมื่อวาน เหมือนหน้า TMS
+            </p>
+          </div>
+        </section>
+
+        <section class="grp mode-pl" data-grp="filter" data-open="1">
+          <button class="grp-h" title="ตัวกรอง">
+            <svg viewBox="0 0 24 24"><path d="M3 4h18l-7 8v7l-4 2v-9z"/></svg>
+            <span class="lb">ตัวกรอง</span>
+            <span class="badge hide" id="fCnt">0</span>
+            <span class="dot"></span>
+            <svg class="cv" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="grp-b">
+            <div class="grid2">
+              <div class="f">
+                <label for="fStatus">Status</label>
+                <select id="fStatus">
+                  <option value="">ทั้งหมด</option>
+                  <option>New</option><option>AssignTrip</option>
+                  <option>OnTruck</option><option>Completed</option>
+                </select>
+              </div>
+              <div class="f">
+                <label for="fArea">Area</label>
+                <select id="fArea">
+                  <option value="">ทั้งหมด</option>
+                  <option>BKK1</option><option>BKK2</option><option>BKK3</option>
+                  <option>UPC1</option><option>UPC2</option><option>UPC3</option>
+                  <option>UPC4</option><option>UPC5</option><option>UPC6</option>
+                  <option>UPC7</option><option>NONE</option>
+                </select>
+              </div>
+            </div>
+            <div class="f">
+              <label for="fKw">Keyword</label>
+              <input id="fKw" placeholder="PL No / ชื่อลูกค้า / item">
+            </div>
+            <div class="f">
+              <label>ช่วง Plan Delivery</label>
+              <div class="chips" id="rangeChips">
+                <button type="button" class="chip on" data-r="">ทั้งหมด</button>
+                <button type="button" class="chip" data-r="today">วันนี้</button>
+                <button type="button" class="chip" data-r="7">7 วัน</button>
+                <button type="button" class="chip" data-r="30">30 วัน</button>
+                <button type="button" class="chip" data-r="month">เดือนนี้</button>
+                <button type="button" class="chip" data-r="custom">กำหนดเอง</button>
+              </div>
+              <div class="range hide" id="rangeBox">
+                <div class="rr"><span>จาก</span><input id="fFrom" type="date"></div>
+                <div class="rr"><span>ถึง</span><input id="fTo" type="date"></div>
+              </div>
+              <div class="rsum hide" id="rangeSum"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grp mode-pl" data-grp="opt" data-open="0">
+          <button class="grp-h" title="ตัวเลือกการดึง">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+            <span class="lb">ตัวเลือกการดึง</span>
+            <svg class="cv" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="grp-b">
+            <div class="grid2">
+              <div class="f">
+                <label for="oPs">Page size</label>
+                <input id="oPs" type="number" value="500" min="10" max="2000">
+              </div>
+              <div class="f">
+                <label for="oMax">จำกัดหน้า (0=หมด)</label>
+                <input id="oMax" type="number" value="0" min="0">
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <div class="side-foot">
+        <button class="btn" id="run" title="ดึงข้อมูล">
+          <span class="lbl">ดึงข้อมูล</span>
+          <svg class="ic" viewBox="0 0 24 24" width="18" height="18" fill="none"
+               stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+        </button>
+        <button class="btn danger hide" id="stop" style="margin-top:8px">หยุด</button>
+        <button class="btn ghost" id="pushOpen" style="margin-top:8px" title="ส่งข้อมูลที่ดึงมาขึ้นระบบให้คนขับเห็น">
+          <span class="lbl">ส่งขึ้นระบบ</span>
+          <svg class="ic" viewBox="0 0 24 24" width="18" height="18" fill="none"
+               stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M4 3h16"/></svg>
+        </button>
+        <div class="prog"><i id="bar"></i></div>
+        <div class="plog" id="plog">พร้อมใช้งาน</div>
+      </div>
+    </aside>
+
+    <!-- ---------- content ---------- -->
+    <section class="content">
+
+      <div class="stats" id="stats"></div>
+
+      <div class="tabs">
+        <button data-tab="rows" class="on mode-pl">รายการ (1 แถว = 1 item)</button>
+        <button data-tab="pl" class="mode-pl">สรุปราย PL</button>
+        <button data-tab="item" class="mode-pl">สรุปราย Item</button>
+        <button data-tab="as" class="mode-as hide">รายงาน Actual Shipment</button>
+        <div class="sp">
+          <input id="q" placeholder="ค้นในผลลัพธ์...">
+          <button id="exCsv" disabled>CSV</button>
+          <button id="exXls" disabled>Excel</button>
+          <button id="exJson" disabled>JSON</button>
+        </div>
+      </div>
+
+      <div class="pane" id="pane">
+        <div class="empty">ยังไม่มีข้อมูล<br>ตั้งค่าตัวกรองทางซ้ายแล้วกด <b>ดึงข้อมูล</b></div>
+      </div>
+
+      <div class="foot">
+        <span id="cnt">—</span>
+        <div class="sp2">
+          <button id="prev" disabled>ก่อนหน้า</button>
+          <span id="pg">–</span>
+          <button id="next" disabled>ถัดไป</button>
+          <select id="perPage" style="padding:5px 8px;border:1px solid var(--line);border-radius:7px">
+            <option>50</option><option selected>100</option>
+            <option>250</option><option>500</option>
+          </select>
+        </div>
+      </div>
+
+    </section>
+  </div>
+</div>
+
+<!-- ================= ส่งขึ้นระบบ ================= -->
+<div id="pushModal" class="modal hide">
+  <div class="mbox">
+    <div class="mhead">
+      <b>ส่งขึ้นระบบ</b>
+      <button class="icon-btn" id="pushClose" aria-label="ปิด">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="mbody">
+
+      <!-- ตั้งค่าปลายทาง โผล่เฉพาะตอนยังไม่ได้ตั้ง -->
+      <div id="pushCfgWrap" class="hide">
+        <p class="s">ตั้งค่าปลายทางครั้งแรกครั้งเดียว — จำไว้ในเครื่องนี้</p>
+        <div class="f"><label for="sbUrl">Supabase URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co"></div>
+        <div class="f"><label for="sbKey">anon key</label><input id="sbKey" placeholder="eyJ..."></div>
+        <button class="btn" id="sbCfgSave" type="button">บันทึกการตั้งค่า</button>
+        <p class="hint">
+          ใช้ <b>anon key</b> เท่านั้น ห้ามใช้ service_role key —
+          ตัวนั้นข้ามการตรวจสิทธิ์ทั้งหมด
+        </p>
+      </div>
+
+      <!-- ยังไม่ล็อกอิน -->
+      <form id="pushIn" class="hide" autocomplete="on">
+        <p class="s">เข้าสู่ระบบด้วยบัญชีพนักงานของคุณ (คนละบัญชีกับ TMS บริษัท)</p>
+        <div class="f">
+          <label for="sbEmail">อีเมล</label>
+          <input id="sbEmail" name="email" type="email" autocomplete="username" required>
+        </div>
+        <div class="f">
+          <label for="sbPw">รหัสผ่าน</label>
+          <input id="sbPw" name="sbpassword" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn" id="sbLoginBtn" type="submit">เข้าสู่ระบบ</button>
+        <p class="hint">ล็อกอินครั้งเดียวต่อเครื่อง ระบบจำไว้ให้จนกว่าจะกดออก</p>
+      </form>
+
+      <!-- ล็อกอินแล้ว -->
+      <div id="pushOut" class="hide">
+        <div class="pwho">
+          <span id="pushWho"></span>
+          <button class="out" id="sbLogout" type="button">ออก</button>
+        </div>
+        <p class="s" id="pushHint"></p>
+        <button class="btn" id="pushBtn" type="button" disabled>ส่งข้อมูลขึ้นระบบ</button>
+
+        <label class="chk" style="margin-top:14px">
+          <input type="checkbox" id="autoChk">
+          <span>อัตโนมัติ — ล็อกอิน TMS แล้วดึงและส่งเองเลย</span>
+        </label>
+        <p class="note-s">
+          ดึงข้อมูลของเมื่อวาน แล้วส่งขึ้นระบบทันทีหลังเข้าสู่ระบบ TMS
+          จากนั้นทำซ้ำทุกชั่วโมงตราบที่เปิดหน้านี้ค้างไว้<br>
+          ปิดหน้าต่างนี้แล้วหยุด — ไม่มีอะไรทำงานเบื้องหลังเครื่องคุณ
+        </p>
+        <p class="hint">
+          กดซ้ำได้ ข้อมูลไม่ซ้ำ — ระบบยึด PL No + Item No เป็นตัวตัดสิน<br>
+          ส่งแล้วยังไม่กลายเป็นงานของคนขับทันที ต้องไปกดนำเข้าที่หน้าออฟฟิศอีกที
+        </p>
+      </div>
+
+      <div class="plog" id="pushLog"></div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="xlsx.js"></script>
+<script src="app.js"></script>
+<script src="push.js"></script>
+</body>
+</html>

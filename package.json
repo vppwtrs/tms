@@ -1,0 +1,32 @@
+{
+  "name": "tms",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Transport Management System - ระบบบริหารจัดการขนส่ง",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm:dev -w server\" \"npm:dev -w web\"",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "serve": "node scripts/serve.mjs start",
+    "serve:stop": "node scripts/serve.mjs stop",
+    "serve:restart": "node scripts/serve.mjs restart",
+    "serve:status": "node scripts/serve.mjs status",
+    "seed": "npm run seed -w server",
+    "test": "npm run test -w server && npm run test -w web",
+    "test:a11y": "npm run test -w web",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "static:export": "npx tsx --tsconfig web/tsconfig.json web/scripts/make-static-site.tsx",
+    "static:templates": "npx tsx server/scripts/make-templates.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "supabase": "2.114.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

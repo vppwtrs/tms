@@ -1,0 +1,106 @@
+/* Hallmark · audit+redesign: Aurora (คงธีมเดิม) · แก้ P0 print / focus-ring,
+   P1 typography ไทย (uppercase+tracking), P2 gradient budget / touch target
+   pre-emit critique: P5 H4 E5 S5 R5 V4 */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  /* กันเนื้อหาหลุดแนวนอนบนจอ 320px — clip ไม่ใช่ hidden (hidden จะฆ่า position:sticky ของ topbar) */
+  overflow-x: clip;
+}
+
+body {
+  font-family: var(--font);
+  font-size: var(--font-md);
+  color: var(--ink);
+  background:
+    radial-gradient(1100px 540px at 88% -8%, rgba(108, 123, 232, 0.09), transparent 62%),
+    radial-gradient(900px 480px at -6% 108%, rgba(232, 130, 159, 0.07), transparent 55%),
+    var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ตัวเลขความกว้างเท่ากัน — เฉพาะจุดที่เป็นตัวเลขจริง (ไม่บังคับทั้งเอกสาร
+   เพราะ tnum ทำให้ข้อความปนตัวเลขในประโยคดูห่างผิดจังหวะ) */
+.num,
+.metric-num,
+.metric-value,
+.stat-value,
+.pagination,
+table tbody td,
+time {
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+/* หัวข้อ — sans น้ำหนักสูง (Aurora ไม่ใช้ serif display) */
+h1 {
+  font-family: var(--font-display);
+  font-weight: 660;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+a:hover {
+  color: var(--link-hover);
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* focus ring — 3px (WCAG 2.4.7 + 2.4.11 non-text contrast ≥ 3:1)
+   ใช้ --focus-ring (violet-500 ทึบ) ไม่ใช่สีโปร่ง — โปร่งบนพื้นขาวได้แค่ ~1.1:1
+   ไม่ตั้ง border-radius ที่นี่: outline ยุคใหม่โค้งตามมุมของชิ้นงานเอง
+   (ของเดิมตั้ง 8px ทำให้ปุ่ม pill/การ์ดมุม 16-22px ถูกบีบเป็น 8px ตอนโฟกัส) */
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(139, 107, 209, 0.24);
+}
+
+/* scrollbar เรียบง่าย โทนม่วง */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+#root {
+  min-height: 100vh;
+}

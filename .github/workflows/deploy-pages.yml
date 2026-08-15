@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+# แยกจาก ci.yml เพราะ ci รันทุก PR แต่ตัวนี้ deploy เฉพาะที่เข้า main แล้ว
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# ยกเลิก run เก่าที่ยังค้างเมื่อมี push ใหม่ — กัน deploy สลับลำดับกัน
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: ติดตั้ง dependencies
+        run: npm ci
+
+      - name: Build web
+        # ค่าสองตัวนี้ถูกฝังลงใน bundle ตอน build และเปิดเผยได้ตามการออกแบบ
+        # ด่านกันข้อมูลคือ RLS ไม่ใช่การซ่อน key — ห้ามใส่ service_role key ที่นี่เด็ดขาด
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          # โปรเจ็คที่ deploy ที่ <user>.github.io/<repo>/ ต้องมี base path ต่อท้าย
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm run build -w web
+
+      - name: เตรียมไฟล์สำหรับ SPA fallback
+        # Pages ไม่มี server ทำ SPA fallback ให้ — ก๊อป index.html เป็น 404.html
+        # เพื่อให้เปิด /orders ตรง ๆ หรือกด refresh แล้วไม่เจอหน้า 404 ของ GitHub
+        run: cp web/dist/index.html web/dist/404.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

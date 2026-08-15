@@ -1,0 +1,359 @@
+/* ============================================================
+   Design Tokens v5 — Aurora (ขาว · ชมพู · ฟ้า · ม่วง)
+   3 ชั้น: global → semantic → component
+   อ้างอิง: Aurora dashboard design system (สกัดจากระบบจริงที่
+   ใช้งาน — ผ่านการวัดในเบราว์เซอร์จริง), Atlassian token
+   hierarchy, Material 3 motion, WCAG 2.2 AA
+   หลัก: พื้นหลังขาวอมม่วง #FAF9FD (ไม่ใช่ #FFF ล้วน) ·
+        periwinkle #6C7BE8 + violet #8A6BD1 (หม่น ~12% ไม่ใช่
+        ค่า default ของ framework) · เงาอมม่วง · รัศมีไล่ตาม
+        ขนาดชิ้นงาน · gradient ใช้แค่ 3–5 จุดทั้งระบบ ·
+        สี = สถานะเท่านั้น
+   ทุกค่าตรวจ AA ด้วย web/scripts/contrast.mjs
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ============ Layer 1 · GLOBAL — ค่าดิบ (raw values) ============ */
+
+  /* Primary : Violet — ม่วงหม่น สุภาพ เหมาะกับข้อมูลคน */
+  --violet-900: #2c2150;
+  --violet-800: #3e2f6b;
+  --violet-700: #533f8c;
+  --violet-600: #6b52ad;
+  --violet-500: #8a6bd1;
+  --violet-400: #a78be0;
+  --violet-300: #c3b0ec;
+  --violet-200: #dcd1f5;
+  --violet-100: #ede7fb;
+  --violet-050: #f6f2fe;
+
+  /* Secondary : Periwinkle — ฟ้าอมม่วง */
+  --blue-700: #3c4ba8;
+  --blue-600: #4e5fc7;
+  --blue-500: #6c7be8;
+  --blue-400: #8d99ee;
+  --blue-300: #b0b9f4;
+  --blue-200: #d0d6fa;
+  --blue-100: #e7eafd;
+  --blue-050: #f3f5fe;
+
+  /* Accent : Rose Quartz — ชมพูหม่น ไม่สดแบบไลฟ์สไตล์แอป */
+  --rose-700: #b4576f;
+  --rose-600: #d06a87;
+  --rose-500: #e8829f;
+  --rose-400: #f09fb6;
+  --rose-300: #f6bfd0;
+  --rose-200: #fadce5;
+  --rose-100: #fdedf2;
+
+  /* Neutral — ขาวอมม่วง (ไม่ใช่เทากลาง) */
+  --paper: #faf9fd;      /* พื้นหลังหลัก — ขาวอมม่วง จ้อง 8 ชม. ไม่ล้า */
+  --paper-deep: #f1eff8; /* พื้นผิวรองเข้มสุด */
+  --surface: #ffffff;    /* การ์ด/แผง */
+  --surface-2: #fbfafe;
+  --line: #e7e4f1;
+  --line-soft: #f0edf7;
+  --ink: #241f33;
+  --ink-2: #4a4360;
+  --muted: #706a86;
+  --faint: #6f6a85; /* เข้มกว่า Aurora ดั้งเดิม — ผ่าน AA บนขาว/พื้นอ่อน */
+
+  /* Status — คู่ "สีตัวอักษร + พื้นอ่อน" เสมอ
+     ตัวอักษรเข้มขึ้นจาก Aurora ดั้งเดิมเล็กน้อย เพื่อผ่าน AA
+     4.5:1 บนพื้นอ่อน (ตรวจแล้ว: 4.6–5.7:1 ทุกคู่) */
+  --ok: #1f7a5f;
+  --ok-bg: #e4f5ef;
+  --warn: #8f5a15;
+  --warn-bg: #fcf1df;
+  --danger: #b8405b;
+  --danger-bg: #fce9ee;
+  --info: #4e5fc7;
+  --info-bg: #e7eafd;
+  --neutral: #5f5a74;
+  --neutral-bg: #efedf6;
+
+  /* Data-viz — ม่วง → ฟ้า → ชมพู สเกลเดียวทั้งระบบ (ห้ามสุ่มสี) */
+  --viz-1: #6b52ad;
+  --viz-2: #6c7be8;
+  --viz-3: #8a6bd1;
+  --viz-4: #8d99ee;
+  --viz-5: #e8829f;
+  --viz-6: #a78be0;
+  --viz-7: #b0b9f4;
+  --viz-8: #f09fb6;
+
+  /* Gradients — ใช้แค่ 3–5 จุดในทั้งระบบเท่านั้น */
+  --grad-brand: linear-gradient(135deg, #6c7be8 0%, #8a6bd1 55%, #e8829f 100%);
+  --grad-soft: linear-gradient(135deg, var(--blue-050), var(--violet-050) 50%, var(--rose-100));
+
+  /* สเกลมุม — ไล่ตามขนาดชิ้นงาน: ปุ่ม/ฟิลด์ 12 · การ์ด 16 · โมดัล 22 · ป้ายเต็มโค้ง */
+  --r-sm: 12px;   /* ปุ่ม/ฟิลด์/แท็บ */
+  --r-md: 16px;   /* การ์ด */
+  --r-lg: 22px;   /* โมดัล/drawer */
+  --r-xl: 26px;   /* แผงใหญ่ (login) */
+  --r-full: 999px; /* ป้าย/avatar */
+  --r-8: 8px;
+  --r-12: 12px;
+  --r-16: 16px;
+  --r-18: 18px;
+  --r-22: 22px;
+  --r-30: 30px;
+
+  /* สเกลระยะ — 4px ลงตัว (ห้าม 15px/22px โผล่) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+
+  /* สเกลฟอนต์ — ตระหนี่ (body 14 · xs 11.5 เป็นหลัก) */
+  --font-xs: 11.5px;
+  --font-sm: 13px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --font-xl: 20px;
+  --font-2xl: 26px;
+  --font-3xl: 32px;
+  --font-display-lg: 40px;
+
+  /* ตระกูลฟอนต์ — ไทยต้องมาก่อน (ไม่งั้นสระลอย) */
+  /* Aurora ใช้ sans ตัวเดียวทั้งระบบ — ลำดับชั้นมาจากน้ำหนัก/ขนาด ไม่ใช่การสลับตระกูล
+     (--font-serif เดิมถูกถอดออก: นิยามไว้แต่ไม่มีคอมโพเนนต์ใดเรียกใช้เลย) */
+  --font-sans: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Leelawadee UI', 'Tahoma', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, monospace;
+
+  /* Elevation — 3 ระดับเท่านั้น เงาอมม่วง (ไม่ใช่เทาดำ) */
+  --sh-1: 0 1px 2px rgba(44, 33, 80, 0.05), 0 1px 3px rgba(44, 33, 80, 0.04);
+  --sh-2: 0 2px 4px rgba(44, 33, 80, 0.05), 0 8px 18px -8px rgba(44, 33, 80, 0.14);
+  --sh-3: 0 12px 34px -12px rgba(44, 33, 80, 0.26), 0 2px 8px rgba(44, 33, 80, 0.07);
+  --sh-brand: 0 6px 18px -6px rgba(107, 82, 173, 0.45);
+  --sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  /* alias เดิม (กันหัก) */
+  --shadow-sm: var(--sh-1);
+  --shadow: var(--sh-2);
+  --shadow-lg: var(--sh-3);
+
+  /* Motion primitives — duration + easing ตายตัว (Material 3) */
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 300ms;
+  --ease: cubic-bezier(0.32, 0.72, 0.28, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.5, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ============ Layer 2 · SEMANTIC — บทบาทการใช้งาน ============ */
+
+  /* พื้นผิว/หมึก/เส้น — map จาก Layer 1 (ชื่อ semantic เดิมที่
+     คอมโพเนนต์ใช้กันอยู่ ยังคงเดิม เปลี่ยนแค่ค่าด้านหลัง) */
+  --bg: var(--paper);
+  --bg-deep: var(--paper-deep);
+  --surface-3: var(--paper-deep);
+  --ink-soft: var(--ink-2);
+  --line-strong: #d5d0e6;
+  --accent-tint: rgba(107, 82, 173, 0.06);
+
+  /* สีแบรนด์ — violet หลัก */
+  --accent: var(--violet-600);
+  --accent-strong: var(--violet-700);
+  --accent-050: var(--violet-050);
+  --accent-soft: var(--violet-100);
+
+  /* สถานะ — semantic + alias -050/-bg (components ใช้ทั้งสองชื่อ)
+     ชื่อ danger/danger-bg/info/info-bg/neutral/neutral-bg นิยาม
+     ใน Layer 1 แล้ว (ห้าม self-reference ซ้ำที่นี่) */
+  --success: var(--ok);
+  --success-050: var(--ok-bg);
+  --success-bg: var(--ok-bg);
+  --warning: var(--warn);
+  --warning-050: var(--warn-bg);
+  --warning-bg: var(--warn-bg);
+  --danger-050: var(--danger-bg);
+  --info-050: var(--info-bg);
+
+  /* มุม — แผนที่จาก global scale */
+  --radius-sm: var(--r-sm);
+  --radius: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+
+  /* ฟอนต์ — display ใช้ sans น้ำหนักสูง (Aurora ไม่ใช้ serif) */
+  --font: var(--font-sans);
+  --font-display: var(--font-sans);
+
+  /* ขนาดโครงสร้าง */
+  --sidebar-width: 268px;
+  --topbar-height: 68px;
+
+  /* Motion semantic */
+  --motion-fast: var(--dur-1);
+  --motion-base: var(--dur-2);
+  --motion-enter: var(--dur-3);
+  --motion-leave: var(--dur-2);
+  --ease-enter: var(--ease-out);
+  --ease-leave: var(--ease-in);
+
+  /* ============ Layer 3 · COMPONENT — ต่อคอมโพเนนต์ ============ */
+
+  /* Card — การ์ด 16px เงา 1 */
+  --card-bg: var(--surface);
+  --card-border: rgba(44, 33, 80, 0.09);
+  --card-border-hover: rgba(44, 33, 80, 0.16);
+  --card-pad: 22px;
+
+  /* Button — ปุ่ม 12px */
+  --btn-accent-bg: var(--violet-600);
+  --btn-accent-color: #ffffff;
+  --btn-accent-hover: var(--violet-700);
+  --btn-primary-bg: var(--ink);
+  --btn-primary-color: #f2f0fb;
+  --btn-primary-hover: #1b1626;
+  --btn-danger-hover: #a93a54;
+  --btn-success-hover: #1f7a5f;
+
+  /* Form */
+  --input-border: rgba(44, 33, 80, 0.22);
+  --input-focus-ring: rgba(107, 82, 173, 0.16);
+
+  /* Table */
+  --table-head: var(--faint);
+  --table-row-hover: rgba(107, 82, 173, 0.055);
+
+  /* Link */
+  --link: var(--violet-700);
+  --link-hover: var(--violet-800);
+
+  /* Sidebar — ขาวอมม่วง (ไม่ใช่แถบดำ) + radial แบรนด์จาง
+     active ใช้ gradient ม่วงเข้ม (ไม่ใช่ grad-brand) เพราะขาวต้อง
+     ผ่าน AA บนทุกจุดของ gradient (ตรวจ: 6.4:1 ตรงกลาง) */
+  --sidebar-bg: var(--surface);
+  --sidebar-bg-hover: rgba(107, 82, 173, 0.07);
+  --sidebar-text: var(--ink-2);
+  --sidebar-text-strong: var(--ink);
+  --sidebar-active-bg: linear-gradient(135deg, #6b52ad 0%, #5d4ba8 100%);
+  --sidebar-active-text: #ffffff;
+  --sidebar-line: rgba(44, 33, 80, 0.1);
+
+  /* Nav-badge — rose เข้มพอให้ขาวผ่าน AA (4.63:1) */
+  --nav-badge-bg: var(--rose-700);
+
+  /* Topbar */
+  --topbar-bg: color-mix(in srgb, var(--bg) 55%, var(--surface) 45%);
+
+  /* Focus ring — violet-500 ทึบ 3px
+     ต้อง ≥ 3:1 กับพื้นที่ล้อมรอบ (WCAG 2.2 · 1.4.11 non-text contrast)
+     violet-300 ของเดิมได้แค่ ~1.9:1 บนขาว → ยกมาเป็น violet-500 (4.1:1)
+     --focus-ring-soft ใช้เป็น "แสงรอง" ใต้ ring เท่านั้น ไม่ใช้เดี่ยว ๆ */
+  --focus-ring: var(--violet-500);
+  --focus-ring-soft: rgba(139, 107, 209, 0.35);
+}
+
+/* ============================================================
+   Dark mode — "Aurora กลางคืน"
+   ปรับสัมพันธ์กันทั้งชุดด้วยมือ ไม่ใช่กลับสีอัตโนมัติ:
+     • พื้นเป็นน้ำเงิน-ม่วงเข้ม #14111F ไม่ใช่ดำสนิท — ดำสนิทกับ
+       ตัวหนังสือขาวทำให้เกิด halation (ตัวอักษรเรืองแสง) อ่านนาน ๆ ล้า
+     • สีสถานะสว่างขึ้น: ค่ากลางวันถูกทำให้เข้มเพื่อผ่าน AA บนพื้นขาว
+       เอามาใช้บนพื้นเข้มตรง ๆ จะจมทันที
+     • เงาเปลี่ยนเป็นดำ — เงาอมม่วงบนพื้นม่วงเข้มมองไม่เห็น
+     • gradient แบรนด์คงเดิม เป็นจุดยึดว่ายังเป็นระบบเดียวกัน
+   ตัวสลับอยู่ที่ topbar · จำใน localStorage · ครั้งแรกตาม
+   prefers-color-scheme ของเครื่อง (จัดการใน main.tsx)
+   ============================================================ */
+:root[data-theme='dark'] {
+  /* บอกเบราว์เซอร์ให้ใช้ชุดมืดกับของที่ CSS แตะไม่ได้ —
+     scrollbar, ลูกศร <select>, ปฏิทินของ input[type=date]
+     ไม่ใส่บรรทัดนี้จะเห็นแถบเลื่อนขาวโพลนพาดอยู่บนพื้นเข้ม */
+  color-scheme: dark;
+
+  /* พื้นผิว/หมึก */
+  --paper: #14111f;
+  --paper-deep: #0f0d18;
+  --surface: #1c1830;
+  --surface-2: #221d3a;
+  --line: #322b4d;
+  --line-soft: #282242;
+  --ink: #edeaf7;
+  --ink-2: #cfc9e4;
+  --muted: #a49dbd;
+  --faint: #9b94b4;
+
+  /* เฉดอ่อนของแบรนด์ต้องพลิกเป็นเข้ม ไม่งั้นพื้นป้าย/ไอคอนจะขาวโพลน */
+  --violet-050: #201a38;
+  --violet-100: #2a2246;
+  --violet-200: #382e5c;
+  --blue-050: #1a1c33;
+  --blue-100: #232645;
+  --rose-100: #2e1e2a;
+  --rose-200: #3d2635;
+
+  /* สถานะ — สว่างขึ้นให้ผ่าน AA บนพื้นเข้ม */
+  --ok: #4cbf9c;
+  --ok-bg: #16302a;
+  --warn: #e0ae5c;
+  --warn-bg: #322715;
+  --danger: #ee8098;
+  --danger-bg: #331e26;
+  --info: #93a0f2;
+  --info-bg: #1f2444;
+  --neutral: #a49dbd;
+  --neutral-bg: #262038;
+
+  /* Data-viz — เลื่อนไปโทนอ่อนของสเกลเดิม (ยังเป็นชุดเดียวกัน) */
+  --viz-1: #8a6bd1;
+  --viz-2: #8d99ee;
+  --viz-3: #a78be0;
+  --viz-4: #b0b9f4;
+  --viz-5: #f09fb6;
+  --viz-6: #c3b0ec;
+  --viz-7: #d0d6fa;
+  --viz-8: #f6bfd0;
+
+  --grad-soft: linear-gradient(135deg, #1a1c33, #201a38 50%, #2e1e2a);
+
+  /* เงา — ดำ ไม่ใช่ม่วง */
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --sh-2: 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 20px -8px rgba(0, 0, 0, 0.55);
+  --sh-3: 0 14px 38px -14px rgba(0, 0, 0, 0.75);
+  --sh-brand: 0 6px 18px -6px rgba(107, 82, 173, 0.55);
+  --sh-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* semantic/component ที่ hard-code rgba ไว้ — ต้องพลิกตามด้วย */
+  --line-strong: #3f3760;
+  --accent: var(--violet-400);
+  --accent-strong: var(--violet-300);
+  --accent-tint: rgba(167, 139, 224, 0.1);
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-border-hover: rgba(255, 255, 255, 0.14);
+  --btn-accent-bg: var(--violet-600);
+  --btn-accent-hover: var(--violet-500);
+  --btn-primary-bg: var(--violet-500);
+  --btn-primary-color: #120e19;
+  --btn-primary-hover: var(--violet-400);
+  --btn-danger-hover: #f295a8;
+  --btn-success-hover: #6ad0b1;
+  --input-border: rgba(255, 255, 255, 0.18);
+  --input-focus-ring: rgba(167, 139, 224, 0.22);
+  --table-row-hover: rgba(167, 139, 224, 0.07);
+  --link: var(--violet-300);
+  --link-hover: var(--violet-200);
+  --sidebar-text: var(--ink-2);
+  --sidebar-bg-hover: rgba(167, 139, 224, 0.1);
+  --sidebar-line: rgba(255, 255, 255, 0.08);
+  --sidebar-active-bg: linear-gradient(135deg, #6b52ad 0%, #5d4ba8 100%);
+  --nav-badge-bg: var(--rose-600);
+  --focus-ring: var(--violet-300);
+  --focus-ring-soft: rgba(195, 176, 236, 0.35);
+}
+
+/* ภาพและกราฟ SVG สว่างจ้าบนพื้นเข้ม — ลดลงเล็กน้อยตอนไม่ได้โฟกัส */
+:root[data-theme='dark'] img:not([src$='.svg']) {
+  filter: brightness(0.92);
+}

@@ -1,0 +1,29 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+server/data/*.db
+server/data/*.db-*
+server/data/*.sqlite*
+server/data/pod/*.png
+server/data/pod/*.jpg
+server/data/pod/*.jpeg
+server/data/pod/*.webp
+.env
+.env.*
+!.env.example
+
+# ตัวเปิด/ปิด server เก็บ pid + log ไว้ที่นี่
+.run/
+
+# Capacitor (แอป native) — ของที่เครื่อง Mac สร้างเอง/ดาวน์โหลดมา ไม่ควร commit
+web/ios/App/Pods/
+web/ios/DerivedData/
+
+# ใบรับรอง TLS สร้างใหม่เองอัตโนมัติเมื่อ IP เปลี่ยน (server/src/tls.ts)
+# key.pem เป็น private key ห้ามขึ้น repo เด็ดขาด
+server/data/cert/
+
+# ข้อมูลจริงของงาน ไม่ใช่โค้ด
+server/data/pod/
+extractor/**/output/

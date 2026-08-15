@@ -1,0 +1,148 @@
+import { useEffect, useRef, useState } from 'react'
+import { Button } from './ui'
+import { compressFile, compressToJpeg, type CompressedImage } from '../utils/image'
+
+/**
+ * กล้องที่อยู่ในหน้าเว็บเอง — ไม่เรียกแอปกล้องของเครื่อง
+ *
+ * ทำไมไม่ใช้ <input type="file" capture> ซึ่งง่ายกว่า:
+ *  • แอปกล้องของเครื่องจะเซฟรูปลง Photos ของคนขับด้วย เราสั่งห้ามไม่ได้
+ *  • ช่องนั้นเปิดให้เลือกรูปเก่าจาก gallery ได้ → แนบรูปเมื่อวานมาปิดงานวันนี้ได้
+ * ถ่ายผ่าน getUserMedia รูปวิ่งจาก stream เข้า canvas แล้วขึ้น server ตรง ๆ
+ * ไม่แตะที่เก็บไฟล์ของเครื่องเลย และไม่มีทางหยิบรูปเก่ามาใช้
+ *
+ * ข้อแลกเปลี่ยน: getUserMedia ทำงานเฉพาะ secure context (https หรือ localhost)
+ * ถ้าเปิดผ่าน http จะตกมาใช้ช่องเลือกไฟล์แทน พร้อมบอกสาเหตุให้ผู้ใช้รู้
+ */
+export function CameraCapture({
+  onCapture,
+  disabled,
+}: {
+  onCapture: (img: CompressedImage) => void
+  disabled?: boolean
+}): React.JSX.Element {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState('')
+
+  const secure = typeof window !== 'undefined' && window.isSecureContext
+  const supported = secure && typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+
+  const stop = (): void => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }
+
+  // ปิดกล้องเมื่อออกจากหน้า — ไฟกล้องค้างบนมือถือคือบั๊กที่ผู้ใช้รู้สึกทันที
+  useEffect(() => stop, [])
+
+  const start = async (): Promise<void> => {
+    setProblem('')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } },
+        audio: false,
+      })
+      streamRef.current = stream
+      setOpen(true)
+      // video element เพิ่งถูก mount รอบนี้ — ผูก stream หลัง React วาดเสร็จ
+      requestAnimationFrame(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          void videoRef.current.play()
+        }
+      })
+    } catch (e) {
+      const name = (e as { name?: string }).name
+      setProblem(
+        name === 'NotAllowedError'
+          ? 'ไม่ได้รับอนุญาตให้ใช้กล้อง — เปิดสิทธิ์กล้องให้เว็บนี้ในตั้งค่าเบราว์เซอร์'
+          : name === 'NotFoundError'
+            ? 'ไม่พบกล้องบนอุปกรณ์นี้'
+            : 'เปิดกล้องไม่สำเร็จ',
+      )
+    }
+  }
+
+  const shoot = async (): Promise<void> => {
+    const video = videoRef.current
+    if (!video) return
+    setBusy(true)
+    try {
+      const img = await compressToJpeg(video, video.videoWidth, video.videoHeight)
+      stop()
+      setOpen(false)
+      onCapture(img)
+    } catch (e) {
+      setProblem((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const pickFile = async (file: File | undefined): Promise<void> => {
+    if (!file) return
+    setBusy(true)
+    try {
+      onCapture(await compressFile(file))
+    } catch (e) {
+      setProblem((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (open) {
+    return (
+      <div className="cam-live">
+        <video ref={videoRef} playsInline muted className="cam-video" />
+        <div className="cam-controls">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              stop()
+              setOpen(false)
+            }}
+          >
+            ยกเลิก
+          </Button>
+          <Button size="lg" loading={busy} onClick={() => void shoot()}>
+            ถ่ายรูป
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="cam-start">
+      {supported ? (
+        <Button variant="outline" disabled={disabled} loading={busy} onClick={() => void start()}>
+          เปิดกล้องถ่ายรูป
+        </Button>
+      ) : (
+        <>
+          <label className="btn btn-outline">
+            เลือกรูปจากอุปกรณ์
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              disabled={disabled}
+              onChange={(e) => void pickFile(e.target.files?.[0])}
+            />
+          </label>
+          <p className="text-xs text-muted">
+            {secure
+              ? 'อุปกรณ์นี้ไม่รองรับกล้องในหน้าเว็บ'
+              : 'ต้องเปิดหน้าเว็บผ่าน https จึงจะถ่ายรูปในแอปได้ — ตอนนี้ใช้วิธีเลือกไฟล์แทน'}
+          </p>
+        </>
+      )}
+      {problem && <p className="text-xs text-danger">{problem}</p>}
+    </div>
+  )
+}

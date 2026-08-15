@@ -1,0 +1,30 @@
+{
+  "name": "ทรานส์พลัส TMS",
+  "short_name": "TMS",
+  "description": "ระบบบริหารจัดการขนส่ง — ออเดอร์ รถ พนักงานขับ POD และรายงาน",
+  "lang": "th",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f0e6",
+  "theme_color": "#241f15",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

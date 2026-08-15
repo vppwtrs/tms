@@ -1,0 +1,340 @@
+import { cloneElement, isValidElement, useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useCountUp } from '../hooks/useCountUp'
+import { IconX } from './icons'
+
+/* ---------- Button ---------- */
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'accent' | 'outline' | 'ghost' | 'danger' | 'success'
+  size?: 'sm' | 'md' | 'lg'
+  loading?: boolean
+  icon?: ReactNode
+}
+
+export function Button({ variant = 'primary', size = 'md', loading, icon, children, className = '', disabled, ...rest }: ButtonProps) {
+  return (
+    <button
+      className={`btn btn-${variant} ${size === 'sm' ? 'btn-sm' : size === 'lg' ? 'btn-lg' : ''} ${className}`}
+      disabled={disabled || loading}
+      /* แยก "กำลังทำงาน" ออกจาก "ใช้ไม่ได้" — ปุ่มที่รอผลยังคงสีเดิม จางน้อยกว่า
+         ปุ่มที่ถูกปิด และ screen reader จะประกาศว่ากำลังประมวลผล ไม่ใช่ปุ่มตาย */
+      data-loading={loading ? '' : undefined}
+      aria-busy={loading || undefined}
+      {...rest}
+    >
+      {loading ? <span className="spin" aria-hidden="true">⟳</span> : icon}
+      {children}
+    </button>
+  )
+}
+
+/* ---------- Badge ---------- */
+export function Badge({ label, tone, dot }: { label: string; tone?: string; dot?: boolean }) {
+  return (
+    <span className={`badge badge-${tone ?? 'pending'}`}>
+      {dot && <span className="dot" />}
+      {label}
+    </span>
+  )
+}
+
+/* ---------- Form fields ---------- */
+export function Field({ label, required, error, children, hint }: { label: string; required?: boolean; error?: string; hint?: string; children: ReactNode }) {
+  // ผูก label ↔ control ผ่าน id ที่สร้างเอง — ช่วย screen reader (WCAG 1.3.1)
+  const controlId = useId()
+  const msgId = `${controlId}-msg`
+  /* ผูก control เข้ากับข้อความ error/hint ด้วย aria-describedby + aria-invalid
+     ไม่งั้นคนใช้ screen reader จะได้ยินแค่ชื่อฟิลด์ ไม่รู้ว่ากรอกผิดตรงไหน */
+  const control = isValidElement(children)
+    ? cloneElement(children as ReactElement<{ id?: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }>, {
+        id: controlId,
+        'aria-describedby': error || hint ? msgId : undefined,
+        'aria-invalid': error ? true : undefined,
+      })
+    : children
+  return (
+    <div className="field">
+      <label htmlFor={controlId}>
+        {label} {required && <span className="req">*</span>}
+      </label>
+      {control}
+      {error ? (
+        <span className="field-error" id={msgId}>{error}</span>
+      ) : hint ? (
+        <span className="text-xs text-muted" id={msgId}>{hint}</span>
+      ) : null}
+    </div>
+  )
+}
+
+export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className="input" {...props} />
+}
+
+export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className="select" {...props} />
+}
+
+export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className="textarea" {...props} />
+}
+
+/* ---------- Toggle ----------
+   สวิตช์เปิด/ปิด — ใช้ <button role="switch"> ไม่ใช่ checkbox ที่ตกแต่ง
+   เพราะ screen reader อ่าน "เปิด/ปิด" ตรงกับสิ่งที่เห็น และคุมขนาดปุ่มให้
+   แตะได้จริงบนมือถือได้ (พื้นที่แตะ 44px ตาม WCAG 2.2 · 2.5.8) */
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+  tone,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label: string
+  hint?: string
+  disabled?: boolean
+  tone?: 'warn'
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      className={`toggle-row${checked ? ' on' : ''}${tone === 'warn' ? ' warn' : ''}`}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="toggle-text">
+        <span className="toggle-label">{label}</span>
+        {hint && <span className="toggle-hint">{hint}</span>}
+      </span>
+      <span className="toggle-track" aria-hidden>
+        <span className="toggle-knob" />
+      </span>
+    </button>
+  )
+}
+
+/* ---------- Modal ---------- */
+interface ModalProps {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+  footer?: ReactNode
+  size?: 'md' | 'lg'
+}
+
+export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
+  const titleId = useId()
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [open, onClose])
+
+  if (!open) return <></>
+  return (
+    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={`modal-panel ${size === 'lg' ? 'modal-lg' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <div className="modal-header">
+          <h3 className="modal-title" id={titleId}>{title}</h3>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="ปิด" className="btn-icon">
+            <IconX size={16} />
+          </Button>
+        </div>
+        <div className="modal-body">{children}</div>
+        {footer && <div className="modal-footer">{footer}</div>}
+      </div>
+    </div>
+  )
+}
+
+/* ---------- ConfirmDialog ---------- */
+interface ConfirmProps {
+  open: boolean
+  title: string
+  message: ReactNode
+  confirmLabel?: string
+  danger?: boolean
+  loading?: boolean
+  onConfirm: () => void
+  onClose: () => void
+}
+
+export function ConfirmDialog({ open, title, message, confirmLabel = 'ยืนยัน', danger, loading, onConfirm, onClose }: ConfirmProps) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={loading}>
+            ยกเลิก
+          </Button>
+          <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="text-md" style={{ lineHeight: 1.7 }}>
+        {message}
+      </div>
+    </Modal>
+  )
+}
+
+/* ---------- Skeleton ---------- */
+export function Skeleton({ width = '100%', height = 16, style }: { width?: string | number; height?: number; style?: React.CSSProperties }) {
+  return <div className="skeleton" style={{ width, height, ...style }} />
+}
+
+export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: number }) {
+  return (
+    <div className="table-wrap">
+      <table className="table">
+        <thead>
+          <tr>
+            {Array.from({ length: cols }, (_, i) => (
+              <th key={i}>
+                <Skeleton width={70} height={10} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }, (_, r) => (
+            <tr key={r}>
+              {Array.from({ length: cols }, (_, c) => (
+                <td key={c}>
+                  <Skeleton width={40 + ((r * 7 + c * 13) % 60)} height={13} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/* ---------- EmptyState ---------- */
+export function EmptyState({ icon, title, desc, action }: { icon?: ReactNode; title: string; desc?: string; action?: ReactNode }) {
+  return (
+    <div className="empty-state">
+      <div className="icon">{icon}</div>
+      <h2>{title}</h2>
+      {desc && <p className="text-sm" style={{ marginTop: 4 }}>{desc}</p>}
+      {action && <div style={{ marginTop: 16 }}>{action}</div>}
+    </div>
+  )
+}
+
+/* ---------- Pagination ---------- */
+export function Pagination({ page, totalPages, total, onChange }: { page: number; totalPages: number; total: number; onChange: (p: number) => void }) {
+  if (total === 0) return null
+  return (
+    <div className="pagination">
+      <span>
+        ทั้งหมด {total.toLocaleString('th-TH')} รายการ
+      </span>
+      <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        ก่อนหน้า
+      </Button>
+      <span>
+        หน้า {page} / {totalPages}
+      </span>
+      <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
+        ถัดไป
+      </Button>
+    </div>
+  )
+}
+
+/* ---------- StatCard ---------- */
+export function StatCard({ label, value, symbol, icon, tone, foot, trend }: { label: string; value: number | string; symbol?: string; icon: ReactNode; tone: string; foot?: ReactNode; trend?: { dir: 'up' | 'down' | 'flat'; text: string } }) {
+  const shown = typeof value === 'number' ? useCountUp(value) : value
+  const arrow = trend ? (trend.dir === 'up' ? '▲' : trend.dir === 'down' ? '▼' : '•') : ''
+  const trendColor = trend ? (trend.dir === 'up' ? 'var(--success)' : trend.dir === 'down' ? 'var(--danger)' : 'var(--muted)') : undefined
+  return (
+    <div className="card card-hover stat-card">
+      <div className="stat-icon" style={{ background: `var(--${tone}-050)`, color: `var(--${tone})` }}>
+        {icon}
+      </div>
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">
+        {typeof shown === 'number' ? shown.toLocaleString('th-TH') : shown}
+        {symbol && <span className="text-lg" style={{ color: 'var(--muted)', fontWeight: 600 }}> {symbol}</span>}
+      </div>
+      {trend && (
+        <div className="stat-foot">
+          <span style={{ color: trendColor, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{arrow}</span>
+          <span style={{ color: trendColor, fontWeight: 700 }}>{trend.text}</span>
+        </div>
+      )}
+      {foot && <div className="stat-foot">{foot}</div>}
+    </div>
+  )
+}
+
+/* ---------- PageHeader ---------- */
+export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div>
+        <h1 className="page-title">{title}</h1>
+        {subtitle && <p className="page-subtitle">{subtitle}</p>}
+      </div>
+      {actions && <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>{actions}</div>}
+    </div>
+  )
+}
+
+/* ---------- HelpTip — อธิบายศัพท์ (native tooltip + a11y) ---------- */
+export function HelpTip({ text }: { text: string }) {
+  return (
+    <button type="button" className="help-tip" aria-label={`คำอธิบาย: ${text}`} title={text}>
+      ?
+    </button>
+  )
+}
+
+/* ---------- SearchInput ---------- */
+export function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div className="search-box">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <circle cx="11" cy="11" r="7" />
+        <path d="M21 21l-4.3-4.3" />
+      </svg>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder ?? 'ค้นหา...'} />
+    </div>
+  )
+}
+
+/* ---------- ErrorBox ---------- */
+export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--danger)' }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>⚠️</div>
+      <div className="text-strong">{message}</div>
+      {onRetry && (
+        <Button variant="outline" size="sm" style={{ marginTop: 14 }} onClick={onRetry}>
+          ลองใหม่
+        </Button>
+      )}
+    </div>
+  )
+}

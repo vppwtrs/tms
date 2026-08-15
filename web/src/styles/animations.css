@@ -1,0 +1,178 @@
+/* ===== Animation ทั้งหมด — ใช้ transform/opacity เท่านั้น (GPU) ===== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+}
+
+@keyframes slideBar {
+  from {
+    opacity: 0;
+    transform: scaleY(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes flashRow {
+  0% {
+    background: rgba(139, 107, 209, 0.22);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes growBar {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes donutIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* แถบความสูง bar chart — แอนิเมชันครั้งเดียวตอนเข้า */
+.bar-col .bar {
+  transform-origin: bottom;
+  animation: growBar var(--dur-3) var(--ease-enter) both;
+}
+.bar-col:nth-child(2) .bar {
+  animation-delay: 0.04s;
+}
+.bar-col:nth-child(3) .bar {
+  animation-delay: 0.08s;
+}
+.bar-col:nth-child(4) .bar {
+  animation-delay: 0.12s;
+}
+.bar-col:nth-child(5) .bar {
+  animation-delay: 0.16s;
+}
+.bar-col:nth-child(6) .bar {
+  animation-delay: 0.2s;
+}
+.bar-col:nth-child(7) .bar {
+  animation-delay: 0.24s;
+}
+.bar-col:nth-child(8) .bar {
+  animation-delay: 0.28s;
+}
+
+.line-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: drawLine 1.1s var(--ease-enter) forwards;
+}
+
+.donut-wrap {
+  animation: donutIn var(--motion-enter) var(--ease-enter);
+}
+
+/* ผู้ใช้ต้องการ motion น้อยลง → ปิด animation ทั้งหมด */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
