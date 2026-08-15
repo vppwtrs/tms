@@ -50,14 +50,19 @@ export async function loadProfile(): Promise<Profile | null> {
   const { data: sessionData } = await supabase.auth.getSession()
   if (!sessionData.session) return null
 
-  /* RLS users_self_select ทำให้ query นี้คืนได้แค่แถวของตัวเองอยู่แล้ว
-     ไม่ต้องใส่ .eq('auth_id', ...) ให้ซ้ำซ้อน แต่ใส่ .maybeSingle() เผื่อ auth_id ยังไม่ถูกผูก
+  /* **ต้องกรองด้วย auth_id เอง ห้ามพึ่ง RLS ให้เหลือแถวเดียว**
+     เคยเขียนไว้ว่า users_self_select กรองให้อยู่แล้วจึงไม่ต้องใส่ .eq() — ผิด
+     คนที่มีสิทธิ์ users.manage (admin) โดน policy users_manage_select ด้วย
+     ซึ่งเปิดให้เห็นผู้ใช้ทุกคน query จึงคืนหลายแถว แล้ว .maybeSingle() โยน error
+     ผลคือ admin ล็อกอินผ่านแต่ค้างหน้าเดิมเงียบ ๆ ส่วนคนขับใช้ได้ปกติเพราะเห็นแถวเดียว
+     ยิ่งอนุมัติผู้ใช้เพิ่ม ยิ่งพังแน่นอนขึ้น — ตอนมีผู้ใช้คนเดียวในระบบมันเคยผ่าน
 
      ไม่ผ่าน unwrapMaybe() ตรงนี้เพราะ .maybeSingle() คืน union ที่ทำให้ TypeScript
      infer generic ไม่ออก (ได้ never) — เขียนเช็ค error เองชัดกว่าไปฝืน type helper */
   const { data: user, error } = await supabase
     .from('users')
     .select('id, username, name, role')
+    .eq('auth_id', sessionData.session.user.id)
     .maybeSingle()
   if (error) throw toDataError(error)
 
