@@ -32,6 +32,7 @@ const NAV: NavItem[] = [
   { to: '/my-jobs', label: 'งานของฉัน', icon: IconTruckBig, perm: 'myjobs.view' },
   { to: '/customers', label: 'ลูกค้า', icon: IconBuilding, perm: 'customers.view' },
   { to: '/tms-pull', label: 'ดึงข้อมูลจาก TMS', icon: IconTable, perm: 'orders.write' },
+  { to: '/tms-import', label: 'นำเข้าเป็นออเดอร์', icon: IconTable, perm: 'orders.write' },
   { to: '/users', label: 'ผู้ใช้และสิทธิ์', icon: IconShield, perm: 'users.manage' },
 ]
 

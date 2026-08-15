@@ -23,6 +23,7 @@ const CloudMyJobs = lazy(() => import('./pages/CloudMyJobs'))
 const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
 const TmsPull = lazy(() => import('./pages/TmsPull'))
+const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function Splash(): React.JSX.Element {
@@ -79,6 +80,7 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/" element={<Home />} />
           <Route path="/my-jobs" element={<CloudMyJobs />} />
           <Route path="/tms-pull" element={<TmsPull />} />
+          <Route path="/tms-import" element={<CloudTmsImport />} />
           <Route path="/customers" element={<CloudCustomers />} />
           <Route path="/users" element={<CloudUsers />} />
         </Route>
