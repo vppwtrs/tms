@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Button, Field, Input, Select, PageHeader, ErrorBox } from '../components/ui'
 import {
-  listWarehouses, pullShipments, pushShipments, syncStatus,
-  type Warehouse, type PullResult,
+  listWarehouses, pullShipments, pullPickingLists, pushShipments, syncStatus,
+  PL_PLANNABLE, PL_STATUS,
+  type Warehouse, type PullResult, type PlStatus,
 } from '../api/tmsPull'
 
 /**
@@ -19,6 +20,24 @@ import {
  * ตั้งใจให้เป็นสองขั้น เพราะชื่อร้านใน TMS ไม่ตรงกับชื่อลูกค้าในระบบเรา
  */
 
+/** สองแหล่งนี้ตอบคนละคำถาม ไม่ใช่ของอย่างเดียวกันคนละชื่อ:
+ *  ใบสั่ง (Picking List) = ของที่ยังไม่ได้ส่ง → เอาไปวางแผนจ่ายงาน
+ *  ที่ส่งแล้ว (Actual Shipment) = ประวัติของที่ส่งจบแล้ว → เอาไปกระทบยอด/ทำรายงาน */
+type Source = 'pl' | 'actual'
+
+const today = (): string => {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 10)
+}
+
+const plus = (days: number): string => {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 10)
+}
+
 const yesterday = (): string => {
   const d = new Date()
   d.setDate(d.getDate() - 1)
@@ -29,8 +48,12 @@ const yesterday = (): string => {
 export default function TmsPull(): React.JSX.Element {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [whCode, setWhCode] = useState('')
-  const [from, setFrom] = useState(yesterday)
-  const [to, setTo] = useState(yesterday)
+  const [source, setSource] = useState<Source>('pl')
+  /* ใบสั่งมองไปข้างหน้า ค่าเริ่มต้นจึงเป็นวันนี้ถึงอีก 7 วัน
+     ส่วนของที่ส่งแล้วมองย้อนหลัง ค่าเริ่มต้นเป็นเมื่อวาน (รอบข้อมูลปิดหลังเที่ยงคืน) */
+  const [from, setFrom] = useState(today)
+  const [to, setTo] = useState(() => plus(7))
+  const [statuses, setStatuses] = useState<PlStatus[]>(PL_PLANNABLE)
   const [withItems, setWithItems] = useState(true)
 
   const [busy, setBusy] = useState(false)
@@ -65,11 +88,13 @@ export default function TmsPull(): React.JSX.Element {
     setResult(null)
     setPushed(null)
     try {
-      const r = await pullShipments({ from, to, warehouse: wh, withItems }, setLog)
+      const r = source === 'pl'
+        ? await pullPickingLists({ from, to, warehouse: wh, statuses }, setLog)
+        : await pullShipments({ from, to, warehouse: wh, withItems }, setLog)
       setResult(r)
       setLog(
         r.rows.length
-          ? `ดึงมา ${r.rows.length} แถว · ${r.pickingLists} PL · ${r.trips} เที่ยว`
+          ? `ดึงมา ${r.rows.length} แถว · ${r.pickingLists} ใบ · ${r.trips} เที่ยว`
           : 'ไม่พบข้อมูลในช่วงที่เลือก',
       )
     } catch (e) {
@@ -98,7 +123,12 @@ export default function TmsPull(): React.JSX.Element {
 
   return (
     <>
-      <PageHeader title="ดึงข้อมูลจาก TMS" subtitle="ดึงรายงาน Actual Shipment แล้วส่งเข้าระบบ" />
+      <PageHeader
+        title="ดึงข้อมูลจาก TMS"
+        subtitle={source === 'pl'
+          ? 'ดึงใบสั่งที่ยังไม่ได้ส่ง มาวางแผนจ่ายงาน'
+          : 'ดึงประวัติของที่ส่งจบแล้ว มากระทบยอด'}
+      />
 
       {stale && (
         <div className="tms-stale" role="status">
@@ -109,6 +139,26 @@ export default function TmsPull(): React.JSX.Element {
       {error && <ErrorBox message={error} />}
 
       <div className="card" style={{ padding: 18, display: 'grid', gap: 14, maxWidth: 560 }}>
+        <Field label="ดึงอะไร" required>
+          <Select
+            value={source}
+            disabled={busy}
+            onChange={(e) => {
+              const next = e.target.value as Source
+              setSource(next)
+              setResult(null)
+              setLog('')
+              /* เปลี่ยนแหล่งแล้วต้องเปลี่ยนช่วงวันด้วย ไม่งั้นเลือกใบสั่งของเมื่อวาน
+                 หรือของที่ส่งแล้วของสัปดาห์หน้า ซึ่งได้ผลว่างทั้งคู่แล้วคนจะงง */
+              if (next === 'pl') { setFrom(today()); setTo(plus(7)) }
+              else { setFrom(yesterday()); setTo(yesterday()) }
+            }}
+          >
+            <option value="pl">ใบสั่งที่ยังไม่ได้ส่ง (Picking List) — เอาไปวางแผน</option>
+            <option value="actual">ของที่ส่งแล้ว (Actual Shipment) — เอาไปกระทบยอด</option>
+          </Select>
+        </Field>
+
         <Field label="คลัง" required>
           <Select value={whCode} onChange={(e) => setWhCode(e.target.value)} disabled={busy}>
             {warehouses.map((w) => (
@@ -128,10 +178,30 @@ export default function TmsPull(): React.JSX.Element {
           </Field>
         </div>
 
-        <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13 }}>
-          <input type="checkbox" checked={withItems} onChange={(e) => setWithItems(e.target.checked)} disabled={busy} />
-          ดึงชื่อสินค้ามาด้วย (ช้ากว่า แต่ได้รายละเอียดครบ)
-        </label>
+        {source === 'pl' ? (
+          <Field label="สถานะใบสั่ง" hint="Completed คือส่งจบแล้ว เอาเข้ามาก็ได้ออเดอร์ที่ไม่มีอะไรให้ทำ">
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              {PL_STATUS.map((st) => (
+                <label key={st} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={statuses.includes(st)}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setStatuses((prev) => (e.target.checked ? [...prev, st] : prev.filter((x) => x !== st)))
+                    }
+                  />
+                  {st}
+                </label>
+              ))}
+            </div>
+          </Field>
+        ) : (
+          <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13 }}>
+            <input type="checkbox" checked={withItems} onChange={(e) => setWithItems(e.target.checked)} disabled={busy} />
+            ดึงชื่อสินค้ามาด้วย (ช้ากว่า แต่ได้รายละเอียดครบ)
+          </label>
+        )}
 
         <div style={{ display: 'flex', gap: 10 }}>
           <Button onClick={() => void run()} loading={busy} disabled={!wh}>

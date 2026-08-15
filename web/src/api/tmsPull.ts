@@ -74,6 +74,14 @@ async function searchWarehouses(): Promise<Warehouse[]> {
   return unwrap(raw).map(toWarehouse).filter((w) => w.code)
 }
 
+/** คลังที่ระบบนี้รับผิดชอบ — เจ้าของงานกำหนดเอง ไม่ใช่ทุกคลังที่บัญชี TMS มองเห็น
+ *  บัญชีบางคนเห็นคลังของแผนกอื่นด้วย ซึ่งไม่ควรถูกดึงเข้าระบบนี้โดยบังเอิญ
+ *  ปล่อยเป็น array ว่างเมื่อไหร่ = รับทุกคลังที่บัญชีเห็น */
+export const ALLOWED_WAREHOUSES = ['KM23-CW-01', 'KM23-CW-02']
+
+const allowed = (list: Warehouse[]): Warehouse[] =>
+  ALLOWED_WAREHOUSES.length ? list.filter((w) => ALLOWED_WAREHOUSES.includes(w.code)) : list
+
 export async function listWarehouses(): Promise<Warehouse[]> {
   /* /personal/warehouses คือคลังที่ผูกกับ "ตัวบุคคล" ซึ่งหลายบัญชีเป็นค่าว่าง
      ทั้งที่คนคนนั้นเปิดดูคลังได้จริงในหน้า TMS — extractor เลยมี KM23-CW-01
@@ -83,8 +91,8 @@ export async function listWarehouses(): Promise<Warehouse[]> {
     .then((raw) => unwrap(raw).map(toWarehouse).filter((w) => w.code))
     .catch(() => [] as Warehouse[])
 
-  if (personal.length) return personal
-  return searchWarehouses()
+  const list = personal.length ? personal : await searchWarehouses()
+  return allowed(list)
 }
 
 /* GUID ของคลัง ถามครั้งเดียวต่อรหัส — /personal/warehouses บาง build ไม่ส่ง id มาให้
@@ -274,6 +282,133 @@ export async function pullShipments(
   }
 
   return { rows, pickingLists, trips, missingItems, qtyMismatch }
+}
+
+/* ---------- Picking List: ของที่ "ยังไม่ได้ส่ง" ----------
+ *
+ * Actual Shipment เป็นรายงานของที่ส่งไปแล้ว นำเข้ามาเป็นออเดอร์ `pending` จึงผิดความหมาย —
+ * หน้าแผนงานจะเต็มไปด้วยงานที่จบแล้วรอให้คนจัดเที่ยวย้อนหลัง Picking List คือใบสั่ง
+ * ที่ยังไม่ได้ส่ง จึงเป็นแหล่งข้อมูลที่ถูกต้องสำหรับการวางแผน
+ *
+ * ข้อต่างที่ต้องรู้ก่อนแก้อะไรตรงนี้ (ยกมาจาก extractor ที่ยิงของจริงมาก่อน):
+ *   - อ้างคลังด้วย **รหัส** ไม่ใช่ GUID ต่างจาก /v1/reports/actualshipment
+ *   - **API ไม่มีช่องรับช่วงวันที่** ต้องดึงมาแล้วกรองฝั่งเรา สั่งเรียงจากใหม่ไปเก่า
+ *     แล้วหยุดทันทีที่เจอหน้าที่เก่ากว่าวันเริ่มต้น ไม่งั้นคือไล่ทั้งคลัง ~15,000 ใบ
+ *   - details[] ติดมากับ header อยู่แล้ว ไม่ต้องยิงหา item เพิ่มเหมือนฝั่ง Actual
+ */
+
+/** สถานะของ PL ตามที่ TMS ใช้จริง — เรียงตามลำดับชีวิตของใบ */
+export const PL_STATUS = ['New', 'AssignTrip', 'OnTruck', 'Completed'] as const
+export type PlStatus = (typeof PL_STATUS)[number]
+
+/** ค่าตั้งต้น = ใบที่ยังไม่ถึงร้าน ซึ่งคือของที่ยังวางแผนได้
+ *  Completed คือส่งจบแล้ว เอาเข้ามาก็ได้ออเดอร์ที่ไม่มีอะไรให้ทำ */
+export const PL_PLANNABLE: PlStatus[] = ['New', 'AssignTrip', 'OnTruck']
+
+interface PlHeader {
+  pickingListNo?: string
+  status?: string
+  planDeliveryDate?: string
+  area?: string
+  customerCode?: string
+  customerName?: string
+  customerProvince?: string
+  shipToName?: string
+  shipToProvince?: string
+  totalQty?: number
+  tripNo?: string
+  details?: PlDetail[]
+}
+
+const PL_PAGE_SIZE = 500
+const PL_MAX_PAGES = 60
+
+export async function pullPickingLists(
+  opts: {
+    from: string
+    to: string
+    warehouse: Warehouse
+    statuses?: PlStatus[]
+  },
+  onProgress?: (msg: string) => void,
+): Promise<PullResult> {
+  const path = `/v1/pickinglistheaders/${encodeURIComponent(opts.warehouse.code)}/search`
+  const keep = new Set<string>(opts.statuses ?? PL_PLANNABLE)
+
+  const headers: PlHeader[] = []
+  let scanned = 0
+
+  for (let page = 1; page <= PL_MAX_PAGES; page++) {
+    const r = await tmsCall<{ data?: PlHeader[]; items?: PlHeader[]; totalCount?: number }>(path, {
+      orderBy: ['planDeliveryDate Descending'],
+      pageNumber: page,
+      pageSize: PL_PAGE_SIZE,
+      keyword: null,
+    })
+    const batch = r.data ?? r.items ?? []
+    scanned += batch.length
+
+    let oldest = '9999-99-99'
+    for (const h of batch) {
+      const d = day(h.planDeliveryDate)
+      if (d && d < oldest) oldest = d
+      if (!d || d < opts.from || d > opts.to) continue
+      if (keep.size && !keep.has(s(h.status))) continue
+      headers.push(h)
+    }
+
+    onProgress?.(`สแกน ${scanned} ใบ · เข้าเงื่อนไข ${headers.length} ใบ`)
+
+    /* เรียงจากใหม่ไปเก่า — หน้านี้เก่ากว่าวันเริ่มต้นแล้ว ที่เหลือก็เก่ากว่าทั้งหมด */
+    if (oldest !== '9999-99-99' && oldest < opts.from) break
+    if (batch.length < PL_PAGE_SIZE) break
+  }
+
+  /* แปลงให้เป็นรูปเดียวกับฝั่ง Actual Shipment เพื่อใช้ pushShipments ตัวเดิมได้
+     ไม่มีทะเบียนกับคนขับ เพราะใบที่ยังไม่ได้จัดเที่ยวยังไม่มีใครรับ — ตั้งใจปล่อยว่าง
+     ไม่ใช่ข้อมูลหาย */
+  const rows: ShipmentRow[] = []
+  for (const h of headers) {
+    const common = {
+      orderDate: day(h.planDeliveryDate),
+      tripNo: s(h.tripNo),
+      pickingListNo: s(h.pickingListNo),
+      dealerCode: s(h.customerCode),
+      dealerName: s(h.customerName),
+      branch: s(h.shipToName),
+      province: s(h.shipToProvince ?? h.customerProvince),
+      unit: n(h.totalQty),
+      licensePlate: '',
+      driver: '',
+      deliveryDate: '',
+      statusDelivery: s(h.status),
+      area: s(h.area),
+      actualCost: null,
+      qtySource: '' as const,
+    }
+    const det = h.details ?? []
+    if (!det.length) {
+      rows.push({ ...common, itemNo: '', itemName: '', itemQty: null, itemSplitQty: null })
+      continue
+    }
+    for (const d of det) {
+      rows.push({
+        ...common,
+        itemNo: s(d.itemNo),
+        itemName: s(d.description),
+        itemQty: n(d.qty),
+        itemSplitQty: n(d.splitQty),
+      })
+    }
+  }
+
+  return {
+    rows,
+    pickingLists: new Set(rows.map((r) => r.pickingListNo)).size,
+    trips: new Set(rows.map((r) => r.tripNo).filter(Boolean)).size,
+    missingItems: headers.filter((h) => !(h.details ?? []).length).length,
+    qtyMismatch: 0,
+  }
 }
 
 /* ---------- ส่งเข้า Supabase ---------- */
