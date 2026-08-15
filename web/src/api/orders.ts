@@ -18,18 +18,50 @@ export interface OrderFilter {
   status?: OrderStatus
   priority?: OrderPriority
   customerId?: number
+  /** กรองตามคนขับที่รับผิดชอบ — ผ่านเที่ยวที่ออเดอร์ถูกจัดเข้าไป ออเดอร์ไม่ได้ผูกคนขับตรง ๆ */
+  driverId?: number
   from?: string
   to?: string
   page?: number
   limit?: number
 }
 
-export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderRow>> {
+/** แถวออเดอร์พร้อมชื่อที่มาจากตารางอื่น — ของเดิมบน Express JOIN มาให้ในคิวรีเดียว
+ *  ที่นี่ใช้ embedded resource ของ PostgREST ซึ่งได้ผลเท่ากันแต่คืนเป็นก้อนซ้อน
+ *  จึงต้องแบนก่อนส่งออก หน้าจอจะได้ไม่ต้องรู้ว่าข้อมูลมาจากกี่ตาราง */
+export interface OrderListRow extends OrderRow {
+  customer_name: string | null
+  driver_name: string | null
+  trip_no: string | null
+  pod_status: string | null
+}
+
+interface OrderJoined extends OrderRow {
+  customers: { name: string } | null
+  trips: { trip_no: string; drivers: { name: string } | null } | null
+  pod: { status: string }[] | null
+}
+
+const flatten = (r: OrderJoined): OrderListRow => ({
+  ...r,
+  customer_name: r.customers?.name ?? null,
+  driver_name: r.trips?.drivers?.name ?? null,
+  trip_no: r.trips?.trip_no ?? null,
+  pod_status: r.pod?.[0]?.status ?? null,
+})
+
+export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRow>> {
   const page = f.page ?? 1
   const limit = f.limit ?? 20
   const start = (page - 1) * limit
 
-  let q = supabase.from('orders').select('*', { count: 'exact' })
+  /* !inner เฉพาะตอนกรองตามคนขับ — ถ้าใส่ไว้ตลอด ออเดอร์ที่ยังไม่ได้จัดเที่ยว
+     จะหายไปจากตารางทั้งหมด ซึ่งคือใบที่ฝ่ายวางแผนต้องเห็นมากที่สุด */
+  const tripJoin = f.driverId ? 'trips!inner' : 'trips'
+  let q = supabase
+    .from('orders')
+    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, drivers(name)), pod(status)`, { count: 'exact' })
+  if (f.driverId) q = q.eq('trips.driver_id', f.driverId)
   if (f.q) q = q.or(`order_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
   if (f.status) q = q.eq('status', f.status)
   if (f.priority) q = q.eq('priority', f.priority)
@@ -41,7 +73,7 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderRow>> 
     .order('scheduled_at', { ascending: false })
     .range(start, start + limit - 1)
   if (error) throw error
-  return { rows: data ?? [], total: count ?? 0, page, limit }
+  return { rows: ((data ?? []) as unknown as OrderJoined[]).map(flatten), total: count ?? 0, page, limit }
 }
 
 export async function getOrder(id: number): Promise<OrderRow> {

@@ -68,6 +68,62 @@ export async function getTripBoard(): Promise<{ planned: TripRow[]; in_progress:
   }
 }
 
+/** เที่ยวหนึ่งใบพร้อมของที่การ์ดบนหน้าจัดเที่ยวต้องใช้ — ของเดิมบน Express JOIN มาให้แล้ว */
+export interface BoardTrip {
+  id: number
+  trip_no: string
+  status: TripStatus
+  departed_at: string | null
+  vehicle_plate: string
+  vehicle_type: string
+  vehicle_capacity: number
+  driver_name: string
+  total_weight: number
+  orders: OrderRow[]
+}
+
+/* ยิงสี่คิวรีแล้วประกอบเองแทน nested select — เหตุผลเดียวกับ getTripDetail()
+   คือ database.ts เขียน Relationships ไว้เป็น [] postgrest-js จึง infer ก้อนซ้อนไม่ได้
+   สี่คิวรีต่อการโหลดกระดานหนึ่งครั้งไม่ใช่ต้นทุนที่รู้สึกได้ เที่ยวที่ยังไม่จบมีไม่กี่สิบใบ */
+export async function getTripBoardDetailed(): Promise<{ planned: BoardTrip[]; in_progress: BoardTrip[] }> {
+  const trips: TripRow[] = await unwrap(
+    supabase.from('trips').select('*').in('status', ['planned', 'in_progress']).order('id', { ascending: false }),
+  )
+  if (trips.length === 0) return { planned: [], in_progress: [] }
+
+  const [vehicles, drivers, orders] = await Promise.all([
+    unwrap(supabase.from('vehicles').select('*').in('id', [...new Set(trips.map((t) => t.vehicle_id))])),
+    unwrap(supabase.from('drivers').select('*').in('id', [...new Set(trips.map((t) => t.driver_id))])),
+    unwrap(supabase.from('orders').select('*').in('trip_id', trips.map((t) => t.id)).order('scheduled_at')),
+  ])
+
+  const vById = new Map(vehicles.map((v) => [v.id, v]))
+  const dById = new Map(drivers.map((d) => [d.id, d]))
+
+  const cards: BoardTrip[] = trips.map((t) => {
+    const mine = orders.filter((o) => o.trip_id === t.id)
+    const v = vById.get(t.vehicle_id)
+    return {
+      id: t.id,
+      trip_no: t.trip_no,
+      status: t.status,
+      departed_at: t.departed_at,
+      vehicle_plate: v?.plate_no ?? '—',
+      vehicle_type: v?.vehicle_type ?? '',
+      vehicle_capacity: v?.capacity_kg ?? 0,
+      driver_name: dById.get(t.driver_id)?.name ?? '—',
+      /* ใบที่ยกเลิกไม่นับน้ำหนัก ไม่งั้นแถบความจุจะโชว์เต็มทั้งที่ของไม่ได้อยู่บนรถ */
+      total_weight: mine.reduce((s, o) => (o.status === 'cancelled' ? s : s + o.weight_kg), 0),
+      orders: mine,
+    }
+  })
+
+  return {
+    planned: cards.filter((t) => t.status === 'planned'),
+    in_progress: cards.filter((t) => t.status === 'in_progress'),
+  }
+}
+
 /* ---------- การกระทำ (RPC ทั้งหมด) ---------- */
 
 export interface CreateTripResult {
