@@ -47,23 +47,44 @@ const day = (v: unknown): string => s(v).slice(0, 10)
 
 /** รายงาน actualshipment อ้าง warehouse ด้วย GUID ส่วน pickinglistheaders อ้างด้วยรหัส
  *  ต้องเก็บทั้งคู่ ไม่ใช่อย่างใดอย่างหนึ่ง — เคยพลาดตรงนี้มาแล้ว */
+function toWarehouse(item: unknown): Warehouse {
+  /* **แต่ละรายการเป็นสตริงเปล่า ๆ ก็ได้** — บาง build ของ TMS ส่ง ["KM23-CW-01", ...]
+     ไม่ใช่ object ตอนย้ายจาก extractor เข้าแอปเผลอตัดเคสนี้ทิ้ง ผลคือช่องเลือกคลัง
+     ว่างเปล่าโดยไม่มี error ขึ้นเลย เพราะ map ได้ code เป็น '' แล้วโดน filter ออกหมด */
+  if (typeof item === 'string') return { code: item, id: '', description: null }
+  const w = (item ?? {}) as Record<string, unknown>
+  return {
+    code: s(w.name ?? w.warehouse ?? w.warehouseName ?? w.code),
+    id: s(w.id ?? w.warehouseId ?? w.warehouseID),
+    description: (w.description as string | null) ?? null,
+  }
+}
+
+function unwrap(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) return raw
+  const o = (raw ?? {}) as { data?: unknown[]; items?: unknown[] }
+  return o.data ?? o.items ?? []
+}
+
+/** ค้นคลังทั้งหมดที่บัญชีนี้เห็น — **ชื่อพารามิเตอร์ต้องเป็น pageNumber/pageSize**
+ *  เคยส่ง page/pageSize/keyword ตามที่เดาเอาเอง แล้วได้ผลลัพธ์ว่างแบบไม่มี error
+ *  ชื่อที่ถูกมาจาก extractor ที่ยิงกับของจริงมาก่อน อย่าแก้โดยไม่ทดสอบใหม่ */
+async function searchWarehouses(): Promise<Warehouse[]> {
+  const raw = await tmsCall<unknown>('/v1/warehouses/search', { pageNumber: 1, pageSize: 200 })
+  return unwrap(raw).map(toWarehouse).filter((w) => w.code)
+}
+
 export async function listWarehouses(): Promise<Warehouse[]> {
-  const raw = await tmsCall<unknown>('/personal/warehouses', undefined, 'GET')
-  const list = (Array.isArray(raw) ? raw : ((raw as { data?: unknown[] })?.data ?? [])) as unknown[]
-  return list
-    .map((item) => {
-      /* **แต่ละรายการเป็นสตริงเปล่า ๆ ก็ได้** — บาง build ของ TMS ส่ง ["KM23-CW-01", ...]
-         ไม่ใช่ object ตอนย้ายจาก extractor เข้าแอปเผลอตัดเคสนี้ทิ้ง ผลคือช่องเลือกคลัง
-         ว่างเปล่าโดยไม่มี error ขึ้นเลย เพราะ map ได้ code เป็น '' แล้วโดน filter ออกหมด */
-      if (typeof item === 'string') return { code: item, id: '', description: null }
-      const w = (item ?? {}) as Record<string, unknown>
-      return {
-        code: s(w.name ?? w.warehouse),
-        id: s(w.id ?? w.warehouseId ?? w.warehouseID),
-        description: (w.description as string | null) ?? null,
-      }
-    })
-    .filter((w) => w.code)
+  /* /personal/warehouses คือคลังที่ผูกกับ "ตัวบุคคล" ซึ่งหลายบัญชีเป็นค่าว่าง
+     ทั้งที่คนคนนั้นเปิดดูคลังได้จริงในหน้า TMS — extractor เลยมี KM23-CW-01
+     ฝังเป็นค่าเริ่มต้นไว้กันเหนียว ที่นี่ไม่ฝังรหัสคลังลงโค้ด แต่ถอยไปถาม
+     /v1/warehouses/search ซึ่งคืนคลังที่สิทธิ์ของบัญชีมองเห็นทั้งหมด */
+  const personal = await tmsCall<unknown>('/personal/warehouses', undefined, 'GET')
+    .then((raw) => unwrap(raw).map(toWarehouse).filter((w) => w.code))
+    .catch(() => [] as Warehouse[])
+
+  if (personal.length) return personal
+  return searchWarehouses()
 }
 
 /* GUID ของคลัง ถามครั้งเดียวต่อรหัส — /personal/warehouses บาง build ไม่ส่ง id มาให้
@@ -76,17 +97,11 @@ export async function warehouseGuid(w: Warehouse): Promise<string> {
   const hit = whIdCache.get(w.code)
   if (hit) return hit
 
-  const raw = await tmsCall<unknown>('/v1/warehouses/search', { keyword: w.code, page: 1, pageSize: 50 })
-  const list = (Array.isArray(raw)
-    ? raw
-    : ((raw as { data?: unknown[]; items?: unknown[] })?.data ??
-       (raw as { items?: unknown[] })?.items ??
-       [])) as Record<string, unknown>[]
-
-  const found = list.find((x) => s(x.name ?? x.warehouse) === w.code)
-  const id = s(found?.id)
+  for (const found of await searchWarehouses()) {
+    if (found.id) whIdCache.set(found.code, found.id)
+  }
+  const id = whIdCache.get(w.code)
   if (!id) throw new Error(`หา GUID ของคลัง ${w.code} ไม่เจอ`)
-  whIdCache.set(w.code, id)
   return id
 }
 
