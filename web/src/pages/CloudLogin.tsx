@@ -9,10 +9,14 @@ import { Button, Field, Input } from '../components/ui'
  * admin เป็นบัญชีของระบบนี้ล้วน ไม่มีตัวตนใน TMS (ตั้งใจ: admin ไม่ยุ่งกับระบบบริษัท
  * ดึงข้อมูลไม่ได้) แต่ก็ไม่ใช่คนขับ จึงไม่รู้ว่าตัวเองควรกดแท็บไหน
  *
- * ตอนนี้ระบบตัดสินให้จาก **รูปแบบของสิ่งที่พิมพ์** ไม่ใช่ให้คนเลือก:
+ * ตอนนี้ระบบตัดสินให้จาก **โดเมนของสิ่งที่พิมพ์** ไม่ใช่ให้คนเลือก:
  *
- *   มี @  → อีเมล → บัญชีของระบบนี้ (Supabase Auth) — admin กับคนขับ
- *   ไม่มี → ชื่อผู้ใช้ → บัญชีบริษัท (TMS ผ่าน gateway) — พนักงานออฟฟิศ
+ *   ไม่มี @ หรือลงท้าย @vespiario.net → บัญชีบริษัท (TMS ผ่าน gateway) — พนักงานออฟฟิศ
+ *   มี @ โดเมนอื่น                     → บัญชีของระบบนี้ (Supabase Auth) — admin กับคนขับ
+ *
+ * **ห้ามใช้แค่ "มี @ = บัญชีระบบนี้"** เคยเขียนแบบนั้นแล้วพัง — ชื่อผู้ใช้ TMS ของที่นี่
+ * เป็นรูปแบบ Laksiya.T@vespiario.net คือมี @ อยู่ในตัว พนักงานออฟฟิศทุกคนจึงถูกส่ง
+ * ไปถาม Supabase แล้วเจอ "รหัสไม่ถูกต้อง" ทั้งที่รหัสถูก
  *
  * **ตัดสินก่อนส่ง ไม่ใช่ลองยิงทีละทาง** ถ้าลอง Supabase ก่อนแล้วค่อยไป TMS
  * รหัสของบริษัทจะถูกส่งขึ้นคลาวด์ทุกครั้งที่พนักงานออฟฟิศล็อกอิน ซึ่งขัดกับกติกา
@@ -23,8 +27,12 @@ import { Button, Field, Input } from '../components/ui'
  * ข้อความแบบนี้จะสังเกตออกเองเวลาเจอหน้าปลอมที่ไม่มีมัน
  */
 
-/** อีเมลเท่านั้นที่เป็นบัญชีของระบบนี้ — ชื่อผู้ใช้ TMS ไม่มีวันมี @ */
-const isEmail = (v: string): boolean => v.includes('@')
+/** โดเมนของบัญชีบริษัท — ชื่อผู้ใช้ TMS เป็นได้ทั้ง `laksiya.t` และ `Laksiya.T@vespiario.net` */
+const TMS_DOMAIN = 'vespiario.net'
+
+/** บัญชีของระบบนี้ = มี @ และไม่ใช่โดเมนบริษัท (admin@tms.local, คนขับ, อีเมลจริง) */
+const isSystemAccount = (v: string): boolean =>
+  v.includes('@') && !v.toLowerCase().endsWith(`@${TMS_DOMAIN}`)
 
 export default function CloudLogin(): React.JSX.Element {
   const { loginOffice, loginDriver, pendingName } = useCloudAuth()
@@ -39,7 +47,7 @@ export default function CloudLogin(): React.JSX.Element {
     setLoading(true)
     const id = user.trim()
     try {
-      if (isEmail(id)) await loginDriver(id, password)
+      if (isSystemAccount(id)) await loginDriver(id, password)
       else await loginOffice(id, password)
       setPassword('')
     } catch (err) {
@@ -85,7 +93,7 @@ export default function CloudLogin(): React.JSX.Element {
             <Input
               value={user}
               onChange={(e) => setUser(e.target.value)}
-              placeholder="ชื่อผู้ใช้ TMS บริษัท หรือ you@example.com"
+              placeholder="เช่น Laksiya.T@vespiario.net หรือ you@tms.local"
               /* type="text" เสมอ — ใส่ type="email" ไม่ได้เพราะช่องนี้รับชื่อผู้ใช้ TMS ด้วย
                  เบราว์เซอร์จะฟ้องว่ารูปแบบผิดตั้งแต่ยังไม่ทันกดปุ่ม */
               type="text"
