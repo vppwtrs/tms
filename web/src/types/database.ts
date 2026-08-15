@@ -26,6 +26,12 @@ export type UserRow = {
   role: UserRole
   is_active: boolean
   created_at: string
+  /* 0010 — พนักงานออฟฟิศยืนยันตัวผ่าน TMS บริษัท คนขับใช้อีเมล/รหัสผ่านของ Supabase
+     is_active = false คือ "รอ admin อนุมัติ" ไม่ใช่ "ถูกปิดบัญชี" ทั้งสองกรณีใช้ค่าเดียวกัน */
+  auth_source: 'local' | 'tms'
+  approved_at: string | null
+  approved_by: number | null
+  last_login_at: string | null
 }
 
 export type UserPermissionRow = {
@@ -329,6 +335,42 @@ export interface Database {
       import_tms_shipments: {
         Args: { p_date: string }
         Returns: { date: string; created: number; skipped: number }
+      }
+      push_tms_shipments: {
+        Args: { p_rows: Record<string, string>[] }
+        Returns: { rows: number; dates: string[] }
+      }
+      tms_sync_status: {
+        Args: { p_date: string }
+        Returns: {
+          date: string
+          synced_at: string | null
+          picking_lists: number
+          pending_import: number
+        }
+      }
+      /* ตัวตน — 0010 อธิบายว่าทำไม my_account ต้องอ่านจาก auth.uid() ตรง ๆ */
+      my_account: {
+        Args: Record<string, never>
+        Returns:
+          | { found: false }
+          | {
+              found: true
+              user_id: number
+              name: string
+              username: string
+              role: UserRole
+              is_active: boolean
+              source: 'local' | 'tms'
+            }
+      }
+      approve_user: {
+        Args: { p_user_id: number; p_role: UserRole }
+        Returns: { user_id: number; name: string; role: UserRole }
+      }
+      revoke_user: {
+        Args: { p_user_id: number }
+        Returns: { user_id: number; is_active: boolean }
       }
     }
     Enums: {

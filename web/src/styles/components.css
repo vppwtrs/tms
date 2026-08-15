@@ -1554,6 +1554,33 @@
   line-height: 1.8;
 }
 
+/* สองทางเข้า: บัญชี TMS บริษัท กับ บัญชีคนขับของเรา
+   ต้องเห็นชัดว่ากำลังกรอกอะไรอยู่ ไม่ใช่ช่องเดียวแล้วให้ระบบเดา */
+.login-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 20px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+.login-tabs button {
+  padding: 9px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.login-tabs button.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(44, 33, 80, 0.12);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 1100px) {
   .kpi-grid {

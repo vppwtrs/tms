@@ -37,6 +37,14 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut()
 }
 
+/** บัญชีที่ล็อกอินได้แต่ยังไม่ถูกอนุมัติ — ต่างจาก "ล็อกอินไม่ผ่าน" คนละเรื่องกัน
+ *  ต้องแยกให้ออก ไม่งั้นพนักงานใหม่จะเจอ "รหัสผิด" ทั้งที่รหัสถูก แล้วลองใหม่ทั้งวัน */
+export class PendingApprovalError extends DataError {
+  constructor(public readonly accountName: string) {
+    super('PENDING_APPROVAL', 'บัญชีนี้รอผู้ดูแลอนุมัติ — แจ้งหัวหน้าให้เปิดสิทธิ์ให้')
+  }
+}
+
 /** โหลดโปรไฟล์ + สิทธิ์ของคนที่ล็อกอินอยู่ — คืน null ถ้ายังไม่ได้ล็อกอิน */
 export async function loadProfile(): Promise<Profile | null> {
   const { data: sessionData } = await supabase.auth.getSession()
@@ -54,8 +62,13 @@ export async function loadProfile(): Promise<Profile | null> {
   if (error) throw toDataError(error)
 
   if (!user) {
-    /* ล็อกอิน Supabase ผ่าน แต่ไม่มีแถวใน users — เกิดตอน migrate ยังไม่ผูก auth_id
-       ปล่อยให้เข้าระบบไม่ได้ ดีกว่าปล่อยเข้าไปแล้วทุกหน้าว่างเปล่าโดยไม่บอกสาเหตุ */
+    /* users_self_select ใช้ current_user_id() ซึ่งกรอง is_active อยู่ — แถวจึงหายไป
+       ได้สองสาเหตุที่ต่างกันมาก: (ก) รออนุมัติ/ถูกระงับ (ข) ยังไม่ผูก auth_id
+       ถามผ่าน my_account() ที่อ่านจาก auth.uid() ตรง ๆ เพื่อแยกให้ออก
+       ถ้าไม่แยก พนักงานใหม่จะเห็นข้อความชวนให้เข้าใจผิดว่าบัญชีพัง */
+    const { data: acct } = await supabase.rpc('my_account')
+    if (acct && acct.found && !acct.is_active) throw new PendingApprovalError(acct.name)
+
     await signOut()
     throw new DataError('NO_PROFILE', 'บัญชีนี้ยังไม่ได้ผูกกับผู้ใช้ในระบบ ติดต่อผู้ดูแล')
   }
