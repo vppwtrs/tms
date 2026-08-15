@@ -195,6 +195,9 @@ export type MyOrderRow = {
   priority: OrderPriority
   origin: string
   destination: string
+  /* 0011 — distance_km กับ customer_address เติมทีหลัง
+     customer_address เป็นปุ่มเปิดแผนที่นำทาง ไม่ใช่ของประดับ */
+  distance_km: number
   goods_desc: string
   weight_kg: number
   scheduled_at: string
@@ -202,6 +205,7 @@ export type MyOrderRow = {
   notes: string | null
   customer_name: string | null
   customer_phone: string | null
+  customer_address: string | null
   has_pod: boolean
 }
 
