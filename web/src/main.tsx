@@ -25,10 +25,16 @@ import './styles/animations.css'
  */
 const CLOUD = import.meta.env.MODE === 'cloud'
 
+/* GitHub Pages เสิร์ฟที่ <user>.github.io/<repo>/ ไม่ใช่ราก
+   ทั้ง router และ service worker ต้องรู้ base เดียวกัน ไม่งั้นเปิดแล้วจอขาว
+   BASE_URL ลงท้ายด้วย / เสมอ ส่วน basename ของ router ต้องไม่มี — ตัดทิ้งตรงนี้ที่เดียว */
+const BASE = import.meta.env.BASE_URL
+const ROUTER_BASE = BASE.replace(/\/$/, '')
+
 // PWA: เปิด service worker เฉพาะ production build (dev ไม่ cache เพื่อไม่ให้ค้าง)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    navigator.serviceWorker.register(`${BASE}sw.js`).catch(() => {
       /* เฉยๆ — ไม่ขัดการใช้งานถ้า register ไม่สำเร็จ */
     })
   })
@@ -44,7 +50,7 @@ async function boot(): Promise<void> {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <BrowserRouter>
+      <BrowserRouter basename={ROUTER_BASE}>
         <Provider>
           <ToastProvider>
             <App />

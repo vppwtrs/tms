@@ -3,8 +3,21 @@
    - ไฟล์ asset (มี hash) → cache-first หลังโหลดครั้งแรก (offline เปิดได้)
    - navigation (หน้า) → network-first, ตกเครือข่ายคืน shell หน้าแรก
    - /api → ไม่ cache (ข้อมูลสดเสมอ) */
-const CACHE = 'tms-shell-v1'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png']
+/* base ที่แอปถูกเสิร์ฟ — '/' บนเครื่องออฟฟิศ แต่ '/tms/' บน GitHub Pages
+   คิดจากตำแหน่งของไฟล์นี้เอง ไม่ใช่เขียนตายตัว เพราะไฟล์ใน public/ ไม่ผ่าน Vite
+   จึงแทนค่า import.meta.env.BASE_URL ให้ไม่ได้ ถ้าเขียน '/' ตายตัวไว้
+   SHELL จะ cache ผิดที่ แล้วเปิด offline เจอจอขาว */
+const BASE = new URL('./', self.location).pathname
+const CACHE = `tms-shell-${BASE}-v1`
+const INDEX = `${BASE}index.html`
+const SHELL = [
+  BASE,
+  INDEX,
+  `${BASE}manifest.webmanifest`,
+  `${BASE}icons/icon-192.png`,
+  `${BASE}icons/icon-512.png`,
+  `${BASE}icons/apple-touch-icon.png`,
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -29,7 +42,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
 
   // เฉพาะ GET + โดเมนเดียวกัน + ข้าม API (ข้อมูลต้องสด)
-  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api')) return
+  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith(`${BASE}api`)) return
 
   // navigation → network-first
   if (request.mode === 'navigate') {
@@ -37,10 +50,10 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((res) => {
           const copy = res.clone()
-          caches.open(CACHE).then((cache) => cache.put('/index.html', copy)).catch(() => {})
+          caches.open(CACHE).then((cache) => cache.put(INDEX, copy)).catch(() => {})
           return res
         })
-        .catch(() => caches.match('/index.html')),
+        .catch(() => caches.match(INDEX)),
     )
     return
   }

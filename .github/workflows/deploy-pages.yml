@@ -38,7 +38,9 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
           # โปรเจ็คที่ deploy ที่ <user>.github.io/<repo>/ ต้องมี base path ต่อท้าย
           VITE_BASE: /${{ github.event.repository.name }}/
-        run: npm run build -w web
+        # build:cloud ไม่ใช่ build — ตัวหลังคือระบบเดิมที่คุยกับ Express บน LAN
+        # ซึ่งไม่มีอยู่บนคลาวด์ deploy ไปก็ได้หน้าที่ยิง API แล้วไม่มีใครรับ
+        run: npm run build:cloud -w web
 
       - name: เตรียมไฟล์สำหรับ SPA fallback
         # Pages ไม่มี server ทำ SPA fallback ให้ — ก๊อป index.html เป็น 404.html
