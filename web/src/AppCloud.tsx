@@ -13,7 +13,7 @@ import { CloudLayout } from './components/CloudLayout'
  *
  * เลือก build ด้วย VITE_TARGET=cloud (ดู main.tsx)
  *
- * หน้าที่ยังไม่มีในนี้ (ออเดอร์ ลูกค้า รถ ใบเสนอราคา รายงาน) ตั้งใจยังไม่ใส่ —
+ * หน้าที่ยังไม่มีในนี้ (ออเดอร์ จัดเที่ยว ใบเสนอราคา รายงาน แดชบอร์ด ตั้งค่า) ตั้งใจยังไม่ใส่ —
  * ตัวเชื่อมใน api/ เขียนเสร็จแล้วทุกตัว แต่หน้าจอยังต้องแปลงทีละหน้า
  * ใส่ route ที่พาไปหน้าซึ่งยังไม่ได้แปลง = ผู้ใช้เจอหน้าพังโดยไม่รู้ว่าเพราะอะไร
  */
@@ -24,6 +24,8 @@ const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
 const TmsPull = lazy(() => import('./pages/TmsPull'))
 const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
+const CloudVehicles = lazy(() => import('./pages/CloudVehicles'))
+const CloudDrivers = lazy(() => import('./pages/CloudDrivers'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
 function Splash(): React.JSX.Element {
@@ -81,6 +83,8 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/my-jobs" element={<CloudMyJobs />} />
           <Route path="/tms-pull" element={<TmsPull />} />
           <Route path="/tms-import" element={<CloudTmsImport />} />
+          <Route path="/vehicles" element={<CloudVehicles />} />
+          <Route path="/drivers" element={<CloudDrivers />} />
           <Route path="/customers" element={<CloudCustomers />} />
           <Route path="/users" element={<CloudUsers />} />
         </Route>

@@ -4,7 +4,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { ROLE_LABEL } from '../utils/constants'
 import { fmtDate, fmtLongToday, initials } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { IconBuilding, IconLogout, IconMenu, IconMoon, IconShield, IconSun, IconTable, IconTruckBig } from './icons'
+import { IconBuilding, IconLogout, IconMenu, IconMoon, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
 
 /**
  * โครงหน้าจอฉบับคลาวด์ — คู่ขนานกับ Layout.tsx ที่ยังคุยกับ Express
@@ -33,6 +33,8 @@ const NAV: NavItem[] = [
   { to: '/customers', label: 'ลูกค้า', icon: IconBuilding, perm: 'customers.view' },
   { to: '/tms-pull', label: 'ดึงข้อมูลจาก TMS', icon: IconTable, perm: 'orders.write' },
   { to: '/tms-import', label: 'นำเข้าเป็นออเดอร์', icon: IconTable, perm: 'orders.write' },
+  { to: '/vehicles', label: 'รถยนต์', icon: IconTruckBig, perm: 'vehicles.view' },
+  { to: '/drivers', label: 'พนักงานขับ', icon: IconUsers, perm: 'drivers.view' },
   { to: '/users', label: 'ผู้ใช้และสิทธิ์', icon: IconShield, perm: 'users.manage' },
 ]
 
