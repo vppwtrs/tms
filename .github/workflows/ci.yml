@@ -14,7 +14,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22 ไม่ใช่ 20 — jsdom ที่เทส a11y ใช้ ดึง undici รุ่นที่เรียก
+          # webidl.util.markAsUncloneable ซึ่งยังไม่มีใน Node 20 worker ของ vitest
+          # เลยตายตั้งแต่ยังไม่ทันรันเทส (เครื่อง dev รัน 24 จึงไม่เจอ)
+          node-version: 22
           cache: npm
 
       - name: ติดตั้ง dependencies
