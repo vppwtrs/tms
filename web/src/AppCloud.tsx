@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useCloudAuth } from './context/CloudAuthContext'
+import { CloudLayout } from './components/CloudLayout'
 
 /**
  * แอปฉบับคลาวด์ — คู่ขนานกับ App.tsx ที่ยังคุยกับ Express บน LAN
@@ -20,6 +21,7 @@ import { useCloudAuth } from './context/CloudAuthContext'
 const CloudLogin = lazy(() => import('./pages/CloudLogin'))
 const CloudMyJobs = lazy(() => import('./pages/CloudMyJobs'))
 const CloudUsers = lazy(() => import('./pages/CloudUsers'))
+const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
 const TmsPull = lazy(() => import('./pages/TmsPull'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
@@ -34,20 +36,30 @@ function Splash(): React.JSX.Element {
   )
 }
 
-function Protected({ children }: { children: React.ReactNode }): React.JSX.Element {
+/** ด่านล็อกอิน + โครงหน้าจอ (เมนู/แถบบน) — หน้าที่อยู่ข้างในไม่ต้องรู้เรื่องทั้งสองอย่าง */
+function Protected(): React.JSX.Element {
   const { user, loading } = useCloudAuth()
   if (loading) return <Splash />
   if (!user) return <Navigate to="/login" replace />
-  return <>{children}</>
+  return <CloudLayout />
 }
 
 /** หน้าแรกขึ้นกับสิทธิ์ — คนขับไม่มีสิทธิ์ฝั่งออฟฟิศ พาไปหน้าออฟฟิศคือส่งไปเจอหน้าว่าง */
 function Home(): React.JSX.Element {
   const { can } = useCloudAuth()
   if (can('myjobs.view')) return <Navigate to="/my-jobs" replace />
+  if (can('customers.view')) return <Navigate to="/customers" replace />
   if (can('orders.write')) return <Navigate to="/tms-pull" replace />
   if (can('users.manage')) return <Navigate to="/users" replace />
-  return <Navigate to="/login" replace />
+  /* ไม่เข้าเงื่อนไขไหนเลย = ล็อกอินได้แต่ไม่มีสิทธิ์เปิดหน้าไหนได้เลย
+     ห้ามเด้งไป /login เด็ดขาด — PublicOnly จะเห็นว่ามี user แล้วเด้งกลับมาที่นี่ วนไม่จบ
+     และผู้ใช้จะเห็นแค่หน้าล็อกอินค้างอยู่ เหมือนรหัสผิดทั้งที่เข้าระบบได้แล้ว */
+  return (
+    <div className="card" style={{ margin: 24, padding: 24, textAlign: 'center' }}>
+      <h2 style={{ marginBottom: 8 }}>บัญชีนี้ยังไม่มีสิทธิ์เปิดหน้าใดได้</h2>
+      <p className="text-muted">แจ้งผู้ดูแลระบบให้กำหนดสิทธิ์ให้ที่หน้าผู้ใช้และสิทธิ์</p>
+    </div>
+  )
 }
 
 function PublicOnly(): React.JSX.Element {
@@ -63,10 +75,13 @@ export default function AppCloud(): React.JSX.Element {
     <Suspense fallback={<Splash />}>
       <Routes>
         <Route path="/login" element={<PublicOnly />} />
-        <Route path="/" element={<Protected><Home /></Protected>} />
-        <Route path="/my-jobs" element={<Protected><CloudMyJobs /></Protected>} />
-        <Route path="/tms-pull" element={<Protected><TmsPull /></Protected>} />
-        <Route path="/users" element={<Protected><CloudUsers /></Protected>} />
+        <Route element={<Protected />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/my-jobs" element={<CloudMyJobs />} />
+          <Route path="/tms-pull" element={<TmsPull />} />
+          <Route path="/customers" element={<CloudCustomers />} />
+          <Route path="/users" element={<CloudUsers />} />
+        </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
