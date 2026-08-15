@@ -49,17 +49,45 @@ const day = (v: unknown): string => s(v).slice(0, 10)
  *  ต้องเก็บทั้งคู่ ไม่ใช่อย่างใดอย่างหนึ่ง — เคยพลาดตรงนี้มาแล้ว */
 export async function listWarehouses(): Promise<Warehouse[]> {
   const raw = await tmsCall<unknown>('/personal/warehouses', undefined, 'GET')
-  const list = (Array.isArray(raw) ? raw : ((raw as { data?: unknown[] })?.data ?? [])) as Record<
-    string,
-    unknown
-  >[]
+  const list = (Array.isArray(raw) ? raw : ((raw as { data?: unknown[] })?.data ?? [])) as unknown[]
   return list
-    .map((w) => ({
-      code: s(w.name ?? w.warehouse),
-      id: s(w.id ?? w.warehouseId ?? w.warehouseID),
-      description: (w.description as string | null) ?? null,
-    }))
+    .map((item) => {
+      /* **แต่ละรายการเป็นสตริงเปล่า ๆ ก็ได้** — บาง build ของ TMS ส่ง ["KM23-CW-01", ...]
+         ไม่ใช่ object ตอนย้ายจาก extractor เข้าแอปเผลอตัดเคสนี้ทิ้ง ผลคือช่องเลือกคลัง
+         ว่างเปล่าโดยไม่มี error ขึ้นเลย เพราะ map ได้ code เป็น '' แล้วโดน filter ออกหมด */
+      if (typeof item === 'string') return { code: item, id: '', description: null }
+      const w = (item ?? {}) as Record<string, unknown>
+      return {
+        code: s(w.name ?? w.warehouse),
+        id: s(w.id ?? w.warehouseId ?? w.warehouseID),
+        description: (w.description as string | null) ?? null,
+      }
+    })
     .filter((w) => w.code)
+}
+
+/* GUID ของคลัง ถามครั้งเดียวต่อรหัส — /personal/warehouses บาง build ไม่ส่ง id มาให้
+   แต่ /v1/reports/actualshipment อ้างคลังด้วย GUID เท่านั้น ส่งรหัสไปได้ผลลัพธ์ว่าง
+   ยกวิธีมาจาก extractor/tms-extractor/public/app.js ที่ใช้งานได้จริงมาก่อน */
+const whIdCache = new Map<string, string>()
+
+export async function warehouseGuid(w: Warehouse): Promise<string> {
+  if (w.id) return w.id
+  const hit = whIdCache.get(w.code)
+  if (hit) return hit
+
+  const raw = await tmsCall<unknown>('/v1/warehouses/search', { keyword: w.code, page: 1, pageSize: 50 })
+  const list = (Array.isArray(raw)
+    ? raw
+    : ((raw as { data?: unknown[]; items?: unknown[] })?.data ??
+       (raw as { items?: unknown[] })?.items ??
+       [])) as Record<string, unknown>[]
+
+  const found = list.find((x) => s(x.name ?? x.warehouse) === w.code)
+  const id = s(found?.id)
+  if (!id) throw new Error(`หา GUID ของคลัง ${w.code} ไม่เจอ`)
+  whIdCache.set(w.code, id)
+  return id
 }
 
 /* ---------- รายงาน ---------- */
@@ -157,7 +185,7 @@ export async function pullShipments(
   onProgress?: (msg: string) => void,
 ): Promise<PullResult> {
   onProgress?.('กำลังดึงรายงาน...')
-  const report = await fetchReport(opts.from, opts.to, opts.warehouse.id)
+  const report = await fetchReport(opts.from, opts.to, await warehouseGuid(opts.warehouse))
 
   const base = report.map((a) => ({
     orderDate: day(a.orderDate),

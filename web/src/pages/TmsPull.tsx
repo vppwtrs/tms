@@ -45,6 +45,9 @@ export default function TmsPull(): React.JSX.Element {
       .then((list) => {
         setWarehouses(list)
         setWhCode((c) => c || list[0]?.code || '')
+        /* ได้รายการว่างต้องบอกให้รู้ ไม่ใช่ปล่อยให้เห็นช่องเลือกว่างกับปุ่มที่กดไม่ได้
+           แล้วเดาเองว่าระบบพังหรือยังโหลดไม่เสร็จ */
+        if (!list.length) setError('บัญชี TMS นี้ไม่ได้ผูกกับคลังไหนเลย — แจ้งผู้ดูแล TMS ของบริษัท')
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'ดึงรายชื่อคลังไม่ได้'))
   }, [])
