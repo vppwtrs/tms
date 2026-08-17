@@ -414,6 +414,11 @@ export async function pushShipments(
  *  ไม่ใช่ซ้ำซ้อนโดยไม่จำเป็น — ฐานต้องไม่พึ่งว่า client กรองมาถูก */
 export const OUR_CARRIERS = ['Fleet Owner', 'Fleet Owner (Scooter)']
 
+const ourCarrier = (value: string): string | null => {
+  const normalized = value.trim().toLowerCase()
+  return OUR_CARRIERS.find((name) => name.toLowerCase() === normalized) ?? null
+}
+
 /** สถานะเที่ยวตามที่ TMS ใช้จริง (statusId ตรงตัว) */
 export const TRIP_STATUS: Record<number, string> = {
   2: 'Confirm',
@@ -519,11 +524,13 @@ export async function pullTrips(
       const d = day(t.orderDate)
       if (d && d < oldest) oldest = d
       if (!d || d < opts.from || d > opts.to) continue
-      if (!OUR_CARRIERS.includes(s(t.carrierName))) {
+      const carrierName = ourCarrier(s(t.carrierName))
+      if (!carrierName) {
         outsourced++
         continue
       }
-      trips.push(t)
+      /* ส่งชื่อมาตรฐานให้ RPC เพราะฐานกรองด้วยชื่อ carrier แบบ exact */
+      trips.push({ ...t, carrierName })
     }
 
     onProgress?.(`สแกน ${scanned} เที่ยว · ของกองรถเรา ${trips.length}`)
