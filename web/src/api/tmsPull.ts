@@ -65,16 +65,24 @@ function toWarehouse(item: unknown): Warehouse {
   if (typeof item === 'string') return { code: item, id: '', description: null }
   const w = (item ?? {}) as Record<string, unknown>
   return {
-    code: s(w.name ?? w.warehouse ?? w.warehouseName ?? w.code),
-    id: s(w.id ?? w.warehouseId ?? w.warehouseID),
+    /* TMS มีหลาย build ที่ใช้ warehouseCode/warehouseName แทน code/name
+       ถ้าไม่รองรับจะได้ response จริงแต่แปลงเป็นรหัสว่าง แล้ว filter เหลือ 0 คลัง */
+    code: s(w.warehouseCode ?? w.warehouseNo ?? w.name ?? w.warehouse ?? w.warehouseName ?? w.code),
+    id: s(w.warehouseGuid ?? w.guid ?? w.id ?? w.warehouseId ?? w.warehouseID),
     description: (w.description as string | null) ?? null,
   }
 }
 
 function unwrap(raw: unknown): unknown[] {
   if (Array.isArray(raw)) return raw
-  const o = (raw ?? {}) as { data?: unknown[]; items?: unknown[] }
-  return o.data ?? o.items ?? []
+  const o = (raw ?? {}) as { data?: unknown[] | { items?: unknown[]; data?: unknown[] }; items?: unknown[] }
+  if (Array.isArray(o.items)) return o.items
+  if (Array.isArray(o.data)) return o.data
+  if (o.data && typeof o.data === 'object') {
+    const nested = o.data as { items?: unknown[]; data?: unknown[] }
+    return Array.isArray(nested.items) ? nested.items : Array.isArray(nested.data) ? nested.data : []
+  }
+  return []
 }
 
 /** ค้นคลังทั้งหมดที่บัญชีนี้เห็น — **ชื่อพารามิเตอร์ต้องเป็น pageNumber/pageSize**

@@ -38,6 +38,7 @@ const NAV: NavItem[] = [
   { to: '/vehicles', label: 'รถยนต์', icon: IconTruckBig, perm: 'vehicles.view' },
   { to: '/drivers', label: 'พนักงานขับ', icon: IconUsers, perm: 'drivers.view' },
   { to: '/users', label: 'ผู้ใช้และสิทธิ์', icon: IconShield, perm: 'users.manage' },
+  { to: '/permission-groups', label: 'กลุ่มสิทธิ์', icon: IconShield, perm: 'users.manage' },
   { to: '/data', label: 'ข้อมูลระบบ', icon: IconTable, perm: 'users.manage' },
 ]
 

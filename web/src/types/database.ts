@@ -38,6 +38,22 @@ export type UserPermissionRow = {
   user_id: number
   permission: string
   allowed: boolean
+  mode?: 'allow' | 'deny'
+  source?: 'group' | 'user'
+}
+
+export type PermissionMode = 'inherit' | 'allow' | 'deny'
+export type PermissionAuditRow = {
+  id: number
+  actor_user_id: number | null
+  target_user_id: number | null
+  role: UserRole | null
+  action: string
+  permission: string | null
+  before_value: string | null
+  after_value: string | null
+  reason: string | null
+  created_at: string
 }
 
 export type CustomerRow = {
@@ -296,6 +312,7 @@ export interface Database {
     Tables: {
       users: Table<UserRow, Insertable<UserRow, 'id' | 'created_at' | 'is_active' | 'role'>>
       user_permissions: Table<UserPermissionRow>
+      permission_audit_log: Table<PermissionAuditRow>
       customers: Table<CustomerRow, Insertable<CustomerRow, 'id' | 'created_at' | 'segment'>>
       vehicles: Table<VehicleRow, Insertable<VehicleRow, 'id' | 'created_at' | 'status' | 'capacity_kg' | 'vehicle_type'>>
       drivers: Table<DriverRow, Insertable<DriverRow, 'id' | 'created_at' | 'status'>>
@@ -496,6 +513,10 @@ export interface Database {
         Args: { p_user_id: number }
         Returns: { user_id: number; is_active: boolean }
       }
+      effective_permissions: { Args: { p_user_id: number }; Returns: UserPermissionRow[] }
+      admin_save_user_permission: { Args: { p_user_id: number; p_permission: string; p_mode: PermissionMode; p_reason?: string | null }; Returns: void }
+      admin_reset_user_permissions: { Args: { p_user_id: number; p_reason?: string | null }; Returns: void }
+      admin_set_role_permission: { Args: { p_role: UserRole; p_permission: string; p_allowed: boolean; p_reason?: string | null }; Returns: void }
     }
     Enums: {
       user_role: UserRole

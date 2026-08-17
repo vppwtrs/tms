@@ -1,5 +1,5 @@
 import { supabase, unwrap, toDataError } from './supabase.js'
-import type { UserPermissionRow, UserRow, UserRole } from '../types/database.js'
+import type { PermissionAuditRow, PermissionMode, UserPermissionRow, UserRow, UserRole } from '../types/database.js'
 
 /**
  * จัดการผู้ใช้ + อนุมัติพนักงานที่ล็อกอินเข้ามาผ่าน TMS
@@ -57,18 +57,36 @@ export async function listPermissionCatalog(): Promise<{ permission: string; lab
 }
 
 export async function listUserPermissions(userId: number): Promise<UserPermissionRow[]> {
-  return unwrap(supabase.from('user_permissions').select('user_id, permission, allowed').eq('user_id', userId))
+  return unwrap(supabase.rpc('effective_permissions', { p_user_id: userId }))
+}
+
+export async function listUserPermissionOverrides(userId: number): Promise<UserPermissionRow[]> {
+  return unwrap(supabase.from('user_permissions').select('user_id, permission, allowed, mode').eq('user_id', userId))
 }
 
 /** สิทธิ์รายคน override บทบาท — admin เท่านั้นตาม RLS user_permissions */
-export async function saveUserPermissions(userId: number, permissions: string[]): Promise<void> {
-  const { error: removeError } = await supabase.from('user_permissions').delete().eq('user_id', userId)
-  if (removeError) throw toDataError(removeError)
-  if (permissions.length === 0) return
-  const { error } = await supabase.from('user_permissions').insert(
-    permissions.map((permission) => ({ user_id: userId, permission, allowed: true })),
-  )
+export async function saveUserPermission(userId: number, permission: string, mode: PermissionMode): Promise<void> {
+  const { error } = await supabase.rpc('admin_save_user_permission', { p_user_id: userId, p_permission: permission, p_mode: mode })
   if (error) throw toDataError(error)
+}
+
+export async function resetUserPermissions(userId: number): Promise<void> {
+  const { error } = await supabase.rpc('admin_reset_user_permissions', { p_user_id: userId })
+  if (error) throw toDataError(error)
+}
+
+export async function listRolePermissions(role: UserRole): Promise<string[]> {
+  const rows = await unwrap(supabase.from('role_permissions').select('permission').eq('role', role))
+  return rows.map((row) => row.permission)
+}
+
+export async function saveRolePermission(role: UserRole, permission: string, allowed: boolean): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_role_permission', { p_role: role, p_permission: permission, p_allowed: allowed })
+  if (error) throw toDataError(error)
+}
+
+export async function listPermissionAudit(): Promise<PermissionAuditRow[]> {
+  return unwrap(supabase.from('permission_audit_log').select('*').order('created_at', { ascending: false }).limit(30))
 }
 
 export async function seedRolePermissionPresets(): Promise<Record<string, number>> {
