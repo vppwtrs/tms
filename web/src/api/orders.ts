@@ -83,10 +83,27 @@ export async function getOrder(id: number): Promise<OrderRow> {
 /** ออเดอร์ที่รอจัดเที่ยว — ฟีดให้หน้า Dispatch เลือกใส่เที่ยว
  *  เงื่อนไขต้องตรงกับที่ create_trip() ยอมรับ (pending + ยังไม่มี trip_id)
  *  ไม่งั้นหน้าจอโชว์ใบที่กดแล้วฟังก์ชันปฏิเสธ */
-export async function listUnassignedOrders(q?: string): Promise<OrderRow[]> {
-  let query = supabase.from('orders').select('*').eq('status', 'pending').is('trip_id', null)
+export interface DispatchOrderRow extends OrderRow {
+  tms_pl_no?: string | null
+  tms_kind?: 'vehicle' | 'box' | null
+  tms_units?: number | null
+}
+
+export async function listUnassignedOrders(q?: string): Promise<DispatchOrderRow[]> {
+  let query = supabase.from('orders').select('*, tms_shipments(picking_list_no, pl_type, item_qty, unit)').eq('status', 'pending').is('trip_id', null)
   if (q) query = query.or(`order_no.ilike.%${q}%,destination.ilike.%${q}%`)
-  return unwrap(query.order('scheduled_at'))
+  const rows = await unwrap(query.order('scheduled_at')) as unknown as (OrderRow & {
+    tms_shipments?: { picking_list_no?: string | null; pl_type?: string | null; item_qty?: number | null; unit?: number | null }[]
+  })[]
+  return rows.map((o) => {
+    const t = o.tms_shipments?.[0]
+    return {
+      ...o,
+      tms_pl_no: t?.picking_list_no ?? null,
+      tms_kind: /^box\b/i.test(o.goods_desc.trim()) ? 'box' : 'vehicle',
+      tms_units: t?.unit ?? t?.item_qty ?? null,
+    }
+  })
 }
 
 export async function listOrdersByTrip(tripId: number): Promise<OrderRow[]> {

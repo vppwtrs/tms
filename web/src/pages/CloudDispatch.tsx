@@ -3,7 +3,7 @@ import {
   getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip,
   startTrip, completeTrip, cancelTrip, type BoardTrip,
 } from '../api/trips'
-import { listUnassignedOrders } from '../api/orders'
+import { listUnassignedOrders, type DispatchOrderRow } from '../api/orders'
 import { listAvailableVehicles, listAvailableDrivers } from '../api/vehicles'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
@@ -36,7 +36,7 @@ export default function CloudDispatch(): React.JSX.Element {
   const canEdit = can('dispatch.write')
 
   const [board, setBoard] = useState<{ planned: BoardTrip[]; in_progress: BoardTrip[] } | null>(null)
-  const [pendingOrders, setPendingOrders] = useState<OrderRow[]>([])
+  const [pendingOrders, setPendingOrders] = useState<DispatchOrderRow[]>([])
   const [vehicles, setVehicles] = useState<VehicleRow[]>([])
   const [drivers, setDrivers] = useState<DriverRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -193,10 +193,13 @@ export default function CloudDispatch(): React.JSX.Element {
                         </td>
                         <td>
                           <div className="cell-no">
-                            <span className="text-strong">{o.order_no}</span>
+                            <span className="text-strong">{o.tms_pl_no ?? o.order_no}</span>
                             {o.priority === 'urgent' && <Badge label={PRIORITY_LABEL.urgent} tone="urgent" dot />}
                           </div>
-                          <div className="text-xs text-muted">{o.goods_desc}</div>
+                          <div className="text-xs text-muted">
+                            {o.tms_pl_no ? `ออเดอร์ ${o.order_no} · ${o.tms_kind === 'box' ? 'กล่อง' : 'รถ'}` : o.goods_desc}
+                            {o.tms_units != null && ` · ${o.tms_units} หน่วย`}
+                          </div>
                         </td>
                         <td>{o.origin} → {o.destination}</td>
                         <td className="num">{fmtWeight(o.weight_kg)}</td>

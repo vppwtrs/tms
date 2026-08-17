@@ -212,6 +212,18 @@ export default function TmsPull(): React.JSX.Element {
             </div>
           )}
 
+          {board.by_kind && board.by_kind.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {board.by_kind.map((b) => (
+                <Badge
+                  key={b.kind}
+                  tone={b.kind === 'box' ? 'accent' : 'neutral'}
+                  label={`${b.kind === 'box' ? 'กล่อง' : 'รถ'} — ${b.trips} เที่ยว · ${b.units} คัน`}
+                />
+              ))}
+            </div>
+          )}
+
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
             ดึงล่าสุด {clock(board.synced_at)} · สถานะเปลี่ยนล่าสุด {clock(board.last_change_at)}
             {lastRun && ` · รอบล่าสุดในหน้านี้ ${lastRun}`}

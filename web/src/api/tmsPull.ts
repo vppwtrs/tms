@@ -574,6 +574,8 @@ export interface TmsBoard {
   trips: number
   trips_pending_import: number
   trips_by_status: { status: string; status_id: number; trips: number; units: number }[]
+  /* จำนวนแยกตามชนิดงานจาก TMS — รถ / กล่อง */
+  by_kind?: { kind: 'vehicle' | 'box'; trips: number; units: number }[]
   picking_lists: number
   total_qty: number
   pending_import: number
