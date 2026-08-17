@@ -14,10 +14,11 @@ Deno.serve(async (req) => {
     const caller = client(auth)
     const { data: me } = await caller.auth.getUser()
     if (!me.user) return json({ error: 'เซสชันไม่ถูกต้อง' }, 401)
-    const { data: actor } = await caller.from('users').select('role').eq('auth_id', me.user.id).maybeSingle()
+    const { data: actor } = await caller.from('users').select('id, role').eq('auth_id', me.user.id).maybeSingle()
     if (actor?.role !== 'admin') return json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้นที่เปลี่ยนกลุ่มสิทธิ์ได้' }, 403)
     const body = await req.json().catch(() => ({})) as { user_id?: number; role?: string }
     if (!body.user_id || !['admin', 'dispatcher', 'viewer', 'driver'].includes(body.role ?? '')) return json({ error: 'ข้อมูลกลุ่มสิทธิ์ไม่ถูกต้อง' }, 400)
+    if (actor.id === body.user_id && body.role !== 'admin') return json({ error: 'ไม่อนุญาตให้ลดสิทธิ์บัญชีที่กำลังใช้งานอยู่' }, 400)
     const { error } = await admin().from('users').update({ role: body.role }).eq('id', body.user_id)
     if (error) return json({ error: 'เปลี่ยนกลุ่มสิทธิ์ไม่สำเร็จ' }, 500)
     return json({ ok: true })

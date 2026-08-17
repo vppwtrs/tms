@@ -69,6 +69,7 @@ export default function CloudUsers(): React.JSX.Element {
   const [permissionBusy, setPermissionBusy] = useState(false)
   const [roleBusy, setRoleBusy] = useState<number | null>(null)
   const [presetBusy, setPresetBusy] = useState(false)
+  const [roleChange, setRoleChange] = useState<{ user: UserRow; role: UserRole } | null>(null)
 
   const openPermissions = async (u: UserRow): Promise<void> => {
     setPermissionTarget(u)
@@ -467,7 +468,7 @@ export default function CloudUsers(): React.JSX.Element {
                     <td><b>{u.name}</b></td>
                     <td>{u.username}</td>
                     <td>
-                      <Select value={u.role} disabled={roleBusy === u.id} onChange={(e) => void changeRole(u, e.target.value as UserRole)}>
+                      <Select value={u.role} disabled={roleBusy === u.id} onChange={(e) => setRoleChange({ user: u, role: e.target.value as UserRole })}>
                         {(['admin', 'dispatcher', 'viewer', ...(u.auth_source === 'tms' ? [] : ['driver'])] as UserRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                       </Select>
                       <div className="text-xs text-muted" style={{ marginTop: 4 }}>{ROLE_HELP[u.role]}</div>
@@ -545,6 +546,19 @@ export default function CloudUsers(): React.JSX.Element {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={roleChange !== null}
+        title="เปลี่ยนกลุ่มสิทธิ์"
+        message={roleChange ? `${roleChange.user.name} จะเปลี่ยนเป็นกลุ่ม “${ROLE_LABEL[roleChange.role]}” · สิทธิ์จากกลุ่มเดิมจะเปลี่ยนตามหลังล็อกอินใหม่` : ''}
+        confirmLabel="ยืนยันเปลี่ยนกลุ่ม"
+        loading={roleBusy === roleChange?.user.id}
+        onConfirm={() => {
+          if (!roleChange) return
+          void changeRole(roleChange.user, roleChange.role).finally(() => setRoleChange(null))
+        }}
+        onClose={() => setRoleChange(null)}
+      />
 
       <ConfirmDialog
         open={toRevoke !== null}
