@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, PageHeader, Select, TableSkeleton } from '../components/ui'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { listUsers, approveUser, revokeUser } from '../api/users'
 import { createUser, resetPassword, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import { changeMyPassword } from '../api/auth'
@@ -53,6 +53,8 @@ export default function CloudUsers(): React.JSX.Element {
   const [secret, setSecret] = useState<{ title: string; username: string; password: string } | null>(null)
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
   const [passwordBusy, setPasswordBusy] = useState(false)
+  const [selfPasswordOpen, setSelfPasswordOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const load = async (): Promise<void> => {
     try {
@@ -85,6 +87,7 @@ export default function CloudUsers(): React.JSX.Element {
       })
       setSecret({ title: 'สร้างบัญชีแล้ว', username: displayUsername(r.email), password: r.password })
       setForm({ username: '', name: '', phone: '', driver_id: '' })
+      setCreateOpen(false)
       await load()
       loadDrivers()
       setError(null)
@@ -141,6 +144,7 @@ export default function CloudUsers(): React.JSX.Element {
     try {
       await changeMyPassword(passwordForm.current, passwordForm.next)
       setPasswordForm({ current: '', next: '', confirm: '' })
+      setSelfPasswordOpen(false)
       setError(null)
       setNotice('เปลี่ยนรหัสผ่านของบัญชีคุณสำเร็จแล้ว')
     } catch (e) {
@@ -181,11 +185,17 @@ export default function CloudUsers(): React.JSX.Element {
         </div>
       )}
 
-      <div className="card" style={{ padding: 18, marginBottom: 18, maxWidth: 640 }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>เปลี่ยนรหัสผ่านของฉัน</h3>
-        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>
-          ส่วนนี้ใช้เปลี่ยนรหัสของบัญชีที่กำลังล็อกอินอยู่เท่านั้น ต้องยืนยันรหัสเดิมก่อน
-        </p>
+      <div className="card" style={{ padding: 16, marginBottom: 18, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <b>การจัดการบัญชี</b>
+          <div className="text-xs text-muted">เลือกงานที่ต้องการทำจากปุ่มด้านขวา</div>
+        </div>
+        <Button variant="outline" onClick={() => setSelfPasswordOpen(true)}>เปลี่ยนรหัสผ่านของฉัน</Button>
+        <Button onClick={() => setCreateOpen(true)}>สร้างบัญชีพนักงานขับรถ</Button>
+      </div>
+
+      <Modal open={selfPasswordOpen} onClose={() => setSelfPasswordOpen(false)} title="เปลี่ยนรหัสผ่านของฉัน" size="sm">
+        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>เปลี่ยนเฉพาะบัญชีที่กำลังล็อกอินอยู่ ต้องยืนยันรหัสเดิมก่อน</p>
         <div style={{ display: 'grid', gap: 12 }}>
           <Field label="รหัสผ่านเดิม" required>
             <Input type="password" value={passwordForm.current} onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })} autoComplete="current-password" />
@@ -196,11 +206,9 @@ export default function CloudUsers(): React.JSX.Element {
           <Field label="ยืนยันรหัสผ่านใหม่" required>
             <Input type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })} autoComplete="new-password" />
           </Field>
-          <Button loading={passwordBusy} onClick={() => void changePassword()} disabled={!passwordForm.current || !passwordForm.next || !passwordForm.confirm}>
-            บันทึกรหัสผ่านใหม่
-          </Button>
+          <Button loading={passwordBusy} onClick={() => void changePassword()} disabled={!passwordForm.current || !passwordForm.next || !passwordForm.confirm}>บันทึกรหัสผ่านใหม่</Button>
         </div>
-      </div>
+      </Modal>
 
       {/* รหัสโชว์ครั้งเดียว — ไม่มีที่ไหนเก็บไว้ ปิดกล่องแล้วต้องกดตั้งใหม่ถ้าลืมจด */}
       {secret && (
@@ -218,8 +226,8 @@ export default function CloudUsers(): React.JSX.Element {
         </div>
       )}
 
-      {/* คนขับต้องมีคนสร้างบัญชีให้ เพราะเขาไม่มีบัญชี TMS บริษัท */}
-      <div className="card" style={{ padding: 18, marginBottom: 18, display: 'grid', gap: 14, maxWidth: 640 }}>
+      {/* แบบฟอร์มสร้างบัญชีอยู่ใน Modal — ไม่ให้ยาวปนกับตาราง */}
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="สร้างบัญชีพนักงานขับรถ" size="md">
         <div>
           <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>สร้างบัญชีพนักงานขับรถ</h3>
           <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>
@@ -280,7 +288,7 @@ export default function CloudUsers(): React.JSX.Element {
             สร้างบัญชี
           </Button>
         </div>
-      </div>
+      </Modal>
 
       {pending.length > 0 && (
         <div className="card" style={{ padding: 18, marginBottom: 18 }}>
