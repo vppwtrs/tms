@@ -40,6 +40,7 @@ const ASSIGNABLE: UserRole[] = ['viewer', 'dispatcher', 'admin']
 export default function CloudUsers(): React.JSX.Element {
   const [users, setUsers] = useState<UserRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [roleFor, setRoleFor] = useState<Record<number, UserRole>>({})
   const [busyId, setBusyId] = useState<number | null>(null)
   const [toRevoke, setToRevoke] = useState<UserRow | null>(null)
@@ -141,7 +142,7 @@ export default function CloudUsers(): React.JSX.Element {
       await changeMyPassword(passwordForm.current, passwordForm.next)
       setPasswordForm({ current: '', next: '', confirm: '' })
       setError(null)
-      setSecret({ title: 'เปลี่ยนรหัสผ่านสำเร็จ', username: 'บัญชีของฉัน', password: 'รหัสใหม่มีผลแล้ว' })
+      setNotice('เปลี่ยนรหัสผ่านของบัญชีคุณสำเร็จแล้ว')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
     } finally {
@@ -174,11 +175,16 @@ export default function CloudUsers(): React.JSX.Element {
       />
 
       {error && <ErrorBox message={error} onRetry={() => void load()} />}
+      {notice && (
+        <div role="status" style={{ padding: '10px 12px', marginBottom: 16, borderRadius: 8, color: 'var(--success)', background: 'var(--success-bg)' }}>
+          {notice}
+        </div>
+      )}
 
       <div className="card" style={{ padding: 18, marginBottom: 18, maxWidth: 640 }}>
         <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>เปลี่ยนรหัสผ่านของฉัน</h3>
         <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>
-          ต้องยืนยันรหัสเดิมก่อน รหัสใหม่ต้องมีอย่างน้อย 8 ตัวอักษร
+          ส่วนนี้ใช้เปลี่ยนรหัสของบัญชีที่กำลังล็อกอินอยู่เท่านั้น ต้องยืนยันรหัสเดิมก่อน
         </p>
         <div style={{ display: 'grid', gap: 12 }}>
           <Field label="รหัสผ่านเดิม" required>
@@ -201,7 +207,7 @@ export default function CloudUsers(): React.JSX.Element {
         <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '3px solid var(--accent)' }}>
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>{secret.title}</h3>
           <div style={{ display: 'grid', gap: 6, fontSize: 14 }}>
-            <div>เข้าระบบด้วย: <b className="cell-no">{secret.username}</b></div>
+            <div>บัญชีเป้าหมาย: <b className="cell-no">{secret.username}</b></div>
             <div>รหัสผ่าน: <b className="cell-no" style={{ fontSize: 18 }}>{secret.password}</b></div>
           </div>
           <p style={{ margin: '10px 0 12px', fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.7 }}>
@@ -361,7 +367,7 @@ export default function CloudUsers(): React.JSX.Element {
                           loading={busyId === u.id}
                           onClick={() => void reset(u)}
                         >
-                          ตั้งรหัสใหม่
+                          สุ่มรหัสให้ผู้ใช้นี้
                         </Button>
                       )}
                       {u.is_active && (
