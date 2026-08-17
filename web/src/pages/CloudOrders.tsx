@@ -34,6 +34,13 @@ import { IconBox, IconEdit, IconPlus, IconTrash } from '../components/icons'
 
 const PAGE_SIZE = 15
 
+type OrderKind = 'vehicle' | 'box'
+
+/* TMS ส่งชนิดงานมากับชื่อสินค้าในรูปแบบที่ใช้งานจริง:
+   BOX... = ชิ้นงานกล่อง ส่วนรายการรุ่นรถ เช่น SPRINT... = รถ */
+const orderKind = (goods: string): OrderKind =>
+  /^box\b/i.test(goods.trim()) ? 'box' : 'vehicle'
+
 interface OrderForm {
   customer_id: string
   origin: string
@@ -247,7 +254,7 @@ export default function CloudOrders(): React.JSX.Element {
           <table className="table">
             <thead>
               <tr>
-                <th>เลขที่</th>
+                <th>เลขเที่ยว / เลขออเดอร์</th>
                 <th>ลูกค้า</th>
                 <th>เส้นทาง</th>
                 <th className="num">ค่าขนส่ง</th>
@@ -263,10 +270,17 @@ export default function CloudOrders(): React.JSX.Element {
                 <tr key={o.id}>
                   <td>
                     <div className="cell-no">
-                      <span className="text-strong">{o.order_no}</span>
+                      <span className="text-strong">{o.trip_no ?? 'ยังไม่จัดเที่ยว'}</span>
                       {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
                     </div>
-                    <div className="text-xs text-muted">{o.goods_desc}</div>
+                    <div className="text-xs text-muted">ออเดอร์ {o.order_no}</div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                      <Badge
+                        label={orderKind(o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
+                        tone={orderKind(o.goods_desc) === 'box' ? 'accent' : 'neutral'}
+                      />
+                      <span className="text-xs text-muted">{o.goods_desc}</span>
+                    </div>
                   </td>
                   <td>{o.customer_name ?? <span className="text-muted">—</span>}</td>
                   <td>
@@ -280,10 +294,7 @@ export default function CloudOrders(): React.JSX.Element {
                   </td>
                   <td>
                     {o.driver_name ? (
-                      <>
-                        {o.driver_name}
-                        <div className="text-xs text-muted">{o.trip_no}</div>
-                      </>
+                      o.driver_name
                     ) : (
                       <span className="text-muted text-xs">ยังไม่จัดคิว</span>
                     )}
