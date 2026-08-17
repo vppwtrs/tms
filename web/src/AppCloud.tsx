@@ -77,7 +77,7 @@ function PublicOnly(): React.JSX.Element {
   return <CloudLogin />
 }
 
-function RequirePermission({ permission, children }: { permission: string; children: React.ReactNode }): React.JSX.Element {
+export function RequirePermission({ permission, children }: { permission: string; children: React.ReactNode }): React.JSX.Element {
   const { can } = useCloudAuth()
   if (!can(permission)) {
     return <div className="card" style={{ margin: 24, padding: 24, textAlign: 'center' }}>
