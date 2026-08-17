@@ -442,6 +442,28 @@ const ourCarrier = (value: string): string | null => {
   return OUR_CARRIERS.find((name) => name.toLowerCase() === normalized) ?? null
 }
 
+/**
+ * Trip API ของ TMS แต่ละรุ่นวาง Carrier ไม่เหมือนกัน บางรุ่นเป็น
+ * `carrierName`, บางรุ่นซ่อนไว้ใน object ที่มากับ header จึงอ่านชื่อที่รู้จัก
+ * จากทั้ง payload โดยไม่เดาชื่อ field อีกต่อไป
+ *
+ * จำกัดความลึกและจำนวน node เพื่อให้ payload ที่ผิดปกติไม่ทำให้หน้าเว็บค้าง
+ */
+function findOurCarrier(value: unknown, depth = 0, seen = new Set<unknown>()): string | null {
+  if (typeof value === 'string') return ourCarrier(value)
+  if (!value || typeof value !== 'object' || depth >= 5 || seen.has(value)) return null
+  seen.add(value)
+
+  const values = Array.isArray(value)
+    ? value
+    : Object.values(value as Record<string, unknown>)
+  for (const child of values) {
+    const found = findOurCarrier(child, depth + 1, seen)
+    if (found) return found
+  }
+  return null
+}
+
 /** สถานะเที่ยวตามที่ TMS ใช้จริง (statusId ตรงตัว) */
 export const TRIP_STATUS: Record<number, string> = {
   2: 'Confirm',
@@ -491,7 +513,7 @@ function toTripHeader(item: unknown): TripHeader {
     licensePlate: s(t.licensePlate ?? t.license_plate ?? t.plateNo),
     driver: s(t.driverName ?? t.driver_name ?? driver.name ?? driver.fullName ?? t.driver),
     carrierId: s(t.carrierId ?? carrier.id),
-    carrierName: s(t.carrierName ?? t.carrier_name ?? carrier.name ?? carrier.carrierName ?? t.carrier),
+    carrierName: s(t.carrierName ?? t.carrier_name ?? carrier.name ?? carrier.carrierName ?? t.carrier) || findOurCarrier(t) || '',
     vehicleTypeName: s(t.vehicleTypeName ?? t.vehicle_type ?? vehicle.name ?? vehicle.type ?? t.vehicleType),
     area: s(t.area ?? t.areaName),
     cost: Number(t.cost ?? 0),
