@@ -410,13 +410,31 @@ export interface Database {
           linked_pl: number
         }
       }
+      push_tms_trips_and_sync: {
+        Args: { p_rows: Record<string, unknown>[] }
+        Returns: Record<string, unknown>
+      }
+      sync_tms_trip_status: {
+        Args: Record<string, never>
+        Returns: { trips: number; orders: number }
+      }
+      link_tms_orders_to_customers: {
+        Args: Record<string, never>
+        Returns: { linked: number }
+      }
       preview_tms_trips: {
         Args: { p_date?: string | null }
         Returns: Record<string, unknown>
       }
       import_tms_trip: {
         Args: { p_tms_id: string }
-        Returns: { trip_id: number; created_orders: number; already: boolean }
+        Returns: {
+          trip_id: number
+          created_orders: number
+          linked_orders?: number
+          orders_without_customer?: number
+          already: boolean
+        }
       }
       create_driver_from_tms: {
         Args: { p_driver_key: string }

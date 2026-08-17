@@ -71,8 +71,9 @@ export interface TmsTripPreviewRow {
   total_unit: number | null
   warehouse_code: string | null
   imported: boolean
-  /* null = ยังไม่จับคู่ ซึ่งกันการนำเข้าจริง ๆ ต่างจากใบที่ร้านไม่จับคู่ (ข้ามได้) */
-  vehicle_id: number | null
+  trip_id: number | null
+  /* null = ยังไม่จับคู่คนขับ ซึ่งเป็นเรื่องเดียวที่กันการนำเข้า —
+     ทะเบียนไม่กัน (ระบบสร้างรถให้เอง) และใบที่ร้านยังไม่จับคู่ก็ไม่กัน (เที่ยวไปทั้งก้อน) */
   driver_id: number | null
   unmapped_pls: number
   pls_in_db: number
@@ -82,8 +83,9 @@ export interface TmsTripsPreview {
   date: string | null
   latest_date: string | null
   trips: TmsTripPreviewRow[]
-  unmapped_plates: string[]
   unmapped_drivers: string[]
+  /* ออเดอร์ที่นำเข้ามาแล้วแต่ยังไม่รู้ว่าเป็นลูกค้ารายไหน — งานยังส่งคนขับได้ปกติ */
+  orders_without_customer: number
   /* TMS ยกเลิกเที่ยวที่เรานำเข้าไปแล้ว — ระบบไม่ยกเลิกให้เอง รถอาจวิ่งออกไปแล้ว */
   cancelled_after_import: { trip_no: string; reason: string | null; our_trip_id: number }[]
 }
@@ -101,7 +103,8 @@ export async function importTrip(tmsId: string): Promise<{
   trip_no?: string
   status?: string
   created_orders: number
-  skipped_pls?: number
+  linked_orders?: number
+  orders_without_customer?: number
   already: boolean
 }> {
   const { data, error } = await supabase.rpc('import_tms_trip', { p_tms_id: tmsId })
@@ -115,6 +118,14 @@ export async function createDriverFromTms(driverKey: string): Promise<{ driver_i
   const { data, error } = await supabase.rpc('create_driver_from_tms', { p_driver_key: driverKey })
   if (error) throw toDataError(error)
   return data as { driver_id: number; name: string }
+}
+
+/** เติม customer_id ให้ออเดอร์ที่นำเข้าไปก่อนที่ร้านจะถูกจับคู่
+ *  ต้องมี ไม่งั้นทางแก้เดียวคือลบออเดอร์แล้วนำเข้าใหม่ ซึ่งพาลบ POD ที่คนขับเก็บไว้ไปด้วย */
+export async function linkOrdersToCustomers(): Promise<{ linked: number }> {
+  const { data, error } = await supabase.rpc('link_tms_orders_to_customers')
+  if (error) throw toDataError(error)
+  return data as { linked: number }
 }
 
 export async function createVehicleFromTms(plate: string): Promise<{ vehicle_id: number; plate: string }> {

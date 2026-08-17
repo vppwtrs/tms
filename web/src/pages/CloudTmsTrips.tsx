@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  previewTrips, importTrip, createDriverFromTms, createVehicleFromTms,
+  previewTrips, importTrip, createDriverFromTms, linkOrdersToCustomers,
   type TmsTripsPreview,
 } from '../api/tms'
 import { useCloudAuth } from '../context/CloudAuthContext'
@@ -18,8 +18,16 @@ import { IconTruck } from '../components/icons'
  * ทำไมนำเข้าทีละเที่ยว ไม่ใช่ปุ่มเดียวจบทั้งวัน: หนึ่งเที่ยวคือรถหนึ่งคันกับคนหนึ่งคน
  * ผูกผิดคนคืองานไปโผล่ในมือคนขับที่ไม่ได้วิ่ง แล้วคนที่วิ่งจริงมองไม่เห็นงานตัวเอง
  *
- * ทะเบียน/คนขับที่ยังไม่จับคู่ **กันการนำเข้า** (ต่างจากร้านที่ยังไม่จับคู่ ซึ่งข้ามใบนั้นได้)
- * เพราะเที่ยวที่ไม่มีรถกับคนขับไม่ใช่เที่ยว มันคือแถวเปล่าในตาราง
+ * **เที่ยวไปทั้งก้อน** ทุกใบในเที่ยวกลายเป็นออเดอร์ ไม่มีใบไหนถูกข้าม
+ * ใบที่ร้านยังไม่จับคู่ก็ยังเป็นออเดอร์ แค่ยังไม่รู้ว่าเป็นลูกค้ารายไหน (เติมย้อนหลังได้)
+ * เที่ยวที่ขาดจุดส่งไปเงียบ ๆ = คนขับไปถึงหน้าร้านแล้วในระบบไม่มีงานนั้น
+ *
+ * สิ่งเดียวที่กันการนำเข้าคือ **ชื่อคนขับที่ยังไม่จับคู่** เพราะคนขับต้องผูกกับบัญชีผู้ใช้
+ * ถึงจะเห็นงานตัวเอง (RLS แขวนอยู่กับ drivers.user_id) เดาผิด = งานไปโผล่ในมือคนที่ไม่ได้วิ่ง
+ *
+ * **ทะเบียนไม่กัน** ระบบสร้างรถให้เองจากทะเบียนที่ TMS บอกมา และ **ห้ามผูกรถกับคนขับ**
+ * ที่ไหนในระบบ — กองรถมี 4W 5 คัน คนขับคนเดิมไม่ได้ใช้คันเดิมทุกวัน
+ * รถถูกผูกที่ระดับ "เที่ยว" เท่านั้น ซึ่งเป็นความจริงเฉพาะวันนั้น
  */
 
 export default function CloudTmsTrips(): React.JSX.Element {
@@ -27,7 +35,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
   const { push } = useToast()
   const canDispatch = can('dispatch.write')
   const canDrivers = can('drivers.write')
-  const canVehicles = can('vehicles.write')
+  const canOrders = can('orders.write')
 
   const [date, setDate] = useState('')
   const [data, setData] = useState<TmsTripsPreview | null>(null)
@@ -63,7 +71,8 @@ export default function CloudTmsTrips(): React.JSX.Element {
       push('success', r.already
         ? `เที่ยว ${tripNo} นำเข้าไปแล้วก่อนหน้านี้`
         : `นำเข้าเที่ยว ${tripNo} แล้ว · ออเดอร์ใหม่ ${r.created_orders} ใบ` +
-          (r.skipped_pls ? ` · ข้ามใบที่ร้านยังไม่จับคู่ ${r.skipped_pls} ใบ` : ''))
+          (r.linked_orders ? ` · ผูกของเดิม ${r.linked_orders} ใบ` : '') +
+          (r.orders_without_customer ? ` · ยังไม่ผูกลูกค้า ${r.orders_without_customer} ใบ` : ''))
       await load(date)
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'นำเข้าเที่ยวไม่สำเร็จ')
@@ -82,13 +91,15 @@ export default function CloudTmsTrips(): React.JSX.Element {
     }
   }
 
-  const addVehicle = async (plate: string): Promise<void> => {
+  /* เติมลูกค้าให้ออเดอร์ที่นำเข้าไปก่อนที่ร้านจะถูกจับคู่
+     ทางแก้อื่นคือลบออเดอร์แล้วนำเข้าใหม่ ซึ่งพา POD ที่คนขับเก็บไว้หายไปด้วย */
+  const backfill = async (): Promise<void> => {
     try {
-      await createVehicleFromTms(plate)
-      push('success', `เพิ่มรถ ${plate} แล้ว — ตรวจความจุบรรทุกที่หน้ารถยนต์ด้วย`)
+      const r = await linkOrdersToCustomers()
+      push('success', r.linked ? `เติมลูกค้าให้ออเดอร์ ${r.linked} ใบแล้ว` : 'ไม่มีออเดอร์ที่เติมได้')
       await load(date)
     } catch (e) {
-      push('error', e instanceof Error ? e.message : 'เพิ่มรถไม่สำเร็จ')
+      push('error', e instanceof Error ? e.message : 'เติมลูกค้าไม่สำเร็จ')
     }
   }
 
@@ -141,31 +152,29 @@ export default function CloudTmsTrips(): React.JSX.Element {
         </div>
       )}
 
-      {(data?.unmapped_plates.length || data?.unmapped_drivers.length) ? (
-        <div className="card" style={{ padding: 16, marginTop: 16, display: 'grid', gap: 12 }}>
-          <div style={{ fontWeight: 600, fontSize: 13.5 }}>ยังจับคู่ไม่ครบ — เที่ยวที่เกี่ยวข้องจะยังนำเข้าไม่ได้</div>
-          {data.unmapped_plates.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 13 }}>ทะเบียน:</span>
-              {data.unmapped_plates.map((p) => (
-                <Button key={p} variant="outline" disabled={!canVehicles} onClick={() => void addVehicle(p)}>
-                  เพิ่มรถ {p}
-                </Button>
-              ))}
-            </div>
-          )}
-          {data.unmapped_drivers.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 13 }}>พนักงานขับ:</span>
-              {data.unmapped_drivers.map((d) => (
-                <Button key={d} variant="outline" disabled={!canDrivers} onClick={() => void addDriver(d)}>
-                  เพิ่ม {d}
-                </Button>
-              ))}
-            </div>
-          )}
+      {data && data.unmapped_drivers.length > 0 && (
+        <div className="card" style={{ padding: 16, marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* คนขับเป็นเรื่องเดียวที่ต้องให้คนยืนยัน — ทะเบียนระบบสร้างให้เองตอนนำเข้า */}
+          <span style={{ fontSize: 13, fontWeight: 600 }}>พนักงานขับที่ยังไม่รู้ว่าเป็นใครในระบบ:</span>
+          {data.unmapped_drivers.map((d) => (
+            <Button key={d} variant="outline" disabled={!canDrivers} onClick={() => void addDriver(d)}>
+              เพิ่ม {d}
+            </Button>
+          ))}
         </div>
-      ) : null}
+      )}
+
+      {data && data.orders_without_customer > 0 && (
+        <div className="card" style={{ padding: 16, marginTop: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 13 }}>
+            ออเดอร์ที่ยังไม่ผูกลูกค้า <b>{data.orders_without_customer}</b> ใบ — งานยังส่งถึงคนขับได้ปกติ
+            (ชื่อร้านกับที่อยู่อยู่ในช่องปลายทางแล้ว)
+          </span>
+          <Button variant="outline" onClick={() => void backfill()} disabled={!canOrders}>
+            เติมลูกค้าย้อนหลัง
+          </Button>
+        </div>
+      )}
 
       {loading && <div style={{ padding: 18, color: 'var(--muted)' }}>กำลังตรวจข้อมูล…</div>}
 
@@ -193,7 +202,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
             </thead>
             <tbody>
               {data.trips.map((t) => {
-                const blocked = !t.vehicle_id || !t.driver_id
+                const blocked = !t.driver_id
                 return (
                   <tr key={t.tms_id}>
                     <td>
@@ -211,8 +220,9 @@ export default function CloudTmsTrips(): React.JSX.Element {
                     <td className="num">
                       {t.total_pl ?? 0} · {t.total_unit ?? 0}
                       {t.unmapped_pls > 0 && (
-                        <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>
-                          ร้านยังไม่จับคู่ {t.unmapped_pls} ใบ
+                        /* ไม่ใช่คำเตือน — ใบพวกนี้เข้าเป็นออเดอร์ตามปกติ แค่ยังไม่ผูกลูกค้า */
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                          ยังไม่ผูกลูกค้า {t.unmapped_pls} ใบ
                         </div>
                       )}
                     </td>
@@ -238,9 +248,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                       )}
                       {blocked && !t.imported && t.status_id !== 6 && (
                         <div style={{ fontSize: 11.5, color: 'var(--warn)', marginTop: 4 }}>
-                          {!t.vehicle_id && !t.driver_id
-                            ? 'ยังไม่จับคู่รถและพนักงานขับ'
-                            : !t.vehicle_id ? 'ยังไม่จับคู่รถ' : 'ยังไม่จับคู่พนักงานขับ'}
+                          ยังไม่จับคู่พนักงานขับ
                         </div>
                       )}
                     </td>

@@ -80,7 +80,10 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
       scheduled_at: o.scheduled_at,
       delivered_at: o.delivered_at,
       notes: o.notes,
-      customer_name: o.customer_name,
+      /* ออเดอร์ที่นำเข้าจากเที่ยว TMS ก่อนที่ร้านจะถูกจับคู่ยังไม่มี customer_id
+         แต่ชื่อร้านถูกใส่นำหน้าที่อยู่ในช่อง destination ไว้แล้ว (ดู 0014)
+         ดึงมาโชว์แทน "ไม่ระบุลูกค้า" — คนขับต้องรู้ว่าไปส่งใคร ไม่ใช่รู้ว่าระบบยังไม่ผูกข้อมูล */
+      customer_name: o.customer_name ?? o.destination?.split(' · ')[0] ?? null,
       customer_phone: o.customer_phone,
       customer_address: o.customer_address,
       /* ระบบเดิมส่ง has_pod มาเป็น 0/1 ไม่ใช่ boolean — คงรูปเดิมไว้

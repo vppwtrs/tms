@@ -512,7 +512,11 @@ export interface TripPushResult {
   updated: number
   unchanged: number
   skipped_carrier: number
+  /** จำนวน **แถว item** ที่ผูกเข้าเที่ยว ไม่ใช่จำนวนใบ — ใบเดียวมีหลายแถวได้ */
   linked_pl: number
+  /** เที่ยว/ออเดอร์ฝั่งเราที่สถานะขยับตาม TMS ในรอบนี้ (ไหลไปข้างหน้าทางเดียว) */
+  synced_trips: number
+  synced_orders: number
 }
 
 /** ส่งเที่ยวขึ้นระบบ — ต้อง push ใบ (pushShipments) **ก่อน** ถ้าอยากให้ผูกใบเข้าเที่ยวติดรอบเดียว
@@ -520,6 +524,7 @@ export interface TripPushResult {
 export async function pushTrips(trips: TripHeader[]): Promise<TripPushResult> {
   const out: TripPushResult = {
     seen: 0, inserted: 0, updated: 0, unchanged: 0, skipped_carrier: 0, linked_pl: 0,
+    synced_trips: 0, synced_orders: 0,
   }
   if (!trips.length) return out
 
@@ -533,14 +538,21 @@ export async function pushTrips(trips: TripHeader[]): Promise<TripPushResult> {
 
   for (let i = 0; i < payload.length; i += 50) {
     const chunk = payload.slice(i, i + 50)
-    const { data, error } = await supabase.rpc('push_tms_trips', { p_rows: chunk })
+    /* ตัวห่อที่ push แล้วให้สถานะไหลเข้าเที่ยวที่นำเข้าแล้วต่อทันที
+       ฐานเป็นคนตัดสินว่าอัปเดตอะไรได้ หน้าจอไม่ได้ส่งสถานะไปบอก
+       และการไหลเป็นทางเดียว — คนขับปิดงานแล้ว TMS ยัง OnDelivery ก็ห้ามถอยกลับ */
+    const { data, error } = await supabase.rpc('push_tms_trips_and_sync', { p_rows: chunk })
     if (error) throw toDataError(error)
-    out.seen += data?.seen ?? 0
-    out.inserted += data?.inserted ?? 0
-    out.updated += data?.updated ?? 0
-    out.unchanged += data?.unchanged ?? 0
-    out.skipped_carrier += data?.skipped_carrier ?? 0
-    out.linked_pl += data?.linked_pl ?? 0
+    const d = (data ?? {}) as { push?: Partial<TripPushResult>; synced_trips?: number; synced_orders?: number }
+    const p = d.push ?? {}
+    out.seen += p.seen ?? 0
+    out.inserted += p.inserted ?? 0
+    out.updated += p.updated ?? 0
+    out.unchanged += p.unchanged ?? 0
+    out.skipped_carrier += p.skipped_carrier ?? 0
+    out.linked_pl += p.linked_pl ?? 0
+    out.synced_trips += d.synced_trips ?? 0
+    out.synced_orders += d.synced_orders ?? 0
   }
   return out
 }
