@@ -77,6 +77,17 @@ function PublicOnly(): React.JSX.Element {
   return <CloudLogin />
 }
 
+function RequirePermission({ permission, children }: { permission: string; children: React.ReactNode }): React.JSX.Element {
+  const { can } = useCloudAuth()
+  if (!can(permission)) {
+    return <div className="card" style={{ margin: 24, padding: 24, textAlign: 'center' }}>
+      <h2 style={{ marginBottom: 8 }}>ไม่มีสิทธิ์เปิดหน้านี้</h2>
+      <p className="text-muted">แจ้งผู้ดูแลระบบให้เพิ่มสิทธิ์ให้บัญชีของคุณ</p>
+    </div>
+  }
+  return <>{children}</>
+}
+
 export default function AppCloud(): React.JSX.Element {
   return (
     <Suspense fallback={<Splash />}>
@@ -84,17 +95,17 @@ export default function AppCloud(): React.JSX.Element {
         <Route path="/login" element={<PublicOnly />} />
         <Route element={<Protected />}>
           <Route path="/" element={<Home />} />
-          <Route path="/my-jobs" element={<CloudMyJobs />} />
-          <Route path="/tms-pull" element={<TmsPull />} />
-          <Route path="/tms-import" element={<CloudTmsImport />} />
-          <Route path="/tms-trips" element={<CloudTmsTrips />} />
-          <Route path="/orders" element={<CloudOrders />} />
-          <Route path="/dispatch" element={<CloudDispatch />} />
-          <Route path="/vehicles" element={<CloudVehicles />} />
-          <Route path="/drivers" element={<CloudDrivers />} />
-          <Route path="/customers" element={<CloudCustomers />} />
-          <Route path="/users" element={<CloudUsers />} />
-          <Route path="/data" element={<CloudData />} />
+          <Route path="/my-jobs" element={<RequirePermission permission="myjobs.view"><CloudMyJobs /></RequirePermission>} />
+          <Route path="/tms-pull" element={<RequirePermission permission="orders.write"><TmsPull /></RequirePermission>} />
+          <Route path="/tms-import" element={<RequirePermission permission="orders.write"><CloudTmsImport /></RequirePermission>} />
+          <Route path="/tms-trips" element={<RequirePermission permission="dispatch.view"><CloudTmsTrips /></RequirePermission>} />
+          <Route path="/orders" element={<RequirePermission permission="orders.view"><CloudOrders /></RequirePermission>} />
+          <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
+          <Route path="/vehicles" element={<RequirePermission permission="vehicles.view"><CloudVehicles /></RequirePermission>} />
+          <Route path="/drivers" element={<RequirePermission permission="drivers.view"><CloudDrivers /></RequirePermission>} />
+          <Route path="/customers" element={<RequirePermission permission="customers.view"><CloudCustomers /></RequirePermission>} />
+          <Route path="/users" element={<RequirePermission permission="users.manage"><CloudUsers /></RequirePermission>} />
+          <Route path="/data" element={<RequirePermission permission="users.manage"><CloudData /></RequirePermission>} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
