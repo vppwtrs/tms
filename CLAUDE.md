@@ -10,7 +10,7 @@ Transport Management System (TMS) — ระบบบริหารจัดก
 | `web/` | React 19 + Vite SPA (+ Capacitor iOS) |
 | `web-static/` | เว็บ static ที่ export ออกมา (ไม่มี build step) |
 | `extractor/` | ตัวดึงข้อมูลจาก TMS บริษัท (เดิมเป็นโปรเจ็คแยกชื่อ "TMS Report") |
-| `supabase/` | schema + RLS + Edge Function สำหรับแผนย้ายขึ้นคลาวด์ |
+| `supabase/` | schema + RLS + Edge Function ของครึ่งคลาวด์ (`migrations/` รันด้วยมือผ่าน SQL Editor ไม่มี migration history ในฐาน — `supabase db push` ใช้ไม่ได้จนกว่าจะ `migration repair`) |
 | `scripts/serve.mjs` | ตัวคุม process: start / stop / restart / status |
 | `scripts/bootstrap-node.ps1` | ติดตั้ง Node แบบ portable ให้เครื่องที่ยังไม่มี (ไม่ต้อง admin) |
 | `docs/` | `PLAN.md`, `ROADMAP-2026.md` |
@@ -21,8 +21,14 @@ Transport Management System (TMS) — ระบบบริหารจัดก
 - **ครึ่งที่ใช้งานจริงอยู่ตอนนี้** — `server/` + `web/` รันบน LAN ของออฟฟิศ ใช้ SQLite
 - **ครึ่งที่กำลังสร้าง** — `supabase/` + ไฟล์ใหม่ใน `web/src/api/` สำหรับย้ายขึ้น GitHub Pages + Supabase
 
-ครึ่งหลังยังไม่ถูกเรียกจากหน้าจอเลยแม้แต่หน้าเดียว — ตั้งใจให้เป็นแบบนั้นระหว่างย้าย
-ของเดิมจะได้ยังรันได้ปกติ ไม่ใช่พังทั้งระบบจนกว่าจะย้ายครบ
+ครึ่งคลาวด์ใช้งานจริงแล้วที่ https://vppwtrs.github.io/tms/ (build ด้วย `npm run build:cloud -w web`)
+ส่วนครึ่ง LAN ยังรันอยู่ที่ออฟฟิศไม่ถูกแตะ — ตั้งใจให้มีสองชุดระหว่างย้าย
+สับทีเดียวแล้วพลาดคือออฟฟิศหยุดกลางสัปดาห์ ซึ่งแพงกว่าการมีโค้ดสองชุดอยู่พักหนึ่ง
+
+**แหล่งข้อมูลของครึ่งคลาวด์คือ TMS บริษัท ไม่ใช่ `seed.ts`** และมีสองเส้นที่เสริมกัน:
+`/v1/tripheaders/{GUID}/search` = เที่ยวของกองรถเรา (กรองด้วย carrier `Fleet Owner*`) เป็นแหล่งหลัก
+`/v1/pickinglistheaders/{รหัส}/search` = ใบที่ยังไม่ถูกจัดเที่ยว (สถานะ New ไม่โผล่ในหน้า Trip)
+อ้างคลังคนละแบบ (GUID กับรหัส) ส่งผิดฝั่ง 404 ทุก request — ดู `docs`/STATUS.md ก่อนแก้
 
 `extractor/` ไม่มี `package.json` ไม่ใช่ workspace — เป็นเครื่องมือแยกที่รันด้วย Node เปล่า ๆ
 
@@ -42,7 +48,10 @@ npm run dev
 - `npm run static:export` — สร้าง `web-static/`
 - `npm run static:templates` — สร้าง template ไฟล์ใน `server/data/templates`
 
-CI: `.github/workflows/ci.yml`
+CI: `.github/workflows/ci.yml` (push `main` + PR) · deploy ขึ้น Pages: `.github/workflows/deploy-pages.yml` (push `main`)
+
+Edge Function ต้อง deploy เองผ่าน Dashboard หรือ `supabase functions deploy <ชื่อ>` —
+CI ไม่แตะฝั่ง Supabase เลย แก้ไฟล์ใน `supabase/functions/` แล้วไม่ deploy = ของเก่ายังรันอยู่
 
 ## Server
 
