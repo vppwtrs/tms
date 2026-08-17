@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   { to: '/customers', label: 'ลูกค้า', icon: IconBuilding, perm: 'customers.view' },
   { to: '/tms-pull', label: 'ดึงข้อมูลจาก TMS', icon: IconTable, perm: 'orders.write' },
   { to: '/tms-import', label: 'นำเข้าเป็นออเดอร์', icon: IconTable, perm: 'orders.write' },
+  { to: '/tms-trips', label: 'เที่ยวจาก TMS', icon: IconRoute, perm: 'dispatch.view' },
   { to: '/orders', label: 'ออเดอร์', icon: IconBox, perm: 'orders.view' },
   { to: '/dispatch', label: 'แผนงานขนส่ง', icon: IconRoute, perm: 'dispatch.view' },
   { to: '/vehicles', label: 'รถยนต์', icon: IconTruckBig, perm: 'vehicles.view' },

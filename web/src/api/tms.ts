@@ -55,6 +55,74 @@ export async function importShipments(date: string): Promise<{ date: string; cre
   return data as { date: string; created: number; skipped: number }
 }
 
+/* ---------- เที่ยวของ TMS ---------- */
+
+export interface TmsTripPreviewRow {
+  tms_id: string
+  trip_no: string
+  status: string | null
+  status_id: number | null
+  reason: string | null
+  license_plate: string | null
+  driver_name: string | null
+  area: string | null
+  vehicle_type: string | null
+  total_pl: number | null
+  total_unit: number | null
+  warehouse_code: string | null
+  imported: boolean
+  /* null = ยังไม่จับคู่ ซึ่งกันการนำเข้าจริง ๆ ต่างจากใบที่ร้านไม่จับคู่ (ข้ามได้) */
+  vehicle_id: number | null
+  driver_id: number | null
+  unmapped_pls: number
+  pls_in_db: number
+}
+
+export interface TmsTripsPreview {
+  date: string | null
+  latest_date: string | null
+  trips: TmsTripPreviewRow[]
+  unmapped_plates: string[]
+  unmapped_drivers: string[]
+  /* TMS ยกเลิกเที่ยวที่เรานำเข้าไปแล้ว — ระบบไม่ยกเลิกให้เอง รถอาจวิ่งออกไปแล้ว */
+  cancelled_after_import: { trip_no: string; reason: string | null; our_trip_id: number }[]
+}
+
+export async function previewTrips(date?: string): Promise<TmsTripsPreview> {
+  const { data, error } = await supabase.rpc('preview_tms_trips', { p_date: date ?? null })
+  if (error) throw toDataError(error)
+  return data as unknown as TmsTripsPreview
+}
+
+/** สร้างเที่ยว + ออเดอร์ของใบในเที่ยวในทรานแซกชันเดียว
+ *  กดซ้ำเที่ยวเดิมไม่สร้างเที่ยวที่สอง (คืน `already: true`) */
+export async function importTrip(tmsId: string): Promise<{
+  trip_id: number
+  trip_no?: string
+  status?: string
+  created_orders: number
+  skipped_pls?: number
+  already: boolean
+}> {
+  const { data, error } = await supabase.rpc('import_tms_trip', { p_tms_id: tmsId })
+  if (error) throw toDataError(error)
+  return data as { trip_id: number; created_orders: number; already: boolean }
+}
+
+/** สร้างคนขับ/รถจากข้อมูลของ TMS พร้อมจับคู่ให้ — คนกดต่อคน/ต่อคัน ระบบไม่เดาชื่อ
+ *  คนขับที่เกิดจากที่นี่ยังไม่มีบัญชีผู้ใช้ จึงยังเข้าแอปไม่ได้จนกว่าจะมีคนสร้างบัญชีให้ */
+export async function createDriverFromTms(driverKey: string): Promise<{ driver_id: number; name: string }> {
+  const { data, error } = await supabase.rpc('create_driver_from_tms', { p_driver_key: driverKey })
+  if (error) throw toDataError(error)
+  return data as { driver_id: number; name: string }
+}
+
+export async function createVehicleFromTms(plate: string): Promise<{ vehicle_id: number; plate: string }> {
+  const { data, error } = await supabase.rpc('create_vehicle_from_tms', { p_plate: plate })
+  if (error) throw toDataError(error)
+  return data as { vehicle_id: number; plate: string }
+}
+
 /* ---------- ตารางจับคู่ร้าน ---------- */
 
 export async function listDealerMap(): Promise<TmsDealerMapRow[]> {

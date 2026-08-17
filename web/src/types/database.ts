@@ -384,16 +384,47 @@ export interface Database {
           latest_date: string | null
           synced_at: string | null
           last_change_at: string | null
+          trips: number
+          trips_pending_import: number
+          trips_by_status: { status: string; status_id: number; trips: number; units: number }[]
           picking_lists: number
           total_qty: number
           pending_import: number
           by_status: { pl_status: string; trip_status: string; picking_lists: number }[]
-          recent_days: { date: string; picking_lists: number; pending: number }[]
+          recent_days: { date: string; trips: number; picking_lists: number; pending: number }[]
         }
       }
       create_customer_from_dealer: {
         Args: { p_dealer_code: string }
         Returns: { customer_id: number; name: string }
+      }
+      /* เที่ยวของ TMS — 0013 อธิบายว่าทำไมกรองด้วย carrier ไม่ใช่ด้วยคลัง */
+      push_tms_trips: {
+        Args: { p_rows: Record<string, unknown>[] }
+        Returns: {
+          seen: number
+          inserted: number
+          updated: number
+          unchanged: number
+          skipped_carrier: number
+          linked_pl: number
+        }
+      }
+      preview_tms_trips: {
+        Args: { p_date?: string | null }
+        Returns: Record<string, unknown>
+      }
+      import_tms_trip: {
+        Args: { p_tms_id: string }
+        Returns: { trip_id: number; created_orders: number; already: boolean }
+      }
+      create_driver_from_tms: {
+        Args: { p_driver_key: string }
+        Returns: { driver_id: number; name: string }
+      }
+      create_vehicle_from_tms: {
+        Args: { p_plate: string }
+        Returns: { vehicle_id: number; plate: string }
       }
       /* ตัวตน — 0010 อธิบายว่าทำไม my_account ต้องอ่านจาก auth.uid() ตรง ๆ */
       my_account: {

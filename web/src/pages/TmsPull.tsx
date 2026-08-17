@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge, Button, Field, Input, Select, PageHeader, ErrorBox } from '../components/ui'
 import {
-  listWarehouses, pullPickingLists, pullRecent, pushShipments, tmsBoard,
+  listWarehouses, pullPickingLists, pullRecent, pullTrips, pullRecentTrips,
+  pushShipments, pushTrips, tmsBoard,
   POLL_MS, PL_STATUS,
   type Warehouse, type PullResult, type PushResult, type PlStatus, type TmsBoard,
 } from '../api/tmsPull'
@@ -48,6 +49,7 @@ export default function TmsPull(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<PullResult | null>(null)
   const [pushed, setPushed] = useState<PushResult | null>(null)
+  const [tripPush, setTripPush] = useState<{ inserted: number; updated: number; skipped_carrier: number } | null>(null)
   const [board, setBoard] = useState<TmsBoard | null>(null)
   const [auto, setAuto] = useState(true)
   const [lastRun, setLastRun] = useState<string>('')
@@ -86,25 +88,40 @@ export default function TmsPull(): React.JSX.Element {
       setBusy(true)
       setError(null)
       try {
+        /* สองแหล่งในรอบเดียว — ใบตอบว่า "มีของต้องส่ง" เที่ยวตอบว่า "ใครวิ่ง ถึงไหน"
+           ดึงแหล่งเดียวคือได้ครึ่งเดียวของคำถามที่คนจัดรถถามทุกเช้า */
         const r = mode === 'poll'
-          ? await pullRecent(w, mode === 'poll' ? () => undefined : setLog)
+          ? await pullRecent(w)
           : await pullPickingLists({ from, to, warehouse: w, statuses }, setLog)
         setResult(r)
 
-        if (!r.rows.length) {
-          setLog(mode === 'poll' ? '' : 'ไม่พบใบสั่งในช่วงที่เลือก')
+        const tr = mode === 'poll'
+          ? await pullRecentTrips(w)
+          : await pullTrips({ from, to, warehouse: w, maxPages: 6 }, setLog)
+
+        if (!r.rows.length && !tr.trips.length) {
+          setLog(mode === 'poll' ? '' : 'ไม่พบใบสั่งหรือเที่ยวในช่วงที่เลือก')
           return
         }
 
-        const p = await pushShipments(r.rows, (sent, total) =>
-          mode === 'range' ? setLog(`ส่งขึ้นระบบ ${sent}/${total} แถว`) : undefined,
-        )
-        setPushed(p)
+        /* ใบต้องขึ้นก่อนเที่ยว — push_tms_trips ผูกใบเข้าเที่ยวด้วยเลข PL
+           ใบที่ยังไม่ขึ้นก็ไม่พัง แค่ไปผูกรอบหน้า แต่รอบนี้กระดานจะโชว์ใบในเที่ยวเป็น 0 */
+        const rows = r.rows.length ? r.rows : tr.rows
+        const p = rows.length
+          ? await pushShipments(rows, (sent, total) =>
+              mode === 'range' ? setLog(`ส่งขึ้นระบบ ${sent}/${total} แถว`) : undefined)
+          : null
+        if (p) setPushed(p)
+
+        const t = await pushTrips(tr.trips)
+        setTripPush(t)
+
+        const changed = (p ? p.inserted + p.updated : 0) + t.inserted + t.updated
         setLog(
-          p.inserted + p.updated === 0
-            ? mode === 'poll' ? '' : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${r.pickingLists} ใบ`
-            : `ใบใหม่ ${p.inserted} แถว · อัปเดต ${p.updated} แถว` +
-              (p.unchanged ? ` · เท่าเดิม ${p.unchanged}` : ''),
+          changed === 0
+            ? mode === 'poll' ? '' : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${r.pickingLists} ใบ · ${tr.trips.length} เที่ยว`
+            : `ใบ +${p?.inserted ?? 0}/~${p?.updated ?? 0} แถว · เที่ยว +${t.inserted}/~${t.updated}` +
+              (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : ''),
         )
         refreshBoard()
       } catch (e) {
@@ -152,6 +169,15 @@ export default function TmsPull(): React.JSX.Element {
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>วันที่ล่าสุดที่มีงาน</div>
               <div style={{ fontSize: 22, fontWeight: 660 }}>{board.latest_date ?? '—'}</div>
             </div>
+            {/* เที่ยวมาก่อนใบ — คนจัดรถคิดเป็นเที่ยว ยอดใบเป็นตัวรอง */}
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>เที่ยวของกองรถเรา</div>
+              <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.trips}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>เที่ยวรอนำเข้า</div>
+              <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.trips_pending_import}</div>
+            </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>ใบสั่ง</div>
               <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.picking_lists}</div>
@@ -165,6 +191,18 @@ export default function TmsPull(): React.JSX.Element {
               <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.pending_import}</div>
             </div>
           </div>
+
+          {board.trips_by_status.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {board.trips_by_status.map((b) => (
+                <Badge
+                  key={b.status_id}
+                  tone={b.status_id === 5 ? 'success' : b.status_id === 6 ? 'danger' : b.status_id === 2 ? 'neutral' : 'accent'}
+                  label={`${b.status} — ${b.trips} เที่ยว · ${b.units} คัน`}
+                />
+              ))}
+            </div>
+          )}
 
           {board.by_status.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

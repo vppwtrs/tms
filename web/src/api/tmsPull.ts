@@ -106,6 +106,24 @@ export async function listWarehouses(): Promise<Warehouse[]> {
   return allowed(list)
 }
 
+/* GUID ของคลัง — ถามครั้งเดียวต่อรหัสแล้วจำไว้
+   `/v1/tripheaders/{id}/search` อ้างคลังด้วย **GUID** ส่วน `/v1/pickinglistheaders/{code}/search`
+   อ้างด้วย **รหัส** สองเส้นไม่เหมือนกัน ส่งผิดฝั่งได้ 404 ทุก request */
+const whIdCache = new Map<string, string>()
+
+export async function warehouseGuid(w: Warehouse): Promise<string> {
+  if (w.id) return w.id
+  const hit = whIdCache.get(w.code)
+  if (hit) return hit
+
+  for (const found of await searchWarehouses()) {
+    if (found.id) whIdCache.set(found.code, found.id)
+  }
+  const id = whIdCache.get(w.code)
+  if (!id) throw new Error(`หา GUID ของคลัง ${w.code} ไม่เจอ`)
+  return id
+}
+
 /* ---------- Picking List ----------
  *
  * ข้อต่างที่ต้องรู้ก่อนแก้อะไรตรงนี้ (ยิงกับของจริงมาแล้ว):
@@ -217,6 +235,18 @@ export async function pullPickingLists(
     if (batch.length < PL_PAGE_SIZE) break
   }
 
+  return {
+    rows: plRowsOf(headers),
+    pickingLists: new Set(headers.map((h) => s(h.pickingListNo))).size,
+    trips: new Set(headers.map((h) => s(h.tripNo)).filter(Boolean)).size,
+    scanned,
+    missingItems: headers.filter((h) => !(h.details ?? []).length).length,
+  }
+}
+
+/** แปลง PL header เป็นแถวละ item — ใช้ทั้งเส้น PL และใบที่ติดมากับเที่ยว
+ *  ใบที่ไม่มี item ยังได้แถวหนึ่งแถว ไม่ใช่หายไปเงียบ ๆ */
+function plRowsOf(headers: PlHeader[]): PlRow[] {
   const rows: PlRow[] = []
   for (const h of headers) {
     const common = {
@@ -271,14 +301,7 @@ export async function pullPickingLists(
       })
     }
   }
-
-  return {
-    rows,
-    pickingLists: new Set(rows.map((r) => r.pickingListNo)).size,
-    trips: new Set(rows.map((r) => r.tripNo).filter(Boolean)).size,
-    scanned,
-    missingItems: headers.filter((h) => !(h.details ?? []).length).length,
-  }
+  return rows
 }
 
 const iso = (offsetDays: number): string => {
@@ -369,6 +392,159 @@ export async function pushShipments(
   return out
 }
 
+/* ---------- Trip: "ใครวิ่ง ถึงไหนแล้ว" ----------
+ *
+ * วัดของจริงก่อนเขียน: KM23-CW-02 มี 172 เที่ยว carrier เป็น Fleet Owner ล้วน
+ * KM23-CW-01 มี 4,200 เที่ยวแต่ของเราแค่ 66 จาก 200 แถวแรก ที่เหลือเป็น outsource
+ * KM12-MQ-01 มี 1,940 เที่ยวและ **ไม่มีของเราเลย** — จึงกรองด้วย carrier ไม่ใช่ด้วยคลัง
+ *
+ * กองรถเราวิ่งวันละ 2–6 เที่ยว หน้าแรก 200 แถวจึงย้อนหลังได้เป็นสัปดาห์
+ */
+
+/** carrier ที่เป็นกองรถของบริษัท — เจ้าอื่นคือ outsource ไม่ใช่งานคนขับเรา
+ *  รายการเดียวกันนี้อยู่ในตาราง `tms_carriers` ด้วย ฐานกรองซ้ำอีกชั้น
+ *  ไม่ใช่ซ้ำซ้อนโดยไม่จำเป็น — ฐานต้องไม่พึ่งว่า client กรองมาถูก */
+export const OUR_CARRIERS = ['Fleet Owner', 'Fleet Owner (Scooter)']
+
+/** สถานะเที่ยวตามที่ TMS ใช้จริง (statusId ตรงตัว) */
+export const TRIP_STATUS: Record<number, string> = {
+  2: 'Confirm',
+  3: 'Handling',
+  4: 'OnDelivery',
+  5: 'Completed',
+  6: 'Cancelled',
+}
+
+interface TripHeader {
+  id?: string
+  tripNo?: string
+  warehouseId?: string
+  orderDate?: string
+  licensePlate?: string
+  driver?: string
+  carrierId?: string
+  carrierName?: string
+  vehicleTypeName?: string
+  area?: string
+  cost?: number
+  actualCost?: number
+  statusId?: number
+  status?: string
+  reason?: string | null
+  onDeliveryDate?: string | null
+  totalPL?: number
+  totalUnit?: number
+  pickingLists?: PlHeader[]
+}
+
+const TRIP_PAGE_SIZE = 200
+
+export interface TripPullResult {
+  /** เที่ยวของกองรถเราเท่านั้น พร้อม pickingLists ที่ติดมา */
+  trips: TripHeader[]
+  /** ใบในเที่ยวเหล่านั้น แปลงเป็นรูปเดียวกับฝั่ง PL เพื่อใช้ pushShipments ตัวเดิม */
+  rows: PlRow[]
+  scanned: number
+  outsourced: number
+}
+
+/** ดึงเที่ยวของกองรถเรา — ไม่ระบุวัน เพราะ API ไม่มีช่องรับช่วงวันที่ (เหมือนฝั่ง PL)
+ *  เรียงจากวันใหม่ไปเก่า แล้วหยุดเมื่อพ้นช่วงที่ขอ */
+export async function pullTrips(
+  opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
+  onProgress?: (msg: string) => void,
+): Promise<TripPullResult> {
+  const guid = await warehouseGuid(opts.warehouse)
+  const path = `/v1/tripheaders/${encodeURIComponent(guid)}/search`
+  const maxPages = opts.maxPages ?? 2
+
+  const trips: TripHeader[] = []
+  let scanned = 0
+  let outsourced = 0
+
+  for (let page = 1; page <= maxPages; page++) {
+    const r = await tmsCall<{ data?: TripHeader[]; items?: TripHeader[] }>(path, {
+      orderBy: ['orderDate Descending'],
+      pageNumber: page,
+      pageSize: TRIP_PAGE_SIZE,
+      keyword: null,
+    })
+    const batch = r.data ?? r.items ?? []
+    scanned += batch.length
+
+    let oldest = '9999-99-99'
+    for (const t of batch) {
+      const d = day(t.orderDate)
+      if (d && d < oldest) oldest = d
+      if (!d || d < opts.from || d > opts.to) continue
+      if (!OUR_CARRIERS.includes(s(t.carrierName))) {
+        outsourced++
+        continue
+      }
+      trips.push(t)
+    }
+
+    onProgress?.(`สแกน ${scanned} เที่ยว · ของกองรถเรา ${trips.length}`)
+
+    if (oldest !== '9999-99-99' && oldest < opts.from) break
+    if (batch.length < TRIP_PAGE_SIZE) break
+  }
+
+  /* ใบที่อยู่ในเที่ยวเราแปลงด้วยตัวเดียวกับฝั่ง PL — ที่อยู่ปลายทางที่ติดมากับ trip
+     เป็นแบบเต็ม ("104 หมู่ที่ 7 บางกรวย นนทบุรี THA 11130") ต่างจาก PL search
+     ที่ส่งมาเป็นบรรทัดเดียวห้วน ๆ จึงคุ้มที่จะ push ใบจากเส้นนี้ทับของเดิม */
+  const rows = plRowsOf(trips.flatMap((t) => t.pickingLists ?? []))
+
+  return { trips, rows, scanned, outsourced }
+}
+
+/** รอบเฝ้าสถานะฝั่งเที่ยว — ย้อนหลัง 3 วันถึงล่วงหน้า 14 วัน เหมือนฝั่ง PL */
+export async function pullRecentTrips(
+  warehouse: Warehouse,
+  onProgress?: (msg: string) => void,
+): Promise<TripPullResult> {
+  return pullTrips({ from: iso(-3), to: iso(14), warehouse }, onProgress)
+}
+
+export interface TripPushResult {
+  seen: number
+  inserted: number
+  updated: number
+  unchanged: number
+  skipped_carrier: number
+  linked_pl: number
+}
+
+/** ส่งเที่ยวขึ้นระบบ — ต้อง push ใบ (pushShipments) **ก่อน** ถ้าอยากให้ผูกใบเข้าเที่ยวติดรอบเดียว
+ *  สลับลำดับก็ไม่พัง แค่ใบจะไปผูกในรอบถัดไป (ฟังก์ชันผูกด้วยเลข PL ทุกครั้งที่เรียก) */
+export async function pushTrips(trips: TripHeader[]): Promise<TripPushResult> {
+  const out: TripPushResult = {
+    seen: 0, inserted: 0, updated: 0, unchanged: 0, skipped_carrier: 0, linked_pl: 0,
+  }
+  if (!trips.length) return out
+
+  /* ตัด details[] ของใบออกก่อนส่ง — ฟังก์ชันฝั่งฐานใช้แค่ pickingListNo เพื่อผูกใบเข้าเที่ยว
+     เนื้อใบมีทางเข้าทางเดียวคือ push_tms_shipments ส่ง details มาก็ถูกทิ้ง แต่กิน bandwidth
+     ของคนที่เปิดหน้านี้ผ่านมือถือฟรี ๆ */
+  const payload = trips.map((t) => ({
+    ...t,
+    pickingLists: (t.pickingLists ?? []).map((p) => ({ pickingListNo: p.pickingListNo })),
+  }))
+
+  for (let i = 0; i < payload.length; i += 50) {
+    const chunk = payload.slice(i, i + 50)
+    const { data, error } = await supabase.rpc('push_tms_trips', { p_rows: chunk })
+    if (error) throw toDataError(error)
+    out.seen += data?.seen ?? 0
+    out.inserted += data?.inserted ?? 0
+    out.updated += data?.updated ?? 0
+    out.unchanged += data?.unchanged ?? 0
+    out.skipped_carrier += data?.skipped_carrier ?? 0
+    out.linked_pl += data?.linked_pl ?? 0
+  }
+  return out
+}
+
 /** กระดานสถานะ — วันล่าสุดที่มีงาน ยอดใบ ยอดคัน และแยกตามสถานะ
  *  ไม่ส่งวันมา = ฟังก์ชันเลือกวันล่าสุดที่มีงานจริงให้ ไม่ใช่ "วันนี้" (ดู 0012) */
 export async function tmsBoard(date?: string): Promise<TmsBoard> {
@@ -382,9 +558,13 @@ export interface TmsBoard {
   latest_date: string | null
   synced_at: string | null
   last_change_at: string | null
+  /* ฝั่งเที่ยวเป็นตัวหลัก — คนจัดรถคิดเป็นเที่ยว ไม่ได้คิดเป็นใบ */
+  trips: number
+  trips_pending_import: number
+  trips_by_status: { status: string; status_id: number; trips: number; units: number }[]
   picking_lists: number
   total_qty: number
   pending_import: number
   by_status: { pl_status: string; trip_status: string; picking_lists: number }[]
-  recent_days: { date: string; picking_lists: number; pending: number }[]
+  recent_days: { date: string; trips: number; picking_lists: number; pending: number }[]
 }

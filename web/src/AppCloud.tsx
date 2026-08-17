@@ -24,6 +24,7 @@ const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
 const TmsPull = lazy(() => import('./pages/TmsPull'))
 const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
+const CloudTmsTrips = lazy(() => import('./pages/CloudTmsTrips'))
 const CloudVehicles = lazy(() => import('./pages/CloudVehicles'))
 const CloudDrivers = lazy(() => import('./pages/CloudDrivers'))
 const CloudOrders = lazy(() => import('./pages/CloudOrders'))
@@ -85,6 +86,7 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/my-jobs" element={<CloudMyJobs />} />
           <Route path="/tms-pull" element={<TmsPull />} />
           <Route path="/tms-import" element={<CloudTmsImport />} />
+          <Route path="/tms-trips" element={<CloudTmsTrips />} />
           <Route path="/orders" element={<CloudOrders />} />
           <Route path="/dispatch" element={<CloudDispatch />} />
           <Route path="/vehicles" element={<CloudVehicles />} />
