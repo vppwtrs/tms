@@ -112,6 +112,36 @@ export async function importTrip(tmsId: string): Promise<{
   return data as { trip_id: number; created_orders: number; already: boolean }
 }
 
+/**
+ * นำเข้าเที่ยวที่พร้อมส่งให้คนขับโดยอัตโนมัติ
+ *
+ * จงใจนำเข้าเฉพาะเที่ยวที่มี driver_id แล้วเท่านั้น เพราะ RLS ของหน้าคนขับ
+ * ผูกกับคนขับในเที่ยว ถ้านำเข้าเที่ยวที่ยังจับคู่ไม่ได้ งานจะถูกสร้างแต่ไม่มี
+ * ใครเห็น และถ้าเดาผิด งานจะไปอยู่ในมือคนขับผิดคน
+ */
+export async function autoImportReadyTrips(): Promise<{
+  checked: number
+  imported: number
+  createdOrders: number
+  waitingForDriver: number
+}> {
+  const preview = await previewTrips()
+  const ready = preview.trips.filter((t) => t.driver_id && !t.imported && t.status_id !== 6)
+  const waitingForDriver = preview.trips.filter((t) => !t.driver_id && !t.imported && t.status_id !== 6).length
+  let imported = 0
+  let createdOrders = 0
+
+  for (const trip of ready) {
+    const result = await importTrip(trip.tms_id)
+    if (!result.already) {
+      imported++
+      createdOrders += result.created_orders ?? 0
+    }
+  }
+
+  return { checked: preview.trips.length, imported, createdOrders, waitingForDriver }
+}
+
 /** สร้างคนขับ/รถจากข้อมูลของ TMS พร้อมจับคู่ให้ — คนกดต่อคน/ต่อคัน ระบบไม่เดาชื่อ
  *  คนขับที่เกิดจากที่นี่ยังไม่มีบัญชีผู้ใช้ จึงยังเข้าแอปไม่ได้จนกว่าจะมีคนสร้างบัญชีให้ */
 export async function createDriverFromTms(driverKey: string): Promise<{ driver_id: number; name: string }> {

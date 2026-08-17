@@ -6,6 +6,7 @@ import {
   POLL_MS, PL_STATUS,
   type Warehouse, type PullResult, type PushResult, type PlStatus, type TmsBoard,
 } from '../api/tmsPull'
+import { autoImportReadyTrips } from '../api/tms'
 
 /**
  * ดึงข้อมูลจาก TMS บริษัท — แทนโปรแกรม extractor ที่เคยแยกต่างหาก
@@ -129,12 +130,22 @@ export default function TmsPull(): React.JSX.Element {
         const t = await pushTrips(tr.trips)
         setTripPush(t)
 
+        /* หลังข้อมูล Trip เข้า Supabase แล้ว ให้สร้างเที่ยว/ออเดอร์ต่อทันที
+           เฉพาะเที่ยวที่จับคู่คนขับไว้แล้ว — เที่ยวที่ยังไม่รู้ตัวคนจะค้างให้
+           ฝ่ายจัดรถแก้ที่หน้า "เที่ยวจาก TMS" เพื่อไม่ส่งงานผิดคน */
+        const imported = await autoImportReadyTrips()
+
         const changed = (p ? p.inserted + p.updated : 0) + t.inserted + t.updated
         setLog(
           changed === 0
-            ? mode === 'poll' ? '' : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${r.pickingLists} ใบ · ${tr.trips.length} เที่ยว`
+            ? mode === 'poll'
+              ? imported.imported || imported.createdOrders
+                ? `นำเข้าเที่ยวอัตโนมัติ ${imported.imported} เที่ยว · ออเดอร์ใหม่ ${imported.createdOrders} ใบ`
+                : ''
+              : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${r.pickingLists} ใบ · ${tr.trips.length} เที่ยว`
             : `ใบ +${p?.inserted ?? 0}/~${p?.updated ?? 0} แถว · เที่ยว +${t.inserted}/~${t.updated}` +
-              (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : ''),
+              (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : '') +
+              (imported.imported ? ` · นำเข้าอัตโนมัติ ${imported.imported} เที่ยว` : ''),
         )
         refreshBoard()
       } catch (e) {
