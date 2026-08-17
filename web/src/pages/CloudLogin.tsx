@@ -93,7 +93,7 @@ export default function CloudLogin(): React.JSX.Element {
             <Input
               value={user}
               onChange={(e) => setUser(e.target.value)}
-              placeholder="เช่น Laksiya.T@vespiario.net หรือ you@tms.local"
+              placeholder="เช่น ชื่อผู้ใช้ TMS, @vespiario.net หรืออีเมลระบบ"
               /* type="text" เสมอ — ใส่ type="email" ไม่ได้เพราะช่องนี้รับชื่อผู้ใช้ TMS ด้วย
                  เบราว์เซอร์จะฟ้องว่ารูปแบบผิดตั้งแต่ยังไม่ทันกดปุ่ม */
               type="text"
