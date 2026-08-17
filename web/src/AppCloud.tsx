@@ -19,6 +19,7 @@ import { CloudLayout } from './components/CloudLayout'
  */
 
 const CloudLogin = lazy(() => import('./pages/CloudLogin'))
+const CloudHome = lazy(() => import('./pages/CloudHome'))
 const CloudMyJobs = lazy(() => import('./pages/CloudMyJobs'))
 const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
@@ -54,8 +55,7 @@ function Protected(): React.JSX.Element {
 function Home(): React.JSX.Element {
   const { can } = useCloudAuth()
   if (can('myjobs.view')) return <Navigate to="/my-jobs" replace />
-  if (can('customers.view')) return <Navigate to="/customers" replace />
-  if (can('orders.write')) return <Navigate to="/tms-pull" replace />
+  if (can('customers.view') || can('orders.write') || can('dispatch.view')) return <CloudHome />
   if (can('users.manage')) return <Navigate to="/users" replace />
   /* ไม่เข้าเงื่อนไขไหนเลย = ล็อกอินได้แต่ไม่มีสิทธิ์เปิดหน้าไหนได้เลย
      ห้ามเด้งไป /login เด็ดขาด — PublicOnly จะเห็นว่ามี user แล้วเด้งกลับมาที่นี่ วนไม่จบ

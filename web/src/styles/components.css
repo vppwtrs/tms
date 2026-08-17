@@ -2502,3 +2502,39 @@
     padding-right: var(--space-4);
   }
 }
+/* ศูนย์ควบคุมงานขนส่ง: การ์ดงานหลักที่อ่านได้ในครั้งเดียว */
+.ops-home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.ops-action-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 132px;
+  padding: 22px;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.ops-action-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--accent); }
+.ops-action-icon { display: grid; place-items: center; width: 48px; height: 48px; color: var(--accent); background: var(--accent-soft); border-radius: 14px; }
+.ops-action-body h2 { margin: 0 0 6px; font-size: 17px; }
+.ops-action-body p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.ops-home-note { display: flex; gap: 12px; align-items: center; margin-top: 18px; padding: 14px 16px; color: var(--muted); background: var(--surface-2); border-radius: 12px; font-size: 13px; }
+.ops-home-note strong { color: var(--text); }
+
+@media (max-width: 720px) {
+  .ops-home-grid { grid-template-columns: 1fr; gap: 12px; }
+  .ops-action-card { min-height: 112px; padding: 18px; }
+  .ops-home-note { align-items: flex-start; flex-direction: column; gap: 4px; }
+}
