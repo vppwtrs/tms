@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { listUsers, approveUser, revokeUser } from '../api/users'
-import { createUser, resetPassword, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
+import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import { changeMyPassword } from '../api/auth'
 import type { UserRow, UserRole } from '../types/database'
 
@@ -44,6 +44,7 @@ export default function CloudUsers(): React.JSX.Element {
   const [roleFor, setRoleFor] = useState<Record<number, UserRole>>({})
   const [busyId, setBusyId] = useState<number | null>(null)
   const [toRevoke, setToRevoke] = useState<UserRow | null>(null)
+  const [toDelete, setToDelete] = useState<UserRow | null>(null)
 
   /* ฟอร์มสร้างบัญชีคนขับ + คนขับที่มีชื่อแต่ยังเข้าแอปไม่ได้ */
   const [noAcct, setNoAcct] = useState<{ driver_id: number; name: string; phone: string | null }[]>([])
@@ -132,6 +133,22 @@ export default function CloudUsers(): React.JSX.Element {
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ระงับไม่สำเร็จ')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const deleteAccount = async (): Promise<void> => {
+    if (!toDelete) return
+    setBusyId(toDelete.id)
+    try {
+      await deleteUserAccount(toDelete.id)
+      setToDelete(null)
+      await load()
+      setNotice(`ลบบัญชี ${toDelete.username} จาก Auth และระบบผู้ใช้แล้ว`)
+      setError(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'ลบบัญชีไม่สำเร็จ')
     } finally {
       setBusyId(null)
     }
@@ -383,6 +400,11 @@ export default function CloudUsers(): React.JSX.Element {
                           ระงับ
                         </Button>
                       )}
+                      {u.auth_source !== 'tms' && (
+                        <Button size="sm" variant="ghost" className="text-danger" onClick={() => setToDelete(u)}>
+                          ลบถาวร
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -430,6 +452,17 @@ export default function CloudUsers(): React.JSX.Element {
         loading={busyId === toRevoke?.id}
         onConfirm={() => void revoke()}
         onClose={() => setToRevoke(null)}
+      />
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="ลบบัญชีถาวร"
+        message={toDelete ? `${toDelete.name} จะถูกลบจาก Supabase Auth และรายชื่อผู้ใช้ถาวร ประวัติออเดอร์/เที่ยวจะไม่ถูกลบ` : ''}
+        confirmLabel="ลบถาวร"
+        danger
+        loading={busyId === toDelete?.id}
+        onConfirm={() => void deleteAccount()}
+        onClose={() => setToDelete(null)}
       />
     </>
   )

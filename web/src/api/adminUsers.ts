@@ -70,6 +70,27 @@ export async function resetPassword(userId: number): Promise<{ username: string;
   return call<{ username: string; password: string }>('reset-password', { user_id: userId })
 }
 
+/** ลบบัญชีถาวรทั้ง Auth และ public.users — ไม่ลบประวัติออเดอร์/เที่ยว */
+export async function deleteUserAccount(userId: number): Promise<void> {
+  const { data: s } = await supabase.auth.getSession()
+  const token = s.session?.access_token
+  if (!token) throw new DataError('401', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่')
+
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/admin-delete-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ user_id: userId }),
+  })
+  const text = await res.text()
+  let data: unknown = null
+  try { data = text ? JSON.parse(text) : null } catch { /* ignore */ }
+  if (!res.ok) throw new DataError(String(res.status), (data as { error?: string } | null)?.error ?? 'ลบบัญชีไม่สำเร็จ')
+}
+
 /** คนขับที่มีชื่อในระบบแต่ยังไม่มีบัญชีเข้าแอป — ถ้าไม่แสดงตรงนี้ เขาจะค้างแบบ
  *  "มีชื่ออยู่แต่เปิดแอปไม่ได้" โดยไม่มีใครเห็นว่ามีอยู่ */
 export async function driversWithoutAccount(): Promise<
