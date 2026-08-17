@@ -444,6 +444,30 @@ export interface Database {
         Args: { p_plate: string }
         Returns: { vehicle_id: number; plate: string }
       }
+      /* admin สร้างบัญชีจากหน้าเว็บ — 0015 อธิบายว่าทำไมฝั่ง auth ต้องอยู่ใน Edge Function */
+      i_can: {
+        Args: { p_permission: string }
+        Returns: boolean
+      }
+      create_app_user: {
+        Args: {
+          p_auth_id: string
+          p_username: string
+          p_name: string
+          p_role: UserRole
+          p_as_driver?: boolean
+          p_phone?: string | null
+        }
+        Returns: { user_id: number; driver_id: number | null }
+      }
+      attach_user_to_driver: {
+        Args: { p_user_id: number; p_driver_id: number }
+        Returns: { driver_id: number; user_id: number }
+      }
+      drivers_without_account: {
+        Args: Record<string, never>
+        Returns: { driver_id: number; name: string; phone: string | null }[]
+      }
       /* ตัวตน — 0010 อธิบายว่าทำไม my_account ต้องอ่านจาก auth.uid() ตรง ๆ */
       my_account: {
         Args: Record<string, never>

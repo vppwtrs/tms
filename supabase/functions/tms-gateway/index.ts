@@ -41,6 +41,10 @@ const ALLOW: RegExp[] = [
   /^\/v1\/warehouses\/search$/,
   /^\/v1\/reports\/actualshipment$/,
   /^\/v1\/pickinglistheaders\/[^/]+\/search$/,
+  /* เที่ยว — อ้างคลังด้วย GUID ไม่ใช่รหัส ต่างจาก pickinglistheaders ข้างบน
+     ลืมบรรทัดนี้ตอนเพิ่มเส้นเที่ยวใน 0013 ผลคือหน้าดึงข้อมูลได้ 403 จาก gateway เอง
+     ไม่ใช่จาก TMS ซึ่งอ่านข้อความ error แล้วเดาสาเหตุไม่ออกเลย */
+  /^\/v1\/tripheaders\/[^/]+\/search$/,
 ]
 
 const cors = {
