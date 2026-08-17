@@ -38,8 +38,8 @@ type OrderKind = 'vehicle' | 'box'
 
 /* TMS ส่งชนิดงานมากับชื่อสินค้าในรูปแบบที่ใช้งานจริง:
    BOX... = ชิ้นงานกล่อง ส่วนรายการรุ่นรถ เช่น SPRINT... = รถ */
-const orderKind = (goods: string): OrderKind =>
-  /^box\b/i.test(goods.trim()) ? 'box' : 'vehicle'
+const orderKind = (kind: OrderKind | null, goods: string): OrderKind =>
+  kind ?? (/^box\b/i.test(goods.trim()) ? 'box' : 'vehicle')
 
 interface OrderForm {
   customer_id: string
@@ -270,14 +270,14 @@ export default function CloudOrders(): React.JSX.Element {
                 <tr key={o.id}>
                   <td>
                     <div className="cell-no">
-                      <span className="text-strong">{o.trip_no ?? 'ยังไม่จัดเที่ยว'}</span>
+                      <span className="text-strong">{o.tms_trip_no ?? o.trip_no ?? 'ยังไม่จัดเที่ยว'}</span>
                       {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
                     </div>
                     <div className="text-xs text-muted">ออเดอร์ {o.order_no}</div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
                       <Badge
-                        label={orderKind(o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
-                        tone={orderKind(o.goods_desc) === 'box' ? 'accent' : 'neutral'}
+                        label={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
+                        tone={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'accent' : 'neutral'}
                       />
                       <span className="text-xs text-muted">{o.goods_desc}</span>
                     </div>

@@ -99,9 +99,9 @@ export async function listUnassignedOrders(q?: string): Promise<DispatchOrderRow
     const t = o.tms_shipments?.[0]
     return {
       ...o,
-      tms_pl_no: t?.picking_list_no ?? null,
-      tms_kind: /^box\b/i.test(o.goods_desc.trim()) ? 'box' : 'vehicle',
-      tms_units: t?.unit ?? t?.item_qty ?? null,
+      tms_pl_no: o.tms_picking_list_no ?? t?.picking_list_no ?? null,
+      tms_kind: o.work_kind ?? (/^box\b/i.test(o.goods_desc.trim()) ? 'box' : 'vehicle'),
+      tms_units: o.tms_unit_count ?? t?.unit ?? t?.item_qty ?? null,
     }
   })
 }

@@ -111,6 +111,11 @@ export type OrderRow = {
   notes: string | null
   created_at: string
   updated_at: string
+  /** ข้อมูลอ้างอิงจาก TMS — เลขจริงแยกจาก order_no ของระบบเรา */
+  tms_trip_no: string | null
+  tms_picking_list_no: string | null
+  work_kind: 'vehicle' | 'box' | null
+  tms_unit_count: number | null
 }
 
 export type PodRow = {
