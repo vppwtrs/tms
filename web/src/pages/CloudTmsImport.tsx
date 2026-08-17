@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { previewImport, importShipments, listDealerMap, mapDealer, type ImportPreview } from '../api/tms'
+import {
+  previewImport, importShipments, listDealerMap, mapDealer, createCustomerFromDealer,
+  type ImportPreview,
+} from '../api/tms'
+import { tmsBoard } from '../api/tmsPull'
 import { listAllCustomers } from '../api/customers'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
@@ -21,9 +25,11 @@ import { IconTable } from '../components/icons'
  * ต้องไปจัดเที่ยวเอง ตั้งใจให้เป็นแบบนั้น รถของ TMS กับรถในระบบเราเป็นคนละชุด
  */
 
-const yesterday = (): string => {
+/* ค่าเริ่มต้นเป็นวันล่าสุดที่ **มีงานจริง** ไม่ใช่วันนี้หรือเมื่อวาน
+   ตั้งเป็นวันตามปฏิทินแล้วเปิดหน้าเช้าวันหยุดจะเจอ "ยังไม่มีข้อมูล" ทั้งที่มีงานค้างอยู่
+   ซึ่งอ่านไม่ออกว่าระบบพังหรือไม่มีงาน — ถามฐานว่าวันไหนก่อนเสมอ */
+const today = (): string => {
   const d = new Date()
-  d.setDate(d.getDate() - 1)
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
   return d.toISOString().slice(0, 10)
 }
@@ -32,8 +38,9 @@ export default function CloudTmsImport(): React.JSX.Element {
   const { can, user } = useCloudAuth()
   const { push } = useToast()
   const canImport = can('orders.write')
+  const canCreateCustomer = can('customers.write')
 
-  const [date, setDate] = useState(yesterday)
+  const [date, setDate] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [customers, setCustomers] = useState<CustomerRow[]>([])
   const [dealerMap, setDealerMap] = useState<TmsDealerMapRow[]>([])
@@ -42,6 +49,7 @@ export default function CloudTmsImport(): React.JSX.Element {
   const [error, setError] = useState('')
 
   const load = useCallback(async (): Promise<void> => {
+    if (!date) return
     setLoading(true)
     setError('')
     try {
@@ -60,9 +68,20 @@ export default function CloudTmsImport(): React.JSX.Element {
     void load()
   }, [load])
 
+  /* วันไหนก่อน แล้วค่อย preview — ถามฐานทีเดียวตอนเปิดหน้า ไม่ใช่เดาจากปฏิทินเครื่อง */
   useEffect(() => {
+    tmsBoard()
+      .then((b) => setDate(b.latest_date ?? today()))
+      .catch(() => setDate(today()))
+  }, [])
+
+  const loadCustomers = useCallback((): void => {
     listAllCustomers().then(setCustomers).catch(() => setCustomers([]))
   }, [])
+
+  useEffect(() => {
+    loadCustomers()
+  }, [loadCustomers])
 
   const assign = async (code: string, name: string, customerId: string): Promise<void> => {
     try {
@@ -79,6 +98,19 @@ export default function CloudTmsImport(): React.JSX.Element {
       await load()
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'บันทึกไม่สำเร็จ')
+    }
+  }
+
+  /* สร้างลูกค้าใหม่จากร้านนี้ — ที่อยู่มาจาก PL header ที่ TMS ส่งมาแล้ว
+     ไม่ให้คนพิมพ์ที่อยู่ซ้ำเอง เพราะที่อยู่ที่พิมพ์ผิดคือคนขับไปผิดที่ */
+  const createFrom = async (code: string): Promise<void> => {
+    try {
+      const r = await createCustomerFromDealer(code)
+      push('success', `สร้างลูกค้า ${r.name} แล้ว จับคู่ให้เรียบร้อย`)
+      loadCustomers()
+      await load()
+    } catch (e) {
+      push('error', e instanceof Error ? e.message : 'สร้างลูกค้าไม่สำเร็จ')
     }
   }
 
@@ -133,6 +165,9 @@ export default function CloudTmsImport(): React.JSX.Element {
             <span>ใบสั่ง <b>{preview.picking_lists}</b> ใบ</span>
             <span>เที่ยว <b>{preview.trips}</b></span>
             <span style={{ color: 'var(--muted)' }}>นำเข้าไปแล้ว {preview.already_imported} ใบ</span>
+            {preview.not_plannable > 0 && (
+              <span style={{ color: 'var(--muted)' }}>ส่งจบแล้ว {preview.not_plannable} ใบ (ไม่นำเข้า)</span>
+            )}
           </div>
 
           {preview.unmapped_dealers.length > 0 && (
@@ -144,8 +179,8 @@ export default function CloudTmsImport(): React.JSX.Element {
                 <thead>
                   <tr>
                     <th>ร้านใน TMS</th>
-                    <th style={{ width: 90 }}>ใบ</th>
-                    <th style={{ width: 300 }}>ลูกค้าในระบบ</th>
+                    <th style={{ width: 70 }}>ใบ</th>
+                    <th style={{ width: 320 }}>ลูกค้าในระบบ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,10 +188,16 @@ export default function CloudTmsImport(): React.JSX.Element {
                     <tr key={d.dealer_code}>
                       <td>
                         <div style={{ fontWeight: 500 }}>{d.dealer_name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.dealer_code}</div>
+                        {/* ที่อยู่ปลายทางอยู่บรรทัดที่สองของเซลล์หลัก ไม่ตั้งคอลัมน์ใหม่
+                            (เพดาน 8 คอลัมน์ — กติกาตารางใน PLAN.md §6) */}
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          {d.dealer_code}
+                          {d.address ? ` · ${d.address}` : ''}
+                          {d.province ? ` จ.${d.province}` : ''}
+                        </div>
                       </td>
-                      <td>{d.picking_lists}</td>
-                      <td>
+                      <td className="num">{d.picking_lists}</td>
+                      <td style={{ display: 'grid', gap: 8 }}>
                         <Select
                           defaultValue={String(mappedOf(d.dealer_code)?.customer_id ?? '')}
                           disabled={!canImport}
@@ -167,6 +208,15 @@ export default function CloudTmsImport(): React.JSX.Element {
                             <option key={c.id} value={c.id}>{c.name}</option>
                           ))}
                         </Select>
+                        {/* ไม่มีลูกค้าให้เลือกคือทางตัน — ปุ่มนี้คือทางออกที่ยังไม่ใช่การเดา
+                            คนกด = คนตัดสินใจ ระบบไม่ได้จับคู่ชื่อให้เอง */}
+                        <Button
+                          variant="outline"
+                          onClick={() => void createFrom(d.dealer_code)}
+                          disabled={!canCreateCustomer}
+                        >
+                          สร้างลูกค้าใหม่จากร้านนี้
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -188,7 +238,7 @@ export default function CloudTmsImport(): React.JSX.Element {
               นำเข้าเป็นออเดอร์
             </Button>
             {preview.already_imported > 0 && (
-              <Badge label="กดซ้ำได้ ของเดิมไม่ถูกสร้างซ้ำ" tone="gray" />
+              <Badge label="กดซ้ำได้ ของเดิมไม่ถูกสร้างซ้ำ" tone="neutral" />
             )}
           </div>
         </div>

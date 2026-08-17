@@ -169,6 +169,27 @@ export type TmsShipmentRow = {
   driver_name: string | null
   status_delivery: string | null
   actual_cost: number | null
+  /* จาก PL header (0012) — plan_delivery_date คือวันที่ใช้วางแผน คนละตัวกับ trip_date
+     ที่เป็นวันของเที่ยวที่ TMS จับใบเข้าไปแล้ว (ว่างได้ถ้าใบยังไม่ถูกจัดเที่ยว) */
+  plan_delivery_date: string | null
+  pl_status: string | null
+  trip_status: string | null
+  pl_type: string | null
+  area: string | null
+  province: string | null
+  customer_address: string | null
+  ship_to_name: string | null
+  /* ที่อยู่ปลายทาง = ปุ่มเปิดแผนที่นำทางของคนขับ ไม่ใช่ของประดับ (กติกาเดียวกับ 0011) */
+  ship_to_address: string | null
+  ship_to_province: string | null
+  ship_to_postcode: string | null
+  total_qty: number | null
+  pickup_date: string | null
+  delivery_date: string | null
+  /* เท่าเดิม = push ไม่เขียนทับแถวนี้ คิดฝั่ง SQL ไม่ใช่ให้ client ส่งมา */
+  row_hash: string | null
+  first_seen_at: string
+  status_changed_at: string | null
   raw: Record<string, unknown>
   synced_at: string
   order_id: number | null
@@ -332,7 +353,17 @@ export interface Database {
           picking_lists: number
           trips: number
           already_imported: number
-          unmapped_dealers: { dealer_code: string; dealer_name: string; picking_lists: number }[]
+          /* not_plannable = ใบที่ส่งจบแล้ว (Completed) นับให้เห็น แต่ไม่นำเข้า
+             ที่อยู่ปลายทางติดมาด้วย ใช้สร้างลูกค้าใหม่ได้เลยโดยไม่ต้องพิมพ์ซ้ำจาก TMS */
+          not_plannable: number
+          unmapped_dealers: {
+            dealer_code: string
+            dealer_name: string
+            picking_lists: number
+            ship_to_name: string | null
+            address: string | null
+            province: string | null
+          }[]
           unknown_plates: string[]
         }
       }
@@ -342,16 +373,27 @@ export interface Database {
       }
       push_tms_shipments: {
         Args: { p_rows: Record<string, string>[] }
-        Returns: { rows: number; dates: string[] }
+        Returns: { rows: number; inserted: number; updated: number; unchanged: number; dates: string[] }
       }
-      tms_sync_status: {
-        Args: { p_date: string }
+      /* กระดานสถานะ — รวมทุกคำถามที่หน้าจอถามพร้อมกันเป็น request เดียว
+         p_date เป็น null = ฟังก์ชันเลือกวันล่าสุดที่มีงานจริงให้ */
+      tms_board: {
+        Args: { p_date?: string | null }
         Returns: {
-          date: string
+          date: string | null
+          latest_date: string | null
           synced_at: string | null
+          last_change_at: string | null
           picking_lists: number
+          total_qty: number
           pending_import: number
+          by_status: { pl_status: string; trip_status: string; picking_lists: number }[]
+          recent_days: { date: string; picking_lists: number; pending: number }[]
         }
+      }
+      create_customer_from_dealer: {
+        Args: { p_dealer_code: string }
+        Returns: { customer_id: number; name: string }
       }
       /* ตัวตน — 0010 อธิบายว่าทำไม my_account ต้องอ่านจาก auth.uid() ตรง ๆ */
       my_account: {

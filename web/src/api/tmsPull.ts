@@ -4,10 +4,15 @@ import { tmsCall } from './tmsAuth.js'
 /**
  * ดึงข้อมูลจาก TMS บริษัท แล้วส่งเข้า Supabase
  *
- * ย้ายมาจาก extractor/tms-extractor/public/app.js — ตัวนั้นเจอของจริงมาก่อน
- * และค่าคงที่ทุกตัวในไฟล์นี้มาจากการวัดข้อมูลจริง ไม่ใช่การเดา อย่าแก้โดยไม่วัดใหม่
+ * **แหล่งเดียวคือ Picking List** — เคยมีสองเส้น (PL กับ /v1/reports/actualshipment)
+ * แล้วตัดเส้น actual ทิ้งเพราะไปดูของจริงในหน้า TMS แล้วพบว่า PL header ก้อนเดียว
+ * ส่งครบกว่าทุกอย่างที่ระบบนี้ต้องใช้ และมีของที่ actual ไม่มีเลย: สถานะใบ สถานะเที่ยว
+ * วันที่วางแผนส่ง ที่อยู่ปลายทาง และ details[] ที่ติดมาด้วยอยู่แล้ว
+ * เส้น actual ต้องยิงหา item ทีละใบอีก ~23 request ต่อวัน เพื่อได้ข้อมูลที่น้อยกว่า
  *
- * ลำดับ: ล็อกอิน TMS -> ดึงรายงาน -> เติมชื่อ item -> ส่งเข้า tms_shipments
+ * ค่าคงที่ทุกตัวมาจากการวัดของจริง ไม่ใช่การเดา อย่าแก้โดยไม่วัดใหม่
+ *
+ * ลำดับ: ล็อกอิน TMS -> ดึง PL -> ส่งเข้า tms_shipments
  * จากนั้นเป็นคนละเรื่อง: จับคู่ร้าน -> นำเข้าเป็นออเดอร์ (ดู tms.ts)
  */
 
@@ -17,21 +22,29 @@ export interface Warehouse {
   description: string | null
 }
 
-export interface ShipmentRow {
-  orderDate: string
-  tripNo: string
+/** 1 แถว = 1 item ของ 1 ใบ — ใบที่ไม่มี item ก็ยังได้แถวหนึ่งแถว ไม่ใช่หายไป */
+export interface PlRow {
   pickingListNo: string
+  planDeliveryDate: string
+  tripDate: string
+  tripNo: string
+  plStatus: string
+  tripStatus: string
+  plType: string
+  area: string
   dealerCode: string
   dealerName: string
   branch: string
   province: string
+  customerAddress: string
+  shipToName: string
+  shipToAddress: string
+  shipToProvince: string
+  shipToPostCode: string
   unit: number | null
-  licensePlate: string
-  driver: string
+  totalQty: number | null
+  pickupDate: string
   deliveryDate: string
-  statusDelivery: string
-  area: string
-  actualCost: number | null
   itemNo: string
   itemName: string
   itemQty: number | null
@@ -45,8 +58,6 @@ const day = (v: unknown): string => s(v).slice(0, 10)
 
 /* ---------- คลัง ---------- */
 
-/** รายงาน actualshipment อ้าง warehouse ด้วย GUID ส่วน pickinglistheaders อ้างด้วยรหัส
- *  ต้องเก็บทั้งคู่ ไม่ใช่อย่างใดอย่างหนึ่ง — เคยพลาดตรงนี้มาแล้ว */
 function toWarehouse(item: unknown): Warehouse {
   /* **แต่ละรายการเป็นสตริงเปล่า ๆ ก็ได้** — บาง build ของ TMS ส่ง ["KM23-CW-01", ...]
      ไม่ใช่ object ตอนย้ายจาก extractor เข้าแอปเผลอตัดเคสนี้ทิ้ง ผลคือช่องเลือกคลัง
@@ -95,59 +106,23 @@ export async function listWarehouses(): Promise<Warehouse[]> {
   return allowed(list)
 }
 
-/* GUID ของคลัง ถามครั้งเดียวต่อรหัส — /personal/warehouses บาง build ไม่ส่ง id มาให้
-   แต่ /v1/reports/actualshipment อ้างคลังด้วย GUID เท่านั้น ส่งรหัสไปได้ผลลัพธ์ว่าง
-   ยกวิธีมาจาก extractor/tms-extractor/public/app.js ที่ใช้งานได้จริงมาก่อน */
-const whIdCache = new Map<string, string>()
+/* ---------- Picking List ----------
+ *
+ * ข้อต่างที่ต้องรู้ก่อนแก้อะไรตรงนี้ (ยิงกับของจริงมาแล้ว):
+ *   - อ้างคลังด้วย **รหัส** ไม่ใช่ GUID
+ *   - **API ไม่มีช่องรับช่วงวันที่** ต้องดึงมาแล้วกรองฝั่งเรา สั่งเรียงจากใหม่ไปเก่า
+ *     แล้วหยุดทันทีที่เจอหน้าที่เก่ากว่าวันเริ่มต้น ไม่งั้นคือไล่ทั้งคลัง ~15,000 ใบ
+ *   - details[] ติดมากับ header อยู่แล้ว ไม่ต้องยิงหา item เพิ่ม
+ */
 
-export async function warehouseGuid(w: Warehouse): Promise<string> {
-  if (w.id) return w.id
-  const hit = whIdCache.get(w.code)
-  if (hit) return hit
+/** สถานะของใบตามที่ TMS สะกดจริง — เรียงตามลำดับชีวิตของใบ */
+export const PL_STATUS = ['New', 'AssignTrip', 'OnTruck', 'Completed'] as const
+export type PlStatus = (typeof PL_STATUS)[number]
 
-  for (const found of await searchWarehouses()) {
-    if (found.id) whIdCache.set(found.code, found.id)
-  }
-  const id = whIdCache.get(w.code)
-  if (!id) throw new Error(`หา GUID ของคลัง ${w.code} ไม่เจอ`)
-  return id
-}
-
-/* ---------- รายงาน ---------- */
-
-interface RawShipment {
-  [k: string]: unknown
-}
-
-/** ดึงรายงาน Actual Shipment ของช่วงวันที่ — คืน 1 แถวต่อ 1 บรรทัดรายงาน ยังไม่มี item */
-async function fetchReport(from: string, to: string, warehouseId: string): Promise<RawShipment[]> {
-  /* ส่งเป็น UTC เที่ยงคืนของวันที่เลือก เพื่อให้ date part ที่ API เห็นตรงกับที่ผู้ใช้เลือก
-     ถ้าส่ง local time ผู้ใช้ที่อยู่ +07 จะได้ข้อมูลเหลื่อมไปหนึ่งวัน */
-  const raw = await tmsCall<unknown>('/v1/reports/actualshipment', {
-    planDeliveryDate: [`${from}T00:00:00.000Z`, `${to}T00:00:00.000Z`],
-    warehouseId,
-  })
-  return (Array.isArray(raw) ? raw : ((raw as { data?: unknown[] })?.data ?? [])) as RawShipment[]
-}
-
-/* ---------- เติมชื่อ item ----------
-   รายงานไม่ส่ง item มาให้ มีแต่ pickingListNo ต้องไปดึงจาก pickinglistheaders
-
-   ค้นทีละใบด้วย keyword ไม่ไล่หน้าทั้งคลัง: คลังนี้มี PL รวม ~15,000 ใบ (30 หน้า × 500)
-   การไล่หน้าคือดึงมาทั้งหมดเพื่อใช้ไม่กี่สิบใบ ส่วนการค้นทีละใบใช้ ~23 request ต่อวัน
-   และ TMS รับ keyword ที่มีหาง -C-04 ได้ตรง ๆ (ทดสอบกับของจริงแล้ว) */
-
-/** เลข PL ในรายงานบางใบมีหาง -C-04 = ใบนั้นถูกแบ่งส่งหลายเที่ยว
- *  ลองทั้งแบบเต็มและแบบตัดหาง เพราะ PL header อาจเก็บแบบไหนก็ได้ */
-function plKeyVariants(no: string): string[] {
-  const full = no.trim()
-  const base = full.replace(/-[A-Za-z]+-\d+$/, '')
-  return base !== full ? [full, base] : [full]
-}
-
-/* ยิงพร้อมกันทีละ 5 — ไม่ใช่ทั้งหมดพร้อมกัน นี่คือ TMS ของบริษัทที่คนทั้งบริษัทใช้อยู่
-   ยิงรัวเป็นร้อย request พร้อมกันคือไปกินทรัพยากรเขา */
-const CHUNK = 5
+/** ใบที่ยังทำอะไรได้ — ตัวกรองนี้ใช้ตอน **นำเข้าเป็นออเดอร์** ไม่ใช่ตอนดึง
+ *  ตอนดึงเก็บทุกสถานะรวม Completed เพราะต้องรู้ว่าใบที่เฝ้าอยู่จบแล้ว
+ *  ถ้ากรองตอนดึง ใบที่ส่งจบจะหายจากตารางเงียบ ๆ แล้วไม่มีใครรู้ว่ามันไปไหน */
+export const PL_PLANNABLE: PlStatus[] = ['New', 'AssignTrip', 'OnTruck']
 
 interface PlDetail {
   itemNo?: string
@@ -156,165 +131,24 @@ interface PlDetail {
   splitQty?: number
 }
 
-async function fetchDetails(
-  warehouseCode: string,
-  wanted: string[],
-  onProgress?: (done: number, total: number) => void,
-): Promise<Map<string, PlDetail[]>> {
-  const found = new Map<string, PlDetail[]>()
-  const path = `/v1/pickinglistheaders/${encodeURIComponent(warehouseCode)}/search`
-
-  for (let i = 0; i < wanted.length; i += CHUNK) {
-    const batch = wanted.slice(i, i + CHUNK)
-    await Promise.all(
-      batch.map(async (key) => {
-        try {
-          const r = await tmsCall<{ data?: { pickingListNo?: string; details?: PlDetail[] }[] }>(path, {
-            orderBy: [],
-            pageNumber: 1,
-            pageSize: 5,
-            keyword: key,
-          })
-          for (const h of r.data ?? []) {
-            if (h.pickingListNo) found.set(h.pickingListNo, h.details ?? [])
-          }
-        } catch {
-          /* ใบเดียวหาไม่เจอไม่ควรทำให้ทั้งวันล้ม — ใบนั้นจะไปโผล่ในช่อง item ว่างแทน */
-        }
-      }),
-    )
-    onProgress?.(Math.min(i + CHUNK, wanted.length), wanted.length)
-  }
-  return found
-}
-
-/* ---------- ประกอบร่าง ---------- */
-
-export interface PullResult {
-  rows: ShipmentRow[]
-  pickingLists: number
-  trips: number
-  missingItems: number
-  qtyMismatch: number
-}
-
-export async function pullShipments(
-  opts: {
-    from: string
-    to: string
-    warehouse: Warehouse
-    withItems?: boolean
-  },
-  onProgress?: (msg: string) => void,
-): Promise<PullResult> {
-  onProgress?.('กำลังดึงรายงาน...')
-  const report = await fetchReport(opts.from, opts.to, await warehouseGuid(opts.warehouse))
-
-  const base = report.map((a) => ({
-    orderDate: day(a.orderDate),
-    tripNo: s(a.tripNo),
-    pickingListNo: s(a.pickingListNo),
-    dealerCode: s(a.dealerCode),
-    dealerName: s(a.dealerName),
-    branch: s(a.branch),
-    province: s(a.province),
-    unit: n(a.unit),
-    licensePlate: s(a.licensePlate),
-    driver: s(a.driver),
-    deliveryDate: day(a.deliveryDate),
-    statusDelivery: s(a.statusDelivery),
-    area: s(a.area),
-    actualCost: n(a.actualCost),
-  }))
-
-  const pickingLists = new Set(base.map((r) => r.pickingListNo)).size
-  const trips = new Set(base.map((r) => r.tripNo)).size
-
-  if (!opts.withItems || !base.length) {
-    return {
-      rows: base.map((r) => ({ ...r, itemNo: '', itemName: '', itemQty: null, itemSplitQty: null, qtySource: '' as const })),
-      pickingLists,
-      trips,
-      missingItems: 0,
-      qtyMismatch: 0,
-    }
-  }
-
-  const wanted = [...new Set(base.flatMap((r) => plKeyVariants(r.pickingListNo)))]
-  const details = await fetchDetails(opts.warehouse.code, wanted, (d, t) =>
-    onProgress?.(`หาชื่อสินค้า ${d}/${t} ใบ`),
-  )
-
-  const rows: ShipmentRow[] = []
-  let missingItems = 0
-  let qtyMismatch = 0
-
-  for (const r of base) {
-    const det = plKeyVariants(r.pickingListNo)
-      .map((k) => details.get(k))
-      .find((d) => d && d.length)
-
-    if (!det) {
-      missingItems++
-      rows.push({ ...r, itemNo: '', itemName: '', itemQty: null, itemSplitQty: null, qtySource: '' })
-      continue
-    }
-
-    /* วัดจาก 40 ใบจริง (รวมใบที่มีหาง -C-0n): unit เท่ากับผลรวม qty ทั้ง 40 ใบ
-       splitQty ไม่เคยจำเป็นเลย — แต่ยังบันทึกผลเทียบไว้เป็นตัวเฝ้าระวัง
-       ถ้าวันหนึ่ง qtySource เริ่มเป็นค่าว่างบ่อย ๆ แปลว่า TMS เปลี่ยนความหมายของ unit */
-    const sumQty = det.reduce((t, d) => t + (Number(d.qty) || 0), 0)
-    const sumSplit = det.reduce((t, d) => t + (Number(d.splitQty) || 0), 0)
-    const u = r.unit ?? 0
-    const qtySource: ShipmentRow['qtySource'] = sumQty === u ? 'qty' : sumSplit === u ? 'split' : ''
-    if (!qtySource) qtyMismatch++
-
-    for (const d of det) {
-      rows.push({
-        ...r,
-        itemNo: s(d.itemNo),
-        itemName: s(d.description),
-        itemQty: n(d.qty),
-        itemSplitQty: n(d.splitQty),
-        qtySource,
-      })
-    }
-  }
-
-  return { rows, pickingLists, trips, missingItems, qtyMismatch }
-}
-
-/* ---------- Picking List: ของที่ "ยังไม่ได้ส่ง" ----------
- *
- * Actual Shipment เป็นรายงานของที่ส่งไปแล้ว นำเข้ามาเป็นออเดอร์ `pending` จึงผิดความหมาย —
- * หน้าแผนงานจะเต็มไปด้วยงานที่จบแล้วรอให้คนจัดเที่ยวย้อนหลัง Picking List คือใบสั่ง
- * ที่ยังไม่ได้ส่ง จึงเป็นแหล่งข้อมูลที่ถูกต้องสำหรับการวางแผน
- *
- * ข้อต่างที่ต้องรู้ก่อนแก้อะไรตรงนี้ (ยกมาจาก extractor ที่ยิงของจริงมาก่อน):
- *   - อ้างคลังด้วย **รหัส** ไม่ใช่ GUID ต่างจาก /v1/reports/actualshipment
- *   - **API ไม่มีช่องรับช่วงวันที่** ต้องดึงมาแล้วกรองฝั่งเรา สั่งเรียงจากใหม่ไปเก่า
- *     แล้วหยุดทันทีที่เจอหน้าที่เก่ากว่าวันเริ่มต้น ไม่งั้นคือไล่ทั้งคลัง ~15,000 ใบ
- *   - details[] ติดมากับ header อยู่แล้ว ไม่ต้องยิงหา item เพิ่มเหมือนฝั่ง Actual
- */
-
-/** สถานะของ PL ตามที่ TMS ใช้จริง — เรียงตามลำดับชีวิตของใบ */
-export const PL_STATUS = ['New', 'AssignTrip', 'OnTruck', 'Completed'] as const
-export type PlStatus = (typeof PL_STATUS)[number]
-
-/** ค่าตั้งต้น = ใบที่ยังไม่ถึงร้าน ซึ่งคือของที่ยังวางแผนได้
- *  Completed คือส่งจบแล้ว เอาเข้ามาก็ได้ออเดอร์ที่ไม่มีอะไรให้ทำ */
-export const PL_PLANNABLE: PlStatus[] = ['New', 'AssignTrip', 'OnTruck']
-
 interface PlHeader {
   pickingListNo?: string
   status?: string
+  tripStatus?: string
+  pickingListTypeName?: string
   planDeliveryDate?: string
+  orderDate?: string
+  pickupDate?: string
+  deliveryDate?: string
   area?: string
   customerCode?: string
   customerName?: string
+  customerAddress?: string
   customerProvince?: string
   shipToName?: string
+  shipToAddress?: string
   shipToProvince?: string
+  shipToPostCode?: string
   totalQty?: number
   tripNo?: string
   details?: PlDetail[]
@@ -323,23 +157,42 @@ interface PlHeader {
 const PL_PAGE_SIZE = 500
 const PL_MAX_PAGES = 60
 
+/** รอบเฝ้าสถานะ: 5 นาที — TMS เป็นระบบที่คนทั้งบริษัทใช้ ถี่กว่านี้คือไปกินทรัพยากรเขา
+ *  โดยไม่ได้อะไรเพิ่ม สถานะงานขนส่งไม่เปลี่ยนถี่กว่านาที */
+export const POLL_MS = 5 * 60 * 1000
+
+/** รอบเฝ้าดึงแค่ 2 หน้าแรก (1,000 ใบล่าสุด) ไม่ใช่ทั้งคลัง
+ *  เรียงจากวันวางแผนใหม่ไปเก่า ของที่ยังต้องเฝ้าจึงอยู่หน้าแรกเสมอ
+ *  โหลดเต็มเก็บไว้ให้ปุ่ม "ดึงย้อนหลัง" ที่คนกดเอง — ไม่ใช่ของที่วนทุก 5 นาที */
+const POLL_MAX_PAGES = 2
+
+export interface PullResult {
+  rows: PlRow[]
+  pickingLists: number
+  trips: number
+  scanned: number
+  missingItems: number
+}
+
 export async function pullPickingLists(
   opts: {
     from: string
     to: string
     warehouse: Warehouse
     statuses?: PlStatus[]
+    maxPages?: number
   },
   onProgress?: (msg: string) => void,
 ): Promise<PullResult> {
   const path = `/v1/pickinglistheaders/${encodeURIComponent(opts.warehouse.code)}/search`
-  const keep = new Set<string>(opts.statuses ?? PL_PLANNABLE)
+  const keep = new Set<string>(opts.statuses ?? [])
+  const maxPages = opts.maxPages ?? PL_MAX_PAGES
 
   const headers: PlHeader[] = []
   let scanned = 0
 
-  for (let page = 1; page <= PL_MAX_PAGES; page++) {
-    const r = await tmsCall<{ data?: PlHeader[]; items?: PlHeader[]; totalCount?: number }>(path, {
+  for (let page = 1; page <= maxPages; page++) {
+    const r = await tmsCall<{ data?: PlHeader[]; items?: PlHeader[] }>(path, {
       orderBy: ['planDeliveryDate Descending'],
       pageNumber: page,
       pageSize: PL_PAGE_SIZE,
@@ -364,33 +217,49 @@ export async function pullPickingLists(
     if (batch.length < PL_PAGE_SIZE) break
   }
 
-  /* แปลงให้เป็นรูปเดียวกับฝั่ง Actual Shipment เพื่อใช้ pushShipments ตัวเดิมได้
-     ไม่มีทะเบียนกับคนขับ เพราะใบที่ยังไม่ได้จัดเที่ยวยังไม่มีใครรับ — ตั้งใจปล่อยว่าง
-     ไม่ใช่ข้อมูลหาย */
-  const rows: ShipmentRow[] = []
+  const rows: PlRow[] = []
   for (const h of headers) {
     const common = {
-      orderDate: day(h.planDeliveryDate),
-      tripNo: s(h.tripNo),
       pickingListNo: s(h.pickingListNo),
+      planDeliveryDate: day(h.planDeliveryDate),
+      /* orderDate = วันของเที่ยวที่ TMS จับใบนี้เข้าไป ว่างได้ถ้ายังไม่จัดเที่ยว
+         คนละตัวกับ planDeliveryDate ห้ามยุบรวม (ดู 0012) */
+      tripDate: day(h.orderDate),
+      tripNo: s(h.tripNo),
+      plStatus: s(h.status),
+      tripStatus: s(h.tripStatus),
+      plType: s(h.pickingListTypeName),
+      area: s(h.area),
       dealerCode: s(h.customerCode),
       dealerName: s(h.customerName),
       branch: s(h.shipToName),
-      province: s(h.shipToProvince ?? h.customerProvince),
+      province: s(h.customerProvince),
+      customerAddress: s(h.customerAddress).trim(),
+      shipToName: s(h.shipToName),
+      shipToAddress: s(h.shipToAddress).trim(),
+      shipToProvince: s(h.shipToProvince),
+      shipToPostCode: s(h.shipToPostCode),
       unit: n(h.totalQty),
-      licensePlate: '',
-      driver: '',
-      deliveryDate: '',
-      statusDelivery: s(h.status),
-      area: s(h.area),
-      actualCost: null,
-      qtySource: '' as const,
+      totalQty: n(h.totalQty),
+      pickupDate: day(h.pickupDate),
+      deliveryDate: day(h.deliveryDate),
+      /* ไม่มีทะเบียนกับคนขับใน PL — ใบที่ยังไม่ได้จัดเที่ยวยังไม่มีใครรับ
+         ตั้งใจปล่อยว่าง ไม่ใช่ข้อมูลหาย */
     }
     const det = h.details ?? []
     if (!det.length) {
-      rows.push({ ...common, itemNo: '', itemName: '', itemQty: null, itemSplitQty: null })
+      rows.push({ ...common, itemNo: '', itemName: '', itemQty: null, itemSplitQty: null, qtySource: '' })
       continue
     }
+
+    /* วัดของจริง 64 ใบแล้ว totalQty เท่ากับผลรวม qty ทุกใบ splitQty ยังไม่เคยจำเป็น
+       แต่ยังบันทึกผลเทียบไว้เป็นตัวเฝ้าระวัง — วันไหน qtySource เริ่มว่างบ่อย ๆ
+       แปลว่า TMS เปลี่ยนความหมายของ totalQty */
+    const sumQty = det.reduce((t, d) => t + (Number(d.qty) || 0), 0)
+    const sumSplit = det.reduce((t, d) => t + (Number(d.splitQty) || 0), 0)
+    const u = Number(h.totalQty) || 0
+    const qtySource: PlRow['qtySource'] = sumQty === u ? 'qty' : sumSplit === u ? 'split' : ''
+
     for (const d of det) {
       rows.push({
         ...common,
@@ -398,6 +267,7 @@ export async function pullPickingLists(
         itemName: s(d.description),
         itemQty: n(d.qty),
         itemSplitQty: n(d.splitQty),
+        qtySource,
       })
     }
   }
@@ -406,70 +276,115 @@ export async function pullPickingLists(
     rows,
     pickingLists: new Set(rows.map((r) => r.pickingListNo)).size,
     trips: new Set(rows.map((r) => r.tripNo).filter(Boolean)).size,
+    scanned,
     missingItems: headers.filter((h) => !(h.details ?? []).length).length,
-    qtyMismatch: 0,
   }
+}
+
+const iso = (offsetDays: number): string => {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 10)
+}
+
+/** รอบเฝ้าสถานะ — ย้อนหลัง 3 วันถึงล่วงหน้า 14 วัน 2 หน้าแรกเท่านั้น
+ *  ย้อนหลัง 3 วันเพราะใบที่ส่งไปแล้วยังเปลี่ยนสถานะได้อีกวันสองวัน (ปิดงานย้อนหลัง)
+ *  ล่วงหน้า 14 วันเพราะ TMS วางแผนล่วงหน้าไว้ ของพรุ่งนี้ต้องเห็นวันนี้ */
+export async function pullRecent(warehouse: Warehouse, onProgress?: (msg: string) => void): Promise<PullResult> {
+  return pullPickingLists(
+    { from: iso(-3), to: iso(14), warehouse, maxPages: POLL_MAX_PAGES },
+    onProgress,
+  )
 }
 
 /* ---------- ส่งเข้า Supabase ---------- */
 
 /* แบ่งส่งทีละก้อน — วันเดียวก็หลายร้อยแถว ส่งทีเดียวหมดคือถ้าเน็ตสะดุดกลางทางเสียทั้งก้อน
-   ส่งซ้ำก้อนเดิมปลอดภัย เพราะ push_tms_shipments เป็น upsert */
+   ส่งซ้ำก้อนเดิมปลอดภัย เพราะ push_tms_shipments เป็น upsert ที่เทียบ row_hash ก่อนเขียน */
 const PUSH_CHUNK = 400
 
+export interface PushResult {
+  rows: number
+  inserted: number
+  updated: number
+  unchanged: number
+  dates: string[]
+}
+
 export async function pushShipments(
-  rows: ShipmentRow[],
+  rows: PlRow[],
   onProgress?: (sent: number, total: number) => void,
-): Promise<{ rows: number; dates: string[] }> {
+): Promise<PushResult> {
+  const num = (v: number | null): string => (v == null ? '' : String(v))
   const payload = rows
-    .filter((r) => r.pickingListNo && r.orderDate)
+    .filter((r) => r.pickingListNo && r.planDeliveryDate)
     .map((r) => ({
       pickingListNo: r.pickingListNo,
       itemNo: r.itemNo,
       itemName: r.itemName,
-      itemQty: r.itemQty == null ? '' : String(r.itemQty),
-      itemSplitQty: r.itemSplitQty == null ? '' : String(r.itemSplitQty),
+      itemQty: num(r.itemQty),
+      itemSplitQty: num(r.itemSplitQty),
       qtySource: r.qtySource,
       tripNo: r.tripNo,
-      /* คอลัมน์ในรายงานชื่อ "Trip Date" แต่ฟิลด์ที่ API ส่งมาคือ orderDate
-         ไม่ใช่ planDeliveryDate ซึ่งเป็นแค่ชื่อพารามิเตอร์ตอนค้นหา (ดู 0006) */
-      tripDate: r.orderDate,
+      tripDate: r.tripDate,
+      planDeliveryDate: r.planDeliveryDate,
+      plStatus: r.plStatus,
+      tripStatus: r.tripStatus,
+      plType: r.plType,
+      area: r.area,
       dealerCode: r.dealerCode,
       dealerName: r.dealerName,
       branch: r.branch,
       province: r.province,
-      unit: r.unit == null ? '' : String(r.unit),
-      licensePlate: r.licensePlate,
-      driver: r.driver,
-      statusDelivery: r.statusDelivery,
-      actualCost: r.actualCost == null ? '' : String(r.actualCost),
+      customerAddress: r.customerAddress,
+      shipToName: r.shipToName,
+      shipToAddress: r.shipToAddress,
+      shipToProvince: r.shipToProvince,
+      shipToPostCode: r.shipToPostCode,
+      unit: num(r.unit),
+      totalQty: num(r.totalQty),
+      pickupDate: r.pickupDate,
       deliveryDate: r.deliveryDate,
-      area: r.area,
     }))
 
-  let sent = 0
+  const out: PushResult = { rows: 0, inserted: 0, updated: 0, unchanged: 0, dates: [] }
   const dates = new Set<string>()
+  let sent = 0
 
   for (let i = 0; i < payload.length; i += PUSH_CHUNK) {
     const chunk = payload.slice(i, i + PUSH_CHUNK)
     const { data, error } = await supabase.rpc('push_tms_shipments', { p_rows: chunk })
     if (error) throw toDataError(error)
-    sent += data?.rows ?? 0
+    out.rows += data?.rows ?? 0
+    out.inserted += data?.inserted ?? 0
+    out.updated += data?.updated ?? 0
+    out.unchanged += data?.unchanged ?? 0
     for (const d of data?.dates ?? []) dates.add(d)
+    sent += chunk.length
     onProgress?.(sent, payload.length)
   }
 
-  return { rows: sent, dates: [...dates] }
+  out.dates = [...dates]
+  return out
 }
 
-/** ข้อมูลของวันนั้นถูกดึงไปหรือยัง — หน้าจอใช้ขึ้นแถบเตือนตอนเช้า */
-export async function syncStatus(date: string): Promise<{
-  date: string
-  synced_at: string | null
-  picking_lists: number
-  pending_import: number
-}> {
-  const { data, error } = await supabase.rpc('tms_sync_status', { p_date: date })
+/** กระดานสถานะ — วันล่าสุดที่มีงาน ยอดใบ ยอดคัน และแยกตามสถานะ
+ *  ไม่ส่งวันมา = ฟังก์ชันเลือกวันล่าสุดที่มีงานจริงให้ ไม่ใช่ "วันนี้" (ดู 0012) */
+export async function tmsBoard(date?: string): Promise<TmsBoard> {
+  const { data, error } = await supabase.rpc('tms_board', { p_date: date ?? null })
   if (error) throw toDataError(error)
-  return data
+  return data as TmsBoard
+}
+
+export interface TmsBoard {
+  date: string | null
+  latest_date: string | null
+  synced_at: string | null
+  last_change_at: string | null
+  picking_lists: number
+  total_qty: number
+  pending_import: number
+  by_status: { pl_status: string; trip_status: string; picking_lists: number }[]
+  recent_days: { date: string; picking_lists: number; pending: number }[]
 }

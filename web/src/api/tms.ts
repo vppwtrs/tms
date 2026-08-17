@@ -4,7 +4,7 @@ import type { TmsShipmentRow, TmsDealerMapRow } from '../types/database.js'
 /**
  * สะพานจาก TMS บริษัท — ไม่มีของเดิมใน server/ ให้แทน นี่เป็นของใหม่ทั้งก้อน
  *
- * ลำดับที่ตั้งใจให้เป็น: sync (Edge Function ตอนตี 1) -> preview -> คนจับคู่ร้าน -> import
+ * ลำดับที่ตั้งใจให้เป็น: ดึง PL (คนกด/รอบ 5 นาที) -> preview -> คนจับคู่ร้าน -> import
  *
  * **ห้ามข้าม preview** ปุ่มนำเข้าที่กดแล้วเข้าเลยโดยไม่ให้ดูก่อน คือปุ่มที่คนกดแล้วเสียใจ
  * ชื่อร้านใน TMS ไม่ตรงกับชื่อลูกค้าในระบบเรา จับคู่ผิด = ออเดอร์ไปโผล่ผิดลูกค้าแบบเงียบ ๆ
@@ -12,8 +12,21 @@ import type { TmsShipmentRow, TmsDealerMapRow } from '../types/database.js'
 
 export async function listShipments(date: string): Promise<TmsShipmentRow[]> {
   return unwrap(
-    supabase.from('tms_shipments').select('*').eq('trip_date', date).order('picking_list_no'),
+    /* วันที่วางแผนส่ง ไม่ใช่ trip_date — ใบสถานะ New ยังไม่มีเที่ยว จึงไม่มี trip_date
+       กรองด้วย trip_date คือทำให้ใบที่ต้องวางแผนมากที่สุดหายไปทั้งหมด (ดู 0012) */
+    supabase.from('tms_shipments').select('*').eq('plan_delivery_date', date).order('picking_list_no'),
   )
+}
+
+export interface UnmappedDealer {
+  dealer_code: string
+  dealer_name: string
+  picking_lists: number
+  /* ที่อยู่ปลายทางมาพร้อม PL header อยู่แล้ว — ใช้สร้างลูกค้าใหม่ได้ทันที
+     ให้คนพิมพ์ที่อยู่ซ้ำจากหน้า TMS คือที่มาของที่อยู่ผิดที่คนขับต้องไปเจอเอง */
+  ship_to_name: string | null
+  address: string | null
+  province: string | null
 }
 
 export interface ImportPreview {
@@ -21,7 +34,10 @@ export interface ImportPreview {
   picking_lists: number
   trips: number
   already_imported: number
-  unmapped_dealers: { dealer_code: string; dealer_name: string; picking_lists: number }[]
+  /* ใบที่ส่งจบแล้ว — เก็บไว้ในตารางเพื่อเฝ้าสถานะ แต่ไม่นำเข้าเป็นออเดอร์
+     นำเข้ามาก็ได้ออเดอร์ pending ที่ไม่มีอะไรให้ทำ */
+  not_plannable: number
+  unmapped_dealers: UnmappedDealer[]
   unknown_plates: string[]
 }
 
@@ -43,6 +59,20 @@ export async function importShipments(date: string): Promise<{ date: string; cre
 
 export async function listDealerMap(): Promise<TmsDealerMapRow[]> {
   return unwrap(supabase.from('tms_dealer_map').select('*').order('dealer_name'))
+}
+
+/** สร้างลูกค้าจากร้านของ TMS แล้วจับคู่ให้ในจังหวะเดียว
+ *
+ *  เป็น RPC ไม่ใช่ insert + upsert สองคำสั่งจากหน้าจอ เพราะเน็ตหลุดกลางทางแล้วจะได้
+ *  ลูกค้าที่ไม่ผูกกับร้านไหนลอยอยู่ แล้วคนก็กดสร้างใหม่ กลายเป็นลูกค้าซ้ำชื่อเดียวกันสองราย
+ *
+ *  ยังไม่ใช่การเดา — คนต้องกดปุ่มต่อร้าน ต่างจากการ match ชื่ออัตโนมัติที่ผิดแล้วเงียบ */
+export async function createCustomerFromDealer(
+  dealerCode: string,
+): Promise<{ customer_id: number; name: string }> {
+  const { data, error } = await supabase.rpc('create_customer_from_dealer', { p_dealer_code: dealerCode })
+  if (error) throw toDataError(error)
+  return data as { customer_id: number; name: string }
 }
 
 export async function mapDealer(input: {
