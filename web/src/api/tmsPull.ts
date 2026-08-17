@@ -58,16 +58,25 @@ const day = (v: unknown): string => s(v).slice(0, 10)
 
 /* ---------- คลัง ---------- */
 
+/** รหัสคลังใน TMS บางหน้าถูกส่งมารวมกับชื่อเต็ม เช่น
+ * `KM23-CW-01 - Vespiario (Thailand) Co., Ltd.` จึงต้องตัดให้เหลือรหัส
+ * ก่อนนำไปเทียบกับคลังที่ระบบรับผิดชอบ */
+function warehouseCode(value: unknown): string {
+  const text = s(value).trim()
+  const matched = text.match(/\bKM\d{2}-[A-Z]{2}-\d{2}\b/i)
+  return (matched?.[0] ?? text).toUpperCase()
+}
+
 function toWarehouse(item: unknown): Warehouse {
   /* **แต่ละรายการเป็นสตริงเปล่า ๆ ก็ได้** — บาง build ของ TMS ส่ง ["KM23-CW-01", ...]
      ไม่ใช่ object ตอนย้ายจาก extractor เข้าแอปเผลอตัดเคสนี้ทิ้ง ผลคือช่องเลือกคลัง
      ว่างเปล่าโดยไม่มี error ขึ้นเลย เพราะ map ได้ code เป็น '' แล้วโดน filter ออกหมด */
-  if (typeof item === 'string') return { code: item, id: '', description: null }
+  if (typeof item === 'string') return { code: warehouseCode(item), id: '', description: null }
   const w = (item ?? {}) as Record<string, unknown>
   return {
     /* TMS มีหลาย build ที่ใช้ warehouseCode/warehouseName แทน code/name
        ถ้าไม่รองรับจะได้ response จริงแต่แปลงเป็นรหัสว่าง แล้ว filter เหลือ 0 คลัง */
-    code: s(w.warehouseCode ?? w.warehouseNo ?? w.name ?? w.warehouse ?? w.warehouseName ?? w.code),
+    code: warehouseCode(w.warehouseCode ?? w.warehouseNo ?? w.name ?? w.warehouse ?? w.warehouseName ?? w.code),
     id: s(w.warehouseGuid ?? w.guid ?? w.id ?? w.warehouseId ?? w.warehouseID),
     description: (w.description as string | null) ?? null,
   }
@@ -110,8 +119,22 @@ export async function listWarehouses(): Promise<Warehouse[]> {
     .then((raw) => unwrap(raw).map(toWarehouse).filter((w) => w.code))
     .catch(() => [] as Warehouse[])
 
-  const list = personal.length ? personal : await searchWarehouses()
-  return allowed(list)
+  /* อย่าหยุดแค่ personal ถ้ามีรายการ แต่ไม่มีคลังที่เรารับผิดชอบ:
+     กรณีนั้นเคยทำให้ระบบเห็นคลัง KM12 ของผู้ใช้หนึ่งรายการ แล้วตัดเป็น 0
+     ทั้งที่ `/v1/warehouses/search` ยังมี KM23-CW-01/02 ซึ่งใช้ดึง Trip ได้ */
+  const personalAllowed = allowed(personal)
+  if (personalAllowed.length) return personalAllowed
+
+  const searched = await searchWarehouses()
+  const result = allowed(searched)
+  if (!result.length) {
+    const visible = [...new Set([...personal, ...searched].map((w) => w.code).filter(Boolean))]
+    throw new Error(
+      `ไม่พบคลังที่อนุญาต (${ALLOWED_WAREHOUSES.join(', ')}) จากบัญชี TMS` +
+      (visible.length ? ` · คลังที่บัญชีเห็น: ${visible.slice(0, 6).join(', ')}` : ''),
+    )
+  }
+  return result
 }
 
 /* GUID ของคลัง — ถามครั้งเดียวต่อรหัสแล้วจำไว้
