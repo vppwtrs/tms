@@ -4,6 +4,8 @@ import { listUsers, approveUser, revokeUser } from '../api/users'
 import { createUser, resetPassword, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import type { UserRow, UserRole } from '../types/database'
 
+const displayUsername = (value: string): string => value.replace(/@tms\.local$/i, '')
+
 /**
  * ผู้ใช้ + อนุมัติพนักงานที่ล็อกอินเข้ามาผ่าน TMS
  *
@@ -77,7 +79,7 @@ export default function CloudUsers(): React.JSX.Element {
         phone: form.phone.trim() || undefined,
         driver_id: form.driver_id ? Number(form.driver_id) : undefined,
       })
-      setSecret({ title: 'สร้างบัญชีแล้ว', username: r.email, password: r.password })
+      setSecret({ title: 'สร้างบัญชีแล้ว', username: displayUsername(r.email), password: r.password })
       setForm({ username: '', name: '', phone: '', driver_id: '' })
       await load()
       loadDrivers()
@@ -93,7 +95,7 @@ export default function CloudUsers(): React.JSX.Element {
     setBusyId(u.id)
     try {
       const r = await resetPassword(u.id)
-      setSecret({ title: `ตั้งรหัสใหม่ให้ ${u.name}`, username: r.username, password: r.password })
+      setSecret({ title: `ตั้งรหัสใหม่ให้ ${u.name}`, username: displayUsername(r.username), password: r.password })
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ตั้งรหัสใหม่ไม่สำเร็จ')
@@ -172,7 +174,7 @@ export default function CloudUsers(): React.JSX.Element {
         <div>
           <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>สร้างบัญชีพนักงานขับรถ</h3>
           <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>
-            ระบบสุ่มรหัสให้ แสดงครั้งเดียว · บัญชีใช้อีเมลรูป ชื่อผู้ใช้@tms.local ซึ่งไม่ใช่อีเมลจริง
+            ระบบสุ่มรหัสให้ แสดงครั้งเดียว · ผู้ใช้เข้าสู่ระบบด้วยชื่อผู้ใช้ที่ admin กำหนด
             (กู้รหัสทางอีเมลไม่ได้ ต้องกลับมาตั้งใหม่ที่นี่)
           </p>
         </div>
