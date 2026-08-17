@@ -42,8 +42,9 @@ const clock = (v: string | null): string =>
 
 export default function TmsPull(): React.JSX.Element {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-  /* ใบสั่งมองไปข้างหน้า — ค่าเริ่มต้นย้อนหลัง 3 วันถึงล่วงหน้า 14 วัน ตรงกับรอบเฝ้าสถานะ */
-  const [from, setFrom] = useState(() => iso(-3))
+  /* ดึงย้อนหลังต้องเห็นเที่ยวเก่า/Completed แบบเดียวกับเมนู Trip บริษัท
+     รอบอัตโนมัติยังใช้ช่วงสั้นใน pullRecentTrips แยกต่างหาก ไม่กระทบภาระ TMS */
+  const [from, setFrom] = useState(() => iso(-90))
   const [to, setTo] = useState(() => iso(14))
 
   const [busy, setBusy] = useState(false)
