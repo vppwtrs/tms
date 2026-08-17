@@ -22,6 +22,7 @@ const CloudLogin = lazy(() => import('./pages/CloudLogin'))
 const CloudHome = lazy(() => import('./pages/CloudHome'))
 const CloudMyJobs = lazy(() => import('./pages/CloudMyJobs'))
 const CloudUsers = lazy(() => import('./pages/CloudUsers'))
+const CloudData = lazy(() => import('./pages/CloudData'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
 const TmsPull = lazy(() => import('./pages/TmsPull'))
 const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
@@ -93,6 +94,7 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/drivers" element={<CloudDrivers />} />
           <Route path="/customers" element={<CloudCustomers />} />
           <Route path="/users" element={<CloudUsers />} />
+          <Route path="/data" element={<CloudData />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
