@@ -70,3 +70,15 @@ export async function saveUserPermissions(userId: number, permissions: string[])
   )
   if (error) throw toDataError(error)
 }
+
+export async function seedRolePermissionPresets(): Promise<Record<string, number>> {
+  const { data: s } = await supabase.auth.getSession()
+  const token = s.session?.access_token
+  if (!token) throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่')
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/admin-seed-role-presets`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string, Authorization: `Bearer ${token}` },
+  })
+  const body = await res.json().catch(() => ({})) as { error?: string; groups?: Record<string, number> }
+  if (!res.ok) throw new Error(body.error ?? 'ตั้งค่ากลุ่มสิทธิ์ไม่สำเร็จ')
+  return body.groups ?? {}
+}

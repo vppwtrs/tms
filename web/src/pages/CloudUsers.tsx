@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
-import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listUserPermissions, saveUserPermissions } from '../api/users'
+import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listUserPermissions, saveUserPermissions, seedRolePermissionPresets } from '../api/users'
 import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import { changeMyPassword } from '../api/auth'
 import type { UserRow, UserRole } from '../types/database'
@@ -68,6 +68,7 @@ export default function CloudUsers(): React.JSX.Element {
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set())
   const [permissionBusy, setPermissionBusy] = useState(false)
   const [roleBusy, setRoleBusy] = useState<number | null>(null)
+  const [presetBusy, setPresetBusy] = useState(false)
 
   const openPermissions = async (u: UserRow): Promise<void> => {
     setPermissionTarget(u)
@@ -104,6 +105,16 @@ export default function CloudUsers(): React.JSX.Element {
       setError(null)
     } catch (e) { setError(e instanceof Error ? e.message : 'เปลี่ยนกลุ่มสิทธิ์ไม่สำเร็จ') }
     finally { setRoleBusy(null) }
+  }
+
+  const seedPresets = async (): Promise<void> => {
+    setPresetBusy(true)
+    try {
+      const groups = await seedRolePermissionPresets()
+      setNotice(`ตั้งค่ากลุ่มสิทธิ์มาตรฐานแล้ว · วางแผนงาน ${groups.dispatcher ?? 0} สิทธิ์ · ดูข้อมูล ${groups.viewer ?? 0} สิทธิ์ · คนขับ ${groups.driver ?? 0} สิทธิ์`)
+      setError(null)
+    } catch (e) { setError(e instanceof Error ? e.message : 'ตั้งค่ากลุ่มสิทธิ์ไม่สำเร็จ') }
+    finally { setPresetBusy(false) }
   }
 
   const load = async (): Promise<void> => {
@@ -257,6 +268,7 @@ export default function CloudUsers(): React.JSX.Element {
           <div className="text-xs text-muted">เลือกกลุ่มสิทธิ์ให้ผู้ใช้ได้จากตาราง ไม่ต้องตั้งทีละ permission</div>
         </div>
         <Button variant="outline" onClick={() => setSelfPasswordOpen(true)}>เปลี่ยนรหัสผ่านของฉัน</Button>
+        <Button variant="outline" loading={presetBusy} onClick={() => void seedPresets()}>ตั้งค่ากลุ่มมาตรฐาน</Button>
         <Button onClick={() => setCreateOpen(true)}>สร้างบัญชีผู้ใช้</Button>
       </div>
 
