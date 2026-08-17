@@ -37,6 +37,12 @@ Deno.serve(async (req) => {
         if (error) return json({ error: 'บันทึกกลุ่มสิทธิ์ไม่สำเร็จ' }, 500)
       }
     }
+    /* ล้าง override เดิมที่อาจเคยให้ users.manage กับผู้ใช้ที่ไม่ใช่ Admin
+       ป้องกันสิทธิ์เก่าค้าง แม้จะเปลี่ยนกลุ่มแล้ว */
+    const { data: nonAdmins } = await sb.from('users').select('id').neq('role', 'admin')
+    for (const u of nonAdmins ?? []) {
+      await sb.from('user_permissions').delete().eq('user_id', u.id).eq('permission', 'users.manage')
+    }
     return json({ ok: true, groups: Object.fromEntries(Object.entries(presets).map(([k, v]) => [k, v.length])) })
   } catch { return json({ error: 'เกิดข้อผิดพลาดภายใน' }, 500) }
 })
