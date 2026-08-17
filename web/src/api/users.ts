@@ -38,6 +38,11 @@ export async function revokeUser(userId: number): Promise<void> {
   if (error) throw toDataError(error)
 }
 
+export async function updateUserRole(userId: number, role: UserRole): Promise<void> {
+  const { error } = await supabase.from('users').update({ role }).eq('id', userId)
+  if (error) throw toDataError(error)
+}
+
 export async function listPermissionCatalog(): Promise<{ permission: string; label: string }[]> {
   return unwrap(supabase.from('permissions').select('permission, label').order('permission'))
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
-import { listUsers, approveUser, revokeUser, listPermissionCatalog, listUserPermissions, saveUserPermissions } from '../api/users'
+import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listUserPermissions, saveUserPermissions } from '../api/users'
 import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import { changeMyPassword } from '../api/auth'
 import type { UserRow, UserRole } from '../types/database'
@@ -32,6 +32,13 @@ const ROLE_LABEL: Record<string, string> = {
   driver: 'พนักงานขับรถ',
 }
 
+const ROLE_HELP: Record<string, string> = {
+  admin: 'จัดการระบบ ผู้ใช้ สิทธิ์ และข้อมูลทั้งหมด',
+  dispatcher: 'ลูกค้า ออเดอร์ เที่ยว รถ และการจัดงานขนส่ง',
+  viewer: 'เปิดดูข้อมูลตามที่ได้รับอนุญาต ไม่แก้ไขงาน',
+  driver: 'ดูงานของฉันและส่งสถานะ/POD ของงานที่รับผิดชอบ',
+}
+
 /* บทบาทที่อนุมัติได้จากหน้านี้ — เรียงจากสิทธิ์น้อยไปมาก
    ค่าเริ่มต้นเป็น viewer โดยตั้งใจ: ให้น้อยไว้ก่อนแล้วค่อยเพิ่มเมื่อมีคนขอ
    ปลอดภัยกว่าให้เยอะไว้ก่อนแล้วรอให้มีคนสังเกตว่าให้เกิน */
@@ -60,6 +67,7 @@ export default function CloudUsers(): React.JSX.Element {
   const [permissionCatalog, setPermissionCatalog] = useState<{ permission: string; label: string }[]>([])
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set())
   const [permissionBusy, setPermissionBusy] = useState(false)
+  const [roleBusy, setRoleBusy] = useState<number | null>(null)
 
   const openPermissions = async (u: UserRow): Promise<void> => {
     setPermissionTarget(u)
@@ -84,6 +92,18 @@ export default function CloudUsers(): React.JSX.Element {
       setError(null)
     } catch (e) { setError(e instanceof Error ? e.message : 'บันทึกสิทธิ์ไม่สำเร็จ') }
     finally { setPermissionBusy(false) }
+  }
+
+  const changeRole = async (u: UserRow, role: UserRole): Promise<void> => {
+    if (role === u.role) return
+    setRoleBusy(u.id)
+    try {
+      await updateUserRole(u.id, role)
+      await load()
+      setNotice(`เปลี่ยนกลุ่มสิทธิ์ของ ${u.name} เป็น ${ROLE_LABEL[role]} แล้ว`)
+      setError(null)
+    } catch (e) { setError(e instanceof Error ? e.message : 'เปลี่ยนกลุ่มสิทธิ์ไม่สำเร็จ') }
+    finally { setRoleBusy(null) }
   }
 
   const load = async (): Promise<void> => {
@@ -234,7 +254,7 @@ export default function CloudUsers(): React.JSX.Element {
       <div className="card" style={{ padding: 16, marginBottom: 18, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <b>การจัดการบัญชี</b>
-          <div className="text-xs text-muted">เลือกงานที่ต้องการทำจากปุ่มด้านขวา</div>
+          <div className="text-xs text-muted">เลือกกลุ่มสิทธิ์ให้ผู้ใช้ได้จากตาราง ไม่ต้องตั้งทีละ permission</div>
         </div>
         <Button variant="outline" onClick={() => setSelfPasswordOpen(true)}>เปลี่ยนรหัสผ่านของฉัน</Button>
         <Button onClick={() => setCreateOpen(true)}>สร้างบัญชีผู้ใช้</Button>
@@ -423,7 +443,7 @@ export default function CloudUsers(): React.JSX.Element {
                 <tr>
                   <th>ชื่อ</th>
                   <th>ชื่อผู้ใช้</th>
-                  <th>บทบาท</th>
+                  <th style={{ minWidth: 180 }}>กลุ่มสิทธิ์ / หน้าที่</th>
                   <th>เข้าระบบด้วย</th>
                   <th>สถานะ</th>
                   <th style={{ width: 100 }} />
@@ -434,7 +454,12 @@ export default function CloudUsers(): React.JSX.Element {
                   <tr key={u.id}>
                     <td><b>{u.name}</b></td>
                     <td>{u.username}</td>
-                    <td>{ROLE_LABEL[u.role] ?? u.role}</td>
+                    <td>
+                      <Select value={u.role} disabled={roleBusy === u.id} onChange={(e) => void changeRole(u, e.target.value as UserRole)}>
+                        {(['admin', 'dispatcher', 'viewer', ...(u.auth_source === 'tms' ? [] : ['driver'])] as UserRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                      </Select>
+                      <div className="text-xs text-muted" style={{ marginTop: 4 }}>{ROLE_HELP[u.role]}</div>
+                    </td>
                     <td>{u.auth_source === 'tms' ? 'บัญชี TMS บริษัท' : 'อีเมล/รหัสผ่าน'}</td>
                     <td>
                       <Badge
