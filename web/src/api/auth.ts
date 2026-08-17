@@ -31,6 +31,19 @@ export async function signIn(username: string, password: string): Promise<void> 
   }
 }
 
+/** เปลี่ยนรหัสของบัญชีที่ล็อกอินอยู่ — ยืนยันรหัสเดิมก่อนทุกครั้ง */
+export async function changeMyPassword(currentPassword: string, newPassword: string): Promise<void> {
+  const { data: session } = await supabase.auth.getSession()
+  const email = session.session?.user.email
+  if (!email) throw new DataError('AUTH_SESSION', 'ไม่พบเซสชันผู้ใช้')
+
+  const { error: verifyError } = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+  if (verifyError) throw new DataError('AUTH_PASSWORD', 'รหัสผ่านเดิมไม่ถูกต้อง')
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw new DataError('AUTH_UPDATE', 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
+}
+
 export const AUTH_DOMAIN = 'tms.local'
 
 export async function signOut(): Promise<void> {

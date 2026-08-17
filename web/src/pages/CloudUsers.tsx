@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { listUsers, approveUser, revokeUser } from '../api/users'
 import { createUser, resetPassword, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
+import { changeMyPassword } from '../api/auth'
 import type { UserRow, UserRole } from '../types/database'
 
 const displayUsername = (value: string): string => value.replace(/@tms\.local$/i, '')
@@ -49,6 +50,8 @@ export default function CloudUsers(): React.JSX.Element {
   const [creating, setCreating] = useState(false)
   /* รหัสที่เพิ่งสุ่มได้ — อยู่ใน state เท่านั้น ไม่เขียนลง localStorage หรือส่งไปไหน */
   const [secret, setSecret] = useState<{ title: string; username: string; password: string } | null>(null)
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
+  const [passwordBusy, setPasswordBusy] = useState(false)
 
   const load = async (): Promise<void> => {
     try {
@@ -130,6 +133,22 @@ export default function CloudUsers(): React.JSX.Element {
     }
   }
 
+  const changePassword = async (): Promise<void> => {
+    if (passwordForm.next.length < 8) { setError('รหัสใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'); return }
+    if (passwordForm.next !== passwordForm.confirm) { setError('รหัสใหม่กับการยืนยันรหัสไม่ตรงกัน'); return }
+    setPasswordBusy(true)
+    try {
+      await changeMyPassword(passwordForm.current, passwordForm.next)
+      setPasswordForm({ current: '', next: '', confirm: '' })
+      setError(null)
+      setSecret({ title: 'เปลี่ยนรหัสผ่านสำเร็จ', username: 'บัญชีของฉัน', password: 'รหัสใหม่มีผลแล้ว' })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
+    } finally {
+      setPasswordBusy(false)
+    }
+  }
+
   if (!users) {
     return (
       <>
@@ -155,6 +174,27 @@ export default function CloudUsers(): React.JSX.Element {
       />
 
       {error && <ErrorBox message={error} onRetry={() => void load()} />}
+
+      <div className="card" style={{ padding: 18, marginBottom: 18, maxWidth: 640 }}>
+        <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>เปลี่ยนรหัสผ่านของฉัน</h3>
+        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>
+          ต้องยืนยันรหัสเดิมก่อน รหัสใหม่ต้องมีอย่างน้อย 8 ตัวอักษร
+        </p>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <Field label="รหัสผ่านเดิม" required>
+            <Input type="password" value={passwordForm.current} onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })} autoComplete="current-password" />
+          </Field>
+          <Field label="รหัสผ่านใหม่" required>
+            <Input type="password" value={passwordForm.next} onChange={(e) => setPasswordForm({ ...passwordForm, next: e.target.value })} autoComplete="new-password" />
+          </Field>
+          <Field label="ยืนยันรหัสผ่านใหม่" required>
+            <Input type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })} autoComplete="new-password" />
+          </Field>
+          <Button loading={passwordBusy} onClick={() => void changePassword()} disabled={!passwordForm.current || !passwordForm.next || !passwordForm.confirm}>
+            บันทึกรหัสผ่านใหม่
+          </Button>
+        </div>
+      </div>
 
       {/* รหัสโชว์ครั้งเดียว — ไม่มีที่ไหนเก็บไว้ ปิดกล่องแล้วต้องกดตั้งใหม่ถ้าลืมจด */}
       {secret && (
