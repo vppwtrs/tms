@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Badge, Button, Field, Input, Select, PageHeader, ErrorBox } from '../components/ui'
+import { Badge, Button, Field, Input, PageHeader, ErrorBox } from '../components/ui'
 import {
-  listWarehouses, pullPickingLists, pullRecent, pullTrips, pullRecentTrips,
-  pushShipments, pushTrips, tmsBoard,
-  POLL_MS, PL_STATUS,
-  type Warehouse, type PullResult, type PushResult, type PlStatus, type TmsBoard,
+  listWarehouses, pullTrips, pullRecentTrips, pushTrips, tmsBoard,
+  POLL_MS,
+  type Warehouse, type TmsBoard,
 } from '../api/tmsPull'
 import { autoImportReadyTrips } from '../api/tms'
 
@@ -43,17 +42,13 @@ const clock = (v: string | null): string =>
 
 export default function TmsPull(): React.JSX.Element {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-  const [whCode, setWhCode] = useState('')
   /* ใบสั่งมองไปข้างหน้า — ค่าเริ่มต้นย้อนหลัง 3 วันถึงล่วงหน้า 14 วัน ตรงกับรอบเฝ้าสถานะ */
   const [from, setFrom] = useState(() => iso(-3))
   const [to, setTo] = useState(() => iso(14))
-  const [statuses, setStatuses] = useState<PlStatus[]>([...PL_STATUS])
 
   const [busy, setBusy] = useState(false)
   const [log, setLog] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<PullResult | null>(null)
-  const [pushed, setPushed] = useState<PushResult | null>(null)
   const [tripPush, setTripPush] = useState<{ inserted: number; updated: number; skipped_carrier: number } | null>(null)
   const [board, setBoard] = useState<TmsBoard | null>(null)
   const [auto, setAuto] = useState(true)
@@ -71,7 +66,6 @@ export default function TmsPull(): React.JSX.Element {
     listWarehouses()
       .then((list) => {
         setWarehouses(list)
-        setWhCode((c) => c || list[0]?.code || '')
         /* ได้รายการว่างต้องบอกให้รู้ ไม่ใช่ปล่อยให้เห็นช่องเลือกว่างกับปุ่มที่กดไม่ได้
            แล้วเดาเองว่าระบบพังหรือยังโหลดไม่เสร็จ */
         if (!list.length) setError('บัญชี TMS นี้ไม่ได้ผูกกับคลังไหนเลย — แจ้งผู้ดูแล TMS ของบริษัท')
@@ -80,31 +74,28 @@ export default function TmsPull(): React.JSX.Element {
     refreshBoard()
   }, [refreshBoard])
 
-  const wh = warehouses.find((w) => w.code === whCode)
-
   /** ดึง+ส่งในจังหวะเดียว — รอบอัตโนมัติต้องไม่มีขั้นให้คนกด
    *  quiet = รอบเฝ้าสถานะ ไม่มีของเปลี่ยนก็ไม่ต้องขึ้นข้อความ
    *  แจ้ง "สำเร็จ" ทุก 5 นาทีคือฝึกให้คนเลิกอ่านข้อความของระบบ */
   const cycle = useCallback(
     async (mode: 'poll' | 'range'): Promise<void> => {
-      const w = warehouses.find((x) => x.code === whCode)
-      if (!w || running.current) return
+      if (!warehouses.length || running.current) return
       running.current = true
       setBusy(true)
       setError(null)
       try {
         /* สองแหล่งในรอบเดียว — ใบตอบว่า "มีของต้องส่ง" เที่ยวตอบว่า "ใครวิ่ง ถึงไหน"
            ดึงแหล่งเดียวคือได้ครึ่งเดียวของคำถามที่คนจัดรถถามทุกเช้า */
-        const r = mode === 'poll'
-          ? await pullRecent(w)
-          : await pullPickingLists({ from, to, warehouse: w, statuses }, setLog)
-        setResult(r)
+        const batches = []
+        for (const w of warehouses) {
+          const tr = mode === 'poll'
+            ? await pullRecentTrips(w, (msg) => setLog(`${w.code}: ${msg}`))
+            : await pullTrips({ from, to, warehouse: w, maxPages: 6 }, (msg) => setLog(`${w.code}: ${msg}`))
+          batches.push(tr)
+        }
+        const allTrips = batches.flatMap((batch) => batch.trips)
 
-        const tr = mode === 'poll'
-          ? await pullRecentTrips(w)
-          : await pullTrips({ from, to, warehouse: w, maxPages: 6 }, setLog)
-
-        if (!r.rows.length && !tr.trips.length) {
+        if (!allTrips.length) {
           setLog(mode === 'poll' ? '' : 'ไม่พบใบสั่งหรือเที่ยวในช่วงที่เลือก')
           return
         }
@@ -119,15 +110,13 @@ export default function TmsPull(): React.JSX.Element {
 
            เส้น PL เหลือหน้าที่เดียว: ใบที่ยังไม่ถูกจัดเที่ยว (สถานะ New) ซึ่งไม่โผล่ในหน้า Trip
            = "ของค้างที่ยังไม่มีใครรับ" ซึ่งเป็นงานของคนจัดรถ ไม่ใช่งานคนขับ */
-        const inTrip = new Set(tr.rows.map((x) => x.pickingListNo))
-        const rows = [...r.rows.filter((x) => !inTrip.has(x.pickingListNo)), ...tr.rows]
-        const p = rows.length
-          ? await pushShipments(rows, (sent, total) =>
-              mode === 'range' ? setLog(`ส่งขึ้นระบบ ${sent}/${total} แถว`) : undefined)
-          : null
-        if (p) setPushed(p)
-
-        const t = await pushTrips(tr.trips)
+        const t = { inserted: 0, updated: 0, skipped_carrier: 0 }
+        for (const batch of batches) {
+          const pushed = await pushTrips(batch.trips)
+          t.inserted += pushed.inserted
+          t.updated += pushed.updated
+          t.skipped_carrier += pushed.skipped_carrier
+        }
         setTripPush(t)
 
         /* หลังข้อมูล Trip เข้า Supabase แล้ว ให้สร้างเที่ยว/ออเดอร์ต่อทันที
@@ -135,15 +124,15 @@ export default function TmsPull(): React.JSX.Element {
            ฝ่ายจัดรถแก้ที่หน้า "เที่ยวจาก TMS" เพื่อไม่ส่งงานผิดคน */
         const imported = await autoImportReadyTrips()
 
-        const changed = (p ? p.inserted + p.updated : 0) + t.inserted + t.updated
+        const changed = t.inserted + t.updated
         setLog(
           changed === 0
             ? mode === 'poll'
               ? imported.imported || imported.createdOrders
                 ? `นำเข้าเที่ยวอัตโนมัติ ${imported.imported} เที่ยว · ออเดอร์ใหม่ ${imported.createdOrders} ใบ`
                 : ''
-              : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${r.pickingLists} ใบ · ${tr.trips.length} เที่ยว`
-            : `ใบ +${p?.inserted ?? 0}/~${p?.updated ?? 0} แถว · เที่ยว +${t.inserted}/~${t.updated}` +
+              : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${allTrips.length} เที่ยวจาก ${warehouses.length} คลัง`
+            : `เที่ยว +${t.inserted}/~${t.updated}` +
               (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : '') +
               (imported.imported ? ` · นำเข้าอัตโนมัติ ${imported.imported} เที่ยว` : ''),
         )
@@ -156,17 +145,17 @@ export default function TmsPull(): React.JSX.Element {
         setBusy(false)
       }
     },
-    [warehouses, whCode, from, to, statuses, refreshBoard],
+    [warehouses, from, to, refreshBoard],
   )
 
   /* รอบเฝ้าสถานะ — ยิงทันทีที่มีคลังแล้ว จากนั้นทุก 5 นาทีตราบที่เปิดหน้าค้างไว้
      ข้อเสียที่รับไว้: ปิดหน้าแล้วรอบหยุด — จึงมีวันที่ดึงล่าสุดขึ้นบนกระดานให้เห็นว่าข้อมูลเก่าแค่ไหน */
   useEffect(() => {
-    if (!auto || !wh) return
+    if (!auto || !warehouses.length) return
     void cycle('poll')
     const t = setInterval(() => void cycle('poll'), POLL_MS)
     return () => clearInterval(t)
-  }, [auto, wh, cycle])
+  }, [auto, warehouses, cycle])
 
   const stale = board && !board.synced_at
 
@@ -203,16 +192,8 @@ export default function TmsPull(): React.JSX.Element {
               <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.trips_pending_import}</div>
             </div>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>ใบสั่ง</div>
-              <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.picking_lists}</div>
-            </div>
-            <div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>จำนวนคัน</div>
               <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.total_qty}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>รอนำเข้าเป็นออเดอร์</div>
-              <div style={{ fontSize: 22, fontWeight: 660 }} className="num">{board.pending_import}</div>
             </div>
           </div>
 
@@ -228,18 +209,6 @@ export default function TmsPull(): React.JSX.Element {
             </div>
           )}
 
-          {board.by_status.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {board.by_status.map((b) => (
-                <Badge
-                  key={`${b.pl_status}/${b.trip_status}`}
-                  tone={b.pl_status === 'Completed' ? 'success' : b.pl_status === 'New' ? 'neutral' : 'accent'}
-                  label={`${b.pl_status}${b.trip_status !== '-' ? ` · ${b.trip_status}` : ''} — ${b.picking_lists} ใบ`}
-                />
-              ))}
-            </div>
-          )}
-
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
             ดึงล่าสุด {clock(board.synced_at)} · สถานะเปลี่ยนล่าสุด {clock(board.last_change_at)}
             {lastRun && ` · รอบล่าสุดในหน้านี้ ${lastRun}`}
@@ -248,15 +217,9 @@ export default function TmsPull(): React.JSX.Element {
       )}
 
       <div className="card" style={{ padding: 18, display: 'grid', gap: 14, maxWidth: 560 }}>
-        <Field label="คลัง" required>
-          <Select value={whCode} onChange={(e) => setWhCode(e.target.value)} disabled={busy}>
-            {warehouses.map((w) => (
-              <option key={w.code} value={w.code}>
-                {w.description ? `${w.code} — ${w.description}` : w.code}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+          ระบบจะดึง Trip ครบทุกคลังที่บัญชีนี้มีสิทธิ์ ({warehouses.length} คลัง)
+        </div>
 
         <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13 }}>
           <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
@@ -275,54 +238,18 @@ export default function TmsPull(): React.JSX.Element {
             </Field>
           </div>
 
-          <Field
-            label="สถานะใบสั่ง"
-            hint="เก็บ Completed ไว้ด้วยได้ — ระบบไม่นำใบที่ส่งจบแล้วไปสร้างออเดอร์ ตัดออกแค่ตอนนำเข้า"
-          >
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-              {PL_STATUS.map((st) => (
-                <label key={st} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
-                  <input
-                    type="checkbox"
-                    checked={statuses.includes(st)}
-                    disabled={busy}
-                    onChange={(e) =>
-                      setStatuses((prev) => (e.target.checked ? [...prev, st] : prev.filter((x) => x !== st)))
-                    }
-                  />
-                  {st}
-                </label>
-              ))}
-            </div>
-          </Field>
-
           <div style={{ display: 'flex', gap: 10 }}>
-            <Button onClick={() => void cycle('range')} loading={busy} disabled={!wh}>
-              ดึงช่วงนี้แล้วส่งขึ้นระบบ
+            <Button onClick={() => void cycle('range')} loading={busy} disabled={!warehouses.length}>
+              ดึง Trip ทุกคลังในช่วงนี้
             </Button>
-            <Button variant="outline" onClick={() => void cycle('poll')} disabled={busy || !wh}>
-              เช็คสถานะเดี๋ยวนี้
+            <Button variant="outline" onClick={() => void cycle('poll')} disabled={busy || !warehouses.length}>
+              เช็ค Trip ทุกคลังเดี๋ยวนี้
             </Button>
           </div>
         </div>
 
         {log && <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{log}</div>}
 
-        {result && result.missingItems > 0 && (
-          <div style={{ fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.7 }}>
-            ใบที่ไม่มีรายการสินค้า {result.missingItems} ใบ — ส่งขึ้นระบบได้ ช่องสินค้าจะว่าง
-          </div>
-        )}
-
-        {pushed && pushed.inserted + pushed.updated > 0 && (
-          <div style={{ fontSize: 12.5, lineHeight: 1.7 }}>
-            ขั้นต่อไป: ตรวจการจับคู่ร้าน แล้วกดนำเข้าเป็นออเดอร์
-            <br />
-            <span style={{ color: 'var(--muted)' }}>
-              กดส่งซ้ำได้ ระบบยึด PL No + รหัสสินค้าเป็นตัวตัดสิน แถวที่ค่าเท่าเดิมจะไม่ถูกเขียนทับ
-            </span>
-          </div>
-        )}
       </div>
     </>
   )
