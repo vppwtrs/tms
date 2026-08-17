@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
-import { listUsers, approveUser, revokeUser } from '../api/users'
+import { listUsers, approveUser, revokeUser, listPermissionCatalog, listUserPermissions, saveUserPermissions } from '../api/users'
 import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import { changeMyPassword } from '../api/auth'
 import type { UserRow, UserRole } from '../types/database'
@@ -56,6 +56,35 @@ export default function CloudUsers(): React.JSX.Element {
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [selfPasswordOpen, setSelfPasswordOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [permissionTarget, setPermissionTarget] = useState<UserRow | null>(null)
+  const [permissionCatalog, setPermissionCatalog] = useState<{ permission: string; label: string }[]>([])
+  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set())
+  const [permissionBusy, setPermissionBusy] = useState(false)
+
+  const openPermissions = async (u: UserRow): Promise<void> => {
+    setPermissionTarget(u)
+    setPermissionBusy(true)
+    try {
+      const [catalog, current] = await Promise.all([listPermissionCatalog(), listUserPermissions(u.id)])
+      setPermissionCatalog(catalog)
+      setSelectedPermissions(new Set(current.filter((p) => p.allowed).map((p) => p.permission)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'โหลดสิทธิ์ไม่สำเร็จ')
+      setPermissionTarget(null)
+    } finally { setPermissionBusy(false) }
+  }
+
+  const savePermissions = async (): Promise<void> => {
+    if (!permissionTarget) return
+    setPermissionBusy(true)
+    try {
+      await saveUserPermissions(permissionTarget.id, [...selectedPermissions])
+      setPermissionTarget(null)
+      setNotice(`บันทึกสิทธิ์ของ ${permissionTarget.name} แล้ว`)
+      setError(null)
+    } catch (e) { setError(e instanceof Error ? e.message : 'บันทึกสิทธิ์ไม่สำเร็จ') }
+    finally { setPermissionBusy(false) }
+  }
 
   const load = async (): Promise<void> => {
     try {
@@ -208,7 +237,7 @@ export default function CloudUsers(): React.JSX.Element {
           <div className="text-xs text-muted">เลือกงานที่ต้องการทำจากปุ่มด้านขวา</div>
         </div>
         <Button variant="outline" onClick={() => setSelfPasswordOpen(true)}>เปลี่ยนรหัสผ่านของฉัน</Button>
-        <Button onClick={() => setCreateOpen(true)}>สร้างบัญชีพนักงานขับรถ</Button>
+        <Button onClick={() => setCreateOpen(true)}>สร้างบัญชีผู้ใช้</Button>
       </div>
 
       <Modal open={selfPasswordOpen} onClose={() => setSelfPasswordOpen(false)} title="เปลี่ยนรหัสผ่านของฉัน">
@@ -224,6 +253,30 @@ export default function CloudUsers(): React.JSX.Element {
             <Input type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })} autoComplete="new-password" />
           </Field>
           <Button loading={passwordBusy} onClick={() => void changePassword()} disabled={!passwordForm.current || !passwordForm.next || !passwordForm.confirm}>บันทึกรหัสผ่านใหม่</Button>
+        </div>
+      </Modal>
+
+      <Modal open={permissionTarget !== null} onClose={() => setPermissionTarget(null)} title={permissionTarget ? `ตั้งค่าสิทธิ์: ${permissionTarget.name}` : 'ตั้งค่าสิทธิ์'} size="md">
+        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>
+          สิทธิ์รายคนจะเพิ่มจากบทบาทเดิม ใช้สำหรับให้สิทธิ์เฉพาะงานโดยไม่ต้องสร้างบทบาทใหม่
+        </p>
+        {permissionBusy && permissionCatalog.length === 0 ? <TableSkeleton rows={6} cols={2} /> : (
+          <div style={{ display: 'grid', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
+            {permissionCatalog.map((p) => (
+              <label key={p.permission} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
+                <input type="checkbox" checked={selectedPermissions.has(p.permission)} onChange={(e) => {
+                  const next = new Set(selectedPermissions)
+                  if (e.target.checked) next.add(p.permission); else next.delete(p.permission)
+                  setSelectedPermissions(next)
+                }} />
+                <span><b>{p.label}</b><small style={{ display: 'block', color: 'var(--muted)' }}>{p.permission}</small></span>
+              </label>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+          <Button variant="outline" onClick={() => setPermissionTarget(null)}>ยกเลิก</Button>
+          <Button loading={permissionBusy} onClick={() => void savePermissions()}>บันทึกสิทธิ์</Button>
         </div>
       </Modal>
 
@@ -400,6 +453,11 @@ export default function CloudUsers(): React.JSX.Element {
                           onClick={() => void reset(u)}
                         >
                           สุ่มรหัสให้ผู้ใช้นี้
+                        </Button>
+                      )}
+                      {u.is_active && (
+                        <Button size="sm" variant="ghost" onClick={() => void openPermissions(u)}>
+                          ตั้งค่าสิทธิ์
                         </Button>
                       )}
                       {u.is_active && (

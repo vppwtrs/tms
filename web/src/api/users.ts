@@ -1,5 +1,5 @@
 import { supabase, unwrap, toDataError } from './supabase.js'
-import type { UserRow, UserRole } from '../types/database.js'
+import type { UserPermissionRow, UserRow, UserRole } from '../types/database.js'
 
 /**
  * จัดการผู้ใช้ + อนุมัติพนักงานที่ล็อกอินเข้ามาผ่าน TMS
@@ -35,5 +35,24 @@ export async function approveUser(userId: number, role: UserRole): Promise<void>
 /** ระงับ — ไม่ลบแถว เพราะออเดอร์/เที่ยวเก่าอ้างถึงคนนี้อยู่ */
 export async function revokeUser(userId: number): Promise<void> {
   const { error } = await supabase.rpc('revoke_user', { p_user_id: userId })
+  if (error) throw toDataError(error)
+}
+
+export async function listPermissionCatalog(): Promise<{ permission: string; label: string }[]> {
+  return unwrap(supabase.from('permissions').select('permission, label').order('permission'))
+}
+
+export async function listUserPermissions(userId: number): Promise<UserPermissionRow[]> {
+  return unwrap(supabase.from('user_permissions').select('user_id, permission, allowed').eq('user_id', userId))
+}
+
+/** สิทธิ์รายคน override บทบาท — admin เท่านั้นตาม RLS user_permissions */
+export async function saveUserPermissions(userId: number, permissions: string[]): Promise<void> {
+  const { error: removeError } = await supabase.from('user_permissions').delete().eq('user_id', userId)
+  if (removeError) throw toDataError(removeError)
+  if (permissions.length === 0) return
+  const { error } = await supabase.from('user_permissions').insert(
+    permissions.map((permission) => ({ user_id: userId, permission, allowed: true })),
+  )
   if (error) throw toDataError(error)
 }
