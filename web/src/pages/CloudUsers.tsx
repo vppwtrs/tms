@@ -141,8 +141,11 @@ export default function CloudUsers(): React.JSX.Element {
 
   /* คนที่ยังไม่ถูกอนุมัติแยกขึ้นมาไว้บนสุด ไม่ปนกับรายชื่อทั้งหมด
      เพราะนี่คือสิ่งเดียวในหน้านี้ที่ "ต้องมีคนทำอะไรสักอย่าง" */
-  const pending = users.filter((u) => !u.is_active && u.approved_at === null)
-  const rest = users.filter((u) => !pending.includes(u))
+  /* pending ต้องเป็นบัญชีที่ยังมี Auth อยู่จริงเท่านั้น
+     ถ้า Auth ถูกลบแล้ว (auth_id = null) ให้ไปอยู่คลังเก็บถาวร ไม่ค้างบนหน้าหลัก */
+  const pending = users.filter((u) => u.auth_id !== null && !u.is_active && u.approved_at === null)
+  const rest = users.filter((u) => u.auth_id !== null && u.is_active && !pending.includes(u))
+  const archived = users.filter((u) => !rest.includes(u) && !pending.includes(u))
 
   return (
     <>
@@ -334,6 +337,31 @@ export default function CloudUsers(): React.JSX.Element {
           </div>
         )}
       </div>
+
+      {archived.length > 0 && (
+        <div className="card" style={{ marginTop: 18, opacity: 0.86 }}>
+          <div style={{ padding: '16px 18px 8px' }}>
+            <h3 style={{ margin: 0, fontSize: 15 }}>บัญชีเก็บถาวร ({archived.length})</h3>
+            <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--muted)' }}>
+              บัญชีที่ถูกระงับหรือถูกลบจาก Supabase Auth จะอยู่ที่นี่เพื่อไม่ให้กระทบประวัติงานเดิม
+            </p>
+          </div>
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>ชื่อ</th><th>ชื่อผู้ใช้</th><th>เหตุผล</th></tr></thead>
+              <tbody>
+                {archived.map((u) => (
+                  <tr key={u.id}>
+                    <td><b>{u.name}</b></td>
+                    <td>{u.username}</td>
+                    <td><Badge label={u.auth_id === null ? 'ลบบัญชี Auth แล้ว' : 'ถูกระงับ'} tone="danger" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={toRevoke !== null}
