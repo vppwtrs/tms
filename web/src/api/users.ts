@@ -39,8 +39,17 @@ export async function revokeUser(userId: number): Promise<void> {
 }
 
 export async function updateUserRole(userId: number, role: UserRole): Promise<void> {
-  const { error } = await supabase.from('users').update({ role }).eq('id', userId)
-  if (error) throw toDataError(error)
+  const { data: s } = await supabase.auth.getSession()
+  const token = s.session?.access_token
+  if (!token) throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่')
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/admin-change-role`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string, Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ user_id: userId, role }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'เปลี่ยนกลุ่มสิทธิ์ไม่สำเร็จ')
+  }
 }
 
 export async function listPermissionCatalog(): Promise<{ permission: string; label: string }[]> {
