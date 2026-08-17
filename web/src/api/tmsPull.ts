@@ -427,6 +427,7 @@ interface TripHeader {
   id?: string
   tripNo?: string
   warehouseId?: string
+  warehouse?: string
   orderDate?: string
   licensePlate?: string
   driver?: string
@@ -443,6 +444,38 @@ interface TripHeader {
   totalPL?: number
   totalUnit?: number
   pickingLists?: PlHeader[]
+}
+
+/* ชื่อคอลัมน์ที่เห็นบนหน้า Trip ไม่ได้ตรงกับ JSON ทุก build ของ TMS
+   normalize ตรงนี้ให้เหลือรูปเดียวก่อนกรอง/ส่งฐานข้อมูล จะได้ไม่เกิดกรณี
+   หน้า Trip มีข้อมูลแต่ client อ่าน orderDate/carrierName เป็นค่าว่างทั้งหมด */
+function toTripHeader(item: unknown): TripHeader {
+  const t = (item ?? {}) as Record<string, unknown>
+  const carrier = (t.carrier ?? {}) as Record<string, unknown>
+  const driver = (t.driver ?? {}) as Record<string, unknown>
+  const vehicle = (t.vehicleType ?? t.vehicle ?? {}) as Record<string, unknown>
+  return {
+    id: s(t.id ?? t.tripId ?? t.tripID),
+    tripNo: s(t.tripNo ?? t.tripNumber ?? t.trip_no),
+    warehouseId: s(t.warehouseId ?? t.warehouseGuid ?? t.warehouseID),
+    warehouse: s(t.warehouse ?? t.warehouseCode ?? t.warehouseName),
+    orderDate: s(t.orderDate ?? t.tripDate ?? t.trip_date),
+    licensePlate: s(t.licensePlate ?? t.license_plate ?? t.plateNo),
+    driver: s(t.driverName ?? t.driver_name ?? driver.name ?? driver.fullName ?? t.driver),
+    carrierId: s(t.carrierId ?? carrier.id),
+    carrierName: s(t.carrierName ?? t.carrier_name ?? carrier.name ?? carrier.carrierName ?? t.carrier),
+    vehicleTypeName: s(t.vehicleTypeName ?? t.vehicle_type ?? vehicle.name ?? vehicle.type ?? t.vehicleType),
+    area: s(t.area ?? t.areaName),
+    cost: Number(t.cost ?? 0),
+    actualCost: Number(t.actualCost ?? t.actual_cost ?? 0),
+    statusId: Number(t.statusId ?? t.status_id ?? 0),
+    status: s(t.status ?? t.statusName ?? t.tripStatus),
+    reason: (t.reason as string | null) ?? null,
+    onDeliveryDate: (t.onDeliveryDate ?? t.on_delivery_date ?? null) as string | null,
+    totalPL: Number(t.totalPL ?? t.totalPl ?? t.totalPickingLists ?? 0),
+    totalUnit: Number(t.totalUnit ?? t.totalUnits ?? 0),
+    pickingLists: (t.pickingLists ?? t.pickingList ?? []) as PlHeader[],
+  }
 }
 
 const TRIP_PAGE_SIZE = 200
@@ -471,13 +504,14 @@ export async function pullTrips(
   let outsourced = 0
 
   for (let page = 1; page <= maxPages; page++) {
-    const r = await tmsCall<{ data?: TripHeader[]; items?: TripHeader[] }>(path, {
+    const r = await tmsCall<unknown>(path, {
       orderBy: ['orderDate Descending'],
       pageNumber: page,
       pageSize: TRIP_PAGE_SIZE,
       keyword: null,
     })
-    const batch = r.data ?? r.items ?? []
+    const batchRaw = unwrap(r)
+    const batch = batchRaw.map(toTripHeader)
     scanned += batch.length
 
     let oldest = '9999-99-99'
@@ -541,6 +575,8 @@ export async function pushTrips(trips: TripHeader[]): Promise<TripPushResult> {
      ของคนที่เปิดหน้านี้ผ่านมือถือฟรี ๆ */
   const payload = trips.map((t) => ({
     ...t,
+    /* RPC ใช้ warehouse เป็นรหัสคลัง ไม่ใช่ warehouseId (GUID) */
+    warehouse: t.warehouse ?? '',
     pickingLists: (t.pickingLists ?? []).map((p) => ({ pickingListNo: p.pickingListNo })),
   }))
 
