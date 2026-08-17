@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge, Button, Field, Input, PageHeader, ErrorBox } from '../components/ui'
 import {
-  listWarehouses, pullTrips, pullRecentTrips, pushTrips, tmsBoard,
+  listWarehouses, pullTrips, pullRecentTrips, pushShipments, pushTrips, tmsBoard,
   POLL_MS,
   type Warehouse, type TmsBoard,
 } from '../api/tmsPull'
@@ -112,6 +112,9 @@ export default function TmsPull(): React.JSX.Element {
            = "ของค้างที่ยังไม่มีใครรับ" ซึ่งเป็นงานของคนจัดรถ ไม่ใช่งานคนขับ */
         const t = { inserted: 0, updated: 0, skipped_carrier: 0 }
         for (const batch of batches) {
+          /* ใช้รายละเอียดใบที่ติดมากับ Trip เป็นข้อมูลต้นทาง
+             ไม่ได้ยิง endpoint Picking List แยกต่างหาก */
+          if (batch.rows.length) await pushShipments(batch.rows)
           const pushed = await pushTrips(batch.trips)
           t.inserted += pushed.inserted
           t.updated += pushed.updated
