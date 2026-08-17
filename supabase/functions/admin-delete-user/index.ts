@@ -23,8 +23,9 @@ Deno.serve(async (req) => {
   if (!authorization) return json({ error: 'ต้องเข้าสู่ระบบก่อน' }, 401)
   try {
     const asCaller = caller(authorization)
-    const { data: permission, error: permissionError } = await asCaller.rpc('i_can', { p_permission: 'users.manage' })
-    if (permissionError || permission !== true) return json({ error: 'ไม่มีสิทธิ์จัดการผู้ใช้' }, 403)
+    const { data: me } = await asCaller.auth.getUser()
+    const { data: actor } = me.user ? await asCaller.from('users').select('role').eq('auth_id', me.user.id).maybeSingle() : { data: null }
+    if (actor?.role !== 'admin') return json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้น' }, 403)
 
     const body = await req.json().catch(() => ({})) as { user_id?: number }
     if (!body.user_id) return json({ error: 'ต้องระบุผู้ใช้' }, 400)

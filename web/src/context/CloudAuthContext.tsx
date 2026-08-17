@@ -80,7 +80,12 @@ export function CloudAuthProvider({ children }: { children: ReactNode }): React.
     setPendingName(null)
   }
 
-  const can = (perm: string): boolean => user?.permissions.has(perm) ?? false
+  /* users.manage เป็นสิทธิ์สงวน ไม่ใช่ permission ที่แจกให้คนขับ/ผู้วางแผนงานได้
+     ต่อให้มีแถว override หลุดมา ก็ห้ามเปิดหน้าจัดการผู้ใช้หรือเรียก workflow admin */
+  const can = (perm: string): boolean => {
+    if (perm === 'users.manage' && user?.role !== 'admin') return false
+    return user?.permissions.has(perm) ?? false
+  }
 
   return (
     <Ctx.Provider value={{ user, loading, pendingName, loginDriver, loginOffice, logout, can }}>
