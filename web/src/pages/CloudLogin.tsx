@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { Button, Field, Input } from '../components/ui'
 
@@ -35,11 +35,19 @@ const isSystemAccount = (v: string): boolean =>
   v.includes('@') && !v.toLowerCase().endsWith(`@${TMS_DOMAIN}`)
 
 export default function CloudLogin(): React.JSX.Element {
-  const { loginOffice, loginDriver, pendingName } = useCloudAuth()
+  const { loginOffice, loginDriver, logout, pendingName } = useCloudAuth()
   const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  /* สถานะรออนุมัติเป็นเพียงข้อความแจ้งเตือน ไม่ควรค้าง session บริษัทไว้บนหน้านี้
+     หลังแสดงผลสั้น ๆ ให้ออกจากระบบและกลับมาที่ฟอร์ม login พร้อมใช้งาน */
+  useEffect(() => {
+    if (!pendingName) return
+    const timer = window.setTimeout(() => { void logout() }, 4000)
+    return () => window.clearTimeout(timer)
+  }, [pendingName])
 
   const submit = async (e: FormEvent): Promise<void> => {
     e.preventDefault()
@@ -67,7 +75,7 @@ export default function CloudLogin(): React.JSX.Element {
           </p>
           <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--muted)' }}>
             บัญชีของคุณถูกสร้างไว้แล้ว แต่ผู้ดูแลระบบยังไม่ได้กำหนดสิทธิ์ให้
-            แจ้งหัวหน้าให้เข้าไปอนุมัติที่หน้าผู้ใช้ แล้วรีเฟรชหน้านี้อีกครั้ง
+            แจ้งหัวหน้าให้เข้าไปอนุมัติที่หน้าผู้ใช้ ระบบจะกลับไปหน้าเข้าสู่ระบบภายในไม่กี่วินาที
           </p>
         </div>
       </div>
