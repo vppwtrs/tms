@@ -194,7 +194,7 @@ export default function CloudUsers(): React.JSX.Element {
         <Button onClick={() => setCreateOpen(true)}>สร้างบัญชีพนักงานขับรถ</Button>
       </div>
 
-      <Modal open={selfPasswordOpen} onClose={() => setSelfPasswordOpen(false)} title="เปลี่ยนรหัสผ่านของฉัน" size="sm">
+      <Modal open={selfPasswordOpen} onClose={() => setSelfPasswordOpen(false)} title="เปลี่ยนรหัสผ่านของฉัน">
         <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>เปลี่ยนเฉพาะบัญชีที่กำลังล็อกอินอยู่ ต้องยืนยันรหัสเดิมก่อน</p>
         <div style={{ display: 'grid', gap: 12 }}>
           <Field label="รหัสผ่านเดิม" required>
