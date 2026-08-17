@@ -48,7 +48,7 @@ export default function CloudUsers(): React.JSX.Element {
 
   /* ฟอร์มสร้างบัญชีคนขับ + คนขับที่มีชื่อแต่ยังเข้าแอปไม่ได้ */
   const [noAcct, setNoAcct] = useState<{ driver_id: number; name: string; phone: string | null }[]>([])
-  const [form, setForm] = useState({ username: '', name: '', phone: '', driver_id: '' })
+  const [form, setForm] = useState({ username: '', name: '', phone: '', driver_id: '', role: 'driver' as UserRole })
   const [creating, setCreating] = useState(false)
   /* รหัสที่เพิ่งสุ่มได้ — อยู่ใน state เท่านั้น ไม่เขียนลง localStorage หรือส่งไปไหน */
   const [secret, setSecret] = useState<{ title: string; username: string; password: string } | null>(null)
@@ -81,13 +81,13 @@ export default function CloudUsers(): React.JSX.Element {
       const r: NewAccount = await createUser({
         username: form.username.trim(),
         name: form.name.trim(),
-        role: 'driver',
-        as_driver: !form.driver_id,
+        role: form.role,
+        as_driver: form.role === 'driver' && !form.driver_id,
         phone: form.phone.trim() || undefined,
         driver_id: form.driver_id ? Number(form.driver_id) : undefined,
       })
       setSecret({ title: 'สร้างบัญชีแล้ว', username: displayUsername(r.email), password: r.password })
-      setForm({ username: '', name: '', phone: '', driver_id: '' })
+      setForm({ username: '', name: '', phone: '', driver_id: '', role: 'driver' })
       setCreateOpen(false)
       await load()
       loadDrivers()
@@ -253,7 +253,14 @@ export default function CloudUsers(): React.JSX.Element {
           </p>
         </div>
 
-        {noAcct.length > 0 && (
+        <Field label="บทบาท / หน้าที่ในระบบ" required hint="บทบาทกำหนดเมนูและสิทธิ์ที่ผู้ใช้เห็น">
+          <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole, driver_id: e.target.value === 'driver' ? form.driver_id : '' })}>
+            {ASSIGNABLE.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+            <option value="driver">{ROLE_LABEL.driver}</option>
+          </Select>
+        </Field>
+
+        {form.role === 'driver' && noAcct.length > 0 && (
           <Field
             label="ผูกกับพนักงานขับที่มีชื่อในระบบแล้ว"
             hint="คนที่ระบบสร้างจากชื่อในเที่ยวของ TMS จะยังไม่มีบัญชี เลือกชื่อที่นี่แทนการสร้างซ้ำ"
@@ -430,7 +437,12 @@ export default function CloudUsers(): React.JSX.Element {
                   <tr key={u.id}>
                     <td><b>{u.name}</b></td>
                     <td>{u.username}</td>
-                    <td><Badge label={u.auth_id === null ? 'ลบบัญชี Auth แล้ว' : 'ถูกระงับ'} tone="danger" /></td>
+                    <td>
+                      <Badge label={u.auth_id === null ? 'ลบบัญชี Auth แล้ว' : 'ถูกระงับ'} tone="danger" />
+                      <Button size="sm" variant="ghost" className="text-danger" onClick={() => setToDelete(u)}>
+                        ลบถาวร
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
