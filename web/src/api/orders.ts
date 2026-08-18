@@ -29,17 +29,27 @@ export interface OrderFilter {
 /** แถวออเดอร์พร้อมชื่อที่มาจากตารางอื่น — ของเดิมบน Express JOIN มาให้ในคิวรีเดียว
  *  ที่นี่ใช้ embedded resource ของ PostgREST ซึ่งได้ผลเท่ากันแต่คืนเป็นก้อนซ้อน
  *  จึงต้องแบนก่อนส่งออก หน้าจอจะได้ไม่ต้องรู้ว่าข้อมูลมาจากกี่ตาราง */
+export interface OrderItem {
+  item_no: string
+  item_name: string | null
+  qty: number
+}
+
 export interface OrderListRow extends OrderRow {
   customer_name: string | null
   driver_name: string | null
   trip_no: string | null
   pod_status: string | null
+  /* รายการของในใบ — เดิมมีแต่ goods_desc ซึ่งเป็นชื่อสินค้าต่อกันเป็นข้อความ
+     ค้นตามรหัสไม่ได้ และไม่รู้ว่าอย่างละกี่ชิ้น */
+  items: OrderItem[]
 }
 
 interface OrderJoined extends OrderRow {
   customers: { name: string } | null
   trips: { trip_no: string; drivers: { name: string } | null } | null
   pod: { status: string }[] | null
+  order_items: OrderItem[] | null
 }
 
 const flatten = (r: OrderJoined): OrderListRow => ({
@@ -48,6 +58,7 @@ const flatten = (r: OrderJoined): OrderListRow => ({
   driver_name: r.trips?.drivers?.name ?? null,
   trip_no: r.trips?.trip_no ?? null,
   pod_status: r.pod?.[0]?.status ?? null,
+  items: r.order_items ?? [],
 })
 
 export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRow>> {
@@ -60,7 +71,7 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
   const tripJoin = f.driverId ? 'trips!inner' : 'trips'
   let q = supabase
     .from('orders')
-    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, drivers(name)), pod(status)`, { count: 'exact' })
+    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, drivers(name)), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
   if (f.driverId) q = q.eq('trips.driver_id', f.driverId)
   if (f.q) q = q.or(`order_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
   if (f.status) q = q.eq('status', f.status)

@@ -278,7 +278,12 @@ export default function CloudOrders(): React.JSX.Element {
                       <span className="text-strong">{o.tms_trip_no ?? o.trip_no ?? 'ยังไม่จัดเที่ยว'}</span>
                       {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
                     </div>
-                    <div className="text-xs text-muted">ออเดอร์ {o.order_no}</div>
+                    <div className="text-xs text-muted">
+                      ออเดอร์ {o.order_no}
+                      {/* เลข PL คือสิ่งที่คลังกับร้านค้าใช้อ้างอิงเวลาโทรตาม
+                          เก็บไว้ตั้งแต่นำเข้าแล้ว แต่ไม่เคยแสดงที่ไหนเลย */}
+                      {o.tms_picking_list_no && ` · PL ${o.tms_picking_list_no}`}
+                    </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
                       <Badge
                         label={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
@@ -286,6 +291,15 @@ export default function CloudOrders(): React.JSX.Element {
                       />
                       <span className="text-xs text-muted">{o.goods_desc}</span>
                     </div>
+                    {/* รหัสสินค้าอยู่คนละบรรทัดกับชื่อ เพราะเป็นคนละหน้าที่:
+                        ชื่อไว้อ่านว่าเป็นของอะไร รหัสไว้เทียบกับใบจริงตอนโหลดของ */}
+                    {o.items.length > 0 && (
+                      <div className="text-xs text-muted" style={{ marginTop: 2 }}>
+                        {o.items
+                          .map((it) => `${it.item_no}${it.qty > 1 ? ` ×${it.qty}` : ''}`)
+                          .join(', ')}
+                      </div>
+                    )}
                   </td>
                   <td>{o.customer_name ?? <span className="text-muted">—</span>}</td>
                   <td>

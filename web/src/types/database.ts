@@ -105,6 +105,10 @@ export type TripRow = {
   fuel_cost: number
   toll_cost: number
   other_cost: number
+  /* ค่าจ้างขนส่งจาก TMS — null คือยังไม่มีตัวเลข ต่างจาก 0 ที่แปลว่าไม่มีค่าใช้จ่ายจริง
+     แยกจาก fuel/toll/other ที่เป็นต้นทุนที่เราจ่ายเองระหว่างทาง */
+  freight_cost: number | null
+  freight_actual_cost: number | null
   notes: string | null
   created_at: string
 }
@@ -318,7 +322,7 @@ export interface Database {
       drivers: Table<DriverRow, Insertable<DriverRow, 'id' | 'created_at' | 'status'>>
       /* trip_no / order_no / quote_no เป็น optional เพราะ trigger ใน 0007 เติมให้ตอน insert
          ส่งมาเองก็ได้ แต่ปกติปล่อยว่างแล้วให้ DB ตั้งเลขต่อจากใบล่าสุดของปีนี้ */
-      trips: Table<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'status' | 'trip_no' | 'fuel_cost' | 'toll_cost' | 'other_cost'>>
+      trips: Table<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'status' | 'trip_no' | 'fuel_cost' | 'toll_cost' | 'other_cost' | 'freight_cost' | 'freight_actual_cost'>>
       orders: Table<OrderRow, Insertable<OrderRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'order_no' | 'priority' | 'distance_km' | 'weight_kg' | 'fee'>>
       pod: Table<PodRow, Insertable<PodRow, 'id' | 'updated_at' | 'status'>>
       quotes: Table<QuoteRow, Insertable<QuoteRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'quote_no' | 'distance_km' | 'weight_kg' | 'fee'>>

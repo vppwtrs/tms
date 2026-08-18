@@ -431,6 +431,11 @@ function TripCard({
         </span>
         <span><IconUsers size={14} style={{ verticalAlign: -2 }} /> <b>{trip.driver_name}</b></span>
         <span>น้ำหนักรวม <b>{fmtWeight(trip.total_weight)}</b> / {fmtWeight(trip.vehicle_capacity)}</span>
+        {/* ค่าจ้างขนส่งของเที่ยว มาจาก TMS — เที่ยวที่สร้างเองในระบบยังไม่มีตัวเลขนี้
+            จึงไม่แสดงช่องเปล่า แทนที่จะขึ้น ฿0 ซึ่งอ่านผิดเป็นงานฟรี */}
+        {trip.freight_cost !== null && (
+          <span>ค่าขนส่ง <b>{fmtMoney(trip.freight_cost)}</b></span>
+        )}
         {trip.status === 'in_progress' && trip.departed_at && <span>ออกเดินทาง <b>{fmtDateTime(trip.departed_at)}</b></span>}
       </div>
 

@@ -215,7 +215,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
               <tr>
                 <th>เที่ยว</th>
                 <th>พนักงานขับ</th>
-                <th style={{ width: 90 }}>ใบ · คัน</th>
+                <th style={{ width: 210 }}>ใบ · คัน</th>
                 <th style={{ width: 120 }}>ค่าขนส่ง</th>
                 <th style={{ width: 130 }}>สถานะ TMS</th>
                 <th style={{ width: 180 }} />
@@ -253,6 +253,15 @@ export default function CloudTmsTrips(): React.JSX.Element {
                     </td>
                     <td className="num">
                       {t.total_pl ?? 0} · {t.total_unit ?? 0}
+                      {(t.picking_list_nos ?? []).length > 0 && (
+                        /* เลขใบเรียงต่อกัน อ่านง่ายกว่าบรรทัดละใบเมื่อมีหลายใบ
+                           เกิน 6 ใบขึ้น "+n" แทนที่จะยืดแถวจนตารางอ่านไม่ออก */
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+                          {(t.picking_list_nos ?? []).join(', ')}
+                          {(t.pls_in_db ?? 0) > (t.picking_list_nos ?? []).length &&
+                            ` +${(t.pls_in_db ?? 0) - (t.picking_list_nos ?? []).length}`}
+                        </div>
+                      )}
                       {t.unmapped_pls > 0 && (
                         /* ไม่ใช่คำเตือน — ใบพวกนี้เข้าเป็นออเดอร์ตามปกติ แค่ยังไม่ผูกลูกค้า */
                         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>

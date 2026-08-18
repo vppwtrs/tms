@@ -79,6 +79,9 @@ export interface BoardTrip {
   vehicle_capacity: number
   driver_name: string
   total_weight: number
+  /* ค่าจ้างขนส่งจาก TMS — ยอดปิดจริงถ้ามี ไม่งั้นยอดตามสัญญา
+     null = เที่ยวที่สร้างเองในระบบ ยังไม่มีตัวเลขจากฝั่ง TMS */
+  freight_cost: number | null
   orders: OrderRow[]
 }
 
@@ -114,6 +117,7 @@ export async function getTripBoardDetailed(): Promise<{ planned: BoardTrip[]; in
       driver_name: dById.get(t.driver_id)?.name ?? '—',
       /* ใบที่ยกเลิกไม่นับน้ำหนัก ไม่งั้นแถบความจุจะโชว์เต็มทั้งที่ของไม่ได้อยู่บนรถ */
       total_weight: mine.reduce((s, o) => (o.status === 'cancelled' ? s : s + o.weight_kg), 0),
+      freight_cost: t.freight_actual_cost ?? t.freight_cost,
       orders: mine,
     }
   })

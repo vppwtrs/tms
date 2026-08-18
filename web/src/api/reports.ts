@@ -62,6 +62,8 @@ export interface ReportKpis {
   trips_total: number
   trips_completed: number
   trip_cost: number
+  /** ค่าจ้างขนส่งรวมจาก TMS — คนละก้อนกับ trip_cost ที่เป็นต้นทุนระหว่างทาง */
+  freight_cost: number
   weight_kg: number
 }
 
@@ -93,6 +95,9 @@ export async function generateReport(fromIso: string, toIso: string): Promise<Re
     trips_total: trips.length,
     trips_completed: trips.filter((t) => t.status === 'completed').length,
     trip_cost: trips.reduce((s, t) => s + t.fuel_cost + t.toll_cost + t.other_cost, 0),
+    /* ค่าจ้างขนส่งที่ TMS ปิดยอดแล้วเป็นตัวตั้ง ถ้ายังไม่ปิดค่อยใช้ยอดตามสัญญา
+       เที่ยวที่ไม่มีทั้งคู่ (งานที่สร้างเองในระบบ) ไม่ถูกนับ ไม่ใช่นับเป็นศูนย์ */
+    freight_cost: trips.reduce((s, t) => s + (t.freight_actual_cost ?? t.freight_cost ?? 0), 0),
     weight_kg: delivered.reduce((s, o) => s + o.weight_kg, 0),
   }
 
