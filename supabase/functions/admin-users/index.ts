@@ -141,7 +141,17 @@ async function handleCreate(req: Request, callerAuth: string): Promise<Response>
           p_user_id: (row as { user_id: number }).user_id,
           p_driver_id: driver_id,
         })
-    if (attErr) return json({ error: attErr.message }, 400)
+    if (attErr) {
+      /* ล้มหลังบัญชีถูกสร้างไปแล้ว = ของค้างครึ่งทาง ซึ่งเป็นต้นเหตุของคนขับชื่อซ้ำ
+         และบัญชีที่ล็อกอินได้แต่ไม่มีใครรู้ว่ามีอยู่ ต้องถอยให้หมดทุกชิ้นเสมอ
+         ลำดับกลับด้าน: แถวคนขับที่เพิ่งสร้าง -> แถวผู้ใช้ -> บัญชี auth */
+      const madeUser = (row as { user_id: number }).user_id
+      if (newDriverId) await sb.from('drivers').delete().eq('id', newDriverId)
+      await sb.from('user_permissions').delete().eq('user_id', madeUser)
+      await sb.from('users').delete().eq('id', madeUser)
+      await sb.auth.admin.deleteUser(created.user.id)
+      return json({ error: attErr.message }, 400)
+    }
   }
 
   return json({
