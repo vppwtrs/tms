@@ -100,7 +100,12 @@ export async function setDriverStatus(id: number, status: DriverStatus): Promise
   return unwrap(supabase.from('drivers').update({ status }).eq('id', id).select().single())
 }
 
+/** ลบพนักงานขับ — ผ่าน RPC เพื่อให้ได้เหตุผลเป็นภาษาคน
+ *
+ *  ลบตรงจากตารางแล้วชนคนที่มีประวัติเที่ยว จะได้ error ของ FK ดิบ ๆ ที่บอกแค่ชื่อ
+ *  constraint ไม่ได้บอกว่าต้องไปเปลี่ยนสถานะเป็น "พักงาน" แทน
+ *  ฝั่ง RPC ยังเก็บกวาดคีย์ใน tms_driver_map ให้ด้วย ไม่ให้เหลือคีย์ที่ไม่มีคนผูก */
 export async function removeDriver(id: number): Promise<void> {
-  const { error } = await supabase.from('drivers').delete().eq('id', id)
+  const { error } = await supabase.rpc('delete_driver', { p_id: id })
   if (error) throw error
 }

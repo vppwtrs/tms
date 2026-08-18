@@ -458,6 +458,10 @@ export interface Database {
           already: boolean
         }
       }
+      delete_driver: {
+        Args: { p_id: number }
+        Returns: { deleted: number; name: string }
+      }
       create_driver_from_tms: {
         Args: { p_driver_key: string }
         Returns: { driver_id: number; name: string }
