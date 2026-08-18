@@ -184,6 +184,13 @@ interface PlDetail {
   description?: string
   qty?: number
   splitQty?: number
+  /* TMS ตั้งชื่อช่องจำนวนไม่เหมือนกันตามชนิดใบ — ใบโอนย้าย (TF) ไม่ได้ส่ง qty มา
+     อ่านชื่อที่เจอจริงทั้งหมด ดีกว่าปล่อยให้จำนวนเป็น 0 ทั้งใบโดยไม่มีใครรู้ว่าทำไม */
+  quantity?: number
+  totalQty?: number
+  unit?: number
+  qtySplit?: number
+  splitQuantity?: number
 }
 
 interface PlHeader {
@@ -205,6 +212,10 @@ interface PlHeader {
   shipToProvince?: string
   shipToPostCode?: string
   totalQty?: number
+  /* ชื่อสำรองของยอดรวมในใบ ด้วยเหตุผลเดียวกับใน PlDetail */
+  totalUnit?: number
+  quantity?: number
+  unit?: number
   tripNo?: string
   details?: PlDetail[]
 }
@@ -306,8 +317,8 @@ function plRowsOf(headers: PlHeader[]): PlRow[] {
       shipToAddress: s(h.shipToAddress).trim(),
       shipToProvince: s(h.shipToProvince),
       shipToPostCode: s(h.shipToPostCode),
-      unit: n(h.totalQty),
-      totalQty: n(h.totalQty),
+      unit: n(h.totalQty ?? h.totalUnit ?? h.quantity ?? h.unit),
+      totalQty: n(h.totalQty ?? h.totalUnit ?? h.quantity ?? h.unit),
       pickupDate: day(h.pickupDate),
       deliveryDate: day(h.deliveryDate),
       /* ไม่มีทะเบียนกับคนขับใน PL — ใบที่ยังไม่ได้จัดเที่ยวยังไม่มีใครรับ
@@ -322,9 +333,14 @@ function plRowsOf(headers: PlHeader[]): PlRow[] {
     /* วัดของจริง 64 ใบแล้ว totalQty เท่ากับผลรวม qty ทุกใบ splitQty ยังไม่เคยจำเป็น
        แต่ยังบันทึกผลเทียบไว้เป็นตัวเฝ้าระวัง — วันไหน qtySource เริ่มว่างบ่อย ๆ
        แปลว่า TMS เปลี่ยนความหมายของ totalQty */
-    const sumQty = det.reduce((t, d) => t + (Number(d.qty) || 0), 0)
-    const sumSplit = det.reduce((t, d) => t + (Number(d.splitQty) || 0), 0)
-    const u = Number(h.totalQty) || 0
+    const detQty = (d: PlDetail): number | null =>
+      n(d.qty ?? d.quantity ?? d.totalQty ?? d.unit)
+    const detSplit = (d: PlDetail): number | null =>
+      n(d.splitQty ?? d.qtySplit ?? d.splitQuantity)
+
+    const sumQty = det.reduce((t, d) => t + (detQty(d) ?? 0), 0)
+    const sumSplit = det.reduce((t, d) => t + (detSplit(d) ?? 0), 0)
+    const u = Number(h.totalQty ?? h.totalUnit ?? h.quantity ?? h.unit) || 0
     const qtySource: PlRow['qtySource'] = sumQty === u ? 'qty' : sumSplit === u ? 'split' : ''
 
     for (const d of det) {
@@ -332,8 +348,8 @@ function plRowsOf(headers: PlHeader[]): PlRow[] {
         ...common,
         itemNo: s(d.itemNo),
         itemName: s(d.description),
-        itemQty: n(d.qty),
-        itemSplitQty: n(d.splitQty),
+        itemQty: detQty(d),
+        itemSplitQty: detSplit(d),
         qtySource,
       })
     }

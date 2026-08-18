@@ -463,7 +463,10 @@ export default function CloudTmsTrips(): React.JSX.Element {
                   {/* ใบที่ยังไม่ผูกลูกค้าไม่ได้กันการนำเข้า แต่เป็นของที่ต้องตามเก็บทีหลัง */}
                   {!pl.customer_linked && <Badge label="ยังไม่ผูกลูกค้า" tone="warning" />}
                   <div style={{ flex: 1 }} />
-                  <span className="text-xs text-muted">{pl.qty} ชิ้น</span>
+                  {/* ไม่รู้จำนวน ต้องเขียนว่าไม่รู้ — 0 บนจอทำให้คนอ่านคิดว่าใบนี้ไม่มีของ */}
+                  <span className="text-xs text-muted">
+                    {pl.qty == null ? 'TMS ไม่ส่งจำนวนมา' : `${pl.qty} ชิ้น`}
+                  </span>
                 </div>
                 <div className="text-xs text-muted" style={{ marginTop: 2 }}>
                   {[pl.ship_to_name ?? pl.dealer_name, pl.province].filter(Boolean).join(' · ') || '—'}
@@ -479,7 +482,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                           {it.item_no}
                         </span>
                         <span className="text-muted" style={{ flex: 1 }}>{it.item_name ?? ''}</span>
-                        <span>×{it.qty}</span>
+                        <span>{it.qty == null ? '—' : `×${it.qty}`}</span>
                       </div>
                     ))}
                   </div>

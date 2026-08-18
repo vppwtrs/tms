@@ -164,8 +164,9 @@ export interface TmsPickingList {
   ship_to_name: string | null
   province: string | null
   customer_linked: boolean
-  qty: number
-  items: { item_no: string; item_name: string | null; qty: number }[]
+  /* null = TMS ไม่ได้ส่งจำนวนมาสำหรับใบนี้ ไม่ใช่ศูนย์ชิ้น */
+  qty: number | null
+  items: { item_no: string; item_name: string | null; qty: number | null }[]
 }
 
 export interface TmsTripDetail {
