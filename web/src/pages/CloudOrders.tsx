@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listOrders, createOrder, updateOrder, cancelOrder, type OrderListRow } from '../api/orders'
+import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow } from '../api/orders'
 import { useRealtime } from '../hooks/useRealtime'
 import { listAllCustomers } from '../api/customers'
 import { listDrivers } from '../api/vehicles'
@@ -189,8 +189,8 @@ export default function CloudOrders(): React.JSX.Element {
     if (!cancelling) return
     setCancelLoading(true)
     try {
-      await cancelOrder(cancelling.id)
-      push('success', `ยกเลิกออเดอร์ ${cancelling.order_no} แล้ว`)
+      await removeOrder(cancelling.id)
+      push('success', `ลบออเดอร์ ${cancelling.order_no} แล้ว — ใบจาก TMS กลับไปสั่งงานใหม่ได้`)
       setCancelling(null)
       await load()
     } catch (e) {
@@ -416,7 +416,7 @@ export default function CloudOrders(): React.JSX.Element {
         open={cancelling !== null}
         onClose={() => setCancelling(null)}
         title="ยืนยันการยกเลิกออเดอร์"
-        message={cancelling ? <>ต้องการยกเลิกออเดอร์ <b>{cancelling.order_no}</b> ({cancelling.origin} → {cancelling.destination}) ใช่หรือไม่? ออเดอร์จะเปลี่ยนเป็นสถานะ <b>ยกเลิก</b> ทันที และไม่สามารถย้อนกลับได้</> : ''}
+        message={cancelling ? <>ต้องการลบออเดอร์ <b>{cancelling.order_no}</b> ({cancelling.origin} → {cancelling.destination}) ใช่หรือไม่? ใบจะถูกลบออกจากระบบ และใบเดิมจาก TMS จะกลับไปอยู่ในสถานะยังไม่ถูกสั่งงาน — สั่งใหม่ได้ที่หน้าตรวจเที่ยวจาก TMS</> : ''}
         confirmLabel="ยกเลิกออเดอร์"
         danger
         loading={cancelLoading}

@@ -1,4 +1,4 @@
-import { supabase, unwrap } from './supabase.js'
+import { supabase, unwrap, toDataError } from './supabase.js'
 import type { OrderRow, OrderStatus, OrderPriority } from '../types/database.js'
 import type { Paged } from './customers.js'
 
@@ -145,16 +145,17 @@ export async function updateOrder(id: number, input: Partial<OrderInput>): Promi
   )
 }
 
-/** ยกเลิกใบที่ยังไม่ได้จัดเข้าเที่ยวเท่านั้น — ใบที่อยู่ในเที่ยวแล้วต้องเอาออกจากเที่ยวก่อน
- *  เงื่อนไขอยู่ใน .eq() ไม่ใช่ if ในหน้าจอ ยิงตรงมาก็ได้ 0 แถวเหมือนกัน */
-export async function cancelOrder(id: number): Promise<OrderRow> {
-  return unwrap(
-    supabase
-      .from('orders')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .is('trip_id', null)
-      .select()
-      .single(),
-  )
+/**
+ * ลบใบทิ้ง แล้วคืนใบดิบจาก TMS ให้สั่งงานใหม่ได้
+ *
+ * ของเดิมแค่ตั้งสถานะเป็น "ยกเลิก" ค้างไว้ ใบดิบยังถูกจองว่าแปลงเป็นออเดอร์ไปแล้ว
+ * สั่งใหม่จึงไม่มีใบตามมา และหน้าออเดอร์รกด้วยใบยกเลิกที่ไม่มีใครใช้ต่อ
+ * สาเหตุของการยกเลิกส่วนใหญ่คือกดพลาด ทางออกที่ถูกคือถอยกลับไปเป็นเหมือนไม่เคยกด
+ *
+ * ใบที่เก็บหลักฐานการส่งมอบไปแล้วลบไม่ได้ — ฝั่งฐานเป็นคนกัน ไม่ใช่หน้าจอ
+ */
+export async function removeOrder(id: number): Promise<{ deleted: number; order_no: string }> {
+  const { data, error } = await supabase.rpc('remove_order', { p_order_id: id })
+  if (error) throw toDataError(error)
+  return data as { deleted: number; order_no: string }
 }

@@ -509,6 +509,10 @@ export interface Database {
         Args: { p_trip_id: number }
         Returns: Record<string, unknown>[]
       }
+      remove_order: {
+        Args: { p_order_id: number }
+        Returns: { deleted: number; order_no: string }
+      }
       set_stop_order: {
         Args: { p_trip_id: number; p_order_ids: number[] }
         Returns: void
