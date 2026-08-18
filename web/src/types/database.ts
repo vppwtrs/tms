@@ -264,6 +264,13 @@ export type MyOrderRow = {
   scheduled_at: string
   delivered_at: string | null
   notes: string | null
+  /* เลขเที่ยวกับเลข PL ของ TMS — คนขับใช้เลขนี้คุยกับคลังและร้าน */
+  tms_trip_no: string | null
+  tms_picking_list_no: string | null
+  tms_unit_count: number | null
+  work_kind: string | null
+  /* ลำดับที่คนขับจัดเอง null = ยังไม่จัด เรียงตามกำหนดส่งไปก่อน */
+  seq: number | null
   customer_name: string | null
   customer_phone: string | null
   customer_address: string | null
@@ -469,8 +476,12 @@ export interface Database {
         Args: { p_date?: string | null }
         Returns: Record<string, unknown>
       }
+      set_stop_order: {
+        Args: { p_trip_id: number; p_order_ids: number[] }
+        Returns: void
+      }
       import_tms_trip: {
-        Args: { p_tms_id: string }
+        Args: { p_tms_id: string; p_driver_ids?: number[] | null }
         Returns: {
           trip_id: number
           created_orders: number

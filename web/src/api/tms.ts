@@ -107,7 +107,8 @@ export async function previewTrips(date?: string): Promise<TmsTripsPreview> {
 
 /** สร้างเที่ยว + ออเดอร์ของใบในเที่ยวในทรานแซกชันเดียว
  *  กดซ้ำเที่ยวเดิมไม่สร้างเที่ยวที่สอง (คืน `already: true`) */
-export async function importTrip(tmsId: string): Promise<{
+/** สั่งงานเที่ยวหนึ่ง — ระบุคนขับเองได้ ถ้าไม่ระบุจะใช้การจับคู่ชื่อที่เคยยืนยันไว้ */
+export async function importTrip(tmsId: string, driverIds?: number[]): Promise<{
   trip_id: number
   trip_no?: string
   status?: string
@@ -116,7 +117,10 @@ export async function importTrip(tmsId: string): Promise<{
   orders_without_customer?: number
   already: boolean
 }> {
-  const { data, error } = await supabase.rpc('import_tms_trip', { p_tms_id: tmsId })
+  const { data, error } = await supabase.rpc('import_tms_trip', {
+    p_tms_id: tmsId,
+    p_driver_ids: driverIds?.length ? driverIds : null,
+  })
   if (error) throw toDataError(error)
   return data as { trip_id: number; created_orders: number; already: boolean }
 }
@@ -216,6 +220,15 @@ export async function mapTmsDriverToExisting(
   })
   if (error) throw toDataError(error)
   return { driver_id: driverId, name: created.name }
+}
+
+/** ลำดับการแวะของเที่ยว — คนขับจัดเอง ผู้วางแผนแก้ได้ */
+export async function setStopOrder(tripId: number, orderIds: number[]): Promise<void> {
+  const { error } = await supabase.rpc('set_stop_order', {
+    p_trip_id: tripId,
+    p_order_ids: orderIds,
+  })
+  if (error) throw toDataError(error)
 }
 
 export async function createDriverFromTms(driverKey: string): Promise<{ driver_id: number; name: string }> {

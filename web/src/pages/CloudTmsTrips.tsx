@@ -76,6 +76,8 @@ export default function CloudTmsTrips(): React.JSX.Element {
   /* รายชื่อคนขับจริงในระบบ — คนวางแผนต้องเลือกจากรายชื่อนี้ ไม่ใช่ให้ระบบเดาจากชื่อใน TMS */
   const [roster, setRoster] = useState<DriverRow[]>([])
   const [pick, setPick] = useState<Record<string, string>>({})
+  /* คนขับที่คนวางแผนเลือกให้เที่ยวนั้น เก็บด้วย tms_id ของเที่ยว */
+  const [assign, setAssign] = useState<Record<string, string>>({})
   const [detailId, setDetailId] = useState('')
   const [detail, setDetail] = useState<TmsTripDetail | null>(null)
   const [detailError, setDetailError] = useState('')
@@ -126,7 +128,10 @@ export default function CloudTmsTrips(): React.JSX.Element {
   const run = async (tmsId: string, tripNo: string): Promise<void> => {
     setBusy(tmsId)
     try {
-      const r = await importTrip(tmsId)
+      /* คนวางแผนเลือกคนขับไว้ที่แถวนี้หรือยัง ถ้าเลือกแล้วให้ใช้คนนั้น
+         ไม่เลือกก็ใช้การจับคู่ชื่อที่เคยยืนยันไว้ตามเดิม */
+      const chosen = assign[tmsId]
+      const r = await importTrip(tmsId, chosen ? [Number(chosen)] : undefined)
       push('success', r.already
         ? `เที่ยว ${tripNo} นำเข้าไปแล้วก่อนหน้านี้`
         : `นำเข้าเที่ยว ${tripNo} แล้ว · ออเดอร์ใหม่ ${r.created_orders} ใบ` +
@@ -329,12 +334,34 @@ export default function CloudTmsTrips(): React.JSX.Element {
                         <Badge label="นำเข้าแล้ว" tone="neutral" />
                       ) : t.status_id === 6 ? (
                         <span style={{ fontSize: 12, color: 'var(--muted)' }}>ยกเลิกที่ TMS</span>
-                      ) : waitingTms ? (
-                        /* TMS ยังไม่จ่ายคนขับให้เที่ยวนี้ ไม่ใช่ของที่ค้างอยู่ฝั่งเรา
-                           บอกให้ตรงว่ารออะไรอยู่ ไม่งั้นคนวางแผนจะไปหาว่าตัวเองลืมทำอะไร */
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                          รอ TMS จ่ายพนักงานขับ
-                        </span>
+                      ) : waitingTms || !t.driver_id ? (
+                        /* TMS ยังไม่จ่ายคนขับ หรือชื่อที่ส่งมายังไม่รู้จัก — ไม่ต้องรอ TMS อีกแล้ว
+                           คนวางแผนชี้ตัวคนขับเองได้ที่นี่ แล้วสั่งงานได้เลย
+                           การเดาชื่อจาก TMS เคยจับคนผิดมาแล้ว คนเป็นคนตัดสินดีกว่า */
+                        <div style={{ display: 'grid', gap: 6, justifyItems: 'stretch' }}>
+                          <Select
+                            value={assign[t.tms_id] ?? ''}
+                            disabled={!canDispatch}
+                            onChange={(e) => setAssign({ ...assign, [t.tms_id]: e.target.value })}
+                          >
+                            <option value="">— เลือกพนักงานขับ —</option>
+                            {roster.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </Select>
+                          <Button
+                            onClick={() => void run(t.tms_id, t.trip_no)}
+                            loading={busy === t.tms_id}
+                            disabled={!canDispatch || !assign[t.tms_id]}
+                          >
+                            สั่งงานเที่ยวนี้
+                          </Button>
+                          {waitingTms && (
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                              TMS ยังไม่จ่ายคนขับให้เที่ยวนี้
+                            </span>
+                          )}
+                        </div>
                       ) : blocked ? (
                         /* ปุ่มจับคู่อยู่ในแถวของเที่ยวที่ติด ไม่ใช่การ์ดรวมด้านบน —
                            การ์ดรวมทำให้ต้องเดาเองว่าชื่อไหนคู่กับเที่ยวไหน
