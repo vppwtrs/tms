@@ -55,8 +55,23 @@ export default function CloudLogin(): React.JSX.Element {
     setLoading(true)
     const id = user.trim()
     try {
-      if (isSystemAccount(id)) await loginDriver(id, password)
-      else await loginOffice(id, password)
+      if (isSystemAccount(id)) {
+        await loginDriver(id, password)
+      } else {
+        /* ไม่มี @ = เดาว่าเป็นบัญชี TMS บริษัท แต่เดาผิดได้ — ชื่อผู้ใช้ที่ระบบนี้ออกให้
+           ก็ไม่มี @ เหมือนกัน (ระบบเก็บเป็น <ชื่อ>@tms.local แล้วตัดโดเมนตอนแสดงผล)
+           คนขับที่พิมพ์ชื่อตามที่หน้าจอบอกจึงถูกส่งไปตรวจกับ TMS แล้วไม่ผ่านตลอด
+           ลองทางบริษัทก่อนตามเดิม ไม่ผ่านค่อยลองเป็นบัญชีของระบบนี้ */
+        try {
+          await loginOffice(id, password)
+        } catch (officeError) {
+          try {
+            await loginDriver(id, password)
+          } catch {
+            throw officeError
+          }
+        }
+      }
       setPassword('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ')
