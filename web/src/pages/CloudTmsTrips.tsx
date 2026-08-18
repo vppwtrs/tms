@@ -157,17 +157,6 @@ export default function CloudTmsTrips(): React.JSX.Element {
         </div>
       )}
 
-      {data && data.unmapped_drivers.length > 0 && (
-        <div className="card" style={{ padding: 16, marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* คนขับเป็นเรื่องเดียวที่ต้องให้คนยืนยัน — ทะเบียนระบบสร้างให้เองตอนนำเข้า */}
-          <span style={{ fontSize: 13, fontWeight: 600 }}>พนักงานขับที่ยังไม่รู้ว่าเป็นใครในระบบ:</span>
-          {data.unmapped_drivers.map((d) => (
-            <Button key={d} variant="outline" disabled={!canDrivers} onClick={() => void addDriver(d)}>
-              เพิ่ม {d}
-            </Button>
-          ))}
-        </div>
-      )}
 
       {data && data.orders_without_customer > 0 && (
         <div className="card" style={{ padding: 16, marginTop: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -199,7 +188,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
             <thead>
               <tr>
                 <th>เที่ยว</th>
-                <th>รถ / พนักงานขับ</th>
+                <th>พนักงานขับ</th>
                 <th style={{ width: 90 }}>ใบ · คัน</th>
                 <th style={{ width: 130 }}>สถานะ TMS</th>
                 <th style={{ width: 180 }} />
@@ -208,10 +197,19 @@ export default function CloudTmsTrips(): React.JSX.Element {
             <tbody>
               {data.trips.map((t) => {
                 const blocked = !t.driver_id
+                /* สองเรื่องคนละเรื่องที่เคยรวมเป็นข้อความเดียว:
+                   ไม่มีชื่อคนขับเลย = TMS ยังไม่จ่ายงาน เรารอฝ่ายเดียว ทำอะไรไม่ได้
+                   มีชื่อแต่ยังไม่รู้ว่าเป็นใคร = งานของเรา กดจับคู่ได้เดี๋ยวนี้ */
+                const waitingTms = !t.driver_name
                 return (
                   <tr key={t.tms_id}>
                     <td>
-                      <div className="cell-no">{t.trip_no}</div>
+                      {/* TMS ใช้เลขเที่ยวซ้ำกันได้ข้ามคลัง เห็นสองแถวเลขเดียวกันแล้วดูเหมือนดึงซ้ำ
+                          ทะเบียนรถคือตัวที่แยกออกจริง จึงต้องอยู่คู่เลขเที่ยว ไม่ใช่ซ่อนในคอลัมน์ถัดไป */}
+                      <div className="cell-no">
+                        {t.trip_no}
+                        {t.license_plate ? ` · ${t.license_plate}` : ''}
+                      </div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                         {t.warehouse_code}
                         {t.area ? ` · เขต ${t.area}` : ''}
@@ -219,8 +217,10 @@ export default function CloudTmsTrips(): React.JSX.Element {
                       </div>
                     </td>
                     <td>
-                      <div>{t.license_plate ?? '—'}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.driver_name ?? '—'}</div>
+                      <div>{t.driver_name ?? '—'}</div>
+                      {waitingTms && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>TMS ยังไม่ระบุ</div>
+                      )}
                     </td>
                     <td className="num">
                       {t.total_pl ?? 0} · {t.total_unit ?? 0}
@@ -242,18 +242,34 @@ export default function CloudTmsTrips(): React.JSX.Element {
                         <Badge label="นำเข้าแล้ว" tone="neutral" />
                       ) : t.status_id === 6 ? (
                         <span style={{ fontSize: 12, color: 'var(--muted)' }}>ยกเลิกที่ TMS</span>
+                      ) : waitingTms ? (
+                        /* TMS ยังไม่จ่ายคนขับให้เที่ยวนี้ ไม่ใช่ของที่ค้างอยู่ฝั่งเรา
+                           บอกให้ตรงว่ารออะไรอยู่ ไม่งั้นคนวางแผนจะไปหาว่าตัวเองลืมทำอะไร */
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          รอ TMS จ่ายพนักงานขับ
+                        </span>
+                      ) : blocked ? (
+                        /* ปุ่มจับคู่อยู่ในแถวของเที่ยวที่ติด ไม่ใช่การ์ดรวมด้านบน —
+                           การ์ดรวมทำให้ต้องเดาเองว่าชื่อไหนคู่กับเที่ยวไหน */
+                        <Button
+                          variant="outline"
+                          disabled={!canDrivers}
+                          onClick={() => void addDriver(t.driver_name as string)}
+                        >
+                          จับคู่ {t.driver_name}
+                        </Button>
                       ) : (
                         <Button
                           onClick={() => void run(t.tms_id, t.trip_no)}
                           loading={busy === t.tms_id}
-                          disabled={!canDispatch || blocked}
+                          disabled={!canDispatch}
                         >
                           นำเข้าเที่ยวนี้
                         </Button>
                       )}
-                      {blocked && !t.imported && t.status_id !== 6 && (
-                        <div style={{ fontSize: 11.5, color: 'var(--warn)', marginTop: 4 }}>
-                          ยังไม่จับคู่พนักงานขับ
+                      {blocked && !waitingTms && !t.imported && t.status_id !== 6 && (
+                        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
+                          จับคู่แล้วถึงจะนำเข้าได้
                         </div>
                       )}
                     </td>

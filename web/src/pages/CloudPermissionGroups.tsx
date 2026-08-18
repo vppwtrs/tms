@@ -3,6 +3,7 @@ import { Badge, Button, ErrorBox, PageHeader, TableSkeleton } from '../component
 import { listPermissionAudit, listPermissionCatalog, listRolePermissions, saveRolePermission } from '../api/users'
 import { PERMISSION_INFO, ROLE_INFO } from '../utils/permissions'
 import type { PermissionAuditRow, UserRole } from '../types/database'
+import { fmtDateTime } from '../utils/format'
 
 const ROLES: UserRole[] = ['admin', 'dispatcher', 'viewer', 'driver']
 
@@ -75,7 +76,7 @@ export default function CloudPermissionGroups(): React.JSX.Element {
     </div>
     <div className="card" style={{ padding: 18, marginTop: 16 }}>
       <h2 style={{ margin: '0 0 12px', fontSize: 18 }}>ประวัติการเปลี่ยนสิทธิ์ล่าสุด</h2>
-      {audit.length === 0 ? <p className="text-sm text-muted">ยังไม่มีรายการเปลี่ยนแปลง</p> : <div className="table-wrap"><table className="table"><thead><tr><th>การเปลี่ยนแปลง</th><th>สิทธิ์</th><th>ก่อนหน้า</th><th>หลังจากแก้</th><th>เวลา</th></tr></thead><tbody>{audit.map((row) => <tr key={row.id}><td>{row.action === 'role_permission_changed' ? `กลุ่ม ${ROLE_INFO[row.role as UserRole]?.label ?? row.role}` : row.action === 'user_permissions_reset' ? 'คืนค่าเริ่มต้นรายคน' : 'ปรับสิทธิ์รายคน'}</td><td>{row.permission ? (PERMISSION_INFO.find((p) => p.permission === row.permission)?.label ?? row.permission) : '—'}</td><td>{row.before_value ?? '—'}</td><td>{row.after_value ?? '—'}</td><td>{new Date(row.created_at).toLocaleString('th-TH')}</td></tr>)}</tbody></table></div>}
+      {audit.length === 0 ? <p className="text-sm text-muted">ยังไม่มีรายการเปลี่ยนแปลง</p> : <div className="table-wrap"><table className="table"><thead><tr><th>การเปลี่ยนแปลง</th><th>สิทธิ์</th><th>ก่อนหน้า</th><th>หลังจากแก้</th><th>เวลา</th></tr></thead><tbody>{audit.map((row) => <tr key={row.id}><td>{row.action === 'role_permission_changed' ? `กลุ่ม ${ROLE_INFO[row.role as UserRole]?.label ?? row.role}` : row.action === 'user_permissions_reset' ? 'คืนค่าเริ่มต้นรายคน' : 'ปรับสิทธิ์รายคน'}</td><td>{row.permission ? (PERMISSION_INFO.find((p) => p.permission === row.permission)?.label ?? row.permission) : '—'}</td><td>{row.before_value ?? '—'}</td><td>{row.after_value ?? '—'}</td><td>{fmtDateTime(row.created_at)}</td></tr>)}</tbody></table></div>}
     </div>
   </>
 }

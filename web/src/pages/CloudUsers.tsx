@@ -5,6 +5,7 @@ import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, ty
 import { changeMyPassword } from '../api/auth'
 import type { PermissionMode, UserRow, UserRole } from '../types/database'
 import { permissionInfo } from '../utils/permissions'
+import { fmtDateTime } from '../utils/format'
 
 const displayUsername = (value: string): string => value.replace(/@tms\.local$/i, '')
 
@@ -434,7 +435,7 @@ export default function CloudUsers(): React.JSX.Element {
                   <tr key={u.id}>
                     <td><b>{u.name}</b></td>
                     <td>{u.username}</td>
-                    <td>{u.last_login_at ? new Date(u.last_login_at).toLocaleString('th-TH') : '—'}</td>
+                    <td>{fmtDateTime(u.last_login_at)}</td>
                     <td>
                       <Select
                         value={roleFor[u.id] ?? 'viewer'}

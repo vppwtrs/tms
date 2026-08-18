@@ -6,6 +6,7 @@ import {
   type Warehouse, type TmsBoard,
 } from '../api/tmsPull'
 import { autoImportReadyTrips } from '../api/tms'
+import { fmtDate, fmtDateTime } from '../utils/format'
 
 /**
  * ดึงข้อมูลจาก TMS บริษัท — แทนโปรแกรม extractor ที่เคยแยกต่างหาก
@@ -37,8 +38,6 @@ const iso = (offsetDays: number): string => {
   return d.toISOString().slice(0, 10)
 }
 
-const clock = (v: string | null): string =>
-  v ? new Date(v).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : '—'
 
 export default function TmsPull(): React.JSX.Element {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -191,11 +190,18 @@ export default function TmsPull(): React.JSX.Element {
 
       {board && (
         <div className="card" style={{ padding: 18, marginBottom: 16, display: 'grid', gap: 14 }}>
+          {/* ตัวเลขทั้งแถวนับเฉพาะวันที่ระบุ ไม่ใช่ยอดสะสมทั้งระบบ — ป้ายเดิมไม่บอกขอบเขต
+              คนอ่านจึงเอาไปเทียบกับยอดในฐานแล้วไม่ตรง และระหว่างดึงข้อมูล เที่ยวของวันใหม่
+              ยังเป็น 0 ขณะที่จำนวนคันยังค้างของวันเก่า อ่านได้เป็น "0 เที่ยว 122 คัน" */}
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            ยอดของวันที่ {fmtDate(board.date ?? board.latest_date)}
+          </div>
+
           <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', alignItems: 'baseline' }}>
             {/* วันล่าสุดมาก่อนทุกอย่าง — คำถามแรกของคนเปิดหน้านี้คือ "ของวันไหน" */}
             <div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>วันที่ล่าสุดที่มีงาน</div>
-              <div style={{ fontSize: 22, fontWeight: 660 }}>{board.latest_date ?? '—'}</div>
+              <div style={{ fontSize: 22, fontWeight: 660 }}>{fmtDate(board.latest_date)}</div>
             </div>
             {/* เที่ยวมาก่อนใบ — คนจัดรถคิดเป็นเที่ยว ยอดใบเป็นตัวรอง */}
             <div>
@@ -237,7 +243,7 @@ export default function TmsPull(): React.JSX.Element {
           )}
 
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-            ดึงล่าสุด {clock(board.synced_at)} · สถานะเปลี่ยนล่าสุด {clock(board.last_change_at)}
+            ดึงล่าสุด {fmtDateTime(board.synced_at)} · สถานะเปลี่ยนล่าสุด {fmtDateTime(board.last_change_at)}
             {lastRun && ` · รอบล่าสุดในหน้านี้ ${lastRun}`}
           </div>
         </div>
