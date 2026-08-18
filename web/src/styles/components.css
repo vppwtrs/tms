@@ -2538,3 +2538,20 @@
   .ops-action-card { min-height: 112px; padding: 18px; }
   .ops-home-note { align-items: flex-start; flex-direction: column; gap: 4px; }
 }
+
+/* ปุ่มข้อความในตาราง — ใช้แทนลิงก์ปลอมที่ทำจาก <a> ไม่มี href
+   ตัวจริงเป็น <button> เพื่อให้ keyboard และ screen reader อ่านออกว่ากดได้ */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-top: 2px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}

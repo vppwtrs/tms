@@ -153,6 +153,44 @@ export async function autoImportReadyTrips(): Promise<{
   }
 }
 
+export interface TmsPickingList {
+  picking_list_no: string
+  pl_type: string | null
+  dealer_name: string | null
+  ship_to_name: string | null
+  province: string | null
+  customer_linked: boolean
+  qty: number
+  items: { item_no: string; item_name: string | null; qty: number }[]
+}
+
+export interface TmsTripDetail {
+  trip_no: string
+  order_date: string | null
+  warehouse_code: string | null
+  area: string | null
+  license_plate: string | null
+  vehicle_type: string | null
+  driver_names: string[]
+  status: string | null
+  status_id: number | null
+  reason: string | null
+  cost: number | null
+  actual_cost: number | null
+  total_pl: number | null
+  total_unit: number | null
+  imported: boolean
+  picking_lists: TmsPickingList[]
+}
+
+/** รายละเอียดของเที่ยว — ใบทั้งหมดพร้อมของในใบ ไม่ตัดจำนวน
+ *  ตารางหลักตอบแค่ "เที่ยวนี้ทำอะไรได้" รายละเอียดของอยู่ที่นี่ */
+export async function tripDetail(tmsId: string): Promise<TmsTripDetail> {
+  const { data, error } = await supabase.rpc('tms_trip_detail', { p_tms_id: tmsId })
+  if (error) throw toDataError(error)
+  return data as TmsTripDetail
+}
+
 /** สร้างคนขับ/รถจากข้อมูลของ TMS พร้อมจับคู่ให้ — คนกดต่อคน/ต่อคัน ระบบไม่เดาชื่อ
  *  คนขับที่เกิดจากที่นี่ยังไม่มีบัญชีผู้ใช้ จึงยังเข้าแอปไม่ได้จนกว่าจะมีคนสร้างบัญชีให้ */
 export async function createDriverFromTms(driverKey: string): Promise<{ driver_id: number; name: string }> {

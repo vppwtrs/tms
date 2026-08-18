@@ -471,6 +471,10 @@ export interface Database {
           failed: number
         }
       }
+      tms_trip_detail: {
+        Args: { p_tms_id: string }
+        Returns: unknown
+      }
       delete_vehicle: {
         Args: { p_id: number }
         Returns: { deleted: number; plate_no: string }

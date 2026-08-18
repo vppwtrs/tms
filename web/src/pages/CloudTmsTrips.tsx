@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRealtime } from '../hooks/useRealtime'
 import {
-  previewTrips, importTrip, createDriverFromTms, linkOrdersToCustomers,
-  type TmsTripsPreview,
+  previewTrips, importTrip, createDriverFromTms, linkOrdersToCustomers, tripDetail,
+  type TmsTripsPreview, type TmsTripDetail,
 } from '../api/tms'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
-import { Badge, Button, EmptyState, ErrorBox, Field, Input, PageHeader } from '../components/ui'
-import { IconTruck } from '../components/icons'
-import { fmtMoney } from '../utils/format'
+import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader } from '../components/ui'
+import { IconInfo, IconTruck } from '../components/icons'
+import { fmtDate, fmtMoney } from '../utils/format'
 
 /**
  * เที่ยวของ TMS -> เที่ยวของเรา
@@ -68,6 +68,11 @@ export default function CloudTmsTrips(): React.JSX.Element {
   const [data, setData] = useState<TmsTripsPreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState('')
+  /* เก็บ tms_id ที่กำลังเปิดไว้ด้วย ไม่ใช่แค่ข้อมูลที่โหลดมา — หน้าต่างต้องเปิดทันที
+     พร้อมข้อความ "กำลังโหลด" ไม่ใช่ค้างอยู่เฉย ๆ จนกว่า RPC จะตอบ */
+  const [detailId, setDetailId] = useState('')
+  const [detail, setDetail] = useState<TmsTripDetail | null>(null)
+  const [detailError, setDetailError] = useState('')
   const [error, setError] = useState('')
 
   const load = useCallback(async (d?: string): Promise<void> => {
@@ -90,6 +95,17 @@ export default function CloudTmsTrips(): React.JSX.Element {
   useEffect(() => {
     void load()
   }, [load])
+
+  const openDetail = async (tmsId: string): Promise<void> => {
+    setDetailId(tmsId)
+    setDetail(null)
+    setDetailError('')
+    try {
+      setDetail(await tripDetail(tmsId))
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : 'ดูรายละเอียดไม่สำเร็จ')
+    }
+  }
 
   /* หน้านี้คือกระจกส่องข้อมูลที่เพิ่งดึงเข้ามา ต้องขยับทันทีที่ push เสร็จ
      ไม่ใช่รอคนกดรีเฟรช — คนจัดรถเปิดหน้านี้ค้างไว้ระหว่างรอของ */
@@ -215,7 +231,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
               <tr>
                 <th>เที่ยว</th>
                 <th>พนักงานขับ</th>
-                <th style={{ width: 210 }}>ใบ · คัน</th>
+                <th style={{ width: 120 }}>ใบ · คัน</th>
                 <th style={{ width: 120 }}>ค่าขนส่ง</th>
                 <th style={{ width: 130 }}>สถานะ TMS</th>
                 <th style={{ width: 180 }} />
@@ -253,14 +269,17 @@ export default function CloudTmsTrips(): React.JSX.Element {
                     </td>
                     <td className="num">
                       {t.total_pl ?? 0} · {t.total_unit ?? 0}
-                      {(t.picking_list_nos ?? []).length > 0 && (
-                        /* เลขใบเรียงต่อกัน อ่านง่ายกว่าบรรทัดละใบเมื่อมีหลายใบ
-                           เกิน 6 ใบขึ้น "+n" แทนที่จะยืดแถวจนตารางอ่านไม่ออก */
-                        <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
-                          {(t.picking_list_nos ?? []).join(', ')}
-                          {(t.pls_in_db ?? 0) > (t.picking_list_nos ?? []).length &&
-                            ` +${(t.pls_in_db ?? 0) - (t.picking_list_nos ?? []).length}`}
-                        </div>
+                      {/* เลขใบเคยพิมพ์ต่อกันอยู่ตรงนี้ ซึ่งอ่านไม่ไหวเมื่อเที่ยวหนึ่งมี 35 ใบ
+                          ตารางตอบแค่ "เที่ยวนี้ทำอะไรได้" รายละเอียดของย้ายไปหน้าต่างข้อมูล */}
+                      {(t.pls_in_db ?? 0) > 0 && (
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => void openDetail(t.tms_id)}
+                          title="ดูใบและรายการของในเที่ยวนี้"
+                        >
+                          <IconInfo size={13} style={{ verticalAlign: -2 }} /> ดูรายละเอียด
+                        </button>
                       )}
                       {t.unmapped_pls > 0 && (
                         /* ไม่ใช่คำเตือน — ใบพวกนี้เข้าเป็นออเดอร์ตามปกติ แค่ยังไม่ผูกลูกค้า */
@@ -325,6 +344,82 @@ export default function CloudTmsTrips(): React.JSX.Element {
           </table>
         </div>
       )}
+
+      <Modal
+        open={detailId !== ''}
+        onClose={() => { setDetailId(''); setDetail(null); setDetailError('') }}
+        title={detail ? `เที่ยว ${detail.trip_no}` : 'รายละเอียดเที่ยว'}
+      >
+        {detailError ? (
+          <div className="text-danger">{detailError}</div>
+        ) : !detail ? (
+          <div className="text-muted">กำลังโหลด...</div>
+        ) : (
+          <>
+            <div className="form-grid" style={{ marginBottom: 14 }}>
+              <Field label="รถ · พนักงานขับ">
+                <div>
+                  {detail.license_plate ?? '—'}
+                  {detail.vehicle_type ? ` · ${detail.vehicle_type}` : ''}
+                </div>
+                <div className="text-xs text-muted">
+                  {detail.driver_names.join(' + ') || 'TMS ยังไม่ระบุ'}
+                </div>
+              </Field>
+              <Field label="คลัง · เขต · วันที่">
+                <div>
+                  {detail.warehouse_code ?? '—'}
+                  {detail.area ? ` · เขต ${detail.area}` : ''}
+                </div>
+                <div className="text-xs text-muted">{fmtDate(detail.order_date)}</div>
+              </Field>
+              <Field label="ค่าขนส่ง">
+                <div>{costCell(detail.cost, detail.actual_cost)}</div>
+              </Field>
+              <Field label="สถานะ TMS">
+                <div>{detail.status ?? '—'}</div>
+                {detail.reason && <div className="text-xs text-muted">{detail.reason}</div>}
+              </Field>
+            </div>
+
+            <div className="text-strong" style={{ marginBottom: 6 }}>
+              ใบทั้งหมด {detail.picking_lists.length} ใบ · รวม {detail.total_unit ?? 0} คัน
+            </div>
+
+            {detail.picking_lists.map((pl) => (
+              <div key={pl.picking_list_no} className="card" style={{ padding: 12, marginBottom: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  <span className="text-strong">{pl.picking_list_no}</span>
+                  {pl.pl_type && <Badge label={pl.pl_type} tone="neutral" />}
+                  {/* ใบที่ยังไม่ผูกลูกค้าไม่ได้กันการนำเข้า แต่เป็นของที่ต้องตามเก็บทีหลัง */}
+                  {!pl.customer_linked && <Badge label="ยังไม่ผูกลูกค้า" tone="warning" />}
+                  <div style={{ flex: 1 }} />
+                  <span className="text-xs text-muted">{pl.qty} ชิ้น</span>
+                </div>
+                <div className="text-xs text-muted" style={{ marginTop: 2 }}>
+                  {[pl.ship_to_name ?? pl.dealer_name, pl.province].filter(Boolean).join(' · ') || '—'}
+                </div>
+                {pl.items.length > 0 && (
+                  <div style={{ marginTop: 6 }}>
+                    {pl.items.map((it) => (
+                      <div
+                        key={it.item_no}
+                        style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '2px 0' }}
+                      >
+                        <span style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>
+                          {it.item_no}
+                        </span>
+                        <span className="text-muted" style={{ flex: 1 }}>{it.item_name ?? ''}</span>
+                        <span>×{it.qty}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+      </Modal>
     </>
   )
 }

@@ -148,6 +148,13 @@ export const IconAlert = (p: IconProps) => (
   </svg>
 )
 
+export const IconInfo = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8v.5" />
+  </svg>
+)
+
 export const IconClock = (p: IconProps) => (
   <svg {...base(p)}>
     <circle cx="12" cy="12" r="9" />
