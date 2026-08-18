@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listUserPermissionOverrides, saveUserPermission, resetUserPermissions, seedRolePermissionPresets } from '../api/users'
 import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
@@ -49,7 +49,12 @@ const ASSIGNABLE: UserRole[] = ['viewer', 'dispatcher', 'admin']
 export default function CloudUsers(): React.JSX.Element {
   const [users, setUsers] = useState<UserRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const errorRef = useRef<HTMLDivElement>(null)
   const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [error])
   const [roleFor, setRoleFor] = useState<Record<number, UserRole>>({})
   const [busyId, setBusyId] = useState<number | null>(null)
   const [toRevoke, setToRevoke] = useState<UserRow | null>(null)
@@ -270,7 +275,11 @@ export default function CloudUsers(): React.JSX.Element {
         subtitle="พนักงานออฟฟิศเข้าระบบด้วยบัญชี TMS บริษัท — ที่นี่กำหนดว่าใครเห็นอะไรได้บ้าง"
       />
 
-      {error && <ErrorBox message={error} onRetry={() => void load()} />}
+      {/* แถบนี้อยู่หัวหน้า ส่วนปุ่มที่ทำให้มันขึ้นอยู่กลางตารางที่ต้องเลื่อนลงไปกด
+          ถ้าไม่เลื่อนกลับมาให้ คนกดจะเห็นแค่ปุ่มหมุนแล้วเงียบ ทั้งที่มีเหตุผลบอกอยู่ */}
+      <div ref={errorRef}>
+        {error && <ErrorBox message={error} onRetry={() => void load()} />}
+      </div>
       {notice && (
         <div role="status" style={{ padding: '10px 12px', marginBottom: 16, borderRadius: 8, color: 'var(--success)', background: 'var(--success-bg)' }}>
           {notice}

@@ -41,8 +41,10 @@ async function call<T>(route: 'create' | 'reset-password', body: unknown): Promi
   }
 
   if (!res.ok) {
+    /* ติดรหัสสถานะไว้กับข้อความเสมอ — เวลามันล้ม สิ่งที่ต้องรู้ก่อนอย่างอื่นคือ
+       ถูกปฏิเสธสิทธิ์ (403), ติดข้อมูลอ้างถึง (409) หรือฝั่งเซิร์ฟเวอร์พัง (500) */
     const msg = (data as { error?: string } | null)?.error
-    throw new DataError(String(res.status), msg ?? 'ทำรายการไม่สำเร็จ')
+    throw new DataError(String(res.status), `${msg ?? 'ทำรายการไม่สำเร็จ'} (${res.status})`)
   }
   return data as T
 }
@@ -88,7 +90,10 @@ export async function deleteUserAccount(userId: number): Promise<void> {
   const text = await res.text()
   let data: unknown = null
   try { data = text ? JSON.parse(text) : null } catch { /* ignore */ }
-  if (!res.ok) throw new DataError(String(res.status), (data as { error?: string } | null)?.error ?? 'ลบบัญชีไม่สำเร็จ')
+  if (!res.ok) {
+    const msg = (data as { error?: string } | null)?.error ?? 'ลบบัญชีไม่สำเร็จ'
+    throw new DataError(String(res.status), `${msg} (${res.status})`)
+  }
 }
 
 /** คนขับที่มีชื่อในระบบแต่ยังไม่มีบัญชีเข้าแอป — ถ้าไม่แสดงตรงนี้ เขาจะค้างแบบ
