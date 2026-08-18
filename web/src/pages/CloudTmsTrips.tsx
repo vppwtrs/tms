@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRealtime } from '../hooks/useRealtime'
 import {
-  previewTrips, importTrip, createDriverFromTms, linkOrdersToCustomers, tripDetail,
+  previewTrips, importTrip, createDriverFromTms, mapTmsDriverToExisting,
+  linkOrdersToCustomers, tripDetail,
   type TmsTripsPreview, type TmsTripDetail,
 } from '../api/tms'
+import { listDrivers } from '../api/vehicles'
+import type { DriverRow } from '../types/database'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
-import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader } from '../components/ui'
+import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select } from '../components/ui'
 import { IconInfo, IconTruck } from '../components/icons'
 import { fmtDate, fmtMoney } from '../utils/format'
 
@@ -70,6 +73,9 @@ export default function CloudTmsTrips(): React.JSX.Element {
   const [busy, setBusy] = useState('')
   /* เก็บ tms_id ที่กำลังเปิดไว้ด้วย ไม่ใช่แค่ข้อมูลที่โหลดมา — หน้าต่างต้องเปิดทันที
      พร้อมข้อความ "กำลังโหลด" ไม่ใช่ค้างอยู่เฉย ๆ จนกว่า RPC จะตอบ */
+  /* รายชื่อคนขับจริงในระบบ — คนวางแผนต้องเลือกจากรายชื่อนี้ ไม่ใช่ให้ระบบเดาจากชื่อใน TMS */
+  const [roster, setRoster] = useState<DriverRow[]>([])
+  const [pick, setPick] = useState<Record<string, string>>({})
   const [detailId, setDetailId] = useState('')
   const [detail, setDetail] = useState<TmsTripDetail | null>(null)
   const [detailError, setDetailError] = useState('')
@@ -95,6 +101,12 @@ export default function CloudTmsTrips(): React.JSX.Element {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    listDrivers({ limit: 200 })
+      .then((r) => setRoster(r.rows))
+      .catch(() => setRoster([]))
+  }, [])
 
   const openDetail = async (tmsId: string): Promise<void> => {
     setDetailId(tmsId)
@@ -128,13 +140,30 @@ export default function CloudTmsTrips(): React.JSX.Element {
     }
   }
 
-  const addDriver = async (name: string): Promise<void> => {
+  const loadRoster = (): void => {
+    listDrivers({ limit: 200 })
+      .then((r) => setRoster(r.rows))
+      .catch(() => setRoster([]))
+  }
+
+  /* ชี้ว่าชื่อนี้ใน TMS คือใครในทะเบียนพนักงานขับ — ตอบครั้งเดียว ระบบจำให้รอบถัดไป */
+  const mapDriver = async (name: string): Promise<void> => {
+    const chosen = pick[name]
+    setBusy(name)
     try {
-      await createDriverFromTms(name)
-      push('success', `เพิ่มพนักงานขับ ${name} แล้ว — ยังไม่มีบัญชีเข้าแอป ต้องสร้างให้ที่หน้าผู้ใช้`)
+      if (chosen) {
+        await mapTmsDriverToExisting(name, Number(chosen))
+        push('success', `ผูก ${name} เข้ากับพนักงานขับที่มีอยู่แล้ว`)
+      } else {
+        await createDriverFromTms(name)
+        push('success', `เพิ่มพนักงานขับ ${name} แล้ว — ยังไม่มีบัญชีเข้าแอป ต้องสร้างให้ที่หน้าผู้ใช้`)
+      }
+      loadRoster()
       await load(date)
     } catch (e) {
-      push('error', e instanceof Error ? e.message : 'เพิ่มพนักงานขับไม่สำเร็จ')
+      push('error', e instanceof Error ? e.message : 'จับคู่พนักงานขับไม่สำเร็จ')
+    } finally {
+      setBusy('')
     }
   }
 
@@ -312,14 +341,27 @@ export default function CloudTmsTrips(): React.JSX.Element {
                            หนึ่งปุ่มต่อหนึ่งคน เพราะสองคนที่ไปด้วยกันคือคนละคนในระบบ */
                         <div style={{ display: 'grid', gap: 6, justifyItems: 'stretch' }}>
                           {unmapped.map((name) => (
-                            <Button
-                              key={name}
-                              variant="outline"
-                              disabled={!canDrivers}
-                              onClick={() => void addDriver(name)}
-                            >
-                              จับคู่ {name}
-                            </Button>
+                            <div key={name} style={{ display: 'grid', gap: 4 }}>
+                              <div style={{ fontSize: 12 }}>{name} คือใคร</div>
+                              <Select
+                                value={pick[name] ?? ''}
+                                disabled={!canDrivers}
+                                onChange={(e) => setPick({ ...pick, [name]: e.target.value })}
+                              >
+                                <option value="">— เพิ่มเป็นคนใหม่ —</option>
+                                {roster.map((d) => (
+                                  <option key={d.id} value={d.id}>{d.name}</option>
+                                ))}
+                              </Select>
+                              <Button
+                                variant="outline"
+                                disabled={!canDrivers}
+                                loading={busy === name}
+                                onClick={() => void mapDriver(name)}
+                              >
+                                {pick[name] ? 'ผูกกับคนนี้' : `เพิ่ม ${name} เป็นคนใหม่`}
+                              </Button>
+                            </div>
                           ))}
                         </div>
                       ) : (

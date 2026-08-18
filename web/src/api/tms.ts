@@ -193,6 +193,31 @@ export async function tripDetail(tmsId: string): Promise<TmsTripDetail> {
 
 /** สร้างคนขับ/รถจากข้อมูลของ TMS พร้อมจับคู่ให้ — คนกดต่อคน/ต่อคัน ระบบไม่เดาชื่อ
  *  คนขับที่เกิดจากที่นี่ยังไม่มีบัญชีผู้ใช้ จึงยังเข้าแอปไม่ได้จนกว่าจะมีคนสร้างบัญชีให้ */
+/**
+ * ผูกชื่อคนขับจาก TMS เข้ากับคนที่มีตัวตนอยู่แล้วในระบบ
+ *
+ * ระบบเดาเองไม่ได้ว่า "เอกชัย" ใน TMS คือใครในทะเบียนพนักงานขับ การเดาผิดหมายถึง
+ * งานไปโผล่ในมือคนที่ไม่ได้วิ่ง (RLS ของหน้างานคนขับแขวนอยู่กับ drivers.user_id)
+ * คนวางแผนจึงต้องเป็นคนชี้ และคำตอบนั้นถูกจำไว้ใน tms_driver_map รอบต่อไปไม่ต้องชี้ซ้ำ
+ *
+ * ทำสองจังหวะเพราะคีย์ของ TMS ถูกสร้างอย่างถูกต้องโดย create_driver_from_tms อยู่แล้ว:
+ * สร้างแถวชั่วคราวให้ได้คีย์ที่ตรงรูป แล้วยุบเข้ากับคนที่เลือก — merge_drivers
+ * ย้ายทั้งคีย์ ประวัติเที่ยว และบัญชีไปไว้ที่คนที่เก็บไว้ แล้วลบแถวชั่วคราวทิ้ง
+ */
+export async function mapTmsDriverToExisting(
+  driverKey: string,
+  driverId: number,
+): Promise<{ driver_id: number; name: string }> {
+  const created = await createDriverFromTms(driverKey)
+  if (created.driver_id === driverId) return created
+  const { error } = await supabase.rpc('merge_drivers', {
+    p_keep: driverId,
+    p_drop: created.driver_id,
+  })
+  if (error) throw toDataError(error)
+  return { driver_id: driverId, name: created.name }
+}
+
 export async function createDriverFromTms(driverKey: string): Promise<{ driver_id: number; name: string }> {
   const { data, error } = await supabase.rpc('create_driver_from_tms', { p_driver_key: driverKey })
   if (error) throw toDataError(error)

@@ -5,7 +5,6 @@ import {
   POLL_MS,
   type Warehouse, type TmsBoard,
 } from '../api/tmsPull'
-import { autoImportReadyTrips } from '../api/tms'
 import { fmtDate, fmtDateTime } from '../utils/format'
 
 /**
@@ -123,25 +122,20 @@ export default function TmsPull(): React.JSX.Element {
         }
         setTripPush(t)
 
-        /* หลังข้อมูล Trip เข้า Supabase แล้ว ให้สร้างเที่ยว/ออเดอร์ต่อทันที
-           เฉพาะเที่ยวที่จับคู่คนขับไว้แล้ว — เที่ยวที่ยังไม่รู้ตัวคนจะค้างให้
-           ฝ่ายจัดรถแก้ที่หน้า "เที่ยวจาก TMS" เพื่อไม่ส่งงานผิดคน */
-        const imported = await autoImportReadyTrips()
+        /* ไม่มีการสร้างเที่ยว/ออเดอร์อัตโนมัติอีกแล้ว
+           รอบดึงข้อมูลมีหน้าที่เดียวคือเอาของจาก TMS มาเก็บไว้ให้ตรง
+           การตัดสินว่า "เที่ยวนี้ใครขับ แล้วสั่งงานเมื่อไหร่" เป็นของคนวางแผนงาน
+           ของเดิมเดาคนขับจากชื่อใน TMS แล้วสร้างงานให้เอง ซึ่งจับคนผิดสะสมมาเรื่อย ๆ */
 
         const changed = t.inserted + t.updated
         setLog(
           changed === 0
             ? mode === 'poll'
-              ? imported.imported || imported.createdOrders
-                ? `นำเข้าเที่ยวอัตโนมัติ ${imported.imported} เที่ยว · ออเดอร์ใหม่ ${imported.createdOrders} ใบ`
-                : ''
+              ? ''
               : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${allTrips.length} เที่ยวจาก ${warehouses.length} คลัง`
             : `เที่ยว +${t.inserted}/~${t.updated}` +
               (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : '') +
-              (imported.imported ? ` · นำเข้าอัตโนมัติ ${imported.imported} เที่ยว` : '') +
-              /* เที่ยวที่นำเข้าไม่ผ่านต้องบอก ไม่ใช่เงียบแล้วให้คนคิดว่าเก็บครบแล้ว
-                 สาเหตุเต็ม ๆ ดูได้ตอนกดนำเข้าเองในหน้า "เที่ยวจาก TMS" */
-              (imported.failed ? ` · นำเข้าไม่ผ่าน ${imported.failed} เที่ยว` : ''),
+              ' · สั่งงานต่อที่หน้า “เที่ยวจาก TMS”',
         )
         refreshBoard()
       } catch (e) {
