@@ -1,4 +1,4 @@
-import { supabase, unwrap } from './supabase.js'
+import { supabase, unwrap, toDataError } from './supabase.js'
 import type { VehicleRow, VehicleStatus, VehicleType, DriverRow, DriverStatus } from '../types/database.js'
 import type { Paged } from './customers.js'
 
@@ -58,7 +58,10 @@ export async function setVehicleStatus(id: number, status: VehicleStatus): Promi
  *  และเก็บกวาดคีย์ใน tms_vehicle_map ให้ในคำสั่งเดียว */
 export async function removeVehicle(id: number): Promise<void> {
   const { error } = await supabase.rpc('delete_vehicle', { p_id: id })
-  if (error) throw error
+  /* ต้องผ่าน toDataError — error ของ postgrest เป็น object ธรรมดา ไม่ใช่ Error
+     หน้าจอเช็ค `e instanceof Error` จึงตกไปใช้ข้อความสำรองว่า "ลบไม่สำเร็จ"
+     แล้วเหตุผลจริง (มีประวัติเที่ยวกี่เที่ยว) หายไปทั้งที่ฝั่งฐานส่งมาให้แล้ว */
+  if (error) throw toDataError(error)
 }
 
 /* ---------- พนักงานขับ ---------- */
@@ -111,5 +114,5 @@ export async function setDriverStatus(id: number, status: DriverStatus): Promise
  *  ฝั่ง RPC ยังเก็บกวาดคีย์ใน tms_driver_map ให้ด้วย ไม่ให้เหลือคีย์ที่ไม่มีคนผูก */
 export async function removeDriver(id: number): Promise<void> {
   const { error } = await supabase.rpc('delete_driver', { p_id: id })
-  if (error) throw error
+  if (error) throw toDataError(error)
 }

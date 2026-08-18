@@ -1,4 +1,4 @@
-import { supabase, unwrap } from './supabase.js'
+import { supabase, unwrap, toDataError } from './supabase.js'
 import type { CustomerRow, CustomerInteractionRow, CustomerTaskRow, InteractionType } from '../types/database.js'
 
 /**
@@ -67,7 +67,7 @@ export async function updateCustomer(id: number, input: Partial<CustomerInput>):
  *  แต่ไม่ใช่ประวัติการส่ง (คีย์ร้าน งานติดตาม บันทึกติดต่อ ใบเสนอราคา) ให้เอง */
 export async function removeCustomer(id: number): Promise<void> {
   const { error } = await supabase.rpc('delete_customer', { p_id: id })
-  if (error) throw error
+  if (error) throw toDataError(error)
 }
 
 /* ---------- บันทึกการติดต่อ ---------- */
