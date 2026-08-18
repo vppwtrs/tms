@@ -112,6 +112,27 @@ export async function setDriverStatus(id: number, status: DriverStatus): Promise
  *  ลบตรงจากตารางแล้วชนคนที่มีประวัติเที่ยว จะได้ error ของ FK ดิบ ๆ ที่บอกแค่ชื่อ
  *  constraint ไม่ได้บอกว่าต้องไปเปลี่ยนสถานะเป็น "พักงาน" แทน
  *  ฝั่ง RPC ยังเก็บกวาดคีย์ใน tms_driver_map ให้ด้วย ไม่ให้เหลือคีย์ที่ไม่มีคนผูก */
+export interface SuspectedDuplicate {
+  a_id: number
+  a_name: string
+  a_trips: number
+  b_id: number
+  b_name: string
+  b_trips: number
+  reason: string
+  strength: number
+}
+
+/** คู่ที่น่าจะเป็นคนเดียวกัน — ชี้ให้ดู ไม่รวมให้เอง
+ *
+ *  การรวมผิดคนแก้คืนยากกว่าปล่อยไว้ เพราะประวัติปนกันแล้วแยกไม่ออก
+ *  จึงหยุดที่การเตือน แล้วให้คนกดยืนยันเอง */
+export async function suspectedDuplicateDrivers(): Promise<SuspectedDuplicate[]> {
+  const { data, error } = await supabase.rpc('suspected_duplicate_drivers')
+  if (error) throw toDataError(error)
+  return (data ?? []) as SuspectedDuplicate[]
+}
+
 /** รวมพนักงานขับสองแถวที่เป็นคนเดียวกัน
  *
  *  TMS สะกดชื่อคนเดียวกันได้หลายแบบ แบบที่ต่างกันแค่ช่องว่างระบบรวมให้เอง

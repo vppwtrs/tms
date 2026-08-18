@@ -503,6 +503,10 @@ export interface Database {
         Args: { p_id: number }
         Returns: { deleted: number; name: string }
       }
+      suspected_duplicate_drivers: {
+        Args: Record<string, never>
+        Returns: unknown
+      }
       merge_drivers: {
         Args: { p_keep: number; p_drop: number }
         Returns: { kept: number; name: string; removed: number; removed_name: string; moved_trips: number }

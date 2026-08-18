@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   listDrivers, createDriver, updateDriver, setDriverStatus, removeDriver, mergeDrivers,
+  suspectedDuplicateDrivers, type SuspectedDuplicate,
 } from '../api/vehicles'
 import { listUsers } from '../api/users'
 import type { Paged } from '../api/customers'
@@ -63,6 +64,7 @@ export default function CloudDrivers(): React.JSX.Element {
   const [mergeInto, setMergeInto] = useState('')
   const [mergeLoading, setMergeLoading] = useState(false)
   const [allDrivers, setAllDrivers] = useState<DriverRow[]>([])
+  const [dupes, setDupes] = useState<SuspectedDuplicate[]>([])
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -80,6 +82,14 @@ export default function CloudDrivers(): React.JSX.Element {
     const t = setTimeout(() => void load(), 300)
     return () => clearTimeout(t)
   }, [load])
+
+  /* ตรวจคนซ้ำจากทั้งตาราง ไม่ใช่เฉพาะหน้าที่เปิดอยู่ และไม่ผูกกับคำค้น —
+     คนซ้ำที่สะกดต่างกันมักตกไปคนละหน้าเพราะเรียงตามชื่อ */
+  const loadDupes = useCallback((): void => {
+    suspectedDuplicateDrivers().then(setDupes).catch(() => setDupes([]))
+  }, [])
+
+  useEffect(() => loadDupes(), [loadDupes])
 
   /* โหลดเฉพาะคนที่มีสิทธิ์จัดการผู้ใช้ — คนอื่นยิงไปก็ถูก RLS ตัดทิ้งเปล่า ๆ */
   useEffect(() => {
@@ -165,6 +175,7 @@ export default function CloudDrivers(): React.JSX.Element {
       setMerging(null)
       setMergeInto('')
       await load()
+      loadDupes()
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'รวมไม่สำเร็จ')
     } finally {
@@ -196,6 +207,42 @@ export default function CloudDrivers(): React.JSX.Element {
         subtitle="ทะเบียนพนักงานขับ — เบอร์ติดต่อ ใบขับขี่ และสถานะ"
         actions={canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>เพิ่มพนักงานขับ</Button>}
       />
+
+      {dupes.length > 0 && (
+        <div className="tms-stale" role="status" style={{ marginBottom: 14 }}>
+          <b>อาจเป็นคนเดียวกัน {dupes.length} คู่</b> — TMS สะกดชื่อคนเดียวกันได้หลายแบบ
+          ถ้าใช่ ให้รวมเข้าด้วยกัน ประวัติเที่ยวจะย้ายไปอยู่กับคนที่เก็บไว้
+          {dupes.map((d) => (
+            <div
+              key={`${d.a_id}-${d.b_id}`}
+              style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}
+            >
+              <span className="text-sm">
+                <b>{d.a_name}</b> ({d.a_trips} เที่ยว) · <b>{d.b_name}</b> ({d.b_trips} เที่ยว)
+              </span>
+              <Badge label={d.reason} tone="warning" />
+              {canEdit && (
+                /* เปิดหน้าต่างรวมโดยตั้งค่าให้ล่วงหน้า — เก็บคนที่มีประวัติมากกว่าไว้
+                   เพราะย้ายของน้อยกว่าคือทางที่ผิดพลาดแล้วเสียหายน้อยกว่า */
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const keepA = d.a_trips >= d.b_trips
+                    const drop = keepA ? d.b_id : d.a_id
+                    const keep = keepA ? d.a_id : d.b_id
+                    const row = data?.rows.find((r) => r.id === drop)
+                    setMerging(row ?? { id: drop, name: keepA ? d.b_name : d.a_name } as DriverRow)
+                    setMergeInto(String(keep))
+                  }}
+                >
+                  รวมเข้าด้วยกัน
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="toolbar">
         <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาชื่อ / เบอร์ / เลขใบขับขี่..." />
