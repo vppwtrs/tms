@@ -166,6 +166,36 @@ export interface PodInput {
   lng?: number | null
 }
 
+/** มุมของรูปหลักฐาน — คนดูย้อนหลังต้องรู้ว่ารูปไหนถ่ายอะไร */
+export const POD_PHOTO_KINDS = [
+  { kind: 'goods', label: 'สินค้าที่ส่ง' },
+  { kind: 'shopfront', label: 'หน้าร้าน/จุดส่ง' },
+  { kind: 'document', label: 'ใบเซ็นรับ' },
+  { kind: 'other', label: 'อื่น ๆ' },
+] as const
+
+export interface PodPhoto {
+  path: string
+  kind: string
+}
+
+/** บันทึกหลักฐานพร้อมรูปหลายมุมในจังหวะเดียว — รูปกับหลักฐานต้องลงพร้อมกันเสมอ */
+export async function savePodWithPhotos(
+  input: Omit<PodInput, 'photoPath'> & { photos: PodPhoto[] },
+): Promise<number> {
+  const { data, error } = await supabase.rpc('save_pod_with_photos', {
+    p_order_id: input.orderId,
+    p_recipient_name: input.recipientName,
+    p_signature_data: input.signatureData,
+    p_photos: input.photos,
+    p_notes: input.notes ?? null,
+    p_lat: input.lat ?? null,
+    p_lng: input.lng ?? null,
+  })
+  if (error) throw toDataError(error)
+  return data as number
+}
+
 export async function savePod(input: PodInput): Promise<number> {
   const { data, error } = await supabase.rpc('save_pod', {
     p_order_id: input.orderId,

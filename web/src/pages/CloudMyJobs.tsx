@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder, savePod,
+  listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder,
+  savePodWithPhotos, POD_PHOTO_KINDS, type PodPhoto,
   acceptTrip, reportIssue, saveStopOrder,
 } from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
@@ -10,7 +11,7 @@ import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtWeightHuman } from '../utils/format'
-import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
+import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
 import { CameraCapture } from '../components/CameraCapture'
 import { JobFocus } from '../components/driver/JobFocus'
@@ -253,18 +254,24 @@ export default function CloudMyJobs(): React.JSX.Element {
   )
 }
 
+const podKindLabel = (kind: string): string =>
+  POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? kind
+
 /** เก็บ POD จากในรถ — ลายเซ็น + ชื่อผู้รับ + รูปหน้างาน + พิกัด ครบในครั้งเดียว */
 function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () => void; onSaved: () => void }): React.JSX.Element {
   const toast = useToast()
   const [name, setName] = useState(order.customer_name ?? '')
   const [sig, setSig] = useState('')
   const [note, setNote] = useState('')
-  const [photo, setPhoto] = useState<CompressedImage | null>(null)
+  /* หลายมุมต่อหนึ่งใบ — ข้อโต้แย้งเรื่องการส่งของถามหลายอย่างพร้อมกัน
+     ของที่ส่ง สภาพหน้าร้าน และใบเซ็นรับ รูปเดียวตอบได้ข้อเดียว */
+  const [shots, setShots] = useState<{ img: CompressedImage; kind: string }[]>([])
+  const [kind, setKind] = useState<string>(POD_PHOTO_KINDS[0].kind)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // ปล่อย object URL ของรูปเมื่อเปลี่ยนรูปหรือปิดฟอร์ม — ไม่งั้นค้างใน memory ทั้งวัน
-  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url) }, [photo])
+  // ปล่อย object URL ของรูปเมื่อปิดฟอร์ม — ไม่งั้นค้างใน memory ทั้งวัน
+  useEffect(() => () => { shots.forEach((s) => URL.revokeObjectURL(s.img.url)) }, [shots])
 
   useEffect(() => {
     if (!navigator.geolocation) return
@@ -287,13 +294,16 @@ function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () 
       /* อัปโหลดรูปขึ้น Storage ก่อน แล้วค่อยบันทึก POD พร้อม path
          ลำดับนี้สำคัญ: ถ้าบันทึก POD ก่อนแล้วอัปรูปพลาด จะได้หลักฐานที่อ้างถึงรูปที่ไม่มีอยู่
          กลับกัน ถ้าอัปรูปสำเร็จแต่บันทึกพลาด ก็แค่มีรูปกำพร้าค้างในถัง ซึ่งไม่ทำใครเดือดร้อน */
-      const photoPath = photo ? await uploadPodPhoto(order.id, photo.blob) : null
+      const photos: PodPhoto[] = []
+      for (const shot of shots) {
+        photos.push({ path: await uploadPodPhoto(order.id, shot.img.blob), kind: shot.kind })
+      }
 
-      await savePod({
+      await savePodWithPhotos({
         orderId: order.id,
         recipientName: name,
         signatureData: sig,
-        photoPath,
+        photos,
         notes: note || null,
         lat: coords?.lat ?? null,
         lng: coords?.lng ?? null,
@@ -330,21 +340,37 @@ function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () 
           <SignaturePad onChange={setSig} />
         </div>
       </Field>
-      <Field label="รูปหน้างาน" hint="ถ่ายสภาพสินค้า/จุดส่ง — รูปถูกส่งขึ้นระบบทันที ไม่เก็บลงเครื่อง">
+      <Field label="รูปหน้างาน" hint="ถ่ายได้หลายมุม — เลือกว่ากำลังถ่ายอะไรก่อนกดถ่าย รูปส่งขึ้นระบบทันที ไม่เก็บลงเครื่อง">
         <div>
-          {photo ? (
+          {shots.length > 0 && (
             <div className="cam-shots">
-              <div className="cam-shot">
-                <img src={photo.url} alt="รูปหน้างานที่ถ่ายไว้" />
-                <button type="button" aria-label="ลบรูปนี้แล้วถ่ายใหม่" onClick={() => setPhoto(null)}>
-                  ✕
-                </button>
-              </div>
-              <span className="text-xs text-muted">{Math.round(photo.bytes / 1024)} KB</span>
+              {shots.map((shot, i) => (
+                <div className="cam-shot" key={shot.img.url}>
+                  <img src={shot.img.url} alt={`รูป${podKindLabel(shot.kind)}ที่ถ่ายไว้`} />
+                  <button
+                    type="button"
+                    aria-label={`ลบรูป${podKindLabel(shot.kind)}`}
+                    onClick={() => {
+                      URL.revokeObjectURL(shot.img.url)
+                      setShots(shots.filter((_, x) => x !== i))
+                    }}
+                  >
+                    ✕
+                  </button>
+                  <span className="cam-shot-kind">{podKindLabel(shot.kind)}</span>
+                </div>
+              ))}
             </div>
-          ) : (
-            <CameraCapture onCapture={setPhoto} disabled={saving} />
           )}
+          <Select value={kind} onChange={(e) => setKind(e.target.value)} disabled={saving}>
+            {POD_PHOTO_KINDS.map((k) => (
+              <option key={k.kind} value={k.kind}>{k.label}</option>
+            ))}
+          </Select>
+          <CameraCapture
+            onCapture={(img) => setShots([...shots, { img, kind }])}
+            disabled={saving}
+          />
         </div>
       </Field>
       <Field label="หมายเหตุ">

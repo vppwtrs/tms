@@ -476,6 +476,22 @@ export interface Database {
         Args: { p_date?: string | null }
         Returns: Record<string, unknown>
       }
+      save_pod_with_photos: {
+        Args: {
+          p_order_id: number
+          p_recipient_name: string
+          p_signature_data: string
+          p_photos: { path: string; kind: string }[]
+          p_notes?: string | null
+          p_lat?: number | null
+          p_lng?: number | null
+        }
+        Returns: number
+      }
+      pod_photos_of_order: {
+        Args: { p_order_id: number }
+        Returns: { path: string; kind: string }[]
+      }
       set_stop_order: {
         Args: { p_trip_id: number; p_order_ids: number[] }
         Returns: void

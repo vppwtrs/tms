@@ -2250,6 +2250,17 @@
 .cam-shots { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 
 .cam-shot { position: relative; }
+/* ป้ายบอกว่ารูปนี้ถ่ายอะไร — ไม่มีป้าย คนดูย้อนหลังต้องเดาเอาจากภาพ */
+.cam-shot-kind {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+  font-size: var(--font-xs);
+}
 
 .cam-shot img {
   width: 88px;
