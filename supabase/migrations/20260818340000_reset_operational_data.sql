@@ -11,16 +11,23 @@
 -- POD ไม่มีสักแถว (ตรวจแล้ว) แต่ต้องลบก่อนอยู่ดีเพราะ order_id เป็น NOT NULL
 delete from public.pod;
 delete from public.order_items;
+
+-- ใบดิบจาก TMS จำไว้ว่าเคยถูกแปลงเป็นออเดอร์ใบไหน (tms_shipments.order_id)
+-- ต้องปลดก่อน ไม่งั้น FK กันการลบไว้ทั้งชุด และเมื่อออเดอร์ถูกลบแล้ว
+-- ใบเหล่านั้นต้องกลับไปเป็น "ยังไม่ถูกสั่งงาน" เพื่อสั่งใหม่ได้
+update public.tms_shipments set order_id = null where order_id is not null;
+
 delete from public.orders;
+-- เที่ยวดิบจาก TMS ก็ชี้กลับมาที่เที่ยววิ่งเหมือนกัน ปลดก่อนลบด้วยเหตุผลเดียวกัน
+-- ผลพลอยได้คือหน้าเที่ยวจาก TMS เลิกขึ้นว่า "นำเข้าแล้ว" ทั้งที่งานถูกลบไปแล้ว
+update public.tms_trips set trip_id = null where trip_id is not null;
+
 delete from public.trip_drivers;
 delete from public.trips;
 
 -- รถกับคนขับที่ค้างสถานะ "กำลังขนส่ง" จากเที่ยวที่เพิ่งถูกลบ ต้องกลับมาว่าง
 update public.drivers  set status = 'available' where status = 'on_trip';
 update public.vehicles set status = 'available' where status = 'on_trip';
-
--- เที่ยวจาก TMS ต้องนำเข้าใหม่ได้ ไม่ใช่ถูกจำว่า "นำเข้าแล้ว" ทั้งที่งานถูกลบไปแล้ว
-update public.tms_trips set trip_id = null where trip_id is not null;
 
 -- ลำดับการแวะของแต่ละใบในเที่ยว — คนขับเป็นคนจัดเอง ไม่ใช่เรียงตามเลขที่ระบบสร้าง
 -- null แปลว่ายังไม่จัด ให้เรียงตามกำหนดส่งไปก่อน
