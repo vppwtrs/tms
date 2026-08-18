@@ -503,6 +503,10 @@ export interface Database {
         Args: { p_id: number }
         Returns: { deleted: number; name: string }
       }
+      merge_drivers: {
+        Args: { p_keep: number; p_drop: number }
+        Returns: { kept: number; name: string; removed: number; removed_name: string; moved_trips: number }
+      }
       delete_driver: {
         Args: { p_id: number }
         Returns: { deleted: number; name: string }

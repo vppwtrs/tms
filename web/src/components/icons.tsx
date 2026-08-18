@@ -127,6 +127,14 @@ export const IconEdit = (p: IconProps) => (
   </svg>
 )
 
+export const IconMerge = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M7 21V9a4 4 0 0 1 4-4h6" />
+    <path d="M17 21V9a4 4 0 0 0-4-4H7" />
+    <path d="M14 8l3-3-3-3" />
+  </svg>
+)
+
 export const IconTrash = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />

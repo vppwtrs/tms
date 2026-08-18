@@ -112,6 +112,23 @@ export async function setDriverStatus(id: number, status: DriverStatus): Promise
  *  ลบตรงจากตารางแล้วชนคนที่มีประวัติเที่ยว จะได้ error ของ FK ดิบ ๆ ที่บอกแค่ชื่อ
  *  constraint ไม่ได้บอกว่าต้องไปเปลี่ยนสถานะเป็น "พักงาน" แทน
  *  ฝั่ง RPC ยังเก็บกวาดคีย์ใน tms_driver_map ให้ด้วย ไม่ให้เหลือคีย์ที่ไม่มีคนผูก */
+/** รวมพนักงานขับสองแถวที่เป็นคนเดียวกัน
+ *
+ *  TMS สะกดชื่อคนเดียวกันได้หลายแบบ แบบที่ต่างกันแค่ช่องว่างระบบรวมให้เอง
+ *  แต่แบบที่ต่างจริง ("เอกชัย บุญอินทร์ (เอก)" กับ "เอกชัย (เอก)") ต้องมีคนยืนยัน
+ *  เพราะชื่อที่ขึ้นต้นเหมือนกันไม่ได้แปลว่าคนเดียวกันเสมอไป
+ *
+ *  รวมแล้วคีย์ของ TMS ทุกแบบจะชี้มาที่คนเดียว รอบดึงถัดไปจึงไม่สร้างคนซ้ำอีก */
+export async function mergeDrivers(keepId: number, dropId: number): Promise<{
+  name: string
+  removed_name: string
+  moved_trips: number
+}> {
+  const { data, error } = await supabase.rpc('merge_drivers', { p_keep: keepId, p_drop: dropId })
+  if (error) throw toDataError(error)
+  return data as { name: string; removed_name: string; moved_trips: number }
+}
+
 export async function removeDriver(id: number): Promise<void> {
   const { error } = await supabase.rpc('delete_driver', { p_id: id })
   if (error) throw toDataError(error)

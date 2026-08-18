@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  listDrivers, createDriver, updateDriver, setDriverStatus, removeDriver,
+  listDrivers, createDriver, updateDriver, setDriverStatus, removeDriver, mergeDrivers,
 } from '../api/vehicles'
 import { listUsers } from '../api/users'
 import type { Paged } from '../api/customers'
@@ -14,7 +14,7 @@ import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
-import { IconEdit, IconPlus, IconTrash, IconUsers } from '../components/icons'
+import { IconEdit, IconMerge, IconPlus, IconTrash, IconUsers } from '../components/icons'
 
 /**
  * พนักงานขับ ฉบับคลาวด์ — คู่ขนานกับ Drivers.tsx บน LAN
@@ -58,6 +58,11 @@ export default function CloudDrivers(): React.JSX.Element {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<DriverRow | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  /* คนที่ถูกเลือกให้ "ยุบเข้ากับคนอื่น" — แถวนี้จะหายไป ประวัติย้ายไปอยู่กับตัวหลัก */
+  const [merging, setMerging] = useState<DriverRow | null>(null)
+  const [mergeInto, setMergeInto] = useState('')
+  const [mergeLoading, setMergeLoading] = useState(false)
+  const [allDrivers, setAllDrivers] = useState<DriverRow[]>([])
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -141,6 +146,29 @@ export default function CloudDrivers(): React.JSX.Element {
       await load()
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'เปลี่ยนสถานะไม่สำเร็จ')
+    }
+  }
+
+  /* ตัวเลือก "รวมกับใคร" ต้องเป็นทุกคนในระบบ ไม่ใช่แค่หน้าที่กำลังเปิดอยู่
+     คนซ้ำมักตกไปคนละหน้าเพราะเรียงตามชื่อแล้วสะกดต่างกัน */
+  useEffect(() => {
+    if (!merging) return
+    listDrivers({ limit: 200 }).then((d) => setAllDrivers(d.rows)).catch(() => setAllDrivers([]))
+  }, [merging])
+
+  const confirmMerge = async (): Promise<void> => {
+    if (!merging || !mergeInto) return
+    setMergeLoading(true)
+    try {
+      const res = await mergeDrivers(Number(mergeInto), merging.id)
+      push('success', `รวม ${res.removed_name} เข้ากับ ${res.name} แล้ว — ย้าย ${res.moved_trips} เที่ยว`)
+      setMerging(null)
+      setMergeInto('')
+      await load()
+    } catch (e) {
+      push('error', e instanceof Error ? e.message : 'รวมไม่สำเร็จ')
+    } finally {
+      setMergeLoading(false)
     }
   }
 
@@ -237,6 +265,11 @@ export default function CloudDrivers(): React.JSX.Element {
                       {canEdit && (
                         <Button variant="ghost" size="sm" title="แก้ไข" onClick={() => openEdit(d)}><IconEdit size={14} /></Button>
                       )}
+                      {canEdit && (
+                        /* ทางออกของคนซ้ำที่ลบไม่ได้เพราะมีประวัติเที่ยว —
+                           ยุบเข้ากับตัวหลักแทนการลบ ประวัติจึงไม่หายไปไหน */
+                        <Button variant="ghost" size="sm" title="รวมกับคนอื่น" onClick={() => { setMerging(d); setMergeInto('') }}><IconMerge size={14} /></Button>
+                      )}
                       {canDelete && (
                         <Button variant="ghost" size="sm" title="ลบ" className="text-danger" onClick={() => setDeleting(d)}><IconTrash size={14} /></Button>
                       )}
@@ -301,6 +334,33 @@ export default function CloudDrivers(): React.JSX.Element {
             </Field>
           )}
         </div>
+      </Modal>
+
+      <Modal
+        open={merging !== null}
+        onClose={() => setMerging(null)}
+        title={merging ? `รวม ${merging.name} เข้ากับคนอื่น` : ''}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setMerging(null)}>ยกเลิก</Button>
+            <Button variant="accent" loading={mergeLoading} disabled={!mergeInto} onClick={() => void confirmMerge()}>
+              รวม
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted" style={{ marginBottom: 12 }}>
+          ใช้เมื่อ TMS สะกดชื่อคนเดียวกันมาหลายแบบ เที่ยวและคีย์ของ <b>{merging?.name}</b>{' '}
+          จะย้ายไปอยู่กับคนที่เลือก แล้วแถวนี้จะถูกลบ — รอบดึงถัดไปชื่อแบบนี้จะเข้าไปหาคนที่เลือกเอง
+        </p>
+        <Field label="รวมเข้ากับ" required>
+          <Select value={mergeInto} onChange={(e) => setMergeInto(e.target.value)}>
+            <option value="">— เลือกคนที่จะเก็บไว้ —</option>
+            {allDrivers.filter((d) => d.id !== merging?.id).map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </Select>
+        </Field>
       </Modal>
 
       <ConfirmDialog
