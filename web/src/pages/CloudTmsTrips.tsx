@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useRealtime } from '../hooks/useRealtime'
 import {
   previewTrips, importTrip, createDriverFromTms, linkOrdersToCustomers,
   type TmsTripsPreview,
@@ -63,6 +64,10 @@ export default function CloudTmsTrips(): React.JSX.Element {
   useEffect(() => {
     void load()
   }, [load])
+
+  /* หน้านี้คือกระจกส่องข้อมูลที่เพิ่งดึงเข้ามา ต้องขยับทันทีที่ push เสร็จ
+     ไม่ใช่รอคนกดรีเฟรช — คนจัดรถเปิดหน้านี้ค้างไว้ระหว่างรอของ */
+  useRealtime(['tms_trips', 'tms_shipments'], () => void load(date || undefined))
 
   const run = async (tmsId: string, tripNo: string): Promise<void> => {
     setBusy(tmsId)

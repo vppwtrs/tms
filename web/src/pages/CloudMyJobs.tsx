@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder, savePod } from '../api/myjobs'
+import { useRealtime } from '../hooks/useRealtime'
 import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
@@ -50,6 +51,10 @@ export default function CloudMyJobs(): React.JSX.Element {
   }
 
   useEffect(() => load(showDone), [showDone])
+
+  /* คนขับถือมือถือวิ่งอยู่ ฝ่ายจัดรถแก้เที่ยวให้ระหว่างทางได้ — งานที่ถูกเพิ่ม/ถอด
+     ต้องขึ้นเองโดยไม่ต้องบอกให้คนขับดึงหน้าจอรีเฟรชกลางถนน */
+  useRealtime(['trips', 'orders'], () => load(showDone))
 
   /* เที่ยวที่ควรโชว์เป็นค่าเริ่มต้น: กำลังวิ่งก่อน แล้วค่อยเที่ยวที่วางแผนไว้
      คนขับมีเที่ยวที่ยังไม่จบพร้อมกันได้หลายใบ แต่ "กำลังวิ่ง" มีความหมายชัดที่สุด */

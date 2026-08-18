@@ -4,6 +4,7 @@ import {
   startTrip, completeTrip, cancelTrip, type BoardTrip,
 } from '../api/trips'
 import { listUnassignedOrders, type DispatchOrderRow } from '../api/orders'
+import { useRealtime } from '../hooks/useRealtime'
 import { listAvailableVehicles, listAvailableDrivers } from '../api/vehicles'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
@@ -72,6 +73,10 @@ export default function CloudDispatch(): React.JSX.Element {
   }, [])
 
   useEffect(() => { void loadAll() }, [loadAll])
+
+  /* กระดานจัดรถเป็นหน้าที่คนหลายคนแก้พร้อมกันมากที่สุด — คนหนึ่งลากออเดอร์เข้าเที่ยว
+     อีกคนต้องเห็นทันที ไม่ใช่ลากซ้ำแล้วเจอ error ว่าออเดอร์ถูกจัดไปแล้ว */
+  useRealtime(['trips', 'orders'], () => void loadAll())
 
   const filteredPending = useMemo(() => {
     const s = q.trim().toLowerCase()

@@ -1,0 +1,185 @@
+# TMS Web — อัปเดตสถานะโปรเจกต์
+
+อัปเดตล่าสุด: 18 สิงหาคม 2026
+
+## สถานะปัจจุบัน
+
+ระบบเว็บถูก deploy ผ่าน GitHub Pages และเชื่อมต่อ Supabase project สำหรับระบบของเราเองแล้ว โดยไม่เขียนข้อมูลกลับไปยัง TMS บริษัท
+
+## งานที่ทำเสร็จแล้ว
+
+- ระบบล็อกอินแยกบัญชีบริษัท TMS และบัญชีระบบของเรา
+- บัญชีบริษัทใช้ TMS gateway สำหรับตรวจสอบตัวตนและดึงข้อมูลแบบอ่านอย่างเดียว
+- ถ้าบัญชีบริษัทถูกสร้างแล้วแต่ยังไม่อนุมัติ ระบบจะแจ้งเตือน แล้วออกจาก session และกลับหน้า Login อัตโนมัติ
+- แก้กรณี `auth_id` ใน `public.users` ชี้ไปยัง Auth ที่ถูกลบ ทำให้ล็อกอินบริษัทไม่สำเร็จ
+- `tms-gateway` ตรวจ Auth ที่หายไปแล้วสร้างตัวเชื่อมใหม่ให้อัตโนมัติ
+- เพิ่มการลบบัญชีถาวรจากหน้าเว็บ ลบทั้ง Supabase Auth และ `public.users` ในครั้งเดียว
+- บัญชีที่ลบแล้วไม่ลบประวัติออเดอร์หรือเที่ยวงาน
+- เพิ่มตัวเลือกบทบาทตอนสร้างผู้ใช้:
+  - ผู้ดูแลระบบ
+  - วางแผนงาน
+  - ดูอย่างเดียว
+  - พนักงานขับรถ
+- เพิ่มปุ่มลบถาวรสำหรับรายการใน “บัญชีเก็บถาวร”
+- แยกเลข Trip จริง, เลข PL และประเภทงานรถ/กล่องในข้อมูลออเดอร์
+- เปิด RLS ให้ตาราง public ทั้งหมด และใช้นโยบายสำหรับผู้ใช้ที่ authenticated
+- ซ่อน service role key และให้การสร้าง/ลบรหัสผ่านทำผ่าน Edge Function เท่านั้น
+
+## Edge Functions ที่ใช้งาน
+
+- `tms-gateway` — ตรวจสอบบัญชีบริษัทและ proxy เฉพาะ endpoint แบบอ่านข้อมูล
+- `admin-users` — สร้างบัญชีคนขับและสุ่มรหัสผ่านใหม่
+- `admin-delete-user` — ลบบัญชี Auth และข้อมูล profile ใน `public.users`
+
+## การทำงานของข้อมูล
+
+```text
+ล็อกอิน TMS บริษัท
+        ↓
+Supabase Edge Function: tms-gateway
+        ↓
+ดึง Trip จากเมนู Trip ของ TMS แบบอ่านอย่างเดียว
+        ↓
+บันทึกข้อมูลที่จำเป็นลง Supabase ของเรา
+        ↓
+จัดออเดอร์ → จัดเที่ยว → มอบหมายคนขับ → POD
+```
+
+## ข้อควรระวัง
+
+- ห้ามนำรหัสผ่านบริษัทหรือ service role key ใส่ใน frontend, GitHub หรือไฟล์ Markdown
+- การลบบัญชีถาวรควรใช้ปุ่มในหน้าเว็บ ไม่ควรลบ Auth จาก Supabase Dashboard โดยตรง เพราะอาจเหลือ profile ค้างใน `public.users`
+- การลบบัญชีจะไม่ลบประวัติธุรกิจ เพื่อไม่ให้รายงานและประวัติการส่งของเสียหาย
+- ผู้ใช้บริษัทจะเห็นข้อมูลได้ก็ต่อเมื่อ admin อนุมัติบทบาทและสิทธิ์แล้ว
+
+## ปัญหา permission ของ dispatcher
+
+ถ้าผู้ใช้แสดงบทบาทเป็น “วางแผนงาน” แต่หน้าเว็บขึ้นว่าไม่มีสิทธิ์ แปลว่า role มีอยู่ใน `users` แล้ว แต่ยังไม่มี permission preset ใน `role_permissions` ให้รัน SQL นี้ใน Supabase SQL Editor:
+
+```sql
+insert into public.role_permissions (role, permission)
+select
+  'dispatcher',
+  p.permission
+from public.permissions p
+where p.permission in (
+  'customers.view',
+  'customers.write',
+  'orders.view',
+  'orders.write',
+  'dispatch.view',
+  'dispatch.write',
+  'drivers.view',
+  'drivers.write',
+  'vehicles.view',
+  'vehicles.write',
+  'myjobs.view'
+)
+on conflict do nothing;
+```
+
+หลังรัน SQL ให้ผู้ใช้ล็อกเอาต์และล็อกอินใหม่ ห้ามเพิ่ม `users.manage` ให้ dispatcher เพราะเป็นสิทธิ์ของ admin
+
+## สถานะงานดึง Trip จาก TMS (17 สิงหาคม 2026)
+
+แหล่งข้อมูลที่ถูกต้องคือเมนู **Trip** ของ TMS บริษัท:
+
+- API ที่ใช้: `/v1/tripheaders/{warehouse-guid}/search`
+- ไม่ใช้ Picking List เป็นแหล่งหลักของเที่ยว
+- รับเฉพาะ `Fleet Owner` และ `Fleet Owner (Scooter)`
+- สถานะ `Completed` เป็นข้อมูลที่นำเข้าได้ ไม่ใช่สาเหตุที่ข้อมูลหาย
+
+สิ่งที่ตรวจพบจากหน้า TMS บริษัทจริง:
+
+- หน้า Trip แสดงข้อมูลจริง 119 เที่ยว
+- ตัวอย่างเที่ยว `20260817003` มี Carrier เป็น `Fleet Owner (Scooter)` และสถานะ `COMPLETED`
+- ฝั่งเว็บของเราดึงจาก 2 คลังได้ 254 เที่ยวแล้ว แต่ก่อนแก้ระบบอ่านชื่อ Carrier จาก JSON ไม่ตรง จึงกรองทิ้งทั้งหมด
+
+โค้ดที่แก้และ push แล้ว:
+
+- `aacbd41` — แปลงชื่อคลังเต็ม เช่น `KM23-CW-01 - ...` เป็นรหัสคลัง และค้นต่อจาก warehouse search หาก personal warehouse ไม่ตรงกลุ่ม
+- `b30e8ed` — อ่านชื่อ Carrier จากโครงสร้างข้อมูล Trip แบบทนต่อรูปแบบ JSON ของ TMS ก่อนกรอง Fleet Owner
+
+หลัง GitHub Pages deploy ต้องรีเฟรชเว็บแบบแรง (`Ctrl+F5`) แล้วกด **ดึง Trip ทุกคลังในช่วงนี้** จากหน้า **ดึงข้อมูลจาก TMS**
+
+### เกณฑ์ว่างานนี้ผ่าน
+
+หลังการดึงรอบถัดไป ต้องตรวจให้ครบ:
+
+1. หน้าดึงข้อมูลรายงานจำนวนเที่ยวของกองรถเรามากกว่า 0
+2. `public.tms_trips` มีแถวเพิ่มขึ้น
+3. หน้า **เที่ยวจาก TMS** มีวันที่ล่าสุดและแสดง Trip No จริง
+4. หน้า **ออเดอร์** มีรายการที่นำเข้าจาก Trip ตาม workflow
+5. กดดึงซ้ำแล้วไม่สร้าง Trip หรือ Order ซ้ำ
+
+คำสั่งตรวจฐานข้อมูล (ใช้หลังกดดึงข้อมูล):
+
+```powershell
+npx supabase db query --linked "select count(*) as trips from public.tms_trips; select count(*) as orders from public.orders;"
+```
+
+หากผลยังเป็น 0 ให้เก็บข้อความสถานะจากหน้าดึงข้อมูลและตรวจ payload ของ Trip API ต่อ ไม่ควรกลับไปแก้ Picking List เพราะไม่ใช่ต้นทางของเที่ยว
+
+## การตรวจสอบล่าสุด
+
+- Production build: ผ่านหลัง commit `b30e8ed`
+- โค้ดล่าสุดถูก push ขึ้น `main` แล้ว
+- ยังรอทดสอบการดึงข้อมูลจริงหลัง GitHub Pages deploy และยืนยันจำนวนแถวใน Supabase
+
+## งานถัดไปที่ควรทำ
+
+1. รอ GitHub Pages deploy ของ commit `b30e8ed`
+2. รีเฟรชเว็บและดึง Trip ทุกคลังในช่วงนี้
+3. ตรวจ `tms_trips` และ `orders` ด้วยคำสั่งข้างต้น
+4. ทดสอบดึงซ้ำเพื่อยืนยันว่าไม่เกิดข้อมูลซ้ำ
+5. เมื่อมีข้อมูลแล้ว ตรวจการแสดงผลหน้าเที่ยวจาก TMS, ออเดอร์ และแผนงานขนส่งตามลำดับ
+
+## สาเหตุที่ Trip ไม่เข้าระบบ และการแก้ (18 สิงหาคม 2026)
+
+ต้นเหตุไม่ได้อยู่ที่ฝั่งเว็บ แต่อยู่ที่ฐานข้อมูล: `push_tms_trips` กรอง carrier ด้วย
+
+```sql
+join public.tms_carriers c on c.carrier_name = s.carrier_name where c.is_ours
+```
+
+แต่ตาราง `public.tms_carriers` ไม่เคยถูก seed จึงเป็น inner join กับตารางว่าง เที่ยวทุกใบถูกทิ้ง
+และนับเป็น `skipped_carrier` โดยไม่ raise error หน้าเว็บจึงขึ้นว่า "ไม่มีอะไรเปลี่ยน" ทุกรอบ
+`push_tms_trips` เป็นฟังก์ชันเดียวในฐานที่อ้างถึงตารางนี้ เส้น Picking List เลยไม่กระทบ
+(`tms_shipments` มี 1,682 แถว ขณะที่ `tms_trips` และ `orders` เป็น 0)
+
+commit `aacbd41` และ `b30e8ed` แก้การอ่าน carrier ฝั่ง client ถูกแล้ว แต่แก้ด่านนี้ไม่ได้
+
+สิ่งที่ทำแล้ว:
+
+- seed `Fleet Owner` และ `Fleet Owner (Scooter)` ลง `tms_carriers` บนฐานจริงเรียบร้อย
+- เพิ่ม migration `supabase/migrations/20260818000000_trip_sync_fix.sql` — seed carrier,
+  ให้ `push_tms_trips_and_sync` เขียน `tms_sync_log` ด้วย `source = 'trip'` ทุกครั้ง
+  และเพิ่มตารางเข้า publication `supabase_realtime`
+- หน้า **ดึงข้อมูลจาก TMS** ขึ้นคำเตือนชัดเจนเมื่อเที่ยวถูกกรองทิ้งทั้งชุดเพราะไม่รู้จัก carrier
+  แทนที่จะกลืนเป็น "ไม่มีอะไรเปลี่ยน"
+
+**migration ยังไม่ได้รัน** ต้องรัน `npx supabase db push --linked` ก่อน realtime และ log ฝั่ง trip จะทำงาน
+
+## เรื่องเรียลไทม์
+
+เดิมระบบไม่มี realtime เลย ไม่ใช่เพราะ Supabase ไม่เสถียร:
+
+- publication `supabase_realtime` ไม่มีตารางอยู่เลยสักตาราง
+- ฝั่ง client ไม่มีการเรียก `.channel()` ที่ไหน มีแค่ `onAuthStateChange`
+- ที่เห็นว่าอัปเดตเองคือ `setInterval` 5 นาทีในหน้าดึงข้อมูล ซึ่งทำงานเฉพาะตอนเปิดแท็บนั้นค้างไว้
+
+เพิ่มแล้ว: hook `web/src/hooks/useRealtime.ts` และต่อเข้าหน้า ออเดอร์, แผนงานขนส่ง,
+เที่ยวจาก TMS และงานของฉัน โดย event เป็นแค่สัญญาณให้โหลดใหม่ (รวบ event ใน 400ms)
+ไม่ได้เอาแถวดิบมาแปะทับ เพราะหน้าจอแสดงข้อมูลที่ join มาจากหลายตาราง
+
+## หนี้ทางเทคนิคที่ยังค้าง
+
+1. **การซิงก์ผูกกับเบราว์เซอร์** — ETL ทั้งชุดรันในแท็บของคนใช้ ปิดแท็บแล้วข้อมูลหยุดไหล
+   ทางแก้คือย้ายเข้า Edge Function + `pg_cron` แต่ติดว่า `tms-gateway` ใช้ token ของ TMS
+   ที่ได้จากรหัสผ่านของคนล็อกอินเท่านั้น ถ้าจะรันแบบ cron ต้องเก็บบัญชีบริการไว้ใน Supabase secret
+   ซึ่งเป็นการตัดสินใจด้านความปลอดภัยที่ต้องเคาะก่อน ยังไม่ได้ทำ
+2. **โค้ดสองสแตกซ้อนกัน** — `pages/*.tsx` ยิง Express ที่ `TMS/server` ส่วน `pages/Cloud*.tsx`
+   ยิง Supabase GitHub Pages ไม่มี Express ครึ่งแรกจึงใช้งานจริงไม่ได้แต่ยังอยู่ในบิลด์
+3. **schema drift** — ฐานจริงมี 22 ตารางกับราว 38 ฟังก์ชัน แต่ repo มี migration แค่สองไฟล์
+   ควร `supabase db pull` เก็บของจริงเข้า repo ให้รีวิวได้ ของอย่าง `tms_carriers` ที่ว่างอยู่
+   จะได้ไม่หลุดสายตาอีก

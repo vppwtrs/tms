@@ -30,3 +30,7 @@ extractor/**/output/
 
 # ข้อมูล CSV จากฐานข้อมูลจริง ห้ามนำขึ้น GitHub
 server/data/csv/*.csv
+
+# สถานะที่ Supabase CLI เขียนเอง ผูกกับเครื่องคนรัน ไม่ใช่โค้ด
+supabase/.temp/
+supabase/functions/**/supabase/

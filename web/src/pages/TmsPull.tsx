@@ -50,7 +50,7 @@ export default function TmsPull(): React.JSX.Element {
   const [busy, setBusy] = useState(false)
   const [log, setLog] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [tripPush, setTripPush] = useState<{ inserted: number; updated: number; skipped_carrier: number } | null>(null)
+  const [tripPush, setTripPush] = useState<{ seen: number; inserted: number; updated: number; skipped_carrier: number } | null>(null)
   const [board, setBoard] = useState<TmsBoard | null>(null)
   const [auto, setAuto] = useState(true)
   const [lastRun, setLastRun] = useState<string>('')
@@ -111,7 +111,7 @@ export default function TmsPull(): React.JSX.Element {
 
            เส้น PL เหลือหน้าที่เดียว: ใบที่ยังไม่ถูกจัดเที่ยว (สถานะ New) ซึ่งไม่โผล่ในหน้า Trip
            = "ของค้างที่ยังไม่มีใครรับ" ซึ่งเป็นงานของคนจัดรถ ไม่ใช่งานคนขับ */
-        const t = { inserted: 0, updated: 0, skipped_carrier: 0 }
+        const t = { seen: 0, inserted: 0, updated: 0, skipped_carrier: 0 }
         for (const batch of batches) {
           /* ใช้รายละเอียดใบที่ติดมากับ Trip เป็นข้อมูลต้นทาง
              ไม่ได้ยิง endpoint Picking List แยกต่างหาก */
@@ -119,6 +119,7 @@ export default function TmsPull(): React.JSX.Element {
           const pushed = await pushTrips(batch.trips)
           t.inserted += pushed.inserted
           t.updated += pushed.updated
+          t.seen += pushed.seen
           t.skipped_carrier += pushed.skipped_carrier
         }
         setTripPush(t)
@@ -173,6 +174,16 @@ export default function TmsPull(): React.JSX.Element {
       {stale && (
         <div className="tms-stale" role="status">
           ยังไม่มีใครดึงข้อมูลเข้าระบบเลย
+        </div>
+      )}
+
+      {/* ฐานข้อมูลกรองเที่ยวด้วยตาราง tms_carriers ถ้าชื่อ carrier จาก TMS ไม่มีในนั้น
+          เที่ยวจะถูกทิ้งเงียบ ๆ ทั้งชุด ซึ่งหน้าตาเหมือน "ไม่มีงาน" เป๊ะ
+          เคยกินเวลาไล่หาสาเหตุมาแล้ว จึงต้องแยกสองกรณีนี้ให้เห็นบนหน้าจอ */}
+      {tripPush && tripPush.seen > 0 && tripPush.skipped_carrier === tripPush.seen && (
+        <div className="tms-stale" role="alert">
+          ดึงเที่ยวมาได้ {tripPush.seen} เที่ยว แต่ถูกกรองทิ้งทั้งหมดเพราะระบบไม่รู้จักชื่อผู้ให้บริการขนส่ง
+          — ต้องเพิ่มชื่อ carrier ลงตาราง tms_carriers ก่อน ข้อมูลถึงจะเข้าระบบ
         </div>
       )}
 

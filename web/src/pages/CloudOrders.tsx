@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listOrders, createOrder, updateOrder, cancelOrder, type OrderListRow } from '../api/orders'
+import { useRealtime } from '../hooks/useRealtime'
 import { listAllCustomers } from '../api/customers'
 import { listDrivers } from '../api/vehicles'
 import type { Paged } from '../api/customers'
@@ -112,6 +113,10 @@ export default function CloudOrders(): React.JSX.Element {
     const t = setTimeout(() => void load(), 300)
     return () => clearTimeout(t)
   }, [load])
+
+  /* ออเดอร์ขยับได้จากหลายทาง: คนจัดรถแก้เอง, การนำเข้าเที่ยวจาก TMS, คนขับปิดงาน
+     ฟังตารางที่กระทบตารางนี้ทั้งหมด ไม่ใช่แค่ orders */
+  useRealtime(['orders', 'trips', 'pod'], () => void load())
 
   useEffect(() => {
     listAllCustomers().then(setCustomers).catch(() => setCustomers([]))
