@@ -8,6 +8,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, PageHeader } from '../components/ui'
 import { IconTruck } from '../components/icons'
+import { fmtMoney } from '../utils/format'
 
 /**
  * เที่ยวของ TMS -> เที่ยวของเรา
@@ -33,6 +34,26 @@ import { IconTruck } from '../components/icons'
 
 /** แยกชื่อคนขับให้ตรงกับ app.tms_driver_names ฝั่งฐาน — TMS ส่งมาเป็นก้อนเดียว
  *  คั่นด้วยคอมมา และมีคอมมาห้อยท้ายในบางแถว */
+/** ค่าขนส่งของเที่ยว — ค่าจ้างตามสัญญาเป็นตัวหลัก ยอดปิดจริงเป็นตัวรอง
+ *
+ *  แสดงยอดจริงเฉพาะตอนที่ต่างจากสัญญา เพราะส่วนใหญ่มันเท่ากัน
+ *  การพิมพ์เลขเดียวกันสองบรรทัดทุกแถวทำให้แถวที่ต่างจริงจมหายไป
+ *  null = TMS ยังไม่ลงตัวเลข ไม่ใช่ศูนย์บาท จึงต้องเขียนต่างจาก 0 */
+const costCell = (cost: number | null, actual: number | null): React.JSX.Element => {
+  if (cost === null && actual === null) return <span className="text-muted">—</span>
+  const diff = cost !== null && actual !== null && cost !== actual
+  return (
+    <>
+      <div>{fmtMoney(cost ?? actual ?? 0)}</div>
+      {diff && (
+        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>จริง {fmtMoney(actual ?? 0)}</div>
+      )}
+      {cost === null && <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>ยอดปิดจริง</div>}
+      {actual === null && <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>ยังไม่ปิดยอด</div>}
+    </>
+  )
+}
+
 const driverNames = (raw: string | null): string[] =>
   (raw ?? '').split(',').map((n) => n.trim()).filter(Boolean)
 
@@ -195,6 +216,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                 <th>เที่ยว</th>
                 <th>พนักงานขับ</th>
                 <th style={{ width: 90 }}>ใบ · คัน</th>
+                <th style={{ width: 120 }}>ค่าขนส่ง</th>
                 <th style={{ width: 130 }}>สถานะ TMS</th>
                 <th style={{ width: 180 }} />
               </tr>
@@ -238,6 +260,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                         </div>
                       )}
                     </td>
+                    <td className="num">{costCell(t.cost, t.actual_cost)}</td>
                     <td>
                       <Badge label={t.status ?? '—'} tone={tone(t.status_id)} />
                       {t.reason && (

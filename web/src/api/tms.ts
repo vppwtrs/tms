@@ -80,6 +80,10 @@ export interface TmsTripPreviewRow {
   unmapped_driver_names: string[]
   unmapped_pls: number
   pls_in_db: number
+  /* ค่าจ้างตามสัญญา — null คือ TMS ยังไม่ลงตัวเลข ไม่ใช่ศูนย์บาท */
+  cost: number | null
+  /* ที่ปิดจริงหลังจบงาน ต่างจาก cost ได้เมื่อมีจุดส่งเพิ่ม/ค่าล่วงเวลา */
+  actual_cost: number | null
 }
 
 export interface TmsTripsPreview {
