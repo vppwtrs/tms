@@ -127,12 +127,20 @@ async function handleCreate(req: Request, callerAuth: string): Promise<Response>
     return json({ error: rowErr.message || 'บันทึกข้อมูลผู้ใช้ไม่สำเร็จ' }, 400)
   }
 
-  /* ผูกกับคนขับที่มีอยู่แล้ว (เช่นคนที่ระบบสร้างจากชื่อใน TMS) ถ้าระบุมา */
+  /* ผูกกับคนขับที่มีอยู่แล้ว (เช่นคนที่ระบบสร้างจากชื่อใน TMS) ถ้าระบุมา
+     create_app_user สร้างแถว drivers ให้เองเมื่อบทบาทเป็นคนขับ ตัวใหม่นั้นจึงถือ user_id
+     ไว้แล้ว การผูกซ้ำกับคนที่เลือกจึงชน unique drivers_user_id_key แล้วล้มทั้งคำขอ
+     ทิ้งคนขับชื่อซ้ำที่ไม่มีเที่ยวไว้หนึ่งแถวทุกครั้งที่กด
+     ถ้ามีแถวที่ถูกสร้างมาใหม่ ให้ยุบเข้ากับคนที่เลือกแทน — merge_drivers ย้าย user_id
+     กับประวัติไปไว้ที่คนที่เก็บไว้แล้วลบตัวซ้ำทิ้งในทีเดียว */
   if (driver_id) {
-    const { error: attErr } = await caller.rpc('attach_user_to_driver', {
-      p_user_id: (row as { user_id: number }).user_id,
-      p_driver_id: driver_id,
-    })
+    const newDriverId = (row as { driver_id?: number | null }).driver_id ?? null
+    const { error: attErr } = newDriverId && newDriverId !== driver_id
+      ? await caller.rpc('merge_drivers', { p_keep: driver_id, p_drop: newDriverId })
+      : await caller.rpc('attach_user_to_driver', {
+          p_user_id: (row as { user_id: number }).user_id,
+          p_driver_id: driver_id,
+        })
     if (attErr) return json({ error: attErr.message }, 400)
   }
 
