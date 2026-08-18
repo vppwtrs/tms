@@ -122,33 +122,35 @@ export async function importTrip(tmsId: string): Promise<{
 }
 
 /**
- * นำเข้าเที่ยวที่พร้อมส่งให้คนขับโดยอัตโนมัติ
+ * นำเข้าเที่ยวที่พร้อมแล้วโดยอัตโนมัติ
  *
- * จงใจนำเข้าเฉพาะเที่ยวที่มี driver_id แล้วเท่านั้น เพราะ RLS ของหน้าคนขับ
- * ผูกกับคนขับในเที่ยว ถ้านำเข้าเที่ยวที่ยังจับคู่ไม่ได้ งานจะถูกสร้างแต่ไม่มี
- * ใครเห็น และถ้าเดาผิด งานจะไปอยู่ในมือคนขับผิดคน
+ * งานทั้งหมดอยู่ใน RPC เดียว ไม่ใช่ลูปฝั่งเบราว์เซอร์เหมือนเดิม เพราะของเก่า
+ * เรียก previewTrips() แบบไม่ส่งวันที่ ซึ่งคืนข้อมูลวันเดียว รอบอัตโนมัติจึงเห็น
+ * แค่วันเริ่มต้นของหน้า เที่ยวที่ปิดงานไปเมื่อวานเลยไม่มีใครเก็บ
+ *
+ * ขอบเขตฝั่งฐาน: Completed เก็บย้อนหลังทุกวัน สถานะอื่นเฉพาะวันนี้
+ * และต้องจับคู่ชื่อคนขับครบทุกคนก่อนเสมอ
  */
 export async function autoImportReadyTrips(): Promise<{
-  checked: number
   imported: number
   createdOrders: number
   waitingForDriver: number
+  failed: number
 }> {
-  const preview = await previewTrips()
-  const ready = preview.trips.filter((t) => t.driver_id && !t.imported && t.status_id !== 6)
-  const waitingForDriver = preview.trips.filter((t) => !t.driver_id && !t.imported && t.status_id !== 6).length
-  let imported = 0
-  let createdOrders = 0
-
-  for (const trip of ready) {
-    const result = await importTrip(trip.tms_id)
-    if (!result.already) {
-      imported++
-      createdOrders += result.created_orders ?? 0
-    }
+  const { data, error } = await supabase.rpc('auto_import_trips')
+  if (error) throw toDataError(error)
+  const r = data as {
+    imported: number
+    created_orders: number
+    waiting_for_driver: number
+    failed: number
   }
-
-  return { checked: preview.trips.length, imported, createdOrders, waitingForDriver }
+  return {
+    imported: r.imported,
+    createdOrders: r.created_orders,
+    waitingForDriver: r.waiting_for_driver,
+    failed: r.failed,
+  }
 }
 
 /** สร้างคนขับ/รถจากข้อมูลของ TMS พร้อมจับคู่ให้ — คนกดต่อคน/ต่อคัน ระบบไม่เดาชื่อ

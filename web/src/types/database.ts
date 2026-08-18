@@ -462,6 +462,15 @@ export interface Database {
           already: boolean
         }
       }
+      auto_import_trips: {
+        Args: Record<string, never>
+        Returns: {
+          imported: number
+          created_orders: number
+          waiting_for_driver: number
+          failed: number
+        }
+      }
       delete_driver: {
         Args: { p_id: number }
         Returns: { deleted: number; name: string }

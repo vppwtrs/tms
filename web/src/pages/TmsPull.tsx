@@ -138,7 +138,10 @@ export default function TmsPull(): React.JSX.Element {
               : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${allTrips.length} เที่ยวจาก ${warehouses.length} คลัง`
             : `เที่ยว +${t.inserted}/~${t.updated}` +
               (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : '') +
-              (imported.imported ? ` · นำเข้าอัตโนมัติ ${imported.imported} เที่ยว` : ''),
+              (imported.imported ? ` · นำเข้าอัตโนมัติ ${imported.imported} เที่ยว` : '') +
+              /* เที่ยวที่นำเข้าไม่ผ่านต้องบอก ไม่ใช่เงียบแล้วให้คนคิดว่าเก็บครบแล้ว
+                 สาเหตุเต็ม ๆ ดูได้ตอนกดนำเข้าเองในหน้า "เที่ยวจาก TMS" */
+              (imported.failed ? ` · นำเข้าไม่ผ่าน ${imported.failed} เที่ยว` : ''),
         )
         refreshBoard()
       } catch (e) {
