@@ -31,6 +31,11 @@ import { IconTruck } from '../components/icons'
  * รถถูกผูกที่ระดับ "เที่ยว" เท่านั้น ซึ่งเป็นความจริงเฉพาะวันนั้น
  */
 
+/** แยกชื่อคนขับให้ตรงกับ app.tms_driver_names ฝั่งฐาน — TMS ส่งมาเป็นก้อนเดียว
+ *  คั่นด้วยคอมมา และมีคอมมาห้อยท้ายในบางแถว */
+const driverNames = (raw: string | null): string[] =>
+  (raw ?? '').split(',').map((n) => n.trim()).filter(Boolean)
+
 export default function CloudTmsTrips(): React.JSX.Element {
   const { can } = useCloudAuth()
   const { push } = useToast()
@@ -196,11 +201,13 @@ export default function CloudTmsTrips(): React.JSX.Element {
             </thead>
             <tbody>
               {data.trips.map((t) => {
-                const blocked = !t.driver_id
                 /* สองเรื่องคนละเรื่องที่เคยรวมเป็นข้อความเดียว:
                    ไม่มีชื่อคนขับเลย = TMS ยังไม่จ่ายงาน เรารอฝ่ายเดียว ทำอะไรไม่ได้
-                   มีชื่อแต่ยังไม่รู้ว่าเป็นใคร = งานของเรา กดจับคู่ได้เดี๋ยวนี้ */
+                   มีชื่อแต่ยังไม่รู้ว่าเป็นใคร = งานของเรา กดจับคู่ได้เดี๋ยวนี้
+                   เที่ยวที่ไปสองคนต้องจับคู่ให้ครบทั้งคู่ ไม่ใช่แค่คนแรกที่จับคู่ไปแล้ว */
                 const waitingTms = !t.driver_name
+                const unmapped = t.unmapped_driver_names ?? []
+                const blocked = unmapped.length > 0 || !t.driver_id
                 return (
                   <tr key={t.tms_id}>
                     <td>
@@ -217,7 +224,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                       </div>
                     </td>
                     <td>
-                      <div>{t.driver_name ?? '—'}</div>
+                      <div>{driverNames(t.driver_name).join(' + ') || '—'}</div>
                       {waitingTms && (
                         <div style={{ fontSize: 12, color: 'var(--muted)' }}>TMS ยังไม่ระบุ</div>
                       )}
@@ -250,14 +257,20 @@ export default function CloudTmsTrips(): React.JSX.Element {
                         </span>
                       ) : blocked ? (
                         /* ปุ่มจับคู่อยู่ในแถวของเที่ยวที่ติด ไม่ใช่การ์ดรวมด้านบน —
-                           การ์ดรวมทำให้ต้องเดาเองว่าชื่อไหนคู่กับเที่ยวไหน */
-                        <Button
-                          variant="outline"
-                          disabled={!canDrivers}
-                          onClick={() => void addDriver(t.driver_name as string)}
-                        >
-                          จับคู่ {t.driver_name}
-                        </Button>
+                           การ์ดรวมทำให้ต้องเดาเองว่าชื่อไหนคู่กับเที่ยวไหน
+                           หนึ่งปุ่มต่อหนึ่งคน เพราะสองคนที่ไปด้วยกันคือคนละคนในระบบ */
+                        <div style={{ display: 'grid', gap: 6, justifyItems: 'stretch' }}>
+                          {unmapped.map((name) => (
+                            <Button
+                              key={name}
+                              variant="outline"
+                              disabled={!canDrivers}
+                              onClick={() => void addDriver(name)}
+                            >
+                              จับคู่ {name}
+                            </Button>
+                          ))}
+                        </div>
                       ) : (
                         <Button
                           onClick={() => void run(t.tms_id, t.trip_no)}
