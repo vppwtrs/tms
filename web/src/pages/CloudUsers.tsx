@@ -516,11 +516,12 @@ export default function CloudUsers(): React.JSX.Element {
                           ระงับ
                         </Button>
                       )}
-                      {u.auth_source !== 'tms' && (
-                        <Button size="sm" variant="ghost" className="text-danger" onClick={() => setToDelete(u)}>
-                          ลบถาวร
-                        </Button>
-                      )}
+                      {/* เดิมซ่อนปุ่มลบสำหรับบัญชีที่มาจากการล็อกอิน TMS ซึ่งเป็นบัญชี
+                          พนักงานจริงเกือบทั้งหมด — ผลคือแถวที่คนอยากลบที่สุดกลับไม่มีปุ่มเลย
+                          และไม่มีอะไรบอกว่าทำไม แสดงปุ่มไว้ แล้วอธิบายผลตอนยืนยันแทน */}
+                      <Button size="sm" variant="ghost" className="text-danger" onClick={() => setToDelete(u)}>
+                        ลบถาวร
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -591,7 +592,21 @@ export default function CloudUsers(): React.JSX.Element {
       <ConfirmDialog
         open={toDelete !== null}
         title="ลบบัญชีถาวร"
-        message={toDelete ? `${toDelete.name} จะถูกลบจาก Supabase Auth และรายชื่อผู้ใช้ถาวร ประวัติออเดอร์/เที่ยวจะไม่ถูกลบ` : ''}
+        message={toDelete ? (
+          <>
+            <b>{toDelete.name}</b> จะถูกลบจาก Supabase Auth และรายชื่อผู้ใช้ถาวร
+            ประวัติออเดอร์และเที่ยวจะไม่ถูกลบ
+            {toDelete.auth_source === 'tms' && (
+              /* บัญชี TMS สร้างตัวเองใหม่ได้ตอนล็อกอินครั้งหน้า การลบจึงไม่ได้กันคนออก
+                 ถ้าตั้งใจจะกันไม่ให้เข้าใช้ ต้องใช้ "ระงับ" ไม่ใช่ "ลบถาวร" */
+              <div style={{ marginTop: 8 }}>
+                บัญชีนี้เข้าระบบด้วยรหัส TMS บริษัท — ลบแล้วเขายังล็อกอินได้
+                และระบบจะสร้างโปรไฟล์ใหม่ให้ พร้อมสิทธิ์ที่ถูกล้างไปหมด
+                ถ้าต้องการกันไม่ให้เข้าใช้ ให้กด <b>ระงับ</b> แทน
+              </div>
+            )}
+          </>
+        ) : ''}
         confirmLabel="ลบถาวร"
         danger
         loading={busyId === toDelete?.id}
