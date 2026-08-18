@@ -563,6 +563,22 @@ export interface TripPullResult {
 
 /** ดึงเที่ยวของกองรถเรา — ไม่ระบุวัน เพราะ API ไม่มีช่องรับช่วงวันที่ (เหมือนฝั่ง PL)
  *  เรียงจากวันใหม่ไปเก่า แล้วหยุดเมื่อพ้นช่วงที่ขอ */
+/** ใบทั้งหมดของเที่ยวหนึ่ง พร้อมรายการสินค้าและจำนวน
+ *
+ *  ถามไม่ได้ก็ถอยไปใช้ใบที่ติดมากับเที่ยว (ไม่มีจำนวน แต่ยังรู้ว่าไปส่งที่ไหน) —
+ *  เที่ยวเดียวที่ถามไม่ผ่านต้องไม่ทำให้ทั้งรอบล้ม */
+async function tripPickingLists(trip: TripHeader): Promise<PlHeader[]> {
+  const embedded = trip.pickingLists ?? []
+  if (!trip.id) return embedded
+  try {
+    const r = await tmsCall<unknown>('/v1/tripheaders/pickingList', { Id: trip.id })
+    const list = unwrap(r) as PlHeader[]
+    return list.length ? list : embedded
+  } catch {
+    return embedded
+  }
+}
+
 export async function pullTrips(
   opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
   onProgress?: (msg: string) => void,
@@ -611,8 +627,18 @@ export async function pullTrips(
 
   /* ใบที่อยู่ในเที่ยวเราแปลงด้วยตัวเดียวกับฝั่ง PL — ที่อยู่ปลายทางที่ติดมากับ trip
      เป็นแบบเต็ม ("104 หมู่ที่ 7 บางกรวย นนทบุรี THA 11130") ต่างจาก PL search
-     ที่ส่งมาเป็นบรรทัดเดียวห้วน ๆ จึงคุ้มที่จะ push ใบจากเส้นนี้ทับของเดิม */
-  const rows = plRowsOf(trips.flatMap((t) => t.pickingLists ?? []))
+     ที่ส่งมาเป็นบรรทัดเดียวห้วน ๆ จึงคุ้มที่จะ push ใบจากเส้นนี้ทับของเดิม
+
+     แต่ใบที่ติดมากับเที่ยว **ไม่มี details** จำนวนต่อรุ่นจึงว่างทั้งระบบ
+     ต้องถามทีละเที่ยวที่ /v1/tripheaders/pickingList ซึ่งคืนใบพร้อมรายการครบ
+     กองรถเราวิ่งวันละ 2–6 เที่ยว จำนวนคำขอต่อรอบจึงอยู่ในระดับที่ TMS ไม่รู้สึก */
+  const headers: PlHeader[] = []
+  for (const t of trips) {
+    const detailed = await tripPickingLists(t)
+    headers.push(...detailed)
+  }
+
+  const rows = plRowsOf(headers)
 
   return { trips, rows, scanned, outsourced }
 }
