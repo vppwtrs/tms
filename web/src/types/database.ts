@@ -471,6 +471,14 @@ export interface Database {
           failed: number
         }
       }
+      delete_vehicle: {
+        Args: { p_id: number }
+        Returns: { deleted: number; plate_no: string }
+      }
+      delete_customer: {
+        Args: { p_id: number }
+        Returns: { deleted: number; name: string }
+      }
       delete_driver: {
         Args: { p_id: number }
         Returns: { deleted: number; name: string }

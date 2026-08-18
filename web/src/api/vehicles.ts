@@ -31,7 +31,7 @@ export async function listVehicles(f: VehicleFilter = {}): Promise<Paged<Vehicle
   if (f.status) q = q.eq('status', f.status)
   if (f.type) q = q.eq('vehicle_type', f.type)
 
-  const { data, count, error } = await q.order('plate_no').range(from, from + limit - 1)
+  const { data, count, error } = await q.order('plate_no').order('id').range(from, from + limit - 1)
   if (error) throw error
   return { rows: data ?? [], total: count ?? 0, page, limit }
 }
@@ -54,8 +54,10 @@ export async function setVehicleStatus(id: number, status: VehicleStatus): Promi
   return unwrap(supabase.from('vehicles').update({ status }).eq('id', id).select().single())
 }
 
+/** ลบรถ — ผ่าน RPC ด้วยเหตุผลเดียวกับ removeDriver: ได้เหตุผลเป็นภาษาคน
+ *  และเก็บกวาดคีย์ใน tms_vehicle_map ให้ในคำสั่งเดียว */
 export async function removeVehicle(id: number): Promise<void> {
-  const { error } = await supabase.from('vehicles').delete().eq('id', id)
+  const { error } = await supabase.rpc('delete_vehicle', { p_id: id })
   if (error) throw error
 }
 
@@ -77,7 +79,9 @@ export async function listDrivers(f: DriverFilter = {}): Promise<Paged<DriverRow
   if (f.q) q = q.or(`name.ilike.%${f.q}%,phone.ilike.%${f.q}%,license_no.ilike.%${f.q}%`)
   if (f.status) q = q.eq('status', f.status)
 
-  const { data, count, error } = await q.order('name').range(from, from + limit - 1)
+  /* ชื่อคนขับซ้ำกันได้จริง — TMS ส่งชื่อซ้ำมาจนเคยเกิดแถวคู่มาแล้ว
+     ต้องมีตัวตัดสินที่ไม่ซ้ำ ไม่งั้นแบ่งหน้าแล้วแถวสลับกันเอง */
+  const { data, count, error } = await q.order('name').order('id').range(from, from + limit - 1)
   if (error) throw error
   return { rows: data ?? [], total: count ?? 0, page, limit }
 }

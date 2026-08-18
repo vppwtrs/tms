@@ -16,7 +16,14 @@ import type { PermissionAuditRow, PermissionMode, UserPermissionRow, UserRow, Us
 export async function listUsers(): Promise<UserRow[]> {
   /* RLS users_manage_select ปล่อยให้เห็นทุกแถวเฉพาะคนที่มี users.manage
      คนอื่นจะได้แค่แถวตัวเอง — ไม่ต้องกรองซ้ำตรงนี้ */
-  return unwrap(supabase.from('users').select('*').order('is_active').order('name'))
+  /* คนที่ใช้งานอยู่ต้องมาก่อน — order('is_active') เฉย ๆ เรียงจากน้อยไปมาก
+     ซึ่ง false มาก่อน true บัญชีที่ปิดไปแล้วจึงเคยลอยอยู่หัวตาราง */
+  return unwrap(
+    supabase.from('users').select('*')
+      .order('is_active', { ascending: false })
+      .order('name')
+      .order('id'),
+  )
 }
 
 /** คนที่ล็อกอินเข้ามาแล้วแต่ยังไม่มีใครตัดสินใจ — จอ admin ควรเด้งเตือนเมื่อมีคนค้าง */

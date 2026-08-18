@@ -81,7 +81,10 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
   if (f.to) q = q.lte('scheduled_at', f.to)
 
   const { data, count, error } = await q
+    /* ใบในเที่ยวเดียวกันมีกำหนดส่งวันเดียวกันทั้งก้อน เรียงด้วยวันอย่างเดียว
+       ลำดับภายในวันจึงสลับไปมาทุกครั้งที่โหลด อ่านแล้วเหมือนข้อมูลมั่ว */
     .order('scheduled_at', { ascending: false })
+    .order('id', { ascending: false })
     .range(start, start + limit - 1)
   if (error) throw error
   return { rows: ((data ?? []) as unknown as OrderJoined[]).map(flatten), total: count ?? 0, page, limit }

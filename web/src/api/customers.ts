@@ -34,7 +34,10 @@ export async function listCustomers(f: CustomerFilter = {}): Promise<Paged<Custo
   if (f.q) q = q.or(`name.ilike.%${f.q}%,contact_person.ilike.%${f.q}%,phone.ilike.%${f.q}%`)
   if (f.segment) q = q.eq('segment', f.segment)
 
-  const { data, count, error } = await q.order('name').range(from, from + limit - 1)
+  /* ชื่อซ้ำกันได้ (สาขาคนละที่ ชื่อบริษัทเดียวกัน) ถ้าเรียงด้วยชื่ออย่างเดียว
+     Postgres ไม่รับประกันลำดับของแถวที่เท่ากัน แถวเดิมจึงโผล่สองหน้าหรือหายไปเลย
+     เวลาเปลี่ยนหน้า — ต้องมีตัวตัดสินที่ไม่ซ้ำปิดท้ายเสมอ */
+  const { data, count, error } = await q.order('name').order('id').range(from, from + limit - 1)
   if (error) throw error
   return { rows: data ?? [], total: count ?? 0, page, limit }
 }
@@ -60,8 +63,10 @@ export async function updateCustomer(id: number, input: Partial<CustomerInput>):
 
 /** ลบจริง — ต่างจากออเดอร์/เที่ยวที่ยกเลิกด้วยการเปลี่ยนสถานะ
  *  ลูกค้าที่มีออเดอร์ผูกอยู่จะลบไม่ผ่านเพราะ foreign key (23503) ซึ่งถูกแล้ว */
+/** ลบลูกค้า — RPC ตรวจว่ามีออเดอร์ผูกอยู่ไหมก่อน แล้วเก็บกวาดของที่ผูกกับลูกค้า
+ *  แต่ไม่ใช่ประวัติการส่ง (คีย์ร้าน งานติดตาม บันทึกติดต่อ ใบเสนอราคา) ให้เอง */
 export async function removeCustomer(id: number): Promise<void> {
-  const { error } = await supabase.from('customers').delete().eq('id', id)
+  const { error } = await supabase.rpc('delete_customer', { p_id: id })
   if (error) throw error
 }
 
