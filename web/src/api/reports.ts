@@ -104,9 +104,19 @@ export async function generateReport(fromIso: string, toIso: string): Promise<Re
   const byStatus = new Map<string, number>()
   for (const o of orders) byStatus.set(o.status, (byStatus.get(o.status) ?? 0) + 1)
 
-  const [customers, drivers] = await Promise.all([
+  /* คนขับของเที่ยวอยู่ที่ trip_drivers แล้ว ไม่ใช่ trips.driver_id ที่เก็บได้คนเดียว
+     เที่ยวที่ไปสองคนต้องนับให้ทั้งสองคน ไม่ใช่ให้คนแรกคนเดียว */
+  const [customers, drivers, tripDrivers] = await Promise.all([
     unwrap(supabase.from('customers').select('*')),
     unwrap(supabase.from('drivers').select('*')),
+    trips.length
+      ? unwrap(
+          supabase
+            .from('trip_drivers')
+            .select('trip_id, driver_id')
+            .in('trip_id', trips.map((t) => t.id)),
+        )
+      : Promise.resolve([] as { trip_id: number; driver_id: number }[]),
   ])
   const customerName = new Map((customers as CustomerRow[]).map((c) => [c.id, c.name]))
   const driverName = new Map((drivers as DriverRow[]).map((d) => [d.id, d.name]))
@@ -130,13 +140,23 @@ export async function generateReport(fromIso: string, toIso: string): Promise<Re
     if (o.trip_id === null) continue
     ordersPerTrip.set(o.trip_id, (ordersPerTrip.get(o.trip_id) ?? 0) + 1)
   }
+  const driversOfTrip = new Map<number, number[]>()
+  for (const r of tripDrivers as { trip_id: number; driver_id: number }[]) {
+    const cur = driversOfTrip.get(r.trip_id)
+    if (cur) cur.push(r.driver_id)
+    else driversOfTrip.set(r.trip_id, [r.driver_id])
+  }
   const byDriver = new Map<number, { trips: number; orders: number }>()
   for (const t of trips.filter((x) => x.status === 'completed')) {
-    const cur = byDriver.get(t.driver_id) ?? { trips: 0, orders: 0 }
-    byDriver.set(t.driver_id, {
-      trips: cur.trips + 1,
-      orders: cur.orders + (ordersPerTrip.get(t.id) ?? 0),
-    })
+    /* เที่ยวเก่าที่ยังไม่มีแถวใน trip_drivers ให้ถอยไปใช้คนขับหลักเหมือนเดิม */
+    const ids = driversOfTrip.get(t.id) ?? (t.driver_id != null ? [t.driver_id] : [])
+    for (const id of ids) {
+      const cur = byDriver.get(id) ?? { trips: 0, orders: 0 }
+      byDriver.set(id, {
+        trips: cur.trips + 1,
+        orders: cur.orders + (ordersPerTrip.get(t.id) ?? 0),
+      })
+    }
   }
 
   return {

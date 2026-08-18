@@ -116,18 +116,42 @@ export async function getTripBoardDetailed(): Promise<{
   )
   if (trips.length === 0) return { waiting: [], running: [], done: [] }
 
-  const [vehicles, drivers, orders] = await Promise.all([
+  /* เที่ยวที่ไปสองคนเก็บคนที่สองไว้ที่ trip_drivers — trips.driver_id เป็นแค่คนขับหลัก
+     กระดานต้องขึ้นชื่อครบ ไม่งั้นคนที่ไปด้วยหายไปจากหน้าจอทั้งที่สถานะถูกจองไว้แล้ว */
+  const [vehicles, tripDrivers, orders] = await Promise.all([
     unwrap(supabase.from('vehicles').select('*').in('id', [...new Set(trips.map((t) => t.vehicle_id))])),
-    unwrap(supabase.from('drivers').select('*').in('id', [...new Set(trips.map((t) => t.driver_id))])),
+    unwrap(
+      supabase
+        .from('trip_drivers')
+        .select('trip_id, driver_id')
+        .in('trip_id', trips.map((t) => t.id))
+        .order('seq'),
+    ),
     unwrap(supabase.from('orders').select('*').in('trip_id', trips.map((t) => t.id)).order('scheduled_at')),
   ])
 
+  const links = tripDrivers as { trip_id: number; driver_id: number }[]
+  const driverIds = [...new Set([...trips.map((t) => t.driver_id), ...links.map((r) => r.driver_id)])]
+    .filter((id): id is number => id != null)
+  const drivers = driverIds.length
+    ? await unwrap(supabase.from('drivers').select('*').in('id', driverIds))
+    : []
+
   const vById = new Map(vehicles.map((v) => [v.id, v]))
   const dById = new Map(drivers.map((d) => [d.id, d]))
+  const crewOf = new Map<number, number[]>()
+  for (const r of links) {
+    const cur = crewOf.get(r.trip_id)
+    if (cur) cur.push(r.driver_id)
+    else crewOf.set(r.trip_id, [r.driver_id])
+  }
 
   const cards: BoardTrip[] = trips.map((t) => {
     const mine = orders.filter((o) => o.trip_id === t.id)
     const v = vById.get(t.vehicle_id)
+    /* เที่ยวเก่าที่ยังไม่มีแถวใน trip_drivers ถอยไปใช้คนขับหลักคนเดียวเหมือนเดิม */
+    const crew = crewOf.get(t.id) ?? (t.driver_id != null ? [t.driver_id] : [])
+    const crewNames = crew.map((id) => dById.get(id)?.name).filter(Boolean) as string[]
     return {
       id: t.id,
       trip_no: t.trip_no,
@@ -136,7 +160,7 @@ export async function getTripBoardDetailed(): Promise<{
       vehicle_plate: v?.plate_no ?? '—',
       vehicle_type: v?.vehicle_type ?? '',
       vehicle_capacity: v?.capacity_kg ?? 0,
-      driver_name: dById.get(t.driver_id)?.name ?? '—',
+      driver_name: crewNames.length ? crewNames.join(', ') : '—',
       /* ใบที่ยกเลิกไม่นับน้ำหนัก ไม่งั้นแถบความจุจะโชว์เต็มทั้งที่ของไม่ได้อยู่บนรถ */
       total_weight: mine.reduce((s, o) => (o.status === 'cancelled' ? s : s + o.weight_kg), 0),
       freight_cost: t.freight_actual_cost ?? t.freight_cost,

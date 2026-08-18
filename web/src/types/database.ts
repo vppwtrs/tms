@@ -226,6 +226,13 @@ export type TmsShipmentRow = {
 
 /* view ฝั่งคนขับ — สังเกตว่าไม่มี fee / fuel_cost / toll_cost / other_cost
    ถ้าวันไหนมีคนเผลอเติมคอลัมน์เงินเข้ามาที่นี่ แปลว่า view ฝั่ง SQL ก็ถูกแก้ไปแล้วเช่นกัน */
+export type TripDriverRow = {
+  trip_id: number
+  driver_id: number
+  seq: number
+  created_at: string
+}
+
 export type MyTripRow = {
   id: number
   trip_no: string
@@ -331,6 +338,8 @@ export interface Database {
       /* trip_no / order_no / quote_no เป็น optional เพราะ trigger ใน 0007 เติมให้ตอน insert
          ส่งมาเองก็ได้ แต่ปกติปล่อยว่างแล้วให้ DB ตั้งเลขต่อจากใบล่าสุดของปีนี้ */
       trips: Table<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'status' | 'trip_no' | 'fuel_cost' | 'toll_cost' | 'other_cost' | 'freight_cost' | 'freight_actual_cost'>>
+      /* คนขับของเที่ยว รวมคนที่ไปด้วย — trips.driver_id เก็บได้แค่คนขับหลัก */
+      trip_drivers: Table<TripDriverRow, Insertable<TripDriverRow, 'created_at' | 'seq'>>
       orders: Table<OrderRow, Insertable<OrderRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'order_no' | 'priority' | 'distance_km' | 'weight_kg' | 'fee'>>
       pod: Table<PodRow, Insertable<PodRow, 'id' | 'updated_at' | 'status'>>
       quotes: Table<QuoteRow, Insertable<QuoteRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'quote_no' | 'distance_km' | 'weight_kg' | 'fee'>>

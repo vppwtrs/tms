@@ -166,6 +166,15 @@ export default function TmsPull(): React.JSX.Element {
 
   const stale = board && !board.synced_at
 
+  /* ข้อมูลไหลเข้าเฉพาะตอนหน้านี้เปิดค้าง ถ้าคนปิดแท็บไปแล้วเปิดกลับมา ตัวเลขบนกระดาน
+     ยังหน้าตาเหมือนสด — บอกให้ชัดว่าค้างมานานแค่ไหน เกินหนึ่งรอบ (5 นาที) หลายเท่าถือว่าเก่า */
+  const STALE_MS = 30 * 60 * 1000
+  const syncedAgoMin =
+    board?.synced_at != null
+      ? Math.floor((Date.now() - new Date(board.synced_at).getTime()) / 60000)
+      : null
+  const outdated = syncedAgoMin != null && syncedAgoMin * 60000 >= STALE_MS
+
   return (
     <>
       <PageHeader
@@ -176,6 +185,13 @@ export default function TmsPull(): React.JSX.Element {
       {stale && (
         <div className="tms-stale" role="status">
           ยังไม่มีใครดึงข้อมูลเข้าระบบเลย
+        </div>
+      )}
+
+      {outdated && (
+        <div className="tms-stale" role="status">
+          ข้อมูลบนหน้านี้ดึงล่าสุดเมื่อ {syncedAgoMin} นาทีที่แล้ว — กด “เช็ค Trip ทุกคลังเดี๋ยวนี้”
+          หรือเปิดการเฝ้าสถานะอัตโนมัติไว้ ตัวเลขถึงจะตรงกับ TMS
         </div>
       )}
 
@@ -276,10 +292,10 @@ export default function TmsPull(): React.JSX.Element {
 
           <div style={{ display: 'flex', gap: 10 }}>
             <Button onClick={() => void cycle('range')} loading={busy} disabled={!warehouses.length}>
-              ดึง Trip ทุกคลังในช่วงนี้
+              ดึง Trip ช่วง {fmtDate(from)} – {fmtDate(to)}
             </Button>
             <Button variant="outline" onClick={() => void cycle('poll')} disabled={busy || !warehouses.length}>
-              เช็ค Trip ทุกคลังเดี๋ยวนี้
+              เช็ค Trip ของวันนี้เดี๋ยวนี้
             </Button>
           </div>
         </div>

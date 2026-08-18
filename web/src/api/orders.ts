@@ -69,9 +69,13 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
   /* !inner เฉพาะตอนกรองตามคนขับ — ถ้าใส่ไว้ตลอด ออเดอร์ที่ยังไม่ได้จัดเที่ยว
      จะหายไปจากตารางทั้งหมด ซึ่งคือใบที่ฝ่ายวางแผนต้องเห็นมากที่สุด */
   const tripJoin = f.driverId ? 'trips!inner' : 'trips'
+  /* ต้องระบุชื่อ FK ให้ชัด — ตอนนี้ trips ชี้ไป drivers ได้สามทาง (driver_id, accepted_by
+     และผ่านตาราง trip_drivers) PostgREST เลยเลือกไม่ถูกแล้วตอบ PGRST201 ทั้งคำขอ
+     ซึ่งบนหน้าเว็บคือ "โหลดออเดอร์ไม่สำเร็จ" ทั้งหน้า */
+  const driverJoin = 'drivers!trips_driver_id_fkey(name)'
   let q = supabase
     .from('orders')
-    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, drivers(name)), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
+    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
   if (f.driverId) q = q.eq('trips.driver_id', f.driverId)
   if (f.q) q = q.or(`order_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
   if (f.status) q = q.eq('status', f.status)
