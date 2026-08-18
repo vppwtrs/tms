@@ -78,6 +78,14 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
   if (visible.length === 0) return []
 
   const orders = await listMyOrders(visible.map((t) => t.id))
+  /* ลำดับที่คนขับจัดเองมาก่อนกำหนดส่งเสมอ — เขาเรียงตามถนนจริง ไม่ใช่ตามเวลาในเอกสาร
+     ใบที่ยังไม่ถูกจัด (seq ว่าง) ไปต่อท้าย เรียงตามกำหนดส่งเหมือนเดิม */
+  orders.sort((a, b) => {
+    if (a.seq != null && b.seq != null) return a.seq - b.seq
+    if (a.seq != null) return -1
+    if (b.seq != null) return 1
+    return a.scheduled_at.localeCompare(b.scheduled_at)
+  })
   const byTrip = new Map<number, MyJobOrder[]>()
   for (const o of orders) {
     if (o.trip_id == null) continue
@@ -105,6 +113,10 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
       /* ระบบเดิมส่ง has_pod มาเป็น 0/1 ไม่ใช่ boolean — คงรูปเดิมไว้
          เพื่อไม่ต้องแก้ทุกที่ในหน้าจอที่เช็คค่านี้ */
       has_pod: o.has_pod ? 1 : 0,
+      tms_trip_no: o.tms_trip_no,
+      tms_picking_list_no: o.tms_picking_list_no,
+      tms_unit_count: o.tms_unit_count,
+      seq: o.seq,
     })
     byTrip.set(o.trip_id, list)
   }
@@ -130,6 +142,15 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
 
 /** โหลดเที่ยวเดียวใหม่หลังกดปุ่ม — หน้าจอเดิมคาดว่าจะได้ MyJob ที่อัปเดตแล้วกลับมา
  *  คืน null ถ้าเที่ยวนั้นหลุดจากรายการไปแล้ว (เช่น เพิ่งปิดงานตอนดูเฉพาะงานค้าง) */
+/** คนขับจัดลำดับร้านเอง — ส่งลำดับทั้งเที่ยวไปทีเดียว */
+export async function saveStopOrder(tripId: number, orderIds: number[]): Promise<void> {
+  const { error } = await supabase.rpc('set_stop_order', {
+    p_trip_id: tripId,
+    p_order_ids: orderIds,
+  })
+  if (error) throw toDataError(error)
+}
+
 export async function reloadJob(tripId: number, includeDone: boolean): Promise<MyJob | null> {
   const jobs = await listMyJobs(includeDone)
   return jobs.find((j) => j.id === tripId) ?? null

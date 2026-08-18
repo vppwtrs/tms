@@ -54,6 +54,12 @@ export interface MyJobOrder {
   customer_phone: string | null
   customer_address: string | null
   has_pod: number
+  /* เลขที่ TMS ใช้ — คนขับอ้างเลขนี้เวลาโทรหาคลังหรือร้าน */
+  tms_trip_no: string | null
+  tms_picking_list_no: string | null
+  tms_unit_count: number | null
+  /* ลำดับที่คนขับจัดเอง null = ยังไม่จัด */
+  seq: number | null
 }
 
 export interface MyJob {

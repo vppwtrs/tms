@@ -2444,6 +2444,9 @@
   font: inherit;
   color: var(--ink);
 }
+.stop-row-wrap { display: flex; align-items: center; gap: 6px; }
+/* ปุ่มขึ้น/ลงอยู่นอกปุ่มเลือกจุด ไม่ใช่ปุ่มซ้อนปุ่ม — กดผิดในรถที่สั่นแล้วเสียลำดับ */
+.stop-row-move { display: flex; flex-direction: column; gap: 2px; flex: none; }
 .stop-row:hover { background: var(--paper-deep); }
 .stop-row.is-active { border-color: var(--info); }
 .stop-row-dest { flex: 1; font-weight: 600; }

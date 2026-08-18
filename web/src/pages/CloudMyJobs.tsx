@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder, savePod,
-  acceptTrip, reportIssue,
+  acceptTrip, reportIssue, saveStopOrder,
 } from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
 import { uploadPodPhoto } from '../api/storage'
@@ -127,6 +127,22 @@ export default function CloudMyJobs(): React.JSX.Element {
     }
   }
 
+  /* จัดลำดับแล้วเห็นผลทันทีบนจอ ไม่รอเซิร์ฟเวอร์ตอบ — คนขับกดขึ้น/ลงรัว ๆ ได้
+     ถ้าบันทึกไม่ผ่าน ค่อยโหลดของจริงกลับมาแล้วบอกว่าไม่สำเร็จ */
+  const reorder = async (job: MyJob, orderIds: number[]): Promise<void> => {
+    const sorted = orderIds
+      .map((id) => job.orders.find((o) => o.id === id))
+      .filter((o): o is MyJobOrder => o !== undefined)
+    setJobs((list) => list.map((j) => (j.id === job.id ? { ...j, orders: sorted } : j)))
+    try {
+      await saveStopOrder(job.id, orderIds)
+    } catch (e) {
+      const updated = await reloadJob(job.id, showDone)
+      if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
+      toast.push('error', (e as Error).message)
+    }
+  }
+
   if (error) return <ErrorBox message={error} onRetry={() => load(showDone)} />
 
   return (
@@ -158,6 +174,7 @@ export default function CloudMyJobs(): React.JSX.Element {
             onReportIssue={(job) => { setIssueFor(job); setIssueNote('') }}
             onPod={setPodFor}
             onDeliver={(order) => void deliver(order)}
+            onReorder={(job, ids) => void reorder(job, ids)}
           />
 
           {others.length > 0 && (

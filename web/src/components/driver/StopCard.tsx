@@ -37,6 +37,15 @@ export function NextStop({
       <div className="stop-focus-meta">
         นัดหมาย {fmtDateTime(order.scheduled_at)} · {order.goods_desc} · {fmtWeightHuman(order.weight_kg)}
       </div>
+      {/* เลขที่คลังกับร้านใช้อ้างถึงใบนี้ — คนขับต้องอ่านให้ทางโทรศัพท์ได้ทันที
+          ไม่ใช่ต้องเปิด TMS อีกจอตอนยืนอยู่หน้าร้าน */}
+      {(order.tms_picking_list_no ?? order.tms_trip_no) && (
+        <div className="stop-focus-meta">
+          {order.tms_trip_no && <>เที่ยว {order.tms_trip_no}</>}
+          {order.tms_picking_list_no && <> · PL {order.tms_picking_list_no}</>}
+          {order.tms_unit_count ? <> · {order.tms_unit_count} หน่วย</> : null}
+        </div>
+      )}
       {order.notes && <div className="stop-focus-note">หมายเหตุ: {order.notes}</div>}
 
       <div className="stop-focus-actions">
@@ -80,14 +89,22 @@ export function StopRow({
   order,
   active,
   onSelect,
+  onMove,
+  canMoveUp,
+  canMoveDown,
 }: {
   order: MyJobOrder
   active: boolean
   onSelect: (order: MyJobOrder) => void
+  /* ลำดับการแวะเป็นของคนขับ ปุ่มขึ้น/ลงแทนการลาก — ลากในรถที่สั่นแล้วพลาดง่าย
+     และนิ้วโป้งกดปุ่มสองปุ่มได้โดยไม่ต้องมองจอนาน */
+  onMove?: (order: MyJobOrder, dir: -1 | 1) => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
 }): React.JSX.Element {
   const done = order.status === 'delivered'
   return (
-    <li>
+    <li className="stop-row-wrap">
       <button
         type="button"
         className={`stop-row${active ? ' is-active' : ''}${done ? ' is-done' : ''}`}
@@ -100,6 +117,28 @@ export function StopRow({
         <span className="stop-row-dest">{order.destination}</span>
         <Badge label={ORDER_STATUS_LABEL[order.status]} tone={order.status} />
       </button>
+      {onMove && !done && (
+        <span className="stop-row-move">
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={`เลื่อน ${order.destination} ขึ้นก่อน`}
+            disabled={!canMoveUp}
+            onClick={() => onMove(order, -1)}
+          >
+            ขึ้น
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={`เลื่อน ${order.destination} ไปทีหลัง`}
+            disabled={!canMoveDown}
+            onClick={() => onMove(order, 1)}
+          >
+            ลง
+          </Button>
+        </span>
+      )}
     </li>
   )
 }

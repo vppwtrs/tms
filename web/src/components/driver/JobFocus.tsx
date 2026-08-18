@@ -29,6 +29,7 @@ export function JobFocus({
   onPod,
   onDeliver,
   onReportIssue,
+  onReorder,
 }: {
   job: MyJob
   busy: boolean
@@ -42,6 +43,9 @@ export function JobFocus({
   onReportIssue?: (job: MyJob) => void
   onPod: (order: MyJobOrder) => void
   onDeliver: (order: MyJobOrder) => void
+  /* จัดลำดับร้านใหม่ทั้งเที่ยว — คนขับรู้เส้นทางจริงดีกว่าลำดับที่เอกสารให้มา
+     ไม่ส่งมา = สแตกที่ยังไม่มีการจัดลำดับ (ฝั่ง LAN) ปุ่มขึ้น/ลงจะไม่ขึ้น */
+  onReorder?: (job: MyJob, orderIds: number[]) => void
 }): React.JSX.Element {
   const pending = firstPending(job)
   const [focusId, setFocusId] = useState<number | null>(pending?.id ?? job.orders[0]?.id ?? null)
@@ -52,12 +56,26 @@ export function JobFocus({
   }, [job.id])
 
   const focused = job.orders.find((o) => o.id === focusId) ?? pending ?? job.orders[0] ?? null
-  const others = job.orders.filter((o) => o.id !== focused?.id)
   const position = focused ? job.orders.findIndex((o) => o.id === focused.id) + 1 : 0
   const active = job.status !== 'completed' && job.status !== 'cancelled'
   /* ยังไม่กดรับ = งานยังไม่ถึงมือจริง ๆ ทุกปุ่มที่เดินงานต่อต้องรอตรงนี้ก่อน
      ไม่งั้นก็กลับไปเป็นแบบเดิมที่งานวิ่งเองโดยคนขับไม่เคยยืนยันว่าเห็น */
   const waiting = active && !job.accepted_at && onReportIssue !== undefined
+  /* จัดลำดับได้เฉพาะงานที่รับแล้วและยังไม่จบ — ลำดับของงานที่จบไปแล้วคือประวัติ */
+  const canReorder = onReorder !== undefined && canProgress && active && !waiting
+
+  const move = (order: MyJobOrder, dir: -1 | 1): void => {
+    const ids = job.orders.map((o) => o.id)
+    const at = ids.indexOf(order.id)
+    const to = at + dir
+    if (at < 0 || to < 0 || to >= ids.length) return
+    const moved = ids[at]
+    const swapped = ids[to]
+    if (moved === undefined || swapped === undefined) return
+    ids[at] = swapped
+    ids[to] = moved
+    onReorder?.(job, ids)
+  }
 
   return (
     <article className={`job-focus status-${job.status}`}>
@@ -103,12 +121,24 @@ export function JobFocus({
         <p className="job-sub">เที่ยวนี้ยังไม่มีจุดส่ง</p>
       )}
 
-      {others.length > 0 && (
+      {job.orders.length > 1 && (
+        /* แสดงทั้งเที่ยวตามลำดับจริง ไม่ใช่เฉพาะ "จุดอื่น" — ต้องเห็นทั้งเส้นถึงจะจัดลำดับได้
+           จุดที่กำลังโฟกัสยังคงเน้นไว้ให้รู้ว่าอยู่ตรงไหนของเส้นทาง */
         <section className="stop-others">
-          <h3 className="stop-others-title">จุดอื่นในเที่ยวนี้</h3>
+          <h3 className="stop-others-title">
+            {canReorder ? 'ลำดับการแวะ — จัดเองได้' : 'จุดอื่นในเที่ยวนี้'}
+          </h3>
           <ul className="stop-list">
-            {others.map((o) => (
-              <StopRow key={o.id} order={o} active={false} onSelect={(x) => setFocusId(x.id)} />
+            {job.orders.map((o, i) => (
+              <StopRow
+                key={o.id}
+                order={o}
+                active={o.id === focused?.id}
+                onSelect={(x) => setFocusId(x.id)}
+                onMove={canReorder ? move : undefined}
+                canMoveUp={i > 0}
+                canMoveDown={i < job.orders.length - 1}
+              />
             ))}
           </ul>
         </section>
