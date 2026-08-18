@@ -18,6 +18,8 @@
     "@capacitor/core": "^7.6.8",
     "@capacitor/ios": "^7.6.8",
     "@supabase/supabase-js": "^2.112.3",
+    "@types/leaflet": "^1.9.22",
+    "leaflet": "^1.9.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.18.0"

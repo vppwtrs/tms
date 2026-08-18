@@ -26,6 +26,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          /* แผนที่แยกก้อนของตัวเอง — หนักกว่าครึ่งของ vendor เดิม และมีหน้าเดียวที่ใช้
+             รวมไว้ใน vendor เท่ากับบังคับให้คนขับโหลดแผนที่ทุกครั้งที่เปิดแอปในรถ */
+          if (id.includes('node_modules/leaflet')) return 'map'
           if (id.includes('node_modules')) return 'vendor'
           return undefined
         }

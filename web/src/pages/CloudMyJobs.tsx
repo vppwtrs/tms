@@ -5,6 +5,7 @@ import {
   acceptTrip, reportIssue, saveStopOrder,
 } from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
+import { useTripTracking } from '../hooks/useTripTracking'
 import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
@@ -71,8 +72,26 @@ export default function CloudMyJobs(): React.JSX.Element {
   )
   const active = jobs.find((j) => j.id === activeId) ?? defaultJob
   const others = jobs.filter((j) => j.id !== active?.id)
+  /* บันทึกตำแหน่งเฉพาะเที่ยวที่รับแล้วและยังไม่จบ — นอกช่วงนั้นไม่ใช่เรื่องของระบบนี้ */
+  const tracking = useTripTracking(
+    active?.id ?? null,
+    !!active?.accepted_at && active.status !== 'completed' && active.status !== 'cancelled',
+  )
+
+  /* ขอสิทธิ์ตำแหน่งก่อนรับงาน ไม่ใช่หลังจากนั้น — งานที่รับแล้วแต่ตามไม่ได้
+     ทำให้คนวางแผนตอบลูกค้าไม่ได้ทั้งวัน ปฏิเสธได้ แต่ต้องรู้ตัวว่ากำลังปฏิเสธอะไร */
+  const askLocation = (): Promise<boolean> =>
+    new Promise((resolve) => {
+      if (!('geolocation' in navigator)) { resolve(false); return }
+      navigator.geolocation.getCurrentPosition(() => resolve(true), () => resolve(false), { timeout: 10_000 })
+    })
 
   const act = async (job: MyJob, action: 'start' | 'complete' | 'accept'): Promise<void> => {
+    if (action === 'accept' && !(await askLocation())) {
+      toast.push('warning',
+        'ต้องอนุญาตให้แอปเห็นตำแหน่งก่อนรับงาน — เปิดสิทธิ์ตำแหน่งในเบราว์เซอร์แล้วกดใหม่')
+      return
+    }
     setBusy(job.id)
     try {
       /* ฟังก์ชันฝั่ง DB คืน void ไม่ใช่เที่ยวที่อัปเดตแล้ว — ต้องโหลดกลับมาเอง
@@ -177,6 +196,20 @@ export default function CloudMyJobs(): React.JSX.Element {
             onDeliver={(order) => void deliver(order)}
             onReorder={(job, ids) => void reorder(job, ids)}
           />
+
+          {/* บอกตรง ๆ ว่าตอนนี้บันทึกอยู่หรือไม่ — เบราว์เซอร์หยุดให้ตำแหน่งเมื่อพับหน้าจอ
+              ถ้าไม่บอก คนขับจะเชื่อว่ามีการบันทึกตลอดเวลา แล้ววันที่ต้องใช้จะไม่มีข้อมูล */}
+          {active.accepted_at && (
+            <p className={`track-note${tracking === 'denied' ? ' is-off' : ''}`}>
+              {tracking === 'on'
+                ? 'กำลังบันทึกตำแหน่งของเที่ยวนี้ — เปิดหน้านี้ค้างไว้ระหว่างขับ'
+                : tracking === 'denied'
+                  ? 'ไม่ได้รับสิทธิ์ตำแหน่ง — ฝ่ายวางแผนจะไม่เห็นว่ารถอยู่ไหน'
+                  : tracking === 'unsupported'
+                    ? 'เครื่องนี้ไม่รองรับการระบุตำแหน่ง'
+                    : 'กำลังขอตำแหน่ง…'}
+            </p>
+          )}
 
           {others.length > 0 && (
             <Button variant="outline" className="driver-switch" onClick={() => setSwitching(true)}>

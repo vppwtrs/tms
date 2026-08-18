@@ -492,6 +492,23 @@ export interface Database {
         Args: { p_order_id: number }
         Returns: { path: string; kind: string }[]
       }
+      log_trip_location: {
+        Args: {
+          p_trip_id: number
+          p_lat: number
+          p_lng: number
+          p_accuracy_m?: number | null
+        }
+        Returns: void
+      }
+      tracking_board: {
+        Args: Record<string, never>
+        Returns: Record<string, unknown>[]
+      }
+      trip_track: {
+        Args: { p_trip_id: number }
+        Returns: Record<string, unknown>[]
+      }
       set_stop_order: {
         Args: { p_trip_id: number; p_order_ids: number[] }
         Returns: void

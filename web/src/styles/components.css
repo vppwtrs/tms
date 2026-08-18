@@ -2569,3 +2569,51 @@
 .link-button:hover {
   text-decoration: underline;
 }
+
+/* ---------- หน้าติดตามรถ ---------- */
+/* แผนที่กินพื้นที่หลัก รายการรถอยู่ข้าง ๆ บนจอกว้าง และลงมาอยู่ล่างบนมือถือ
+   คนวางแผนดูสองอย่างสลับกันตลอด แยกคนละหน้าคือบังคับให้กดไปกลับทั้งวัน */
+.track-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-3);
+  align-items: start;
+}
+.track-map {
+  height: 520px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  z-index: 0;
+}
+.track-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.track-item {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.track-item:hover { background: var(--paper-deep); }
+.track-item.is-active { border-color: var(--info); }
+.track-item-plate { font-weight: 700; }
+.track-item-driver { font-size: var(--font-sm); }
+.track-item-meta { font-size: var(--font-xs); color: var(--muted); }
+/* แถบสถานะการบันทึกตำแหน่งบนหน้าคนขับ — ตัวหนังสือเล็กแต่ต้องอ่านออกกลางแดด */
+.track-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-sm);
+  color: var(--muted);
+}
+.track-note.is-off { color: var(--danger); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .track-wrap { grid-template-columns: minmax(0, 1fr); }
+  .track-map { height: 360px; }
+}
