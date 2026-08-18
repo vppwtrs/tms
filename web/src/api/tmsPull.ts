@@ -102,10 +102,13 @@ async function searchWarehouses(): Promise<Warehouse[]> {
   return unwrap(raw).map(toWarehouse).filter((w) => w.code)
 }
 
-/** คลังที่ระบบนี้รับผิดชอบ — เจ้าของงานกำหนดเอง ไม่ใช่ทุกคลังที่บัญชี TMS มองเห็น
- *  บัญชีบางคนเห็นคลังของแผนกอื่นด้วย ซึ่งไม่ควรถูกดึงเข้าระบบนี้โดยบังเอิญ
- *  ปล่อยเป็น array ว่างเมื่อไหร่ = รับทุกคลังที่บัญชีเห็น */
-export const ALLOWED_WAREHOUSES = ['KM23-CW-01', 'KM23-CW-02']
+/** คลังที่ระบบนี้รับผิดชอบ — ว่าง = ทุกคลังที่บัญชี TMS มองเห็น
+ *
+ *  เดิมล็อกไว้ที่ KM23-CW-01/02 เพราะกลัวคลังของแผนกอื่นไหลเข้ามา แต่ด่านที่กันของ
+ *  ไม่ใช่ของเราอยู่แล้วคือ carrier (tms_carriers.is_ours) ซึ่งกรองที่ฐานข้อมูล
+ *  การล็อกคลังซ้ำอีกชั้นจึงไม่ได้กันอะไรเพิ่ม มีแต่ทำให้เที่ยวของกองรถเราที่วิ่งออก
+ *  จากคลังอื่นหายไปเงียบ ๆ (เห็นเขต UPC2 ในข้อมูลใบสั่งแล้ว แต่ไม่มีเที่ยวเลย) */
+export const ALLOWED_WAREHOUSES: string[] = []
 
 const allowed = (list: Warehouse[]): Warehouse[] =>
   ALLOWED_WAREHOUSES.length ? list.filter((w) => ALLOWED_WAREHOUSES.includes(w.code)) : list
@@ -130,8 +133,10 @@ export async function listWarehouses(): Promise<Warehouse[]> {
   if (!result.length) {
     const visible = [...new Set([...personal, ...searched].map((w) => w.code).filter(Boolean))]
     throw new Error(
-      `ไม่พบคลังที่อนุญาต (${ALLOWED_WAREHOUSES.join(', ')}) จากบัญชี TMS` +
-      (visible.length ? ` · คลังที่บัญชีเห็น: ${visible.slice(0, 6).join(', ')}` : ''),
+      ALLOWED_WAREHOUSES.length
+        ? `ไม่พบคลังที่อนุญาต (${ALLOWED_WAREHOUSES.join(', ')}) จากบัญชี TMS` +
+          (visible.length ? ` · คลังที่บัญชีเห็น: ${visible.slice(0, 6).join(', ')}` : '')
+        : 'บัญชี TMS นี้ไม่เห็นคลังไหนเลย — ให้ผู้ดูแล TMS เปิดสิทธิ์คลังให้ก่อน',
     )
   }
   return result
@@ -574,8 +579,11 @@ export async function pullTrips(
         outsourced++
         continue
       }
-      /* ส่งชื่อมาตรฐานให้ RPC เพราะฐานกรองด้วยชื่อ carrier แบบ exact */
-      trips.push({ ...t, carrierName })
+      /* ส่งชื่อมาตรฐานให้ RPC เพราะฐานกรองด้วยชื่อ carrier แบบ exact
+         รหัสคลังต้องประทับเอง — payload ของ Trip ไม่มีมาให้ ทุกแถวใน tms_trips
+         จึงเคยมี warehouse_code เป็น null แยกไม่ออกว่าเที่ยวไหนออกจากคลังไหน
+         ซึ่งกลายเป็นปัญหาทันทีที่เลิกล็อกไว้แค่สองคลัง */
+      trips.push({ ...t, carrierName, warehouse: t.warehouse || opts.warehouse.code })
     }
 
     onProgress?.(`สแกน ${scanned} เที่ยว · ของกองรถเรา ${trips.length}`)
