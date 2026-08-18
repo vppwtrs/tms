@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder, savePod } from '../api/myjobs'
+import {
+  listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder, savePod,
+  acceptTrip, reportIssue,
+} from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
 import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
@@ -38,6 +41,9 @@ export default function CloudMyJobs(): React.JSX.Element {
   const [podFor, setPodFor] = useState<MyJobOrder | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
   const [switching, setSwitching] = useState(false)
+  const [issueFor, setIssueFor] = useState<MyJob | null>(null)
+  const [issueNote, setIssueNote] = useState('')
+  const [sendingIssue, setSendingIssue] = useState(false)
 
   const load = (all: boolean): void => {
     setLoading(true)
@@ -65,20 +71,42 @@ export default function CloudMyJobs(): React.JSX.Element {
   const active = jobs.find((j) => j.id === activeId) ?? defaultJob
   const others = jobs.filter((j) => j.id !== active?.id)
 
-  const act = async (job: MyJob, action: 'start' | 'complete'): Promise<void> => {
+  const act = async (job: MyJob, action: 'start' | 'complete' | 'accept'): Promise<void> => {
     setBusy(job.id)
     try {
       /* ฟังก์ชันฝั่ง DB คืน void ไม่ใช่เที่ยวที่อัปเดตแล้ว — ต้องโหลดกลับมาเอง
          ตั้งใจให้เป็นแบบนั้น: สถานะจริงถูกคำนวณจากออเดอร์ในเที่ยว การให้ฟังก์ชัน
          "เดา" ผลลัพธ์กลับมาเองคือเปิดช่องให้หน้าจอกับฐานข้อมูลไม่ตรงกัน */
-      await (action === 'start' ? startTrip(job.id) : completeTrip(job.id))
+      await (action === 'accept' ? acceptTrip(job.id)
+        : action === 'start' ? startTrip(job.id)
+        : completeTrip(job.id))
       const updated = await reloadJob(job.id, showDone)
       setJobs((list) => (updated ? list.map((j) => (j.id === job.id ? updated : j)) : list.filter((j) => j.id !== job.id)))
-      toast.push('success', action === 'start' ? `เริ่มเดินทาง ${job.trip_no}` : `ปิดงาน ${job.trip_no} เรียบร้อย`)
+      toast.push('success',
+        action === 'accept' ? `รับงาน ${job.trip_no} แล้ว`
+          : action === 'start' ? `เริ่มเดินทาง ${job.trip_no}`
+          : `ปิดงาน ${job.trip_no} เรียบร้อย`)
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
       setBusy(0)
+    }
+  }
+
+  const submitIssue = async (): Promise<void> => {
+    if (!issueFor) return
+    if (!issueNote.trim()) { toast.push('warning', 'ระบุปัญหาที่พบ'); return }
+    setSendingIssue(true)
+    try {
+      await reportIssue(issueFor.id, issueNote.trim())
+      const updated = await reloadJob(issueFor.id, showDone)
+      setJobs((list) => (updated ? list.map((j) => (j.id === issueFor.id ? updated : j)) : list))
+      toast.push('success', 'ส่งให้ฝ่ายวางแผนแล้ว')
+      setIssueFor(null)
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setSendingIssue(false)
     }
   }
 
@@ -127,6 +155,7 @@ export default function CloudMyJobs(): React.JSX.Element {
             canProgress={can('myjobs.progress')}
             canPod={can('myjobs.pod')}
             onAct={(job, action) => void act(job, action)}
+            onReportIssue={(job) => { setIssueFor(job); setIssueNote('') }}
             onPod={setPodFor}
             onDeliver={(order) => void deliver(order)}
           />
@@ -176,6 +205,33 @@ export default function CloudMyJobs(): React.JSX.Element {
           }}
         />
       )}
+
+      <Modal
+        open={issueFor !== null}
+        onClose={() => setIssueFor(null)}
+        title={issueFor ? `แจ้งปัญหา — ${issueFor.trip_no}` : ''}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setIssueFor(null)}>ปิด</Button>
+            <Button variant="accent" loading={sendingIssue} onClick={() => void submitIssue()}>
+              ส่งให้ฝ่ายวางแผน
+            </Button>
+          </>
+        }
+      >
+        {/* บอกให้ชัดว่านี่ไม่ใช่การคืนงาน ไม่งั้นคนขับจะกดแล้วเข้าใจว่าไม่ต้องไปแล้ว */}
+        <p className="job-sub" style={{ marginBottom: 10 }}>
+          งานยังเป็นของคุณอยู่ — ข้อความนี้จะไปขึ้นบนกระดานของฝ่ายวางแผนให้เขาติดต่อกลับ
+        </p>
+        <Field label="ปัญหาที่พบ" required>
+          <Textarea
+            value={issueNote}
+            onChange={(e) => setIssueNote(e.target.value)}
+            placeholder="เช่น รถเสีย / ของไม่ครบ / ไปไม่ทันเวลา"
+            style={{ minHeight: 90 }}
+          />
+        </Field>
+      </Modal>
     </div>
   )
 }

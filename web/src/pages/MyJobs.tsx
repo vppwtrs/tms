@@ -116,7 +116,9 @@ export default function MyJobs(): React.JSX.Element {
             deliveringId={delivering}
             canProgress={can('myjobs.progress')}
             canPod={can('myjobs.pod')}
-            onAct={(job, action) => void act(job, action)}
+            /* สแตก LAN ไม่มีประตูรับงาน — JobFocus จึงไม่ส่ง 'accept' มาที่นี่
+               (ปุ่มรับงานขึ้นเฉพาะเมื่อมี onReportIssue ซึ่งหน้านี้ไม่ได้ส่งให้) */
+            onAct={(job, action) => { if (action !== 'accept') void act(job, action) }}
             onPod={setPodFor}
             onDeliver={(order) => void deliver(order)}
           />

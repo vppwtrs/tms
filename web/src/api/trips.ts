@@ -82,17 +82,39 @@ export interface BoardTrip {
   /* ค่าจ้างขนส่งจาก TMS — ยอดปิดจริงถ้ามี ไม่งั้นยอดตามสัญญา
      null = เที่ยวที่สร้างเองในระบบ ยังไม่มีตัวเลขจากฝั่ง TMS */
   freight_cost: number | null
+  /* null บนเที่ยวที่ยังไม่จบ = ยังไม่ถึงมือคนขับ คือประตูที่กันงานไม่ให้วิ่งเอง */
+  accepted_at: string | null
+  /* ปัญหาที่คนขับแจ้ง — ไม่ใช่การปฏิเสธงาน */
+  issue_note: string | null
+  issue_at: string | null
+  /* คนขับที่ยังไม่มีบัญชีผู้ใช้ เปิดแอปดูงานไม่ได้ ต่อให้จ่ายงานสำเร็จ */
+  driver_has_account: boolean
   orders: OrderRow[]
 }
 
 /* ยิงสี่คิวรีแล้วประกอบเองแทน nested select — เหตุผลเดียวกับ getTripDetail()
    คือ database.ts เขียน Relationships ไว้เป็น [] postgrest-js จึง infer ก้อนซ้อนไม่ได้
    สี่คิวรีต่อการโหลดกระดานหนึ่งครั้งไม่ใช่ต้นทุนที่รู้สึกได้ เที่ยวที่ยังไม่จบมีไม่กี่สิบใบ */
-export async function getTripBoardDetailed(): Promise<{ planned: BoardTrip[]; in_progress: BoardTrip[] }> {
+/** กระดานงาน — แบ่งตาม "งานเดินไปถึงไหน" ไม่ใช่ตามสถานะดิบของตาราง
+ *
+ *  waiting = เที่ยวที่คนขับยังไม่กดรับ คือช่องที่คนวางแผนต้องดูก่อนเพื่อน
+ *  เพราะงานถูกจ่ายไปแล้วแต่ยังไม่มีใครยืนยันว่าเห็น
+ *  done = เฉพาะที่จบวันนี้ ไม่ใช่ทั้งหมด กระดานคือของวันนี้ ไม่ใช่คลังประวัติ */
+export async function getTripBoardDetailed(): Promise<{
+  waiting: BoardTrip[]
+  running: BoardTrip[]
+  done: BoardTrip[]
+}> {
+  const today = new Date()
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset())
+  const from = `${today.toISOString().slice(0, 10)}T00:00:00`
+
   const trips: TripRow[] = await unwrap(
-    supabase.from('trips').select('*').in('status', ['planned', 'in_progress']).order('id', { ascending: false }),
+    supabase.from('trips').select('*')
+      .or(`status.in.(planned,in_progress),and(status.eq.completed,arrived_at.gte.${from})`)
+      .order('id', { ascending: false }),
   )
-  if (trips.length === 0) return { planned: [], in_progress: [] }
+  if (trips.length === 0) return { waiting: [], running: [], done: [] }
 
   const [vehicles, drivers, orders] = await Promise.all([
     unwrap(supabase.from('vehicles').select('*').in('id', [...new Set(trips.map((t) => t.vehicle_id))])),
@@ -118,13 +140,20 @@ export async function getTripBoardDetailed(): Promise<{ planned: BoardTrip[]; in
       /* ใบที่ยกเลิกไม่นับน้ำหนัก ไม่งั้นแถบความจุจะโชว์เต็มทั้งที่ของไม่ได้อยู่บนรถ */
       total_weight: mine.reduce((s, o) => (o.status === 'cancelled' ? s : s + o.weight_kg), 0),
       freight_cost: t.freight_actual_cost ?? t.freight_cost,
+      accepted_at: t.accepted_at,
+      issue_note: t.issue_note,
+      issue_at: t.issue_at,
+      driver_has_account: dById.get(t.driver_id)?.user_id != null,
       orders: mine,
     }
   })
 
   return {
-    planned: cards.filter((t) => t.status === 'planned'),
-    in_progress: cards.filter((t) => t.status === 'in_progress'),
+    /* ยังไม่กดรับ = ยังไม่ถึงมือคนขับ ไม่ว่าสถานะจะเป็น planned หรือ in_progress
+       (เที่ยวที่ TMS ดันไปก่อนมีประตู ยังค้างเป็น in_progress ที่ไม่มีใครรับ) */
+    waiting: cards.filter((t) => t.status !== 'completed' && !t.accepted_at),
+    running: cards.filter((t) => t.status !== 'completed' && t.accepted_at),
+    done: cards.filter((t) => t.status === 'completed'),
   }
 }
 
@@ -163,7 +192,8 @@ export async function addOrdersToTrip(tripId: number, orderIds: number[]): Promi
 }
 
 async function call(
-  fn: 'remove_order_from_trip' | 'dispatch_start_trip' | 'dispatch_complete_trip' | 'dispatch_cancel_trip',
+  fn: 'remove_order_from_trip' | 'dispatch_start_trip' | 'dispatch_complete_trip'
+    | 'dispatch_cancel_trip' | 'clear_trip_issue' | 'accept_trip',
   args: Record<string, number>,
 ): Promise<void> {
   const { error } = await supabase.rpc(fn, args as never)
@@ -178,6 +208,13 @@ export const startTrip = (tripId: number) => call('dispatch_start_trip', { p_tri
 /** ปิดเที่ยวจากฝั่งออฟฟิศ — ไม่บังคับว่าต้องส่งครบก่อน ต่างจากปุ่มของคนขับ
  *  มีไว้สำหรับตอนที่หน้างานปิดเองไม่ได้ (เน็ตหลุด แบตหมด) ไม่ใช่ทางลัดปกติ */
 export const completeTrip = (tripId: number) => call('dispatch_complete_trip', { p_trip_id: tripId })
+
+/** คนขับกดรับงาน — ประตูที่กันไม่ให้งานวิ่งข้ามหัวคนขับ
+ *  สถานะจาก TMS ที่ค้างอยู่จะมีผลก็ต่อเมื่อผ่านประตูนี้แล้ว */
+export const acceptTrip = (tripId: number) => call('accept_trip', { p_trip_id: tripId })
+
+/** คนวางแผนเคลียร์ปัญหาที่คนขับแจ้งไว้ หลังคุยกันจบแล้ว */
+export const clearTripIssue = (tripId: number) => call('clear_trip_issue', { p_trip_id: tripId })
 
 /** ยกเลิกเที่ยว — ออเดอร์กลับไปรอจัดใหม่ ไม่ได้ถูกยกเลิกตาม */
 export const cancelTrip = (tripId: number) => call('dispatch_cancel_trip', { p_trip_id: tripId })

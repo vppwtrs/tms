@@ -28,6 +28,7 @@ export function JobFocus({
   onAct,
   onPod,
   onDeliver,
+  onReportIssue,
 }: {
   job: MyJob
   busy: boolean
@@ -35,7 +36,10 @@ export function JobFocus({
   deliveringId: number
   canProgress: boolean
   canPod: boolean
-  onAct: (job: MyJob, action: 'start' | 'complete') => void
+  onAct: (job: MyJob, action: 'start' | 'complete' | 'accept') => void
+  /** เปิดฟอร์มแจ้งปัญหา — แจ้งได้ ไม่ใช่ปฏิเสธงาน งานยังเป็นของคนขับ
+   *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
+  onReportIssue?: (job: MyJob) => void
   onPod: (order: MyJobOrder) => void
   onDeliver: (order: MyJobOrder) => void
 }): React.JSX.Element {
@@ -51,6 +55,9 @@ export function JobFocus({
   const others = job.orders.filter((o) => o.id !== focused?.id)
   const position = focused ? job.orders.findIndex((o) => o.id === focused.id) + 1 : 0
   const active = job.status !== 'completed' && job.status !== 'cancelled'
+  /* ยังไม่กดรับ = งานยังไม่ถึงมือจริง ๆ ทุกปุ่มที่เดินงานต่อต้องรอตรงนี้ก่อน
+     ไม่งั้นก็กลับไปเป็นแบบเดิมที่งานวิ่งเองโดยคนขับไม่เคยยืนยันว่าเห็น */
+  const waiting = active && !job.accepted_at && onReportIssue !== undefined
 
   return (
     <article className={`job-focus status-${job.status}`}>
@@ -63,6 +70,18 @@ export function JobFocus({
         </div>
         <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot />
       </header>
+
+      {waiting && (
+        <p className="job-sub" style={{ marginTop: 8 }}>
+          งานใหม่จาก TMS — กดรับงานก่อนถึงจะเริ่มเดินทางได้
+        </p>
+      )}
+
+      {job.issue_note && (
+        <p className="job-sub" style={{ marginTop: 8 }}>
+          แจ้งปัญหาไว้แล้ว: {job.issue_note}
+        </p>
+      )}
 
       <JobProgress job={job} />
 
@@ -98,7 +117,18 @@ export function JobFocus({
       {canProgress && active && (
         /* ตรึงล่างจอ — ปุ่มหลักต้องอยู่ในระยะนิ้วโป้งเสมอ ไม่ต้องเลื่อนหา */
         <div className="job-cta-bar">
-          {job.status === 'planned' ? (
+          {waiting ? (
+            /* ปุ่มเดียวเต็มความกว้าง ไม่มีปุ่มปฏิเสธ — TMS จ่ายคนมาแล้วและเราเขียนกลับไม่ได้
+               มีปัญหาให้กดแจ้ง ซึ่งไปขึ้นบนกระดานของคนวางแผน ไม่ใช่คืนงานเงียบ ๆ */
+            <>
+              <Button size="lg" loading={busy} onClick={() => onAct(job, 'accept')}>
+                รับงานนี้
+              </Button>
+              <Button size="lg" variant="ghost" onClick={() => onReportIssue?.(job)}>
+                แจ้งปัญหา
+              </Button>
+            </>
+          ) : job.status === 'planned' ? (
             <Button size="lg" loading={busy} onClick={() => onAct(job, 'start')}>
               เริ่มเดินทาง
             </Button>

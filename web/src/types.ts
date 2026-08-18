@@ -65,6 +65,8 @@ export interface MyJob {
   notes: string | null
   vehicle_plate: string
   vehicle_type: VehicleType
+  accepted_at: string | null
+  issue_note: string | null
   orders: MyJobOrder[]
   total_weight: number
 }

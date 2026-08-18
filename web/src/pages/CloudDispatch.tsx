@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip,
-  startTrip, completeTrip, cancelTrip, type BoardTrip,
+  startTrip, completeTrip, cancelTrip, acceptTrip, clearTripIssue, type BoardTrip,
 } from '../api/trips'
 import { listUnassignedOrders, type DispatchOrderRow } from '../api/orders'
 import { useRealtime } from '../hooks/useRealtime'
@@ -36,7 +36,10 @@ export default function CloudDispatch(): React.JSX.Element {
   const { push } = useToast()
   const canEdit = can('dispatch.write')
 
-  const [board, setBoard] = useState<{ planned: BoardTrip[]; in_progress: BoardTrip[] } | null>(null)
+  const [board, setBoard] = useState<{ waiting: BoardTrip[]; running: BoardTrip[]; done: BoardTrip[] } | null>(null)
+  /* ฟอร์มสร้างเที่ยวเองย้ายเข้าหน้าต่าง — งานเกือบทั้งหมดมาจาก TMS พร้อมรถและคนขับแล้ว
+     ของเดิมกินครึ่งจอเพื่อรอ "ออเดอร์รอจัดคิว" ที่เป็น 0 ใบตลอด */
+  const [createOpen, setCreateOpen] = useState(false)
   const [pendingOrders, setPendingOrders] = useState<DispatchOrderRow[]>([])
   const [vehicles, setVehicles] = useState<VehicleRow[]>([])
   const [drivers, setDrivers] = useState<DriverRow[]>([])
@@ -116,6 +119,7 @@ export default function CloudDispatch(): React.JSX.Element {
       if (res.warning) push('warning', res.warning)
       else push('success', `สร้างเที่ยว ${res.trip_no} เรียบร้อย`)
       setSelected(new Set()); setVehicleId(''); setDriverId(''); setNotes('')
+      setCreateOpen(false)
       await loadAll()
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'สร้างเที่ยวไม่สำเร็จ')
@@ -150,140 +154,34 @@ export default function CloudDispatch(): React.JSX.Element {
 
   if (error) return <ErrorBox message={error} onRetry={() => void loadAll()} />
 
-  const planned = board?.planned ?? []
-  const inProgress = board?.in_progress ?? []
+  const waiting = board?.waiting ?? []
+  const running = board?.running ?? []
+  const done = board?.done ?? []
+  const noAccount = [...waiting, ...running].filter((t) => !t.driver_has_account)
 
   return (
     <>
-      <PageHeader title="แผนงานขนส่ง" subtitle="เลือกออเดอร์รอจัดคิว → จับคู่รถ + พนักงานขับ → สร้างเที่ยวขนส่ง" />
-
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-title">สร้างเที่ยวขนส่งใหม่</div>
-        {!canEdit ? (
-          <div className="text-muted text-sm">บัญชีนี้เป็นโหมดดูอย่างเดียว</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24, alignItems: 'start' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                <SearchInput value={q} onChange={setQ} placeholder="ค้นหาออเดอร์รอจัดคิว..." />
-                <span className="text-sm text-muted">เหลือรอจัดคิว {fmtNum(pendingOrders.length)} ใบ</span>
-              </div>
-              <div className="table-wrap" style={{ maxHeight: 260, overflowY: 'auto' }}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 34 }} />
-                      <th>เลขที่</th>
-                      <th>เส้นทาง</th>
-                      <th className="num">น้ำหนัก</th>
-                      <th>กำหนด</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPending.map((o) => (
-                      <tr
-                        key={o.id}
-                        style={{ cursor: 'pointer', background: selected.has(o.id) ? 'var(--accent-050)' : undefined }}
-                        onClick={() => toggle(selected, setSelected, o.id)}
-                      >
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selected.has(o.id)}
-                            onChange={() => toggle(selected, setSelected, o.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ width: 15, height: 15, accentColor: 'var(--accent)' }}
-                            aria-label={`เลือก ${o.order_no}`}
-                          />
-                        </td>
-                        <td>
-                          <div className="cell-no">
-                            <span className="text-strong">{o.tms_pl_no ?? o.order_no}</span>
-                            {o.priority === 'urgent' && <Badge label={PRIORITY_LABEL.urgent} tone="urgent" dot />}
-                          </div>
-                          <div className="text-xs text-muted">
-                            {o.tms_pl_no ? `ออเดอร์ ${o.order_no} · ${o.tms_kind === 'box' ? 'กล่อง' : 'รถ'}` : o.goods_desc}
-                            {o.tms_units != null && ` · ${o.tms_units} หน่วย`}
-                          </div>
-                        </td>
-                        <td>{o.origin} → {o.destination}</td>
-                        <td className="num">{fmtWeight(o.weight_kg)}</td>
-                        <td className="text-sm cell-date">{fmtDate(o.scheduled_at)}</td>
-                      </tr>
-                    ))}
-                    {filteredPending.length === 0 && (
-                      <tr>
-                        <td colSpan={5}>
-                          <EmptyState
-                            icon={<IconBox size={30} />}
-                            title={q ? 'ไม่พบออเดอร์ที่ค้นหา' : 'ไม่มีออเดอร์รอจัดคิว'}
-                            desc={q ? '' : 'นำเข้าออเดอร์จาก TMS หรือสร้างเองที่หน้าออเดอร์'}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div>
-              <div className="form-grid" style={{ gridTemplateColumns: '1fr' }}>
-                <Field label="รถ (เฉพาะคันที่ว่าง)" required>
-                  <Select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
-                    <option value="">— เลือกรถ —</option>
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.plate_no} · {VEHICLE_TYPE_LABEL[v.vehicle_type]} ({fmtWeight(v.capacity_kg)})
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="พนักงานขับ (เฉพาะคนที่ว่าง)" required>
-                  <Select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
-                    <option value="">— เลือกพนักงานขับ —</option>
-                    {drivers.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="หมายเหตุเที่ยว">
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="เช่น ลำดับส่งสินค้า / จุดพักรถ"
-                    style={{ minHeight: 52 }}
-                  />
-                </Field>
-              </div>
-
-              <div style={{ margin: '14px 0', padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 10, border: '1px solid var(--line)' }}>
-                <div className="text-sm text-strong">ออเดอร์ที่เลือก: {fmtNum(selected.size)} ใบ</div>
-                {selectedOrders.slice(0, 4).map((o) => (
-                  <div key={o.id} className="text-xs text-muted" style={{ marginTop: 4 }}>
-                    {o.order_no} · {o.origin}→{o.destination} · {fmtWeight(o.weight_kg)}
-                  </div>
-                ))}
-                {selectedOrders.length > 4 && (
-                  <div className="text-xs text-muted" style={{ marginTop: 4 }}>และอีก {selectedOrders.length - 4} ใบ...</div>
-                )}
-                <div className="capacity-bar">
-                  <div className={`fill ${capacityClass}`} style={{ width: `${Math.min(100, capacityPct)}%` }} />
-                </div>
-                <div className="text-xs text-muted" style={{ marginTop: 5 }}>
-                  น้ำหนักรวม {fmtWeight(selectedWeight)}
-                  {selectedVehicle && <span> / ความจุ {fmtWeight(selectedVehicle.capacity_kg)}</span>}
-                  {capacityPct > 100 && <b className="text-danger"> · เกินความจุ!</b>}
-                </div>
-              </div>
-
-              <Button variant="accent" size="lg" style={{ width: '100%' }} icon={<IconPlus size={16} />} loading={creating} onClick={() => void submitCreate()}>
-                สร้างเที่ยวขนส่ง
-              </Button>
-            </div>
-          </div>
+      <PageHeader
+        title="แผนงานขนส่ง"
+        subtitle="งานจาก TMS เข้ามาเองพร้อมรถและคนขับ — หน้านี้ดูว่าถึงมือคนขับแล้วหรือยัง"
+        actions={canEdit && (
+          <Button variant="outline" icon={<IconPlus size={16} />} onClick={() => setCreateOpen(true)}>
+            สร้างเที่ยวเอง
+          </Button>
         )}
-      </div>
+      />
+
+      {/* คนขับที่ไม่มีบัญชีผู้ใช้ = จ่ายงานสำเร็จแต่ไม่มีใครเห็น ระบบเคยเงียบสนิทเรื่องนี้
+          จึงพังโดยไม่มีใครรู้ว่าพัง — ต้องขึ้นบนสุด ไม่ใช่ซ่อนในหน้าพนักงานขับ */}
+      {noAccount.length > 0 && (
+        <div className="tms-stale" role="status" style={{ marginBottom: 16 }}>
+          <b>{noAccount.length} เที่ยว</b> จ่ายให้คนขับที่ยังไม่มีบัญชีผู้ใช้ —
+          เขาเปิดแอปดูงานไม่ได้ ต้องผูกบัญชีที่หน้าพนักงานขับก่อน
+          <div className="text-xs" style={{ marginTop: 4 }}>
+            {[...new Set(noAccount.map((t) => t.driver_name))].join(', ')}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <TableSkeleton rows={4} cols={4} />
@@ -292,19 +190,26 @@ export default function CloudDispatch(): React.JSX.Element {
           <div>
             <h2 style={{ fontSize: 17, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               <IconRoute size={18} style={{ color: 'var(--info)' }} />
-              วางแผนแล้ว
-              <Badge label={fmtNum(planned.length)} tone="planned" />
+              รอคนขับรับงาน
+              <Badge label={fmtNum(waiting.length)} tone="planned" />
             </h2>
-            {planned.length === 0 && <div className="card"><EmptyState title="ยังไม่มีเที่ยวที่วางแผน" desc="สร้างเที่ยวจากออเดอร์ด้านบน" /></div>}
-            {planned.map((t) => (
+            {waiting.length === 0 && (
+              <div className="card">
+                <EmptyState title="ทุกเที่ยวถึงมือคนขับแล้ว" desc="งานใหม่จาก TMS จะมารออยู่ตรงนี้" />
+              </div>
+            )}
+            {waiting.map((t) => (
               <TripCard
                 key={t.id}
                 trip={t}
                 busy={busyId === t.id}
                 canEdit={canEdit}
-                onStart={() => void act(t.id, () => startTrip(t.id), `เริ่มเที่ยว ${t.trip_no} — สถานะออเดอร์เป็นกำลังขนส่ง`)}
+                /* คนวางแผนกดรับแทนได้เมื่อโทรคุยกันแล้ว — คนขับที่ไม่มีบัญชี
+                   หรือไม่ได้เปิดแอป ไม่ควรทำให้งานทั้งเที่ยวค้างอยู่ตรงนี้ */
+                onAccept={() => void act(t.id, () => acceptTrip(t.id), `รับงานแทนคนขับใน ${t.trip_no} แล้ว`)}
                 onAddOrders={() => { setAddTo(t); setAddSelected(new Set()) }}
                 onCancel={() => setCancelling(t)}
+                onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
                 onRemoveOrder={(orderId) => void act(t.id, () => removeOrderFromTrip(t.id, orderId), 'ถอนออเดอร์ออกจากเที่ยวแล้ว')}
               />
             ))}
@@ -313,23 +218,138 @@ export default function CloudDispatch(): React.JSX.Element {
           <div>
             <h2 style={{ fontSize: 17, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
               <IconTruck size={18} style={{ color: 'var(--warning)' }} />
-              กำลังขนส่ง
-              <Badge label={fmtNum(inProgress.length)} tone="in_progress" dot />
+              คนขับรับแล้ว
+              <Badge label={fmtNum(running.length)} tone="in_progress" dot />
             </h2>
-            {inProgress.length === 0 && <div className="card"><EmptyState title="ไม่มีเที่ยวกำลังขนส่ง" desc="เที่ยวที่เริ่มแล้วจะแสดงที่นี่" /></div>}
-            {inProgress.map((t) => (
+            {running.length === 0 && (
+              <div className="card">
+                <EmptyState title="ยังไม่มีใครรับงาน" desc="เที่ยวที่คนขับกดรับจะย้ายมาที่นี่" />
+              </div>
+            )}
+            {running.map((t) => (
               <TripCard
                 key={t.id}
                 trip={t}
                 busy={busyId === t.id}
                 canEdit={canEdit}
-                onComplete={() => void act(t.id, () => completeTrip(t.id), `เที่ยว ${t.trip_no} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)}
+                onStart={t.status === 'planned'
+                  ? () => void act(t.id, () => startTrip(t.id), `เริ่มเที่ยว ${t.trip_no} — สถานะออเดอร์เป็นกำลังขนส่ง`)
+                  : undefined}
+                onComplete={t.status === 'in_progress'
+                  ? () => void act(t.id, () => completeTrip(t.id), `เที่ยว ${t.trip_no} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)
+                  : undefined}
                 onCancel={() => setCancelling(t)}
+                onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
               />
             ))}
           </div>
+
+          {done.length > 0 && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <h2 style={{ fontSize: 17, margin: '10px 0 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <IconCheck size={18} style={{ color: 'var(--success)' }} />
+                จบวันนี้
+                <Badge label={fmtNum(done.length)} tone="success" />
+              </h2>
+              {/* จบแล้วไม่ต้องการปุ่มอะไร มีไว้ให้เห็นว่าวันนี้ทำอะไรไปบ้าง
+                  ประวัติเต็มอยู่ที่หน้าออเดอร์ กระดานนี้เป็นของวันนี้ */}
+              {done.map((t) => (
+                <TripCard key={t.id} trip={t} busy={false} canEdit={false} />
+              ))}
+            </div>
+          )}
         </div>
       )}
+
+      {/* งานนอก TMS — ไม่ใช่ทางหลักอีกต่อไป จึงอยู่ในหน้าต่าง ไม่ใช่กินครึ่งจอ
+          เที่ยวที่สร้างจากตรงนี้ถือว่าคนวางแผนคุยกับคนขับแล้ว จึงข้ามประตูรับงาน
+          (create_trip ไม่ได้ตั้ง accepted_at ให้ ต้องกด "รับงานแทน" บนการ์ดอีกที
+          ซึ่งตั้งใจ — คนวางแผนควรยืนยันว่าคุยแล้วจริง ไม่ใช่ระบบเดาให้) */}
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="สร้างเที่ยวเอง"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>ยกเลิก</Button>
+            <Button variant="accent" loading={creating} onClick={() => void submitCreate()}>
+              สร้างเที่ยวขนส่ง
+            </Button>
+          </>
+        }
+      >
+        <Field label="รถ (เฉพาะคันที่ว่าง)" required>
+          <Select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
+            <option value="">— เลือกรถ —</option>
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.plate_no} · {VEHICLE_TYPE_LABEL[v.vehicle_type]} ({fmtWeight(v.capacity_kg)})
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="พนักงานขับ (เฉพาะคนที่ว่าง)" required>
+          <Select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
+            <option value="">— เลือกพนักงานขับ —</option>
+            {drivers.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="หมายเหตุเที่ยว">
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="เช่น ลำดับส่งสินค้า / จุดพักรถ"
+            style={{ minHeight: 52 }}
+          />
+        </Field>
+
+        <Field label={`ออเดอร์รอจัดคิว — เลือกแล้ว ${fmtNum(selected.size)} ใบ`} required>
+          <SearchInput value={q} onChange={setQ} placeholder="ค้นหาเลขที่ / ปลายทาง..." />
+        </Field>
+        <div style={{ display: 'grid', gap: 6, maxHeight: 260, overflowY: 'auto', marginTop: 8 }}>
+          {filteredPending.map((o) => (
+            <label
+              key={o.id}
+              style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer', background: selected.has(o.id) ? 'var(--accent-050)' : 'var(--surface)' }}
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(o.id)}
+                onChange={() => toggle(selected, setSelected, o.id)}
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              <div style={{ flex: 1 }}>
+                <div className="text-sm text-strong">{o.tms_pl_no ?? o.order_no}</div>
+                <div className="text-xs text-muted">
+                  {o.origin} → {o.destination} · {fmtWeight(o.weight_kg)} · {fmtDate(o.scheduled_at)}
+                </div>
+              </div>
+              {o.priority === 'urgent' && <Badge label={PRIORITY_LABEL.urgent} tone="urgent" dot />}
+            </label>
+          ))}
+          {filteredPending.length === 0 && (
+            <EmptyState
+              icon={<IconBox size={30} />}
+              title={q ? 'ไม่พบออเดอร์ที่ค้นหา' : 'ไม่มีออเดอร์รอจัดคิว'}
+              desc={q ? '' : 'งานจาก TMS เข้ามาพร้อมเที่ยวอยู่แล้ว ช่องนี้จะมีของก็ต่อเมื่อสร้างออเดอร์เองที่หน้าออเดอร์'}
+            />
+          )}
+        </div>
+
+        {selectedVehicle && (
+          <>
+            <div className="capacity-bar" style={{ marginTop: 12 }}>
+              <div className={`fill ${capacityClass}`} style={{ width: `${Math.min(100, capacityPct)}%` }} />
+            </div>
+            <div className="text-xs text-muted" style={{ marginTop: 5 }}>
+              น้ำหนักรวม {fmtWeight(selectedWeight)} / ความจุ {fmtWeight(selectedVehicle.capacity_kg)}
+              {capacityPct > 100 && <b className="text-danger"> · เกินความจุ!</b>}
+            </div>
+          </>
+        )}
+      </Modal>
 
       <Modal
         open={addTo !== null}
@@ -386,14 +406,18 @@ export default function CloudDispatch(): React.JSX.Element {
 }
 
 function TripCard({
-  trip, busy, canEdit, onStart, onComplete, onCancel, onAddOrders, onRemoveOrder,
+  trip, busy, canEdit, onStart, onComplete, onCancel, onAccept, onClearIssue,
+  onAddOrders, onRemoveOrder,
 }: {
   trip: BoardTrip
   busy: boolean
   canEdit: boolean
   onStart?: () => void
   onComplete?: () => void
-  onCancel: () => void
+  /* การ์ดในช่อง "จบวันนี้" เป็นของอ่านอย่างเดียว ทุกปุ่มจึงไม่บังคับ */
+  onCancel?: () => void
+  onAccept?: () => void
+  onClearIssue?: () => void
   onAddOrders?: () => void
   onRemoveOrder?: (orderId: number) => void
 }): React.JSX.Element {
@@ -407,6 +431,13 @@ function TripCard({
         <span className="trip-no">{trip.trip_no}</span>
         <Badge label={TRIP_STATUS_LABEL[trip.status]} tone={TRIP_TONE[trip.status]} dot={trip.status === 'in_progress'} />
         <div className="spacer" style={{ flex: 1 }} />
+        {canEdit && onAccept && (
+          /* คนวางแผนกดรับแทนได้ ไม่ใช่ทางลัดปกติ — มีไว้สำหรับคนขับที่ยังไม่มีบัญชี
+             หรือโทรยืนยันกันทางโทรศัพท์แล้ว ไม่งั้นงานจะค้างในช่องรอตลอด */
+          <Button variant="accent" size="sm" onClick={onAccept} loading={busy}>
+            <IconCheck size={14} /> รับงานแทน
+          </Button>
+        )}
         {canEdit && trip.status === 'planned' && onStart && (
           <Button variant="outline" size="sm" onClick={onStart} loading={busy}>
             <IconCheck size={14} /> เริ่มเที่ยว
@@ -417,7 +448,7 @@ function TripCard({
             <IconCheck size={14} /> เสร็จสิ้น
           </Button>
         )}
-        {canEdit && (
+        {canEdit && onCancel && (
           <Button variant="ghost" size="sm" className="text-danger" onClick={onCancel} disabled={busy}>
             ยกเลิกเที่ยว
           </Button>
@@ -436,8 +467,28 @@ function TripCard({
         {trip.freight_cost !== null && (
           <span>ค่าขนส่ง <b>{fmtMoney(trip.freight_cost)}</b></span>
         )}
+        {trip.accepted_at && <span>คนขับรับงาน <b>{fmtDateTime(trip.accepted_at)}</b></span>}
         {trip.status === 'in_progress' && trip.departed_at && <span>ออกเดินทาง <b>{fmtDateTime(trip.departed_at)}</b></span>}
       </div>
+
+      {/* ปัญหาที่คนขับแจ้งต้องเด่นกว่าทุกอย่างในการ์ด — เป็นเรื่องเดียวที่ต้องทำอะไรต่อ */}
+      {trip.issue_note && (
+        <div className="tms-stale" role="status" style={{ margin: '8px 0' }}>
+          <b>คนขับแจ้งปัญหา:</b> {trip.issue_note}
+          <span className="text-xs text-muted"> · {fmtDateTime(trip.issue_at)}</span>
+          {canEdit && onClearIssue && (
+            <Button variant="ghost" size="sm" onClick={onClearIssue} disabled={busy}>
+              เคลียร์
+            </Button>
+          )}
+        </div>
+      )}
+
+      {!trip.driver_has_account && trip.status !== 'completed' && (
+        <div className="text-xs text-danger" style={{ marginTop: 4 }}>
+          คนขับยังไม่มีบัญชีผู้ใช้ — เปิดแอปดูงานนี้ไม่ได้
+        </div>
+      )}
 
       <div className="capacity-bar">
         <div className={`fill ${capClass}`} style={{ width: `${Math.min(100, pct)}%` }} />

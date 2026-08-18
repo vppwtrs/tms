@@ -37,6 +37,8 @@ const JOB: MyJob = {
   notes: null,
   vehicle_plate: '9กก-0123',
   vehicle_type: 'truck6',
+  accepted_at: '2026-08-13T04:55:00.000Z',
+  issue_note: null,
   orders: [
     makeOrder({ id: 1, status: 'delivered', has_pod: 1 }),
     makeOrder({ id: 2, order_no: 'ORD-2026-0002', destination: 'ขอนแก่น' }),

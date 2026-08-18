@@ -31,6 +31,22 @@ async function rpc(fn: 'start_trip' | 'complete_trip', args: { p_trip_id: number
   if (error) throw toDataError(error)
 }
 
+/** กดรับงาน — ประตูที่ทำให้แอปคนขับมีความหมาย
+ *
+ *  ก่อนหน้านี้งานจาก TMS เดินเองตั้งแต่นำเข้าจนจบ คนขับไม่เคยต้องแตะอะไร
+ *  ตอนนี้เที่ยวจะไม่ขยับไป "กำลังวิ่ง" จนกว่าจะผ่านตรงนี้ ถึงแม้ TMS จะบอกว่าออกวิ่งแล้ว */
+export async function acceptTrip(tripId: number): Promise<void> {
+  const { error } = await supabase.rpc('accept_trip', { p_trip_id: tripId })
+  if (error) throw toDataError(error)
+}
+
+/** แจ้งปัญหา — ไม่ใช่การปฏิเสธงาน งานยังเป็นของคนขับจนกว่าคนวางแผนจะจัดการ
+ *  (TMS จ่ายคนมาแล้ว และ tms-gateway เขียนกลับ TMS ไม่ได้ตามข้อตกลง) */
+export async function reportIssue(tripId: number, note: string): Promise<void> {
+  const { error } = await supabase.rpc('report_trip_issue', { p_trip_id: tripId, p_note: note })
+  if (error) throw toDataError(error)
+}
+
 export const startTrip = (tripId: number) => rpc('start_trip', { p_trip_id: tripId })
 
 /** ปิดเที่ยว — ฝั่ง DB จะปฏิเสธถ้ายังส่งไม่ครบ ไม่ต้องเช็คซ้ำตรงนี้
@@ -103,6 +119,8 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
       arrived_at: t.arrived_at,
       notes: t.notes,
       vehicle_plate: t.plate_no,
+      accepted_at: t.accepted_at,
+      issue_note: t.issue_note,
       vehicle_type: t.vehicle_type,
       orders: list,
       total_weight: list.reduce((s, o) => s + (o.weight_kg || 0), 0),

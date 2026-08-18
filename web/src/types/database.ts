@@ -109,6 +109,10 @@ export type TripRow = {
      แยกจาก fuel/toll/other ที่เป็นต้นทุนที่เราจ่ายเองระหว่างทาง */
   freight_cost: number | null
   freight_actual_cost: number | null
+  accepted_at: string | null
+  accepted_by: number | null
+  issue_note: string | null
+  issue_at: string | null
   notes: string | null
   created_at: string
 }
@@ -231,6 +235,10 @@ export type MyTripRow = {
   notes: string | null
   plate_no: string
   vehicle_type: VehicleType
+  /* null = ยังไม่กดรับงานนี้ คือประตูที่กันไม่ให้งานเดินเองข้ามคนขับ */
+  accepted_at: string | null
+  issue_note: string | null
+  issue_at: string | null
 }
 
 export type MyOrderRow = {
@@ -470,6 +478,18 @@ export interface Database {
           waiting_for_driver: number
           failed: number
         }
+      }
+      accept_trip: {
+        Args: { p_trip_id: number }
+        Returns: { trip_id: number; already: boolean }
+      }
+      clear_trip_issue: {
+        Args: { p_trip_id: number }
+        Returns: void
+      }
+      report_trip_issue: {
+        Args: { p_trip_id: number; p_note: string }
+        Returns: void
       }
       tms_trip_detail: {
         Args: { p_tms_id: string }
