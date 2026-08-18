@@ -40,10 +40,11 @@ const iso = (offsetDays: number): string => {
 
 export default function TmsPull(): React.JSX.Element {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-  /* ดึงย้อนหลังต้องเห็นเที่ยวเก่า/Completed แบบเดียวกับเมนู Trip บริษัท
-     รอบอัตโนมัติยังใช้ช่วงสั้นใน pullRecentTrips แยกต่างหาก ไม่กระทบภาระ TMS */
-  const [from, setFrom] = useState(() => iso(-90))
-  const [to, setTo] = useState(() => iso(14))
+  /* เปิดหน้ามาตั้งไว้ที่ "วันนี้" — งานที่คนจัดรถทำอยู่คือของวันนี้เกือบทุกครั้ง
+     ค่าเดิม -90 ถึง +14 วันลากเที่ยวเก่าเป็นพันมาทุกครั้งที่กด ช้าและไปกินทรัพยากร TMS
+     ย้อนหลังยังทำได้ แค่ต้องเลือกวันเอง ซึ่งเป็นการตัดสินใจ ไม่ใช่ค่าเริ่มต้น */
+  const [from, setFrom] = useState(() => iso(0))
+  const [to, setTo] = useState(() => iso(0))
 
   const [busy, setBusy] = useState(false)
   const [log, setLog] = useState('')
