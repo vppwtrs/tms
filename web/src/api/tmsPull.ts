@@ -601,12 +601,16 @@ export async function pullTrips(
   return { trips, rows, scanned, outsourced }
 }
 
-/** รอบเฝ้าสถานะฝั่งเที่ยว — ย้อนหลัง 3 วันถึงล่วงหน้า 14 วัน เหมือนฝั่ง PL */
+/** รอบเฝ้าสถานะฝั่งเที่ยว — เอาเฉพาะงานของ "วันนี้"
+ *
+ * เดิมกวาด -3 ถึง +14 วันทุก 5 นาที ซึ่งลากเที่ยวของเมื่อวานกับของล่วงหน้าเข้ามาปน
+ * จนหน้าเที่ยวเปิดค้างอยู่ที่วันเก่า ทั้งที่คนใช้ต้องการงานวันนี้
+ * ของย้อนหลัง/ล่วงหน้ายังดึงได้จากปุ่มเลือกช่วงวันที่ในหน้าเดียวกัน */
 export async function pullRecentTrips(
   warehouse: Warehouse,
   onProgress?: (msg: string) => void,
 ): Promise<TripPullResult> {
-  return pullTrips({ from: iso(-3), to: iso(14), warehouse }, onProgress)
+  return pullTrips({ from: iso(0), to: iso(0), warehouse }, onProgress)
 }
 
 export interface TripPushResult {
