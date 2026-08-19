@@ -18,14 +18,21 @@ const SIGNED_URL_TTL = 60 * 10
 
 /** path ในถัง — แยกโฟลเดอร์ตามออเดอร์ ไม่ใช้ชื่อไฟล์ที่ผู้ใช้ตั้งเอง
  *  เพราะชื่อไฟล์จากมือถือมีอักขระแปลก ๆ และเดาชื่อกันได้ง่าย */
-export function podPhotoPath(orderId: number): string {
-  return `${orderId}/${crypto.randomUUID()}.jpg`
+export function podPhotoPath(orderId: number, ext = 'jpg'): string {
+  return `${orderId}/${crypto.randomUUID()}.${ext}`
 }
 
-export async function uploadPodPhoto(orderId: number, file: Blob): Promise<string> {
-  const path = podPhotoPath(orderId)
+/** นามสกุลกับชนิดต้องมาจากตัวบีบรูป ไม่ใช่เดาเอง — เครื่องที่เข้ารหัส WebP ได้จะได้
+ *  ไฟล์เล็กกว่ามาก ส่วนเครื่องที่ไม่ได้ตกมาเป็น JPEG เขียนตายตัวว่า jpeg ทั้งคู่แล้ว
+ *  ไฟล์ WebP จะถูกป้ายชนิดผิด ซึ่งเบราว์เซอร์บางตัวไม่ยอมแสดงตอนเปิดดูย้อนหลัง */
+export async function uploadPodPhoto(
+  orderId: number,
+  file: Blob,
+  kind: { ext: string; type: string } = { ext: 'jpg', type: 'image/jpeg' },
+): Promise<string> {
+  const path = podPhotoPath(orderId, kind.ext)
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: 'image/jpeg',
+    contentType: kind.type,
     /* ห้าม upsert — หลักฐานเดิมต้องไม่ถูกเขียนทับด้วยรูปใหม่เงียบ ๆ */
     upsert: false,
   })

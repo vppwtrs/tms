@@ -13,7 +13,7 @@
  *
  * สิ่งที่ได้ต่อหนึ่งใบ:
  *   <BACKUP_DIR>/<ปี-เดือน>/<order_id>/signature.png   ลายเซ็นผู้รับ
- *   <BACKUP_DIR>/<ปี-เดือน>/<order_id>/<kind>-N.jpg    รูปหน้างานทุกมุม
+ *   <BACKUP_DIR>/<ปี-เดือน>/<order_id>/<kind>-N.webp   รูปหน้างานทุกมุม (หรือ .jpg แล้วแต่เครื่องที่ถ่าย)
  *   <BACKUP_DIR>/<ปี-เดือน>/<order_id>/info.json       ใครรับ เมื่อไหร่ ที่ไหน ใบไหน
  *
  * info.json สำคัญพอ ๆ กับรูป — โฟลเดอร์ที่มีแต่ไฟล์ภาพชื่อสุ่มตอบข้อโต้แย้งไม่ได้
@@ -123,7 +123,10 @@ async function main() {
     const byKind = {}
     for (const ph of p.pod_photos ?? []) {
       byKind[ph.kind] = (byKind[ph.kind] ?? 0) + 1
-      const name = `${ph.kind}-${byKind[ph.kind]}.jpg`
+      /* นามสกุลตามไฟล์จริงในถัง ไม่เขียนตายตัวว่า jpg — รูปที่ถ่ายจากเครื่องที่
+         เข้ารหัส WebP ได้จะเป็น .webp ตั้งชื่อผิดแล้วเปิดในโปรแกรมดูรูปไม่ขึ้น */
+      const ext = (/\.([a-z0-9]+)$/i.exec(ph.path)?.[1] ?? 'jpg').toLowerCase()
+      const name = `${ph.kind}-${byKind[ph.kind]}.${ext}`
       const dest = join(dir, name)
       if (await exists(dest)) { skipped += 1; continue }
       try {

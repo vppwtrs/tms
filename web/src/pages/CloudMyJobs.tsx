@@ -478,7 +478,10 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
          กลับกัน ถ้าอัปรูปสำเร็จแต่บันทึกพลาด ก็แค่มีรูปกำพร้าค้างในถัง ซึ่งไม่ทำใครเดือดร้อน */
       const photos: PodPhoto[] = []
       for (const shot of shots) {
-        photos.push({ path: await uploadPodPhoto(order.id, shot.img.blob), kind: shot.kind })
+        photos.push({
+          path: await uploadPodPhoto(order.id, shot.img.blob, { ext: shot.img.ext, type: shot.img.type }),
+          kind: shot.kind,
+        })
       }
 
       /* ทีละใบตามลำดับ — รูปชุดเดียวถูกอ้างจากทุกใบ ไม่ต้องอัปซ้ำตามจำนวนใบ */
