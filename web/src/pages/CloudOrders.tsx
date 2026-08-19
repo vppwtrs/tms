@@ -104,6 +104,8 @@ interface TripGroup {
   key: string
   tripNo: string
   driver: string | null
+  warehouse: string | null
+  area: string | null
   scheduled: string
   stores: StoreGroup[]
   bills: number
@@ -160,6 +162,8 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
       key: tripKey,
       tripNo: first.tms_trip_no ?? first.trip_no ?? 'ยังไม่จัดเที่ยว',
       driver: first.driver_name,
+      warehouse: first.warehouse_code,
+      area: first.area,
       scheduled: first.scheduled_at,
       bills: all.length,
       stores: [...stores.entries()].map(([storeKey, group]) => {
@@ -406,6 +410,9 @@ export default function CloudOrders(): React.JSX.Element {
               <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
                 <span className="text-strong" style={{ fontSize: 15 }}>{trip.tripNo}</span>
                 <span className="text-xs text-muted">
+                  {/* คลังมาก่อนจำนวนร้าน — คำถามแรกเวลามีปัญหาคือ "ของออกจากคลังไหน"
+                      ไม่ใช่ "เที่ยวนี้แวะกี่ร้าน" ซึ่งดูจากการ์ดข้างล่างก็เห็นอยู่แล้ว */}
+                  {trip.warehouse && <><b>{trip.warehouse}</b>{trip.area ? ` · เขต ${trip.area}` : ''} · </>}
                   {trip.stores.length} ร้าน · {trip.bills} ใบ · {fmtDate(trip.scheduled)}
                 </span>
                 <div style={{ flex: 1 }} />

@@ -39,6 +39,10 @@ export interface OrderListRow extends OrderRow {
   customer_name: string | null
   driver_name: string | null
   trip_no: string | null
+  /* คลังต้นทางกับเขต — คนวางแผนดูสองอย่างนี้ก่อนอย่างอื่นเวลามีปัญหา
+     เพราะรถกับของอยู่คนละคลังกันคือคนละเรื่องที่แก้คนละวิธี */
+  warehouse_code: string | null
+  area: string | null
   pod_status: string | null
   /* รายการของในใบ — เดิมมีแต่ goods_desc ซึ่งเป็นชื่อสินค้าต่อกันเป็นข้อความ
      ค้นตามรหัสไม่ได้ และไม่รู้ว่าอย่างละกี่ชิ้น */
@@ -54,6 +58,9 @@ interface OrderJoined extends OrderRow {
        เที่ยวที่ไปกันสองคน คนใดคนหนึ่งกดรับงานแทนทั้งคู่ได้ ชื่อที่หายไปหนึ่งชื่อ
        ทำให้คนวางแผนโทรตามผิดคน และทำให้คนที่ไปด้วยหายไปจากหลักฐานว่าใครวิ่งงานนี้ */
     trip_drivers: { drivers: { name: string } | null }[] | { drivers: { name: string } | null } | null
+    /* เที่ยวดิบที่เที่ยวนี้ถูกนำเข้ามา — คลังกับเขตอยู่ตรงนั้นที่เดียว ตาราง trips
+       ของเราไม่ได้เก็บไว้ เคยเขียนรวมไว้ในข้อความหมายเหตุซึ่งเอาไปใช้ต่อไม่ได้ */
+    tms_trips: { warehouse_code: string | null; area: string | null }[] | { warehouse_code: string | null; area: string | null } | null
   } | null
   /* PostgREST คืนก้อนที่ฝังมาเป็น "อ็อบเจ็กต์" ไม่ใช่ "อาร์เรย์" เมื่อคอลัมน์ที่ชี้กลับมา
      มี unique constraint — pod.order_id มี เพราะ save_pod ใช้ on conflict (order_id)
@@ -85,6 +92,8 @@ const flatten = (r: OrderJoined): OrderListRow => ({
   customer_name: r.customers?.name ?? null,
   driver_name: driverNames(r),
   trip_no: r.trips?.trip_no ?? null,
+  warehouse_code: embedOne(r.trips?.tms_trips)?.warehouse_code ?? null,
+  area: embedOne(r.trips?.tms_trips)?.area ?? null,
   pod_status: embedOne(r.pod)?.status ?? null,
   items: r.order_items ?? [],
 })
@@ -108,7 +117,7 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
   const driverJoin = 'drivers!trips_driver_id_fkey(name)'
   let q = supabase
     .from('orders')
-    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}, trip_drivers(drivers(name))${driverFilterJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
+    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}, trip_drivers(drivers(name)), tms_trips(warehouse_code, area)${driverFilterJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
   if (f.driverId) q = q.eq('trips.filter_drivers.driver_id', f.driverId)
   /* ค้นด้วยเลข PL ได้ด้วย — เลขที่คลัง ร้าน และคนขับใช้อ้างถึงใบจริงคือ PL
      ส่วน ORD เป็นเลขที่ระบบเราสร้างเอง ไม่มีใครนอกระบบรู้จัก */
