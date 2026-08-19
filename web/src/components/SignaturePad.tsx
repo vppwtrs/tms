@@ -24,7 +24,17 @@ const PAD_H = 200
  * เก็บเส้นที่ลากไว้เป็นชุดจุด ไม่ได้เก็บแค่ภาพ เพราะหมุนจอหรือคีย์บอร์ดเด้งขึ้นมา
  * ทำให้ขนาด canvas เปลี่ยน ซึ่งล้างภาพเดิมทิ้ง การมีจุดอยู่ทำให้วาดคืนได้ทั้งหมด
  */
-export function SignaturePad({ onChange }: { onChange: (dataUrl: string) => void }): React.JSX.Element {
+export function SignaturePad({
+  onChange,
+  height = PAD_H,
+  /* ซ่อนบรรทัดบอกวิธีใช้ — บนมือถือของคนขับ พื้นที่แนวตั้งมีค่ากว่าคำอธิบาย
+     ที่กรอบเส้นประกับปุ่ม "ล้าง" บอกอยู่แล้วว่าตรงนี้ให้วาด */
+  compact = false,
+}: {
+  onChange: (dataUrl: string) => void
+  height?: number
+  compact?: boolean
+}): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const strokes = useRef<Pt[][]>([])
   const current = useRef<Pt[] | null>(null)
@@ -176,15 +186,15 @@ export function SignaturePad({ onChange }: { onChange: (dataUrl: string) => void
           ref={canvasRef}
           /* touchAction อยู่ที่ canvas ไม่ใช่กล่องนอก — เบราว์เซอร์ดูค่าของตัวที่รับสัมผัสจริง
              ตั้งผิดที่แล้วการลากเซ็นจะกลายเป็นการเลื่อนหน้าจอ */
-          style={{ width: '100%', height: PAD_H, display: 'block', cursor: 'crosshair', touchAction: 'none' }}
+          style={{ width: '100%', height, display: 'block', cursor: 'crosshair', touchAction: 'none' }}
           onPointerDown={start}
           onPointerMove={move}
           onPointerUp={end}
           onPointerCancel={end}
         />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-        <span className="text-xs text-muted">ใช้เมาส์วาด หรือลากนิ้วบนหน้าจอสัมผัส</span>
+      <div style={{ display: 'flex', justifyContent: compact ? 'flex-end' : 'space-between', alignItems: 'center', marginTop: compact ? 4 : 8 }}>
+        {!compact && <span className="text-xs text-muted">ใช้เมาส์วาด หรือลากนิ้วบนหน้าจอสัมผัส</span>}
         <Button variant="ghost" size="sm" onClick={clear} disabled={!hasInk}>
           ล้าง
         </Button>

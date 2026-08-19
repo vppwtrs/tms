@@ -15,7 +15,7 @@ import { jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtDateTime, fmtLongToday } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
+import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
 import { PodViewModal } from '../components/PodViewModal'
 import { CameraCapture } from '../components/CameraCapture'
@@ -442,6 +442,9 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
   const [name, setName] = useState(order.customer_name ?? '')
   const [sig, setSig] = useState('')
   const [note, setNote] = useState('')
+  /* หมายเหตุพับไว้ก่อน — ส่วนใหญ่ไม่มีอะไรจะเขียน กล่องที่ว่างตลอดเวลา
+     คือความยาวที่ทุกคนต้องเลื่อนผ่านโดยไม่ได้ใช้ */
+  const [noteOpen, setNoteOpen] = useState(false)
   /* หลายมุมต่อหนึ่งใบ — ข้อโต้แย้งเรื่องการส่งของถามหลายอย่างพร้อมกัน
      ของที่ส่ง สภาพหน้าร้าน และใบเซ็นรับ รูปเดียวตอบได้ข้อเดียว */
   const [shots, setShots] = useState<{ img: CompressedImage; kind: string }[]>([])
@@ -502,70 +505,108 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
     <Modal
       open
       onClose={onClose}
+      size="sheet"
       title={`หลักฐานการส่งมอบ — ${order.customer_name ?? order.destination}`}
       footer={
-        <>
+        <div className="pod-actions">
           <Button variant="ghost" onClick={onClose}>
             ยกเลิก
           </Button>
+          {/* ปุ่มเดียวที่หน้านี้มีอยู่เพื่อมัน — กินความกว้างที่เหลือทั้งหมด
+              และบอกจำนวนใบที่จะถูกบันทึกไปพร้อมกัน ไม่ให้เซอร์ไพรส์ทีหลัง */}
           <Button onClick={() => void submit()} loading={saving} disabled={!name.trim() || !sig}>
-            บันทึกหลักฐาน
+            {orders.length > 1 ? `บันทึก ${orders.length} ใบ` : 'บันทึกหลักฐาน'}
           </Button>
-        </>
+        </div>
       }
     >
-      {orders.length > 1 && (
-        <p className="job-sub" style={{ marginBottom: 10 }}>
-          ลายเซ็นนี้ใช้กับใบทั้งหมด {orders.length} ใบของร้านนี้
-        </p>
-      )}
-      <Field label="ชื่อผู้รับสินค้า" required>
-        <Input value={name} onChange={(e) => setName(e.target.value)} />
-      </Field>
-      <Field label="ลายเซ็นผู้รับ" required hint="ให้ผู้รับเซ็นบนหน้าจอด้วยนิ้ว">
-        <div>
-          <SignaturePad onChange={setSig} />
+      <div className="pod-meta">
+        {orders.length > 1 && <span>ลายเซ็นเดียวใช้กับ {orders.length} ใบของร้านนี้</span>}
+        {/* พิกัดเคยอยู่ท้ายสุดของฟอร์ม ซึ่งคือที่ที่ไม่มีใครเลื่อนไปอ่าน
+            ทั้งที่เป็นของที่แนบให้อยู่แล้วโดยไม่ต้องทำอะไร */}
+        <span>{coords ? `แนบพิกัดแล้ว · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'ไม่ได้พิกัด — บันทึกได้ตามปกติ'}</span>
+      </div>
+
+      <div className="pod-section">
+        <Field label="ชื่อผู้รับสินค้า" required>
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+      </div>
+
+      <div className="pod-section">
+        <div className="pod-row-head">
+          <h4>ลายเซ็นผู้รับ <span className="req">*</span></h4>
         </div>
-      </Field>
-      <Field label="รูปหน้างาน" hint="ถ่ายได้หลายมุม — เลือกว่ากำลังถ่ายอะไรก่อนกดถ่าย รูปส่งขึ้นระบบทันที ไม่เก็บลงเครื่อง">
-        <div>
-          {shots.length > 0 && (
-            <div className="cam-shots">
-              {shots.map((shot, i) => (
-                <div className="cam-shot" key={shot.img.url}>
-                  <img src={shot.img.url} alt={`รูป${podKindLabel(shot.kind)}ที่ถ่ายไว้`} />
-                  <button
-                    type="button"
-                    aria-label={`ลบรูป${podKindLabel(shot.kind)}`}
-                    onClick={() => {
-                      URL.revokeObjectURL(shot.img.url)
-                      setShots(shots.filter((_, x) => x !== i))
-                    }}
-                  >
-                    ✕
-                  </button>
-                  <span className="cam-shot-kind">{podKindLabel(shot.kind)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <Select value={kind} onChange={(e) => setKind(e.target.value)} disabled={saving}>
-            {POD_PHOTO_KINDS.map((k) => (
-              <option key={k.kind} value={k.kind}>{k.label}</option>
+        {/* เตี้ยลงจาก 200 เหลือ 150 — ลายเซ็นบนมือถือกว้างเต็มจอแต่ไม่ได้สูงตาม
+            ความสูงที่เกินมาคือช่องว่างขาวที่ดันของอื่นตกจอไปเฉย ๆ */}
+        <SignaturePad onChange={setSig} height={150} compact />
+      </div>
+
+      <div className="pod-section">
+        <div className="pod-row-head">
+          <h4>รูปหน้างาน</h4>
+          <span className="text-xs text-muted">{shots.length > 0 ? `ถ่ายแล้ว ${shots.length} รูป` : 'ไม่บังคับ'}</span>
+        </div>
+
+        {/* เลือกมุมก่อนกดถ่าย — เป็นชิปเพราะคนขับต้องเห็นพร้อมกันว่าเหลือมุมไหน
+            ยังไม่ได้ถ่าย dropdown ตอบคำถามนั้นไม่ได้จนกว่าจะกางออกมา */}
+        <div className="pod-kinds" role="group" aria-label="มุมของรูปที่กำลังจะถ่าย">
+          {POD_PHOTO_KINDS.map((k) => {
+            const n = shots.filter((sh) => sh.kind === k.kind).length
+            return (
+              <button
+                key={k.kind}
+                type="button"
+                className="pod-kind"
+                aria-pressed={kind === k.kind}
+                onClick={() => setKind(k.kind)}
+                disabled={saving}
+              >
+                {k.label}
+                {n > 0 && <b aria-label={`ถ่ายแล้ว ${n} รูป`}>{n}</b>}
+              </button>
+            )
+          })}
+        </div>
+
+        {shots.length > 0 && (
+          <div className="pod-shots">
+            {shots.map((shot, i) => (
+              <div className="pod-shot" key={shot.img.url}>
+                <img src={shot.img.url} alt={`รูป${podKindLabel(shot.kind)}ที่ถ่ายไว้`} />
+                <button
+                  type="button"
+                  aria-label={`ลบรูป${podKindLabel(shot.kind)}`}
+                  onClick={() => {
+                    URL.revokeObjectURL(shot.img.url)
+                    setShots(shots.filter((_, x) => x !== i))
+                  }}
+                >
+                  ✕
+                </button>
+                <span className="pod-shot-kind">{podKindLabel(shot.kind)}</span>
+              </div>
             ))}
-          </Select>
-          <CameraCapture
-            onCapture={(img) => setShots([...shots, { img, kind }])}
-            disabled={saving}
-          />
-        </div>
-      </Field>
-      <Field label="หมายเหตุ">
-        <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ของครบ สภาพเรียบร้อย" />
-      </Field>
-      <p className="text-xs text-muted">
-        {coords ? `แนบพิกัด ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'ไม่ได้ตำแหน่ง GPS — บันทึกได้ตามปกติ'}
-      </p>
+          </div>
+        )}
+
+        <CameraCapture
+          onCapture={(img) => setShots([...shots, { img, kind }])}
+          disabled={saving}
+        />
+      </div>
+
+      <div className="pod-section">
+        {noteOpen || note ? (
+          <Field label="หมายเหตุ">
+            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ของครบ สภาพเรียบร้อย" />
+          </Field>
+        ) : (
+          <button type="button" className="pod-note-toggle" onClick={() => setNoteOpen(true)}>
+            + เพิ่มหมายเหตุ
+          </button>
+        )}
+      </div>
     </Modal>
   )
 }

@@ -2911,3 +2911,178 @@
   .track-wrap { grid-template-columns: minmax(0, 1fr); }
   .track-map { height: 360px; }
 }
+
+/* ===== โมดัลแบบแผ่น (Modal size="sheet") =====
+   หัวกับท้ายตรึง เนื้อในเลื่อนเอง — บนมือถือกินเต็มจอ
+   โมดัลปกติปล่อยให้ทั้งแผ่นยาวลงไปแล้วให้ overlay เลื่อน ซึ่งบนมือถือแปลว่า
+   ปุ่มบันทึกไปอยู่ใต้ทุกอย่าง คนที่ยืนอยู่หน้าร้านต้องเลื่อนหาปุ่มทุกครั้ง */
+.modal-panel.modal-sheet {
+  max-width: 520px;
+  max-height: calc(100dvh - 60px);
+  display: flex;
+  flex-direction: column;
+}
+.modal-sheet .modal-header,
+.modal-sheet .modal-footer { flex: none; }
+.modal-sheet .modal-body {
+  /* กินที่ที่เหลือทั้งหมด ไม่งั้นเนื้อในสั้น ๆ จะทิ้งช่องว่างไว้ใต้ท้ายแผ่น
+     แล้วปุ่มบันทึกไปลอยอยู่กลางจอแทนที่จะติดขอบล่าง */
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ปุ่มในแผ่นนี้สูงกว่าปุ่มในโมดัลปกติ — คนกดคือคนที่ยืนถือของอยู่หน้าร้าน
+   ใช้นิ้วโป้งข้างเดียว ไม่ได้เล็งด้วยเมาส์ */
+.modal-sheet .modal-footer .btn { min-height: 46px; }
+
+@media (max-width: 640px) {
+  .modal-overlay:has(.modal-sheet) { padding: 0; align-items: stretch; }
+  .modal-panel.modal-sheet {
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .modal-sheet .modal-header { padding: 12px 16px; }
+  .modal-sheet .modal-body { padding: 14px 16px; }
+  .modal-sheet .modal-footer {
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+}
+
+/* ===== ฟอร์มเก็บหลักฐานของคนขับ (PodSheet) =====
+   ทุกอย่างในนี้แก้ปัญหาเดียว: ฟอร์มเดิมยาวเกินสองจอบนมือถือ คนขับต้องเลื่อน
+   ขึ้นลงหาของ ทั้งที่ยืนถือของอยู่หน้าร้านและมีมือว่างข้างเดียว */
+
+/* แถบบอกบริบทใต้หัวเรื่อง — จำนวนใบกับพิกัดเคยกินฟิลด์เต็มบรรทัดคนละที่
+   ทั้งที่เป็นข้อมูลที่แค่ "รู้ไว้" ไม่ใช่ของที่ต้องกรอก */
+.pod-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+.pod-meta span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+/* หัวข้อย่อยแบบบรรทัดเดียว แทน Field ที่กินความสูงกว่าเท่าตัวด้วย label + hint */
+.pod-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 6px;
+}
+.pod-row-head h4 { font-size: var(--font-sm); font-weight: 650; }
+.pod-section + .pod-section { margin-top: var(--space-4); }
+
+/* มุมของรูปเป็นชิปเรียงแนวนอน ไม่ใช่ dropdown — เห็นตัวเลือกทั้งหมดพร้อมกัน
+   และรู้ได้ทันทีว่ามุมไหนถ่ายไปแล้ว โดยไม่ต้องกางเมนูออกมาดู */
+.pod-kinds {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.pod-kinds::-webkit-scrollbar { display: none; }
+.pod-kind {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pod-kind[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+/* จำนวนรูปที่ถ่ายไว้แล้วของมุมนั้น — ตอบคำถาม "ถ่ายครบยัง" โดยไม่ต้องนับรูปเอง */
+.pod-kind b {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10.5px;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* รูปเรียงแนวนอนเลื่อนได้ ไม่ตัดบรรทัด — สามรูปขึ้นไปเคยดันฟอร์มยาวขึ้นอีกแถว */
+.pod-shots {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
+}
+.pod-shots::-webkit-scrollbar { display: none; }
+.pod-shot { position: relative; flex: none; }
+.pod-shot img {
+  width: 68px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  display: block;
+}
+.pod-shot button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--danger);
+  cursor: pointer;
+  line-height: 1;
+  font-size: 13px;
+}
+.pod-shot-kind {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+  font-size: 10px;
+}
+
+/* หมายเหตุพับเก็บไว้ — ส่วนใหญ่ไม่มีอะไรจะเขียน กล่องข้อความสองแถวที่ว่าง
+   ตลอดเวลาคือความยาวที่ทุกคนต้องเลื่อนผ่านเพื่ออะไรก็ไม่รู้ */
+.pod-note-toggle {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+/* ปุ่มบันทึกกินความกว้างที่เหลือ — เป้าหมายเดียวของหน้านี้ ควรพลาดยาก */
+.pod-actions { display: flex; gap: 10px; width: 100%; }
+.pod-actions > :last-child { flex: 1; }

@@ -124,7 +124,16 @@ interface ModalProps {
   title: string
   children: ReactNode
   footer?: ReactNode
-  size?: 'md' | 'lg'
+  /* sheet = แผ่นเต็มความสูงบนมือถือ หัวกับท้ายตรึงอยู่กับที่ เนื้อในเลื่อนเอง
+     ใช้กับฟอร์มที่คนกรอกยืนอยู่หน้าร้าน ไม่ได้นั่งจ้องจอ — ปุ่มบันทึกต้องอยู่
+     ในระยะนิ้วโป้งเสมอ ไม่ใช่ต้องเลื่อนลงไปหา */
+  size?: 'md' | 'lg' | 'sheet'
+}
+
+const MODAL_SIZE_CLASS: Record<'md' | 'lg' | 'sheet', string> = {
+  md: '',
+  lg: 'modal-lg',
+  sheet: 'modal-sheet',
 }
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
@@ -146,7 +155,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
   if (!open) return <></>
   return (
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal-panel ${size === 'lg' ? 'modal-lg' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div className={`modal-panel ${MODAL_SIZE_CLASS[size]}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="modal-header">
           <h3 className="modal-title" id={titleId}>{title}</h3>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="ปิด" className="btn-icon">
