@@ -333,10 +333,14 @@ function plRowsOf(headers: PlHeader[]): PlRow[] {
     /* วัดของจริง 64 ใบแล้ว totalQty เท่ากับผลรวม qty ทุกใบ splitQty ยังไม่เคยจำเป็น
        แต่ยังบันทึกผลเทียบไว้เป็นตัวเฝ้าระวัง — วันไหน qtySource เริ่มว่างบ่อย ๆ
        แปลว่า TMS เปลี่ยนความหมายของ totalQty */
+    /* 0 ไม่ใช่ "จำนวนศูนย์" แต่คือ "ใบนี้ไม่ได้ใช้ช่องนี้" — ใบที่ไม่ได้แตกกล่อง
+       TMS ส่ง splitQty = 0 มาพร้อม qty ที่ถูกต้อง ถ้านับ 0 เป็นค่าที่ใช้ได้
+       ฝั่งฐานที่หยิบ splitQty ก่อนจะได้จำนวนเป็น 0 ทั้งใบ ซึ่งคือบั๊ก "×0" ที่เห็นบนหน้าจอ */
+    const nz = (v: number | null): number | null => (v === 0 ? null : v)
     const detQty = (d: PlDetail): number | null =>
-      n(d.qty ?? d.quantity ?? d.totalQty ?? d.unit)
+      nz(n(d.qty ?? d.quantity ?? d.totalQty ?? d.unit))
     const detSplit = (d: PlDetail): number | null =>
-      n(d.splitQty ?? d.qtySplit ?? d.splitQuantity)
+      nz(n(d.splitQty ?? d.qtySplit ?? d.splitQuantity))
 
     const sumQty = det.reduce((t, d) => t + (detQty(d) ?? 0), 0)
     const sumSplit = det.reduce((t, d) => t + (detSplit(d) ?? 0), 0)

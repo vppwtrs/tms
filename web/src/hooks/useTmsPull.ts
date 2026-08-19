@@ -5,7 +5,7 @@ import {
   POLL_MS,
   type Warehouse, type TmsBoard, type PullCoverage,
 } from '../api/tmsPull'
-import { autoImportReadyTrips } from '../api/tms'
+import { autoImportReadyTrips, refreshOrderItemQty } from '../api/tms'
 import { tmsTokenSecondsLeft } from '../api/tmsAuth'
 
 /**
@@ -204,6 +204,18 @@ export function useTmsPull(): TmsPullEngine {
           /* นำเข้าอัตโนมัติล้มไม่ควรทำให้รอบดึงข้อมูลกลายเป็นล้มเหลว
              ของจาก TMS ถูกเก็บลงฐานเรียบร้อยแล้วตั้งแต่ก่อนถึงบรรทัดนี้ */
           autoNote = ` · นำเข้าอัตโนมัติไม่สำเร็จ: ${e instanceof Error ? e.message : 'ไม่ทราบสาเหตุ'}`
+        }
+
+        /* ใบดิบเปลี่ยนแล้วออเดอร์ที่นำเข้าไปก่อนหน้านี้ต้องตามด้วย — จำนวนสินค้าเป็น
+           ค่าที่คำนวณตอนนำเข้า ไม่ได้อ่านสดจากใบดิบทุกครั้งที่เปิดหน้า
+           เรียกเฉพาะรอบที่มีของเปลี่ยนจริง ไม่ใช่ทุก 5 นาที */
+        if (t.inserted + t.updated > 0) {
+          try {
+            const fixed = await refreshOrderItemQty()
+            if (fixed > 0) goneNote += ` · ซ่อมจำนวนสินค้า ${fixed} รายการ`
+          } catch {
+            /* ซ่อมไม่ผ่านไม่ใช่ความล้มเหลวของรอบดึง ของจาก TMS เข้าฐานเรียบร้อยแล้ว */
+          }
         }
 
         changed = t.inserted + t.updated
