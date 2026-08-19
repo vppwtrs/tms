@@ -452,7 +452,10 @@ function TripCard({
 }): React.JSX.Element {
   const pct = trip.vehicle_capacity > 0 ? (trip.total_weight / trip.vehicle_capacity) * 100 : 0
   const capClass = pct > 100 ? 'over' : pct > 90 ? 'warn' : ''
-  const routes = [...new Set(trip.orders.map((o) => `${o.origin} → ${o.destination}`))].join(' · ')
+  /* จำนวนร้าน ไม่ใช่รายชื่อร้าน — ลำดับการแวะเป็นของคนขับ เขาจัดเองหน้างานอยู่แล้ว
+     รายชื่อปลายทางแบบเต็มยาวเป็นย่อหน้าจึงเป็นข้อความที่ไม่มีใครอ่านและไม่มีใครใช้ */
+  const stores = byStore(trip.orders)
+  const [openStops, setOpenStops] = useState(false)
 
   return (
     <div className="trip-card">
@@ -525,23 +528,38 @@ function TripCard({
         </div>
       )}
 
-      <div className="capacity-bar">
-        <div className={`fill ${capClass}`} style={{ width: `${Math.min(100, pct)}%` }} />
-      </div>
-      <div className="text-xs text-muted" style={{ marginTop: 5 }}>
-        ใช้อัตราความจุ {Math.round(pct)}% {pct > 100 && <b className="text-danger">· เกินความจุ!</b>}
-      </div>
+      {/* TMS ไม่ได้ส่งน้ำหนักรายใบมา เที่ยวจาก TMS จึงรวมได้ 0 เสมอ
+          แถบที่ขึ้น "ใช้อัตราความจุ 0%" ทุกใบไม่ได้บอกอะไร นอกจากทำให้คนเลิกอ่านแถบนี้
+          ตอนที่มันมีความหมายจริง (เที่ยวที่สร้างเองซึ่งกรอกน้ำหนักไว้) */}
+      {trip.total_weight > 0 && (
+        <>
+          <div className="capacity-bar">
+            <div className={`fill ${capClass}`} style={{ width: `${Math.min(100, pct)}%` }} />
+          </div>
+          <div className="text-xs text-muted" style={{ marginTop: 5 }}>
+            ใช้อัตราความจุ {Math.round(pct)}% {pct > 100 && <b className="text-danger">· เกินความจุ!</b>}
+          </div>
+        </>
+      )}
 
-      {routes && <div className="text-sm" style={{ marginTop: 8 }}>{routes}</div>}
+      {/* รายละเอียดจุดส่งหุบไว้ — คำถามของหน้านี้คือ "งานถึงมือคนขับแล้วหรือยัง"
+          ไม่ใช่ "ใบไหนไปร้านไหน" ซึ่งเป็นเรื่องของคนขับกับหน้าออเดอร์ */}
+      <button type="button" className="trip-stops-toggle" aria-expanded={openStops}
+        onClick={() => setOpenStops((v) => !v)}>
+        <span className={`store-caret${openStops ? ' is-open' : ''}`} aria-hidden="true">›</span>
+        {stores.length} ร้าน · {trip.orders.length} ใบ
+      </button>
 
+      {openStops && (
       <div className="trip-orders">
         {/* จัดกลุ่มตามปลายทาง — ร้านเดียวสั่งหลายใบเป็นเรื่องปกติ เรียงเป็นใบล้วน
             แล้วชื่อปลายทางซ้ำติดกันจนอ่านไม่ออกว่าเที่ยวนี้แวะกี่จุดจริง */}
-        {byStore(trip.orders).map((store) => (
+        {stores.map((store) => (
           <Fragment key={store.key}>
             {store.rows.length > 1 && (
               <div className="trip-order-store">
-                {(store.rows[0] as OrderRow).destination}
+                {/* ที่อยู่เต็มยาวเกินกว่าจะเป็นหัวข้อ — ตัดที่คั่นแรก เหลือชื่อร้าน */}
+                {((store.rows[0] as OrderRow).destination.split('·')[0] ?? '').trim()}
                 <span className="text-xs text-muted"> · {store.rows.length} ใบ</span>
               </div>
             )}
@@ -570,6 +588,7 @@ function TripCard({
           </Button>
         )}
       </div>
+      )}
     </div>
   )
 }

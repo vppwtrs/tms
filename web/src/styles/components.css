@@ -1514,6 +1514,27 @@
   flex-direction: column;
   gap: 6px;
 }
+/* ปุ่มกางรายละเอียดจุดส่งในการ์ดเที่ยว — แถวเดียว บอกจำนวนร้านกับจำนวนใบ
+   ของที่อยู่ข้างในเป็นรายละเอียดของงาน ไม่ใช่คำตอบของคำถามที่หน้านี้ถาม */
+.trip-stops-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+}
+.trip-stops-toggle:hover { background: var(--table-row-hover); }
+.trip-stops-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
 /* หัวจุดส่งในการ์ดเที่ยว — ขึ้นเฉพาะปลายทางที่มีมากกว่าหนึ่งใบ
    ใบใต้หัวนี้จึงไม่ต้องพิมพ์ชื่อปลายทางซ้ำอีกทุกบรรทัด */
 .trip-order-store {
