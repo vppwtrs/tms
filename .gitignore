@@ -13,6 +13,10 @@ server/data/pod/*.webp
 .env.*
 !.env.example
 
+# ตั้งค่าของสคริปต์สำรองหลักฐาน — มี service_role key ซึ่งข้าม RLS ทั้งหมด
+# ชื่อไม่ได้ขึ้นต้นด้วยจุด กฎ .env ข้างบนจึงไม่ครอบ ต้องเขียนแยก
+scripts/backup.env
+
 # ตัวเปิด/ปิด server เก็บ pid + log ไว้ที่นี่
 .run/
 
