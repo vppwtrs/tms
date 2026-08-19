@@ -292,6 +292,26 @@ export async function pullPickingLists(
   }
 }
 
+/* คีย์ของช่องจำนวนใน payload ของ TMS ที่เจอแล้วแต่ยังไม่มีในรายชื่อที่อ่านอยู่
+   เก็บไว้เพื่อ "บอกว่าไม่รู้" บนหน้าจอ แทนที่จะเงียบแล้วบันทึกเป็น 0
+   ซึ่งเป็นอาการที่เพิ่งกินเวลาไล่หาไปหนึ่งรอบ */
+export const unknownQtyKeys = new Set<string>()
+
+/** หาช่องจำนวนที่ TMS อาจเรียกด้วยชื่ออื่น — ชื่อช่องต่างกันตามชนิดใบ
+ *  อ่านได้ก็ใช้เลย อ่านไม่ได้ก็จดชื่อคีย์ทั้งหมดไว้ให้คนเห็นว่าใบนี้ส่งอะไรมาบ้าง */
+function scanQty(d: PlDetail): number | null {
+  const rec = d as unknown as Record<string, unknown>
+  for (const [k, v] of Object.entries(rec)) {
+    if (/split/i.test(k)) continue
+    if (!/(qty|quantity|pcs|piece|amount)/i.test(k)) continue
+    const num = Number(v)
+    if (Number.isFinite(num) && num > 0) return num
+  }
+  /* ไม่เจอเลย = ใบนี้จะได้จำนวน 0 ต้องมีใครสักคนรู้ว่าเกิดขึ้น */
+  for (const k of Object.keys(rec)) unknownQtyKeys.add(k)
+  return null
+}
+
 /** แปลง PL header เป็นแถวละ item — ใช้ทั้งเส้น PL และใบที่ติดมากับเที่ยว
  *  ใบที่ไม่มี item ยังได้แถวหนึ่งแถว ไม่ใช่หายไปเงียบ ๆ */
 function plRowsOf(headers: PlHeader[]): PlRow[] {
@@ -338,7 +358,7 @@ function plRowsOf(headers: PlHeader[]): PlRow[] {
        ฝั่งฐานที่หยิบ splitQty ก่อนจะได้จำนวนเป็น 0 ทั้งใบ ซึ่งคือบั๊ก "×0" ที่เห็นบนหน้าจอ */
     const nz = (v: number | null): number | null => (v === 0 ? null : v)
     const detQty = (d: PlDetail): number | null =>
-      nz(n(d.qty ?? d.quantity ?? d.totalQty ?? d.unit))
+      nz(n(d.qty ?? d.quantity ?? d.totalQty ?? d.unit)) ?? scanQty(d)
     const detSplit = (d: PlDetail): number | null =>
       nz(n(d.splitQty ?? d.qtySplit ?? d.splitQuantity))
 

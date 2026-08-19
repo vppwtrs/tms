@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   listWarehouses, pullTrips, pullRecentTrips, pushShipments, pushTrips, tmsBoard,
-  logPullRun, pullCoverage, reconcileTrips,
+  logPullRun, pullCoverage, reconcileTrips, unknownQtyKeys,
   POLL_MS,
   type Warehouse, type TmsBoard, type PullCoverage,
 } from '../api/tmsPull'
@@ -216,6 +216,12 @@ export function useTmsPull(): TmsPullEngine {
           } catch {
             /* ซ่อมไม่ผ่านไม่ใช่ความล้มเหลวของรอบดึง ของจาก TMS เข้าฐานเรียบร้อยแล้ว */
           }
+        }
+
+        /* ใบที่อ่านช่องจำนวนไม่ออกต้องดัง ไม่ใช่เงียบแล้วบันทึกเป็น 0
+           ชื่อคีย์ที่ TMS ส่งมาจริงคือสิ่งเดียวที่ต้องใช้เพื่อแก้ให้ถูก */
+        if (unknownQtyKeys.size > 0) {
+          goneNote += ` · อ่านช่องจำนวนไม่ออก คีย์ที่ TMS ส่งมา: ${[...unknownQtyKeys].join(', ')}`
         }
 
         changed = t.inserted + t.updated
