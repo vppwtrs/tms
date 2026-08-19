@@ -77,7 +77,9 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
     .from('orders')
     .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
   if (f.driverId) q = q.eq('trips.driver_id', f.driverId)
-  if (f.q) q = q.or(`order_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
+  /* ค้นด้วยเลข PL ได้ด้วย — เลขที่คลัง ร้าน และคนขับใช้อ้างถึงใบจริงคือ PL
+     ส่วน ORD เป็นเลขที่ระบบเราสร้างเอง ไม่มีใครนอกระบบรู้จัก */
+  if (f.q) q = q.or(`order_no.ilike.%${f.q}%,tms_picking_list_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
   if (f.status) q = q.eq('status', f.status)
   if (f.priority) q = q.eq('priority', f.priority)
   if (f.customerId) q = q.eq('customer_id', f.customerId)
@@ -88,7 +90,12 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
     /* ใบในเที่ยวเดียวกันมีกำหนดส่งวันเดียวกันทั้งก้อน เรียงด้วยวันอย่างเดียว
        ลำดับภายในวันจึงสลับไปมาทุกครั้งที่โหลด อ่านแล้วเหมือนข้อมูลมั่ว */
     .order('scheduled_at', { ascending: false })
-    .order('id', { ascending: false })
+    /* เรียงให้ตรงกับลำดับที่หน้าจอจัดกลุ่ม: เที่ยว แล้วร้าน แล้วเลข PL
+       ถ้าฐานคืนมาสลับ ใบของร้านเดียวกันจะคาบหน้าแล้วหัวกลุ่มจะซ้ำสองหน้า */
+    .order('trip_id', { ascending: false, nullsFirst: false })
+    .order('destination', { ascending: true })
+    .order('tms_picking_list_no', { ascending: true, nullsFirst: false })
+    .order('id', { ascending: true })
     .range(start, start + limit - 1)
   if (error) throw error
   return { rows: ((data ?? []) as unknown as OrderJoined[]).map(flatten), total: count ?? 0, page, limit }

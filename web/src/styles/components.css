@@ -409,6 +409,35 @@
 .table thead th.actions {
   text-align: right;
 }
+/* หัวเที่ยว — ชั้นบนสุดของตารางออเดอร์ เข้มกว่าหัวร้านหนึ่งระดับ
+   เพื่อให้เห็นว่าอันไหนครอบอันไหนโดยไม่ต้องมีเส้นกรอบ */
+.table tbody tr.row-trip td {
+  background: var(--surface-3, var(--surface-2));
+  padding: 10px 14px;
+  border-top: 2px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.table tbody tr.row-trip:hover td {
+  background: var(--surface-3, var(--surface-2));
+}
+/* รายการของในใบ — บรรทัดละรุ่น รหัสเป็น mono ไว้เทียบกับใบจริงตอนโหลดของ */
+.cell-items {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cell-items li {
+  display: flex;
+  gap: 8px;
+  font-size: var(--font-xs);
+  align-items: baseline;
+}
+.cell-items li > span:nth-child(2) { flex: 1; }
+.cell-item-no { font-family: var(--font-mono); }
+
 /* หัวกลุ่มร้าน — บอกว่าใบใต้แถวนี้ไปร้านเดียวกัน ไม่ใช่แถวข้อมูลของตัวเอง
    จึงไม่ตอบ hover และไม่มีปุ่มใด ๆ */
 .table tbody tr.row-group td {

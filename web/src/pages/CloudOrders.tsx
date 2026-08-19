@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow } from '../api/orders'
 import { useRealtime } from '../hooks/useRealtime'
 import { listAllCustomers } from '../api/customers'
@@ -60,31 +60,74 @@ const emptyForm: OrderForm = {
   weight_kg: '', fee: '', priority: 'normal', scheduled_at: '', notes: '',
 }
 
+/** เลขที่ใช้เรียกใบนี้กับคนนอกระบบ — PL ก่อนเสมอ
+ *
+ * ORD เป็นเลขที่ระบบเราสร้างเอง คลัง ร้านค้า และคนขับไม่รู้จัก เวลาโทรตามของ
+ * ทุกฝ่ายอ้าง PL ใบที่สร้างเองในระบบ (ไม่มี PL) จึงเป็นกรณีเดียวที่ยังต้องใช้ ORD
+ */
+function billNo(o: OrderListRow): string {
+  return o.tms_picking_list_no ?? o.order_no
+}
+
+interface StoreGroup {
+  key: string
+  store: string
+  destination: string
+  rows: OrderListRow[]
+}
+
+interface TripGroup {
+  key: string
+  tripNo: string
+  driver: string | null
+  scheduled: string
+  stores: StoreGroup[]
+  bills: number
+}
+
 /**
- * รวมใบของร้านเดียวกันในเที่ยวเดียวกันเป็นกลุ่ม — หลักเดียวกับหน้าเที่ยวจาก TMS
- * และจอคนขับ: ร้านเดียวสั่งหลายใบเป็นเรื่องปกติ ตารางที่เรียงตามใบล้วนทำให้
- * ชื่อร้านเดิมซ้ำติดกันจนอ่านไม่ออกว่ามีกี่จุดส่งจริง
+ * จัดชั้นตามที่งานจริงเป็น: เที่ยว แล้วร้าน แล้วใบ แล้วรายการของ
+ *
+ * ตารางแบนที่หนึ่งแถวคือหนึ่งใบ ทำให้เลขเที่ยวกับชื่อร้านซ้ำลงมาทุกบรรทัด
+ * จนอ่านไม่ออกว่าเที่ยวหนึ่งแวะกี่ร้าน และร้านหนึ่งต้องยกของกี่ใบ ซึ่งเป็น
+ * สองคำถามแรกที่คนวางแผนถามเสมอ
  *
  * แถวยังเป็นหนึ่งใบเหมือนเดิม เพราะปุ่มแก้ไข/ยกเลิกและ POD ผูกกับใบ ไม่ใช่ผูกกับร้าน
- * ที่เพิ่มมาคือหัวกลุ่มบอกว่าใบเหล่านี้ไปร้านเดียวกัน
  */
-function groupOrders(rows: OrderListRow[]): { key: string; label: string; sub: string; rows: OrderListRow[] }[] {
+function groupOrders(rows: OrderListRow[]): TripGroup[] {
   const norm = (v: string | null): string => (v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-  const map = new Map<string, OrderListRow[]>()
+  const trips = new Map<string, Map<string, OrderListRow[]>>()
+
   for (const o of rows) {
-    /* เที่ยวเป็นส่วนหนึ่งของคีย์ — ร้านเดียวกันคนละเที่ยวคือคนละงาน ห้ามยุบรวม */
-    const key = `${o.trip_id ?? 0}|${norm(o.customer_name) || norm(o.destination)}|${norm(o.destination)}`
-    const found = map.get(key)
+    /* ใบที่ยังไม่จัดเที่ยวไปรวมกันเป็นก้อนเดียว — เป็นกองงานที่ต้องจัด ไม่ใช่เที่ยว */
+    const tripKey = String(o.trip_id ?? 0)
+    const storeKey = `${norm(o.customer_name) || norm(o.destination)}|${norm(o.destination)}`
+    let stores = trips.get(tripKey)
+    if (!stores) { stores = new Map(); trips.set(tripKey, stores) }
+    const found = stores.get(storeKey)
     if (found) found.push(o)
-    else map.set(key, [o])
+    else stores.set(storeKey, [o])
   }
-  return [...map.entries()].map(([key, group]) => {
-    const first = group[0] as OrderListRow
+
+  return [...trips.entries()].map(([tripKey, stores]) => {
+    const all = [...stores.values()].flat()
+    const first = all[0] as OrderListRow
     return {
-      key,
-      label: first.customer_name ?? first.destination,
-      sub: [first.tms_trip_no ?? first.trip_no ?? 'ยังไม่จัดเที่ยว', first.destination].join(' · '),
-      rows: group,
+      key: tripKey,
+      tripNo: first.tms_trip_no ?? first.trip_no ?? 'ยังไม่จัดเที่ยว',
+      driver: first.driver_name,
+      scheduled: first.scheduled_at,
+      bills: all.length,
+      stores: [...stores.entries()].map(([storeKey, group]) => {
+        const head = group[0] as OrderListRow
+        return {
+          key: `${tripKey}|${storeKey}`,
+          store: head.customer_name ?? head.destination,
+          destination: head.destination,
+          /* ในร้านเรียงตามเลข PL — เลขเดียวกับที่คลังยื่นใบมาให้ */
+          rows: [...group].sort((a, b) => billNo(a).localeCompare(billNo(b), 'th')),
+        }
+      }),
     }
   })
 }
@@ -200,7 +243,7 @@ export default function CloudOrders(): React.JSX.Element {
       }
       if (editing) {
         await updateOrder(editing.id, payload)
-        push('success', `แก้ไขออเดอร์ ${editing.order_no} เรียบร้อย`)
+        push('success', `แก้ไขใบ ${billNo(editing)} เรียบร้อย`)
       } else {
         await createOrder(payload)
         push('success', 'สร้างออเดอร์เรียบร้อย')
@@ -219,7 +262,7 @@ export default function CloudOrders(): React.JSX.Element {
     setCancelLoading(true)
     try {
       await removeOrder(cancelling.id)
-      push('success', `ลบออเดอร์ ${cancelling.order_no} แล้ว — ใบจาก TMS กลับไปสั่งงานใหม่ได้`)
+      push('success', `ลบใบ ${billNo(cancelling)} แล้ว — ใบจาก TMS กลับไปสั่งงานใหม่ได้`)
       setCancelling(null)
       await load()
     } catch (e) {
@@ -273,7 +316,7 @@ export default function CloudOrders(): React.JSX.Element {
       {error ? (
         <ErrorBox message={error} onRetry={() => void load()} />
       ) : loading || !data ? (
-        <TableSkeleton rows={10} cols={8} />
+        <TableSkeleton rows={10} cols={6} />
       ) : data.rows.length === 0 ? (
         <div className="card">
           <EmptyState
@@ -288,106 +331,106 @@ export default function CloudOrders(): React.JSX.Element {
           <table className="table">
             <thead>
               <tr>
-                <th>เลขเที่ยว / เลขออเดอร์</th>
-                <th>ลูกค้า</th>
-                <th>เส้นทาง</th>
+                {/* เลขที่หัวคอลัมน์คือ PL — เลขเดียวกับใบจริงที่คลังยื่นให้คนขับ
+                    ORD ถูกถอดออกจากหน้าจอทั้งหน้า เหลือไว้เฉพาะใบที่สร้างเองซึ่งไม่มี PL */}
+                <th>เลข PL / รายการของ</th>
                 <th className="num">ค่าขนส่ง</th>
                 <th>กำหนดส่ง</th>
-                <th>คนขับ<HelpTip text="มาจากเที่ยววิ่งที่ออเดอร์ใบนี้ถูกจัดเข้าไป — ออเดอร์ที่ยังไม่ได้จัดคิวจะยังไม่มีคนขับ" /></th>
                 <th>สถานะ</th>
                 <th>POD<HelpTip text="หลักฐานการส่งมอบ — ลายเซ็นผู้รับ + รูปถ่าย ณ จุดส่ง ฉบับคลาวด์ยังดูได้แค่ว่ามีหรือไม่มี" /></th>
                 <th className="actions">การจัดการ</th>
               </tr>
             </thead>
-            {groupOrders(data.rows).map((g) => (
-              <tbody key={g.key}>
-                {/* หัวกลุ่มขึ้นเฉพาะร้านที่มีมากกว่าหนึ่งใบ — ร้านที่มีใบเดียวไม่ต้องมี
-                    หัวเรื่องของตัวเอง ไม่งั้นจำนวนแถวเพิ่มเท่าตัวโดยไม่ได้ข้อมูลเพิ่ม */}
-                {g.rows.length > 1 && (
-                  <tr className="row-group">
-                    <td colSpan={9}>
-                      <span className="text-strong">{g.label}</span>
-                      <span className="text-xs text-muted"> · {g.sub} · {g.rows.length} ใบ</span>
-                    </td>
-                  </tr>
-                )}
-                {g.rows.map((o) => (
-                <tr key={o.id} className={g.rows.length > 1 ? 'row-grouped' : undefined}>
-                  <td>
-                    <div className="cell-no">
-                      <span className="text-strong">{o.tms_trip_no ?? o.trip_no ?? 'ยังไม่จัดเที่ยว'}</span>
-                      {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
-                    </div>
-                    <div className="text-xs text-muted">
-                      ออเดอร์ {o.order_no}
-                      {/* เลข PL คือสิ่งที่คลังกับร้านค้าใช้อ้างอิงเวลาโทรตาม
-                          เก็บไว้ตั้งแต่นำเข้าแล้ว แต่ไม่เคยแสดงที่ไหนเลย */}
-                      {o.tms_picking_list_no && ` · PL ${o.tms_picking_list_no}`}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
-                      <Badge
-                        label={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
-                        tone={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'accent' : 'neutral'}
-                      />
-                      <span className="text-xs text-muted">{o.goods_desc}</span>
-                    </div>
-                    {/* รหัสสินค้าอยู่คนละบรรทัดกับชื่อ เพราะเป็นคนละหน้าที่:
-                        ชื่อไว้อ่านว่าเป็นของอะไร รหัสไว้เทียบกับใบจริงตอนโหลดของ */}
-                    {o.items.length > 0 && (
-                      <div className="text-xs text-muted" style={{ marginTop: 2 }}>
-                        {o.items
-                          .map((it) => `${it.item_no}${it.qty > 1 ? ` ×${it.qty}` : ''}`)
-                          .join(', ')}
-                      </div>
-                    )}
-                  </td>
-                  <td>{o.customer_name ?? <span className="text-muted">—</span>}</td>
-                  <td>
-                    {o.origin} <span className="text-muted">→</span> {o.destination}
-                    <div className="text-xs text-muted">{fmtWeightHuman(o.weight_kg)} · {fmtRoute(o.distance_km)}</div>
-                  </td>
-                  <td className="num text-strong">{fmtMoney(o.fee)}</td>
-                  <td className="cell-date">
-                    {fmtDate(o.scheduled_at)}
-                    {o.delivered_at && <div className="text-xs text-success">ส่ง {fmtDate(o.delivered_at)}</div>}
-                  </td>
-                  <td>
-                    {o.driver_name ? (
-                      o.driver_name
-                    ) : (
-                      <span className="text-muted text-xs">ยังไม่จัดคิว</span>
-                    )}
-                  </td>
-                  <td>
-                    <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} dot={o.status === 'in_transit'} />
-                  </td>
-                  <td>
-                    {o.status === 'delivered' ? (
-                      o.pod_status ? (
-                        <Badge
-                          label={o.pod_status === 'verified' ? 'ยืนยันแล้ว' : 'มี POD'}
-                          tone={o.pod_status === 'verified' ? 'delivered' : 'in_transit'}
-                          dot={o.pod_status === 'collected'}
-                        />
-                      ) : (
-                        <Badge label="ไม่มี POD" tone="pending" />
-                      )
-                    ) : (
-                      <span className="text-muted text-xs">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="actions">
-                      {canEdit && (o.status === 'pending' || o.status === 'assigned') && (
-                        <Button variant="ghost" size="sm" title="แก้ไข" onClick={() => openEdit(o)}><IconEdit size={14} /></Button>
-                      )}
-                      {canCancel && (o.status === 'pending' || o.status === 'assigned') && (
-                        <Button variant="ghost" size="sm" title="ยกเลิก" className="text-danger" onClick={() => setCancelling(o)}><IconTrash size={14} /></Button>
-                      )}
-                      {o.status === 'delivered' && <span className="text-xs text-muted">เสร็จสิ้น</span>}
-                    </div>
+            {/* สามชั้นตามที่งานจริงเป็น: เที่ยว แล้วร้าน แล้วใบ (รายการของอยู่ในใบ)
+                เลขเที่ยวกับชื่อร้านจึงพิมพ์ครั้งเดียวต่อกลุ่ม ไม่ซ้ำลงมาทุกบรรทัด */}
+            {groupOrders(data.rows).map((trip) => (
+              <tbody key={trip.key}>
+                <tr className="row-trip">
+                  <td colSpan={6}>
+                    <span className="text-strong">{trip.tripNo}</span>
+                    <span className="text-xs text-muted">
+                      {' · '}{trip.stores.length} ร้าน · {trip.bills} ใบ
+                      {trip.driver ? ` · ${trip.driver}` : ' · ยังไม่จัดคิว'}
+                      {' · '}{fmtDate(trip.scheduled)}
+                    </span>
                   </td>
                 </tr>
+                {trip.stores.map((store) => (
+                  <Fragment key={store.key}>
+                    <tr className="row-group">
+                      <td colSpan={6}>
+                        <span className="text-strong">{store.store}</span>
+                        <span className="text-xs text-muted"> · {store.destination} · {store.rows.length} ใบ</span>
+                      </td>
+                    </tr>
+                    {store.rows.map((o) => (
+                      <tr key={o.id} className="row-grouped">
+                        <td>
+                          <div className="cell-no">
+                            <span className="text-strong">{billNo(o)}</span>
+                            {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
+                            {!o.tms_picking_list_no && <Badge label="สร้างเอง" tone="neutral" />}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                            <Badge
+                              label={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
+                              tone={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'accent' : 'neutral'}
+                            />
+                            <span className="text-xs text-muted">{fmtWeightHuman(o.weight_kg)}</span>
+                          </div>
+                          {/* รายการของบรรทัดละรุ่น — ต่อกันเป็นข้อความเดียวแล้วเทียบกับใบจริง
+                              ตอนโหลดของไม่ได้ ซึ่งเป็นตอนเดียวที่คนเปิดดูรหัสสินค้า */}
+                          {o.items.length > 0 ? (
+                            <ul className="cell-items">
+                              {o.items.map((it) => (
+                                <li key={it.item_no}>
+                                  <span className="cell-item-no">{it.item_no}</span>
+                                  <span className="text-muted">{it.item_name ?? ''}</span>
+                                  <span>×{it.qty}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="text-xs text-muted" style={{ marginTop: 2 }}>{o.goods_desc}</div>
+                          )}
+                        </td>
+                        <td className="num text-strong">{fmtMoney(o.fee)}</td>
+                        <td className="cell-date">
+                          {fmtDate(o.scheduled_at)}
+                          {o.delivered_at && <div className="text-xs text-success">ส่ง {fmtDate(o.delivered_at)}</div>}
+                        </td>
+                        <td>
+                          <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} dot={o.status === 'in_transit'} />
+                        </td>
+                        <td>
+                          {o.status === 'delivered' ? (
+                            o.pod_status ? (
+                              <Badge
+                                label={o.pod_status === 'verified' ? 'ยืนยันแล้ว' : 'มี POD'}
+                                tone={o.pod_status === 'verified' ? 'delivered' : 'in_transit'}
+                                dot={o.pod_status === 'collected'}
+                              />
+                            ) : (
+                              <Badge label="ไม่มี POD" tone="pending" />
+                            )
+                          ) : (
+                            <span className="text-muted text-xs">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="actions">
+                            {canEdit && (o.status === 'pending' || o.status === 'assigned') && (
+                              <Button variant="ghost" size="sm" title="แก้ไข" onClick={() => openEdit(o)}><IconEdit size={14} /></Button>
+                            )}
+                            {canCancel && (o.status === 'pending' || o.status === 'assigned') && (
+                              <Button variant="ghost" size="sm" title="ยกเลิก" className="text-danger" onClick={() => setCancelling(o)}><IconTrash size={14} /></Button>
+                            )}
+                            {o.status === 'delivered' && <span className="text-xs text-muted">เสร็จสิ้น</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             ))}
@@ -402,7 +445,7 @@ export default function CloudOrders(): React.JSX.Element {
       <Modal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        title={editing ? `แก้ไขออเดอร์ ${editing.order_no}` : 'สร้างออเดอร์ใหม่'}
+        title={editing ? `แก้ไขใบ ${billNo(editing)}` : 'สร้างออเดอร์ใหม่'}
         size="lg"
         footer={
           <>
@@ -457,7 +500,7 @@ export default function CloudOrders(): React.JSX.Element {
         open={cancelling !== null}
         onClose={() => setCancelling(null)}
         title="ยืนยันการยกเลิกออเดอร์"
-        message={cancelling ? <>ต้องการลบออเดอร์ <b>{cancelling.order_no}</b> ({cancelling.origin} → {cancelling.destination}) ใช่หรือไม่? ใบจะถูกลบออกจากระบบ และใบเดิมจาก TMS จะกลับไปอยู่ในสถานะยังไม่ถูกสั่งงาน — สั่งใหม่ได้ที่หน้าตรวจเที่ยวจาก TMS</> : ''}
+        message={cancelling ? <>ต้องการลบใบ <b>{billNo(cancelling)}</b> ({cancelling.origin} → {cancelling.destination}) ใช่หรือไม่? ใบจะถูกลบออกจากระบบ และใบเดิมจาก TMS จะกลับไปอยู่ในสถานะยังไม่ถูกสั่งงาน — สั่งใหม่ได้ที่หน้าตรวจเที่ยวจาก TMS</> : ''}
         confirmLabel="ยกเลิกออเดอร์"
         danger
         loading={cancelLoading}
