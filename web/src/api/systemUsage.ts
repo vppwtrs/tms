@@ -57,3 +57,25 @@ export function fmtBytes(n: number): string {
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1 }
   return `${v >= 100 ? Math.round(v) : v.toFixed(v >= 10 ? 1 : 2)} ${units[i]}`
 }
+
+export interface CleanupResult {
+  deleted_bills: number
+  deleted_trips: number
+  keep_days: number
+  db_bytes_before: number
+  db_bytes_after: number
+}
+
+/** เก็บกวาดใบดิบจาก TMS ที่ไม่เคยถูกสั่งงานและเก่ากว่า keepDays วัน
+ *
+ *  ปลอดภัยเพราะใบที่ order_id เป็น null ไม่เคยกลายเป็นงานของใคร และตัวดึงจาก TMS
+ *  เอาเฉพาะเที่ยววันปัจจุบัน ของเก่าจึงไม่ถูกดึงกลับมาให้ต้องลบซ้ำ
+ *
+ *  ขนาดฐานมักไม่ลดทันทีหลังลบ — Postgres เก็บที่ว่างไว้ใช้ซ้ำ ไม่คืนให้ระบบ
+ *  ปฏิบัติการจนกว่าจะ vacuum full ซึ่งสั่งจากในฟังก์ชันไม่ได้
+ */
+export async function cleanupTmsRaw(keepDays = 14): Promise<CleanupResult> {
+  const { data, error } = await supabase.rpc('cleanup_tms_raw', { p_keep_days: keepDays })
+  if (error) throw toDataError(error)
+  return data as unknown as CleanupResult
+}

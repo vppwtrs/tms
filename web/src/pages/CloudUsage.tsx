@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, ErrorBox, PageHeader, TableSkeleton } from '../components/ui'
-import { loadUsageStats, fmtBytes, PLAN, type UsageStats } from '../api/systemUsage'
+import { loadUsageStats, cleanupTmsRaw, fmtBytes, PLAN, type UsageStats } from '../api/systemUsage'
 import { useCloudAuth } from '../context/CloudAuthContext'
+import { useToast } from '../context/ToastContext'
 import { fmtDateTime } from '../utils/format'
 
 /** สีของแถบ = ระยะห่างจากเพดาน ไม่ใช่ปริมาณ — 40 MB เป็นตัวเลขที่ไม่มีความหมาย
@@ -50,6 +51,8 @@ export default function CloudUsage(): React.JSX.Element {
   const [data, setData] = useState<UsageStats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
+  const toast = useToast()
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -59,6 +62,24 @@ export default function CloudUsage(): React.JSX.Element {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  const clean = async (): Promise<void> => {
+    setCleaning(true)
+    try {
+      const r = await cleanupTmsRaw(14)
+      toast.push(
+        r.deleted_bills === 0 ? 'warning' : 'success',
+        r.deleted_bills === 0
+          ? 'ไม่มีใบดิบเก่าที่ลบได้'
+          : `ลบใบดิบ ${r.deleted_bills.toLocaleString('th-TH')} ใบ · เที่ยวดิบ ${r.deleted_trips} เที่ยว`,
+      )
+      await load()
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setCleaning(false)
+    }
+  }
 
   if (!can('users.manage')) {
     return <div className="card" style={{ margin: 24, padding: 24, textAlign: 'center' }}><h2>ไม่มีสิทธิ์เปิดหน้านี้</h2></div>
@@ -116,6 +137,23 @@ export default function CloudUsage(): React.JSX.Element {
             </tr>
           ))}</tbody>
         </table></div>
+      </div>
+
+      {/* ที่ล้างได้ตรงนี้คือ "ใบดิบที่ดึงมาแล้วไม่เคยถูกสั่งงาน" ไม่ใช่ข้อมูลงานจริง
+          ตอนตั้งระบบมีการดึงย้อนหลังจาก TMS เข้ามาทดลอง ซึ่งเป็นเที่ยวที่ปิดงาน
+          ไปแล้วในระบบต้นทาง คนขับของเราไม่เคยวิ่งงานพวกนั้น */}
+      <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '3px solid var(--warning)' }}>
+        <b>เก็บกวาดใบดิบจาก TMS</b>
+        <p className="text-xs text-muted" style={{ margin: '6px 0 12px' }}>
+          ลบเฉพาะใบที่ <b>ไม่เคยถูกสั่งงาน</b> และเก่ากว่า 14 วัน — ใบที่กลายเป็นออเดอร์แล้วและใบใหม่ไม่ถูกแตะ
+          ตัวดึงจาก TMS เอาเฉพาะเที่ยววันปัจจุบัน ของเก่าจึงไม่ถูกดึงกลับมา
+        </p>
+        <Button variant="outline" loading={cleaning} onClick={() => void clean()}>ลบใบดิบเก่า</Button>
+        <p className="text-xs text-muted" style={{ marginTop: 12 }}>
+          ลบแล้วขนาดฐานมักยังไม่ลดทันที — Postgres เก็บที่ว่างไว้ใช้ซ้ำ ถ้าอยากคืนพื้นที่จริง
+          ให้รัน <code>vacuum full public.tms_shipments;</code> ใน SQL editor (คำสั่งนี้สั่งจากหน้าเว็บไม่ได้
+          เพราะรันในทรานแซกชันไม่ได้) ไม่รันก็ได้ ขนาดฐานจะหยุดโตแทนที่จะลดลง
+        </p>
       </div>
 
       <div className="card">

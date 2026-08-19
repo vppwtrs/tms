@@ -558,6 +558,16 @@ export interface Database {
           orphan_photo_paths: string[]
         }
       }
+      cleanup_tms_raw: {
+        Args: { p_keep_days?: number }
+        Returns: {
+          deleted_bills: number
+          deleted_trips: number
+          keep_days: number
+          db_bytes_before: number
+          db_bytes_after: number
+        }
+      }
       usage_stats: {
         Args: Record<string, never>
         Returns: {
