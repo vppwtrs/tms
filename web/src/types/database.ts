@@ -562,6 +562,10 @@ export interface Database {
         Args: { p_pod_id: number }
         Returns: { id: number; status: 'verified'; already: boolean }
       }
+      unverify_pod: {
+        Args: { p_pod_id: number; p_reason: string }
+        Returns: { id: number; status: string; already: boolean }
+      }
       refresh_order_item_qty: {
         Args: Record<string, never>
         Returns: { fixed: number; added: number }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Badge, Button, Modal, Skeleton } from './ui'
-import { podOfOrder, verifyPod, type PodView } from '../api/pod'
+import { Badge, Button, Modal, Skeleton, Textarea } from './ui'
+import { podOfOrder, verifyPod, unverifyPod, type PodView } from '../api/pod'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import { POD_PHOTO_KINDS } from '../api/myjobs'
@@ -40,6 +40,10 @@ export function PodViewModal({
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
+  /* ฟอร์มปลดการยืนยันอยู่ในหน้าต่างเดียวกัน ไม่ใช่ dialog ซ้อน dialog —
+     คนที่จะปลดต้องเห็นลายเซ็นที่ตัวเองกำลังปลดอยู่ตรงหน้าขณะพิมพ์เหตุผล */
+  const [unverifyOpen, setUnverifyOpen] = useState(false)
+  const [reason, setReason] = useState('')
 
   const canVerify = can('pod.verify')
 
@@ -50,6 +54,22 @@ export function PodViewModal({
       const r = await verifyPod(pod.id)
       setPod({ ...pod, status: 'verified' })
       toast.push('success', r.already ? 'หลักฐานใบนี้ยืนยันไว้แล้ว' : 'ยืนยันหลักฐานแล้ว — แก้ไขไม่ได้อีก')
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const unverify = async (): Promise<void> => {
+    if (!pod) return
+    setVerifying(true)
+    try {
+      await unverifyPod(pod.id, reason)
+      setPod({ ...pod, status: 'collected' })
+      setUnverifyOpen(false)
+      setReason('')
+      toast.push('success', 'ยกเลิกการยืนยันแล้ว — บันทึกเหตุผลไว้ในประวัติหลักฐาน')
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
@@ -82,6 +102,13 @@ export function PodViewModal({
           {pod && pod.status === 'collected' && canVerify && (
             <Button variant="success" loading={verifying} onClick={() => void verify()}>
               ยืนยันหลักฐาน
+            </Button>
+          )}
+          {/* ทางออกฉุกเฉินสำหรับใบที่ยืนยันไปแล้วแต่ต้องลบเที่ยวจริง ๆ
+              เป็นปุ่มจาง ๆ ไม่ใช่ปุ่มเด่น — ไม่ใช่สิ่งที่ควรกดในวันธรรมดา */}
+          {pod && pod.status === 'verified' && canVerify && !unverifyOpen && (
+            <Button variant="ghost" onClick={() => setUnverifyOpen(true)}>
+              ยกเลิกการยืนยัน
             </Button>
           )}
         </>
@@ -138,6 +165,29 @@ export function PodViewModal({
               </dd>
             </div>
           </dl>
+
+          {unverifyOpen && (
+            <div className="job-alert is-warn" style={{ marginBottom: 12 }}>
+              <p style={{ marginBottom: 8 }}>
+                ปลดการยืนยันแล้วใบนี้จะแก้ทับได้อีก และลบพร้อมเที่ยวได้ — เหตุผลจะถูกบันทึกพร้อมชื่อคุณ
+              </p>
+              <Textarea
+                rows={2}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="เหตุผลที่ต้องปลด เช่น ยืนยันผิดใบ / ต้องลบข้อมูลทดสอบ"
+                aria-label="เหตุผลที่ยกเลิกการยืนยัน"
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+                <Button variant="ghost" onClick={() => { setUnverifyOpen(false); setReason('') }}>
+                  ไม่ปลด
+                </Button>
+                <Button variant="danger" loading={verifying} disabled={!reason.trim()} onClick={() => void unverify()}>
+                  ยืนยันการปลด
+                </Button>
+              </div>
+            </div>
+          )}
 
           <h4 style={{ margin: '16px 0 6px', fontSize: 13 }}>ลายเซ็นผู้รับ</h4>
           {pod.signature_data ? (

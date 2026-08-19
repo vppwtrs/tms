@@ -69,3 +69,17 @@ export async function verifyPod(podId: number): Promise<{ id: number; status: 'v
   if (error) throw toDataError(error)
   return data as unknown as { id: number; status: 'verified'; already: boolean }
 }
+
+/** ยกเลิกการยืนยัน — ทางออกฉุกเฉินเมื่อต้องลบเที่ยวที่ยืนยันไปแล้วจริง ๆ
+ *
+ * แยกจากปุ่มลบโดยตั้งใจ ถ้าเอาไปรวมเป็นธง "ลบทั้งที่ยืนยันแล้ว" สุดท้ายทุกคน
+ * จะติ๊กมันทุกครั้งจนกฎไม่เหลือความหมาย และบันทึกที่ได้ก็ไม่บอกว่าใครเป็นคน
+ * ตัดสินใจว่าหลักฐานใบนั้นไม่ต้องเก็บแล้ว
+ *
+ * เหตุผลบังคับ ฐานปฏิเสธถ้าเว้นว่าง
+ */
+export async function unverifyPod(podId: number, reason: string): Promise<{ id: number; status: string; already: boolean }> {
+  const { data, error } = await supabase.rpc('unverify_pod', { p_pod_id: podId, p_reason: reason })
+  if (error) throw toDataError(error)
+  return data as unknown as { id: number; status: string; already: boolean }
+}
