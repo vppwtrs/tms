@@ -540,6 +540,14 @@ export interface Database {
           already: boolean
         }
       }
+      reconcile_tms_trips: {
+        Args: { p_from: string; p_to: string; p_warehouses: string[]; p_seen: string[] }
+        Returns: {
+          deleted: number
+          shipments: number
+          kept_imported: { trip_no: string; our_trip_id: number }[]
+        }
+      }
       auto_import_trips: {
         Args: Record<string, never>
         Returns: {

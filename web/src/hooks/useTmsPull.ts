@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   listWarehouses, pullTrips, pullRecentTrips, pushShipments, pushTrips, tmsBoard,
-  logPullRun, pullCoverage,
+  logPullRun, pullCoverage, reconcileTrips,
   POLL_MS,
   type Warehouse, type TmsBoard, type PullCoverage,
 } from '../api/tmsPull'
@@ -119,13 +119,16 @@ export function useTmsPull(): TmsPullEngine {
       try {
         /* สองแหล่งในรอบเดียว — ใบตอบว่า "มีของต้องส่ง" เที่ยวตอบว่า "ใครวิ่ง ถึงไหน"
            ดึงแหล่งเดียวคือได้ครึ่งเดียวของคำถามที่คนจัดรถถามทุกเช้า */
-        const batches = []
+        /* เก็บคู่กับคลังไว้ด้วย — ขั้นเทียบข้อมูลต้องรู้ว่าผลชุดไหนมาจากคลังไหน
+           ลบข้ามคลังคือลบเที่ยวที่รอบนี้ไม่ได้อ่านเลย */
+        const runs: { w: Warehouse; tr: Awaited<ReturnType<typeof pullRecentTrips>> }[] = []
         for (const w of warehouses) {
           const tr = mode === 'poll'
             ? await pullRecentTrips(w, (msg) => setLog(`${w.code}: ${msg}`))
             : await pullTrips({ from, to, warehouse: w, maxPages: 6 }, (msg) => setLog(`${w.code}: ${msg}`))
-          batches.push(tr)
+          runs.push({ w, tr })
         }
+        const batches = runs.map((r) => r.tr)
         const allTrips = batches.flatMap((batch) => batch.trips)
         seen = batches.reduce((n, b) => n + b.scanned, 0)
         ours = allTrips.length
@@ -158,6 +161,31 @@ export function useTmsPull(): TmsPullEngine {
         }
         setTripPush(t)
 
+        /* เทียบของในฐานกับของที่เพิ่งอ่านมา แล้วลบเที่ยวที่ TMS ไม่มีแล้ว
+           รอบดึงเป็น upsert อย่างเดียวมาตลอด เที่ยวที่ถูกลบหรือย้ายไปผู้รับจ้างรายอื่น
+           จึงค้างอยู่ในหน้าจอเป็นเที่ยวที่กดสั่งงานได้ ทั้งที่ต้นทางไม่มีอยู่แล้ว
+
+           เทียบเฉพาะรอบที่อ่านครบช่วงวันนั้น (complete) และเทียบทีละคลังตามที่อ่านมาจริง
+           รอบที่อ่านไม่ครบแล้วเอาไปเทียบ จะลบเที่ยวที่ยังไม่ทันอ่านทิ้ง */
+        let goneNote = ''
+        for (const { w, tr } of runs) {
+          if (!tr.complete) continue
+          try {
+            const day = mode === 'poll' ? iso(0) : from
+            const until = mode === 'poll' ? iso(0) : to
+            const seen = tr.trips.map((t) => t.id).filter((id): id is string => !!id)
+            const gone = await reconcileTrips(day, until, [w.code], seen)
+            if (gone.deleted > 0) goneNote += ` · ${w.code} ลบเที่ยวที่ TMS ไม่มีแล้ว ${gone.deleted}`
+            /* เที่ยวที่นำเข้าเป็นงานไปแล้วฐานไม่ลบให้ — คนขับอาจรับไปแล้วหรือมี POD แล้ว
+               ต้องขึ้นให้คนเห็นแล้วตัดสินใจเอง ไม่ใช่หายเงียบ */
+            if (gone.keptImported.length > 0) {
+              goneNote += ` · TMS ไม่มีเที่ยวที่สั่งงานไปแล้ว ${gone.keptImported.length} เที่ยว (${gone.keptImported.map((k) => k.trip_no).join(', ')}) — ตรวจที่หน้าแผนงานขนส่ง`
+            }
+          } catch (e) {
+            goneNote += ` · เทียบข้อมูล ${w.code} ไม่สำเร็จ: ${e instanceof Error ? e.message : 'ไม่ทราบสาเหตุ'}`
+          }
+        }
+
         /* เที่ยวที่ข้อมูลครบแล้วส่งถึงคนขับเองในรอบเดียวกับที่ดึงมา
            "ครบ" ที่ฐานตรวจให้: TMS Confirm แล้ว ชื่อคนขับทุกชื่อจับคู่แล้ว และมีใบอย่างน้อยหนึ่งใบ
            ขาดข้อไหนเที่ยวนั้นค้างรอคนกดที่หน้า "เที่ยวจาก TMS" เหมือนเดิม ไม่มีการเดาชื่อคนขับ
@@ -184,11 +212,11 @@ export function useTmsPull(): TmsPullEngine {
             ? mode === 'poll'
               /* รอบเฝ้าสถานะเงียบไว้ตามเดิม ยกเว้นรอบที่ส่งงานถึงคนขับจริง
                  ซึ่งเป็นเรื่องที่คนดูหน้านี้ต้องรู้ว่าเกิดขึ้นแล้ว */
-              ? autoNote.trim().replace(/^· /, '')
-              : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${allTrips.length} เที่ยวจาก ${warehouses.length} คลัง${autoNote}`
+              ? `${autoNote}${goneNote}`.trim().replace(/^· /, '')
+              : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${allTrips.length} เที่ยวจาก ${warehouses.length} คลัง${autoNote}${goneNote}`
             : `เที่ยว +${t.inserted}/~${t.updated}` +
               (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : '') +
-              (autoNote || ' · สั่งงานต่อที่หน้า “เที่ยวจาก TMS”'),
+              (autoNote || '') + goneNote || ' · ข้อมูลอัปเดตแล้ว',
         )
         refreshBoard()
       } catch (e) {

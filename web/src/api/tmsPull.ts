@@ -559,6 +559,10 @@ export interface TripPullResult {
   rows: PlRow[]
   scanned: number
   outsourced: number
+  /* อ่านจนพ้นช่วงวันที่ขอแล้วจริง (ไม่ได้หยุดเพราะชนเพดานจำนวนหน้า)
+     ตัวนี้เป็นเงื่อนไขเดียวที่ยอมให้เอาผลรอบนี้ไปลบของในฐานได้ — รอบที่อ่านไม่ครบ
+     แล้วเอาไปเทียบ จะนับเที่ยวที่ยังไม่ทันอ่านเป็น "หายไป" ทั้งที่ยังอยู่ */
+  complete: boolean
 }
 
 /** ดึงเที่ยวของกองรถเรา — ไม่ระบุวัน เพราะ API ไม่มีช่องรับช่วงวันที่ (เหมือนฝั่ง PL)
@@ -590,6 +594,7 @@ export async function pullTrips(
   const trips: TripHeader[] = []
   let scanned = 0
   let outsourced = 0
+  let complete = false
 
   for (let page = 1; page <= maxPages; page++) {
     const r = await tmsCall<unknown>(path, {
@@ -621,8 +626,10 @@ export async function pullTrips(
 
     onProgress?.(`สแกน ${scanned} เที่ยว · ของกองรถเรา ${trips.length}`)
 
-    if (oldest !== '9999-99-99' && oldest < opts.from) break
-    if (batch.length < TRIP_PAGE_SIZE) break
+    /* เจอวันที่เก่ากว่าช่วงที่ขอ = ผ่านของทั้งช่วงมาหมดแล้ว
+       ชุดข้อมูลหมดก่อนเพดานหน้า = อ่านครบทั้งที่มี ทั้งสองกรณีถือว่าครบ */
+    if (oldest !== '9999-99-99' && oldest < opts.from) { complete = true; break }
+    if (batch.length < TRIP_PAGE_SIZE) { complete = true; break }
   }
 
   /* ใบที่อยู่ในเที่ยวเราแปลงด้วยตัวเดียวกับฝั่ง PL — ที่อยู่ปลายทางที่ติดมากับ trip
@@ -640,7 +647,7 @@ export async function pullTrips(
 
   const rows = plRowsOf(headers)
 
-  return { trips, rows, scanned, outsourced }
+  return { trips, rows, scanned, outsourced, complete }
 }
 
 /** รอบเฝ้าสถานะฝั่งเที่ยว — เอาเฉพาะงานของ "วันนี้"
@@ -706,6 +713,29 @@ export async function pushTrips(trips: TripHeader[]): Promise<TripPushResult> {
     out.synced_orders += d.synced_orders ?? 0
   }
   return out
+}
+
+/**
+ * เทียบของในฐานกับของที่เพิ่งอ่านมาจริง แล้วลบเที่ยวที่ต้นทางไม่มีแล้ว
+ *
+ * เรียกได้เฉพาะรอบที่อ่านครบช่วงวันนั้น (`complete`) — ไม่งั้นเที่ยวที่ยังไม่ทันอ่าน
+ * จะถูกนับเป็นหายไป เที่ยวที่นำเข้าเป็นงานแล้วฐานไม่ลบให้ แต่คืนรายการกลับมาเตือน
+ */
+export async function reconcileTrips(
+  from: string,
+  to: string,
+  warehouses: string[],
+  seenIds: string[],
+): Promise<{ deleted: number; shipments: number; keptImported: { trip_no: string; our_trip_id: number }[] }> {
+  const { data, error } = await supabase.rpc('reconcile_tms_trips', {
+    p_from: from,
+    p_to: to,
+    p_warehouses: warehouses,
+    p_seen: seenIds,
+  })
+  if (error) throw toDataError(error)
+  const r = (data ?? {}) as { deleted?: number; shipments?: number; kept_imported?: { trip_no: string; our_trip_id: number }[] }
+  return { deleted: r.deleted ?? 0, shipments: r.shipments ?? 0, keptImported: r.kept_imported ?? [] }
 }
 
 /** กระดานสถานะ — วันล่าสุดที่มีงาน ยอดใบ ยอดคัน และแยกตามสถานะ
