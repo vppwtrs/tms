@@ -81,6 +81,18 @@ function groupByStore(
   }))
 }
 
+/** ผ่านด่าน Confirm ของ TMS มาแล้วหรือยัง
+ *
+ * "ผ่านมาแล้ว" ไม่ใช่ "ตอนนี้ต้องเป็น Confirm" — TMS เดินสถานะต่อเป็น OnDelivery
+ * แล้ว Completed เที่ยวที่วิ่งไปแล้วก็ยังต้องนำเข้าได้ ไม่งั้นยิ่งมาช้ายิ่งสั่งงานไม่ได้
+ * ต้องตรงกับด่านฝั่งฐานใน import_tms_trip
+ */
+function confirmedAtTms(status: string | null, statusId: number | null): boolean {
+  const s = (status ?? '').trim().toLowerCase()
+  return statusId === 5 || ['confirm', 'confirmed', 'ondelivery', 'on delivery',
+    'delivering', 'delivered', 'complete', 'completed'].includes(s)
+}
+
 const driverNames = (raw: string | null): string[] =>
   (raw ?? '').split(',').map((n) => n.trim()).filter(Boolean)
 
@@ -366,7 +378,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                 const unmapped = t.unmapped_driver_names ?? []
                 /* นำเข้าได้เฉพาะเที่ยวที่ TMS Confirm แล้ว — ก่อนหน้านั้นแผนยังเปลี่ยนได้
                    ทั้งรถ คนขับ และรายการของ ฐานปฏิเสธอยู่แล้ว ตรงนี้คือไม่ให้กดแล้วเด้ง error */
-                const confirmed = (t.status ?? '').trim().toLowerCase() === 'confirm'
+                const confirmed = confirmedAtTms(t.status, t.status_id)
                 const blocked = unmapped.length > 0 || !t.driver_id
                 return (
                   <tr key={t.tms_id}>
@@ -562,7 +574,9 @@ export default function CloudTmsTrips(): React.JSX.Element {
                       {/* เฉพาะกิ่งที่กำลังให้จับคู่ชื่อจาก TMS จริง ๆ — กิ่งสั่งงาน (ยังไม่รู้จักคนขับ)
                           ก็เข้าเงื่อนไข blocked ด้วย ข้อความนี้จึงเคยไปโผล่ใต้ปุ่มสั่งงาน
                           แล้วชี้ไปที่การจับคู่ ทั้งที่ปุ่มติดเพราะยังไม่ได้เลือกคนในช่อง */}
-                      {unmapped.length > 0 && !waitingTms && !t.imported && t.status_id !== 6 && (
+                      {/* ขึ้นเฉพาะกิ่งที่กำลังให้จับคู่ชื่อจริง ๆ — กิ่งสั่งงาน (ยังไม่รู้จักคนขับ)
+                          มีช่องเลือกคนขับของตัวเองอยู่แล้ว ข้อความนี้ไปซ้อนใต้ปุ่มนั้นแล้วชี้ผิดที่ */}
+                      {unmapped.length > 0 && t.driver_id && !waitingTms && !t.imported && t.status_id !== 6 && (
                         <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
                           จับคู่ชื่อคนขับแล้วถึงจะนำเข้าได้
                         </div>
