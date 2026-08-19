@@ -6,6 +6,7 @@ import {
 } from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
 import { useTripTracking } from '../hooks/useTripTracking'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
@@ -72,6 +73,21 @@ export default function CloudMyJobs(): React.JSX.Element {
   }
 
   useEffect(() => load(showDone), [])
+
+  /* โหลดใหม่แบบไม่ล้างจอ — ท่าลากลงต้องเห็นของเดิมค้างอยู่ระหว่างรอ
+     ถ้าสลับไปเป็นโครงร่างเปล่าทุกครั้ง คนขับจะเสียตำแหน่งที่กำลังอ่านอยู่ */
+  const refresh = async (): Promise<void> => {
+    try {
+      setJobs(await listMyJobs(showDone))
+      setError('')
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    }
+  }
+
+  /* ลากลงจากบนสุดเพื่อโหลดใหม่ — ไม่มีปุ่มรีเฟรชบนแถบหัวโดยตั้งใจ
+     ปุ่มกินที่ที่แคบอยู่แล้วและต้องเล็งกด ส่วนท่าลากลงทุกคนทำเป็นอยู่แล้ว */
+  const pull = usePullToRefresh(refresh)
 
   /* คนขับถือมือถือวิ่งอยู่ ฝ่ายจัดรถแก้เที่ยวให้ระหว่างทางได้ — งานที่ถูกเพิ่ม/ถอด
      ต้องขึ้นเองโดยไม่ต้องบอกให้คนขับดึงหน้าจอรีเฟรชกลางถนน */
@@ -197,6 +213,18 @@ export default function CloudMyJobs(): React.JSX.Element {
 
   return (
     <div className="driver-scope">
+      {/* แถบสถานะของท่าลากลง ไหลตามนิ้วแล้วค้างไว้ระหว่างโหลด
+          อยู่เหนือทุกอย่างและไม่กินที่ตอนไม่ได้ใช้ */}
+      <div
+        className={`pull-hint${pull.refreshing ? ' is-loading' : ''}${pull.ready ? ' is-ready' : ''}`}
+        style={{ height: pull.distance }}
+        aria-hidden={pull.distance === 0}
+      >
+        {pull.distance > 0 && (
+          <span>{pull.refreshing ? 'กำลังโหลด…' : pull.ready ? 'ปล่อยเพื่อโหลดใหม่' : 'ลากลงเพื่อโหลดใหม่'}</span>
+        )}
+      </div>
+
       <header className="driver-head">
         <h1 className="driver-title">
           {tab === 'jobs' ? 'งานของฉัน' : tab === 'history' ? 'ประวัติงาน' : 'บัญชีของฉัน'}

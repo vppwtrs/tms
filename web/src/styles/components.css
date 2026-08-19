@@ -2722,6 +2722,15 @@
 .stop-bill-goods { flex: 1; color: var(--faint); }
 .stop-bill-qty { flex: none; color: var(--ink-2); }
 .stop-bill.is-done .stop-bill-no { text-decoration: line-through; }
+
+/* แถบลากลงเพื่อโหลดใหม่ — สูงเป็น 0 ตอนไม่ได้ใช้ จึงไม่กินที่บนจอที่แคบอยู่แล้ว
+   ความสูงมาจากนิ้ว ไม่ใช่จาก CSS จึงไม่ใส่ transition ตอนกำลังลาก */
+.pull-hint {
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-size: var(--font-xs); color: var(--faint);
+}
+.pull-hint.is-ready { color: var(--brand); font-weight: 600; }
+.pull-hint.is-loading { color: var(--ink-2); transition: height .18s ease; }
 /* ปุ่มเดียวที่อยู่ในระดับใบ — เปิดดูหลักฐานที่เก็บไปแล้ว ขึ้นเฉพาะใบที่มี POD จริง
    ไม่ใช่ปุ่มสั่งงาน จึงทำเป็นลิงก์ ไม่ใช่ปุ่มทึบที่ไปแย่งสายตาปุ่มปิดจุด */
 .stop-bill-pod {
