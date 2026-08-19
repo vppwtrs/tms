@@ -1,0 +1,57 @@
+import { supabase, toDataError } from './supabase.js'
+import { podPhotoUrl } from './storage.js'
+
+/**
+ * อ่านหลักฐานการส่งมอบ — คู่กับ savePodWithPhotos ที่เขียนเข้าไป
+ *
+ * ลายเซ็นไม่ได้อยู่ใน Storage เหมือนรูป แต่เป็น data URL ของ canvas ที่เก็บเป็นข้อความ
+ * ในคอลัมน์ signature_data ตรง ๆ จึงเอาไปใส่ <img src> ได้ทันทีโดยไม่ต้องขอ signed URL
+ * ส่วนรูปอยู่ในถังที่เป็น private ต้องขอลิงก์ที่มีอายุจำกัดทีละใบเสมอ
+ */
+
+export interface PodPhotoView {
+  path: string
+  kind: string
+  /** ลิงก์ที่มีอายุจำกัด ขอทีหลังเพราะถังเป็น private */
+  url: string
+}
+
+export interface PodView {
+  id: number
+  order_id: number
+  recipient_name: string
+  signature_data: string
+  notes: string | null
+  status: 'collected' | 'verified'
+  lat: number | null
+  lng: number | null
+  collected_at: string
+  updated_at: string
+  collected_by_name: string | null
+  photos: PodPhotoView[]
+}
+
+interface PodRaw extends Omit<PodView, 'photos'> {
+  photos: { path: string; kind: string }[]
+}
+
+/** null = ใบนี้ยังไม่มีหลักฐาน หรือคนที่ถามไม่มีสิทธิ์ดู — ทั้งสองกรณีหน้าจอบอกเหมือนกัน
+ *  แยกให้เห็นว่า "มีอยู่แต่คุณดูไม่ได้" คือบอกใบ้ว่ามีอะไรอยู่ ซึ่งไม่ใช่หน้าที่ของหน้านี้ */
+export async function podOfOrder(orderId: number): Promise<PodView | null> {
+  const { data, error } = await supabase.rpc('pod_of_order', { p_order_id: orderId })
+  if (error) throw toDataError(error)
+  const raw = data as unknown as PodRaw | null
+  if (!raw) return null
+
+  /* รูปที่ขอลิงก์ไม่ผ่านให้ตกไปทีละใบ ไม่ล้มทั้งหน้าต่าง — ลายเซ็นกับชื่อผู้รับ
+     คือส่วนที่ตอบข้อโต้แย้งได้จริง รูปหายหนึ่งมุมไม่ควรทำให้ดูอย่างอื่นไม่ได้เลย */
+  const photos: PodPhotoView[] = []
+  for (const p of raw.photos) {
+    try {
+      photos.push({ ...p, url: await podPhotoUrl(p.path) })
+    } catch {
+      /* ลิงก์ขอไม่ได้ ข้ามใบนี้ */
+    }
+  }
+  return { ...raw, photos }
+}

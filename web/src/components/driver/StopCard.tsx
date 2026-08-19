@@ -2,6 +2,7 @@ import { Button } from '../ui'
 import { IconCheck, IconPhone, IconPin } from '../icons'
 import { fmtTime } from '../../utils/format'
 import type { StopGroup } from '../../utils/stops'
+import type { MyJobOrder } from '../../types'
 
 /** ลิงก์นำทาง — ใช้ที่อยู่ลูกค้าก่อน ถ้าไม่มีค่อยใช้ชื่อปลายทาง */
 function mapsUrl(stop: StopGroup): string {
@@ -31,6 +32,7 @@ export function StopItem({
   canPod,
   onOpen,
   onPod,
+  onViewPod,
   onDeliver,
   onMove,
   canMoveUp,
@@ -45,6 +47,9 @@ export function StopItem({
   canPod: boolean
   onOpen: () => void
   onPod: (stop: StopGroup) => void
+  /* เปิดดูหลักฐานที่เก็บไปแล้ว — คนขับต้องตรวจได้ว่าที่ส่งไปคือของจริง
+     ไม่ส่งมา = หน้าจอที่ยังไม่มีตัวอ่าน (ฝั่ง LAN) ปุ่มจะไม่ขึ้น */
+  onViewPod?: (order: MyJobOrder) => void
   onDeliver: (stop: StopGroup) => void
   /* ลำดับการแวะเป็นของคนขับ ปุ่มขึ้น/ลงแทนการลาก — ลากในรถที่สั่นแล้วพลาดง่าย */
   onMove?: (stop: StopGroup, dir: -1 | 1) => void
@@ -123,6 +128,13 @@ export function StopItem({
                 <span className="stop-bill-no">{o.tms_picking_list_no ?? o.order_no}</span>
                 <span className="stop-bill-goods">{o.goods_desc}</span>
                 <span className="stop-bill-qty">{o.tms_unit_count ? `${o.tms_unit_count} หน่วย` : '—'}</span>
+                {/* หลักฐานที่เก็บแล้วต้องเปิดดูย้อนได้ ไม่งั้นคนขับที่ถูกถามว่า
+                    "ร้านนี้ใครเซ็น" ตอบไม่ได้ทั้งที่เป็นคนถือมือถือถ่ายเอง */}
+                {o.has_pod > 0 && onViewPod && (
+                  <button type="button" className="stop-bill-pod" onClick={() => onViewPod(o)}>
+                    ดูหลักฐาน
+                  </button>
+                )}
               </li>
             ))}
           </ul>

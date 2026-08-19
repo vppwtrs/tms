@@ -16,6 +16,7 @@ import { fmtDateTime, fmtLongToday } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
+import { PodViewModal } from '../components/PodViewModal'
 import { CameraCapture } from '../components/CameraCapture'
 import { JobFocus } from '../components/driver/JobFocus'
 import type { CompressedImage } from '../utils/image'
@@ -52,6 +53,8 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* POD เก็บเป็นชุดของ "ร้าน" ไม่ใช่ใบเดียว — ลายเซ็นหนึ่งครั้งครอบทุกใบที่ส่งร้านนั้น
      ผู้รับเซ็นครั้งเดียวตอนรับของทั้งกอง ให้เซ็นซ้ำตามจำนวนใบคือเรื่องที่หน้างานไม่ยอมทำ */
   const [podFor, setPodFor] = useState<MyJobOrder[] | null>(null)
+  /* ใบที่กำลังเปิดดูหลักฐานย้อนหลัง — คนละอย่างกับ podFor ที่เป็นการเก็บใหม่ */
+  const [podView, setPodView] = useState<MyJobOrder | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
   const [issueFor, setIssueFor] = useState<MyJob | null>(null)
   const [issueNote, setIssueNote] = useState('')
@@ -296,6 +299,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                       onAct={(j, action) => void act(j, action)}
                       onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
                       onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
+                      onViewPod={setPodView}
                       onDeliver={(stop) => void deliver(stop)}
                       onReorder={(j, ids) => void reorder(j, ids)}
                     />
@@ -343,6 +347,14 @@ export default function CloudMyJobs(): React.JSX.Element {
       </nav>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} onDone={() => setPwOpen(false)} />
+
+      {podView && (
+        <PodViewModal
+          orderId={podView.id}
+          billNo={podView.tms_picking_list_no ?? podView.order_no}
+          onClose={() => setPodView(null)}
+        />
+      )}
 
       {podFor && (
         <PodSheet

@@ -505,6 +505,13 @@ export interface Database {
         Args: { p_order_id: number }
         Returns: { path: string; kind: string }[]
       }
+      /* คืน json ก้อนเดียวหรือ null — ฝั่งเรียกกำหนดรูปร่างจริงเองที่ api/pod.ts
+         ประกาศเป็น unknown ตรงนี้ เพราะโครงของ json_build_object ไม่ได้ถูก
+         ตรวจจากฐาน การพิมพ์ซ้ำสองที่มีแต่จะเพี้ยนกันเงียบ ๆ ตอนแก้ข้างเดียว */
+      pod_of_order: {
+        Args: { p_order_id: number }
+        Returns: unknown
+      }
       log_trip_location: {
         Args: {
           p_trip_id: number

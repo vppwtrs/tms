@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow } from '../api/orders'
 import { useRealtime } from '../hooks/useRealtime'
+import { PodViewModal } from '../components/PodViewModal'
 import { listAllCustomers } from '../api/customers'
 import { listDrivers } from '../api/vehicles'
 import type { Paged } from '../api/customers'
@@ -169,6 +170,8 @@ export default function CloudOrders(): React.JSX.Element {
   const [form, setForm] = useState<OrderForm>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [cancelling, setCancelling] = useState<OrderListRow | null>(null)
+  /* ใบที่กำลังเปิดดูหลักฐาน — เก็บทั้งใบไว้เพราะหัวหน้าต่างต้องขึ้นเลข PL ไม่ใช่ id */
+  const [podOrder, setPodOrder] = useState<OrderListRow | null>(null)
   const [cancelLoading, setCancelLoading] = useState(false)
 
   const load = useCallback(async (): Promise<void> => {
@@ -388,11 +391,20 @@ export default function CloudOrders(): React.JSX.Element {
                         <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} dot={o.status === 'in_transit'} />
                         {o.status === 'delivered' && (
                           o.pod_status ? (
-                            <Badge
-                              label={o.pod_status === 'verified' ? 'ยืนยันแล้ว' : 'มี POD'}
-                              tone={o.pod_status === 'verified' ? 'delivered' : 'in_transit'}
-                              dot={o.pod_status === 'collected'}
-                            />
+                            /* ป้ายเป็นปุ่ม ไม่ใช่ป้ายเฉย ๆ — คนที่เห็นว่า "มี POD" คือคนที่
+                               กำลังจะถามว่าใครเซ็น ให้กดต่อได้จากตรงนั้นเลย */
+                            <button
+                              type="button"
+                              className="pod-badge-btn"
+                              onClick={() => setPodOrder(o)}
+                              title="ดูลายเซ็นและรูปหลักฐาน"
+                            >
+                              <Badge
+                                label={o.pod_status === 'verified' ? 'ยืนยันแล้ว' : 'มี POD'}
+                                tone={o.pod_status === 'verified' ? 'delivered' : 'in_transit'}
+                                dot={o.pod_status === 'collected'}
+                              />
+                            </button>
                           ) : (
                             <Badge label="ไม่มี POD" tone="pending" />
                           )
@@ -498,6 +510,10 @@ export default function CloudOrders(): React.JSX.Element {
           </Field>
         </div>
       </Modal>
+
+      {podOrder && (
+        <PodViewModal orderId={podOrder.id} billNo={billNo(podOrder)} onClose={() => setPodOrder(null)} />
+      )}
 
       <ConfirmDialog
         open={cancelling !== null}

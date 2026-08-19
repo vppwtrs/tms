@@ -4,7 +4,7 @@ import { StopItem } from './StopCard'
 import { IconTruck } from '../icons'
 import { TRIP_STATUS_LABEL } from '../../utils/constants'
 import { groupStops, jobTripNo, type StopGroup } from '../../utils/stops'
-import type { MyJob } from '../../types'
+import type { MyJob, MyJobOrder } from '../../types'
 
 /**
  * งานหนึ่งเที่ยว — รายการจุดส่งทั้งเที่ยวอยู่บนจอเสมอ
@@ -28,6 +28,7 @@ export function JobFocus({
   onAct,
   onReportIssue,
   onPod,
+  onViewPod,
   onDeliver,
   onReorder,
 }: {
@@ -42,6 +43,8 @@ export function JobFocus({
    *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
   onReportIssue?: (job: MyJob) => void
   onPod: (stop: StopGroup) => void
+  /* เปิดดูหลักฐานของใบที่เก็บไปแล้ว — ส่งต่อลงไปที่จุดส่งแต่ละจุด */
+  onViewPod?: (order: MyJobOrder) => void
   onDeliver: (stop: StopGroup) => void
   /* จัดลำดับร้านใหม่ทั้งเที่ยว — คนขับรู้เส้นทางจริงดีกว่าลำดับที่เอกสารให้มา
      ไม่ส่งมา = สแตกที่ยังไม่มีการจัดลำดับ (ฝั่ง LAN) ปุ่มขึ้น/ลงจะไม่ขึ้น */
@@ -181,6 +184,7 @@ export function JobFocus({
               canPod={canPod}
               onOpen={() => setOpenKey(s.key === openKey ? null : s.key)}
               onPod={onPod}
+              onViewPod={onViewPod}
               onDeliver={onDeliver}
               onMove={canReorder ? move : undefined}
               canMoveUp={i > 0}
