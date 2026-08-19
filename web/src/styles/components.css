@@ -2515,6 +2515,39 @@
 .driver-me-sub { font-size: var(--font-sm); color: var(--faint); }
 .driver-me-action { min-height: var(--driver-tap); }
 
+/* รายการเที่ยวของคนขับ — ทุกเที่ยวหุบเป็นแถวเดียว กางทีละเที่ยว
+   คนขับถือหลายเที่ยวพร้อมกันได้ กางหมดพร้อมกันคือต้องเลื่อนผ่านจุดส่งของเที่ยวอื่น
+   ก่อนถึงของตัวเอง และเสี่ยงกดปิดจุดผิดเที่ยวซึ่งย้อนกลับไม่ได้ */
+.job-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.job-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.job-card.is-open { border-color: var(--info); }
+.job-card-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--driver-tap);
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.job-card-head:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.job-card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.job-card-no { font-family: var(--font-mono); font-size: var(--font-md); font-weight: 700; color: var(--ink); }
+.job-card-meta { font-size: var(--font-sm); color: var(--faint); }
+/* การ์ดที่กางแล้วไม่ต้องมีกรอบซ้อนกรอบ — JobFocus มีกรอบของตัวเองอยู่แล้ว */
+.job-card-body { padding: 0 var(--space-2) var(--space-2); }
+.job-card-body .job-focus { border: 0; box-shadow: none; }
+
 .job-focus {
   background: var(--surface);
   border: 1px solid var(--line);

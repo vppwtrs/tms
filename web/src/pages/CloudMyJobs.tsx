@@ -53,7 +53,6 @@ export default function CloudMyJobs(): React.JSX.Element {
      ผู้รับเซ็นครั้งเดียวตอนรับของทั้งกอง ให้เซ็นซ้ำตามจำนวนใบคือเรื่องที่หน้างานไม่ยอมทำ */
   const [podFor, setPodFor] = useState<MyJobOrder[] | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
-  const [switching, setSwitching] = useState(false)
   const [issueFor, setIssueFor] = useState<MyJob | null>(null)
   const [issueNote, setIssueNote] = useState('')
   const [sendingIssue, setSendingIssue] = useState(false)
@@ -84,17 +83,20 @@ export default function CloudMyJobs(): React.JSX.Element {
     () => live.find((j) => j.status === 'in_progress') ?? live.find((j) => j.status === 'planned') ?? live[0] ?? null,
     [live],
   )
-  const active = live.find((j) => j.id === activeId) ?? defaultJob
-  const others = live.filter((j) => j.id !== active?.id)
+  /* การ์ดที่กางอยู่ — ค่าเริ่มต้นคือเที่ยวที่กำลังวิ่ง ถ้าหุบหมดจะเก็บเป็น -1
+     (ไม่ใช่ null เพราะ null แปลว่า "ยังไม่เลือก" ซึ่งต้องถอยไปใช้ค่าเริ่มต้น) */
+  const active = activeId === -1 ? null : live.find((j) => j.id === activeId) ?? defaultJob
   /* งานใหม่ที่ยังไม่ได้กดรับ — ตัวเลขบนแท็บมีไว้ตอบว่า "มีอะไรรอฉันอยู่ไหม" โดยไม่ต้องเปิดดู */
   const unread = live.filter((j) => !(j.my_accepted_at ?? j.accepted_at)).length
   /* บันทึกตำแหน่งเฉพาะเที่ยวที่รับแล้วและยังไม่จบ — นอกช่วงนั้นไม่ใช่เรื่องของระบบนี้ */
+  /* ตามตำแหน่งของเที่ยวที่กำลังวิ่ง ไม่ใช่การ์ดที่เผอิญกางอยู่ — คนขับหุบการ์ดแล้ว
+     ตำแหน่งต้องไม่หยุดบันทึก งานยังวิ่งอยู่เหมือนเดิม */
+  const tracked = live.find((j) => j.status === 'in_progress' && (j.my_accepted_at ?? j.accepted_at)) ?? null
   const tracking = useTripTracking(
-    active?.id ?? null,
+    tracked?.id ?? null,
     /* ของ "ฉัน" ไม่ใช่ของเที่ยว — ผู้ช่วยที่ยังไม่กดรับไม่ควรถูกตามตำแหน่ง
        เขายังไม่ได้ยืนยันว่ารับงานนี้ด้วยซ้ำ */
-    !!(active?.my_accepted_at ?? active?.accepted_at) &&
-      active?.status !== 'completed' && active?.status !== 'cancelled',
+    tracked !== null,
   )
 
   /* ขอสิทธิ์ตำแหน่งก่อนรับงาน ไม่ใช่หลังจากนั้น — งานที่รับแล้วแต่ตามไม่ได้
@@ -196,10 +198,8 @@ export default function CloudMyJobs(): React.JSX.Element {
         <h1 className="driver-title">
           {tab === 'jobs' ? 'งานของฉัน' : tab === 'history' ? 'ประวัติงาน' : 'บัญชีของฉัน'}
         </h1>
-        {tab === 'jobs' && others.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => setSwitching(true)}>
-            เที่ยวอื่น ({others.length})
-          </Button>
+        {tab === 'jobs' && live.length > 1 && (
+          <span className="text-xs text-muted">{live.length} เที่ยวที่ยังไม่จบ</span>
         )}
       </header>
 
@@ -252,42 +252,73 @@ export default function CloudMyJobs(): React.JSX.Element {
 
       {tab === 'jobs' && (loading ? (
         <Skeleton height={320} />
-      ) : !active ? (
+      ) : live.length === 0 ? (
         <EmptyState
           icon={<IconTruck size={28} />}
           title="ยังไม่มีงานที่มอบหมาย"
           desc="เมื่อฝ่ายวางแผนจัดเที่ยวให้ งานจะขึ้นที่นี่ทันที"
         />
       ) : (
-        <>
-          <JobFocus
-            job={active}
-            busy={busy === active.id}
-            deliveringKey={delivering}
-            canProgress={can('myjobs.progress')}
-            canPod={can('myjobs.pod')}
-            onAct={(job, action) => void act(job, action)}
-            onReportIssue={(job) => { setIssueFor(job); setIssueNote('') }}
-            onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
-            onDeliver={(stop) => void deliver(stop)}
-            onReorder={(job, ids) => void reorder(job, ids)}
-          />
+        <div className="job-list">
+          {/* ทุกเที่ยวหุบเป็นแถวเดียว กางทีละเที่ยว — คนขับถือหลายเที่ยวพร้อมกันได้
+              กางทุกเที่ยวพร้อมกันคือจอที่ต้องเลื่อนผ่านจุดส่งของเที่ยวอื่นก่อนถึงของตัวเอง
+              และเสี่ยงกดปิดจุดผิดเที่ยว ซึ่งย้อนกลับไม่ได้ */}
+          {live.map((job) => {
+            const open = job.id === active?.id
+            const delivered = job.orders.filter((o) => o.status === 'delivered').length
+            const mine = job.my_accepted_at ?? job.accepted_at
+            return (
+              <section key={job.id} className={`job-card${open ? ' is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="job-card-head"
+                  aria-expanded={open}
+                  onClick={() => setActiveId(open ? -1 : job.id)}
+                >
+                  <span className="job-card-text">
+                    <span className="job-card-no">{jobTripNo(job)}</span>
+                    <span className="job-card-meta">
+                      {job.vehicle_plate} · ส่งแล้ว {delivered}/{job.orders.length} ใบ
+                      {!mine ? ' · งานใหม่' : ''}
+                    </span>
+                  </span>
+                  <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot={job.status === 'in_progress'} />
+                </button>
 
-          {/* บอกตรง ๆ ว่าตอนนี้บันทึกอยู่หรือไม่ — เบราว์เซอร์หยุดให้ตำแหน่งเมื่อพับหน้าจอ
-              ถ้าไม่บอก คนขับจะเชื่อว่ามีการบันทึกตลอดเวลา แล้ววันที่ต้องใช้จะไม่มีข้อมูล */}
-          {(active.my_accepted_at ?? active.accepted_at) && (
-            <p className={`track-note${tracking === 'denied' ? ' is-off' : ''}`}>
-              {tracking === 'on'
-                ? 'กำลังบันทึกตำแหน่งของเที่ยวนี้ — เปิดหน้านี้ค้างไว้ระหว่างขับ'
-                : tracking === 'denied'
-                  ? 'ไม่ได้รับสิทธิ์ตำแหน่ง — ฝ่ายวางแผนจะไม่เห็นว่ารถอยู่ไหน'
-                  : tracking === 'unsupported'
-                    ? 'เครื่องนี้ไม่รองรับการระบุตำแหน่ง'
-                    : 'กำลังขอตำแหน่ง…'}
-            </p>
-          )}
+                {open && (
+                  <div className="job-card-body">
+                    <JobFocus
+                      job={job}
+                      busy={busy === job.id}
+                      deliveringKey={delivering}
+                      canProgress={can('myjobs.progress')}
+                      canPod={can('myjobs.pod')}
+                      onAct={(j, action) => void act(j, action)}
+                      onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
+                      onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
+                      onDeliver={(stop) => void deliver(stop)}
+                      onReorder={(j, ids) => void reorder(j, ids)}
+                    />
 
-        </>
+                    {/* บอกตรง ๆ ว่าตอนนี้บันทึกอยู่หรือไม่ — เบราว์เซอร์หยุดให้ตำแหน่งเมื่อพับหน้าจอ
+                        ถ้าไม่บอก คนขับจะเชื่อว่ามีการบันทึกตลอดเวลา แล้ววันที่ต้องใช้จะไม่มีข้อมูล */}
+                    {mine && (
+                      <p className={`track-note${tracking === 'denied' ? ' is-off' : ''}`}>
+                        {tracking === 'on'
+                          ? 'กำลังบันทึกตำแหน่งของเที่ยวนี้ — เปิดหน้านี้ค้างไว้ระหว่างขับ'
+                          : tracking === 'denied'
+                            ? 'ไม่ได้รับสิทธิ์ตำแหน่ง — ฝ่ายวางแผนจะไม่เห็นว่ารถอยู่ไหน'
+                            : tracking === 'unsupported'
+                              ? 'เครื่องนี้ไม่รองรับการระบุตำแหน่ง'
+                              : 'กำลังขอตำแหน่ง…'}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </section>
+            )
+          })}
+        </div>
       ))}
 
       {/* แถบล่างจอ — โครงเดียวกับแอปที่คนใช้ทุกวัน ถึงด้วยนิ้วโป้งข้างเดียว
@@ -312,32 +343,6 @@ export default function CloudMyJobs(): React.JSX.Element {
       </nav>
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} onDone={() => setPwOpen(false)} />
-
-      {switching && (
-        <Modal open onClose={() => setSwitching(false)} title="เลือกเที่ยววิ่ง">
-          <ul className="trip-switch-list">
-            {jobs.map((j) => (
-              <li key={j.id}>
-                <button
-                  type="button"
-                  className={`trip-switch${j.id === active?.id ? ' is-active' : ''}`}
-                  onClick={() => {
-                    setActiveId(j.id)
-                    setSwitching(false)
-                  }}
-                  aria-current={j.id === active?.id ? 'true' : undefined}
-                >
-                  <span className="trip-switch-no">{jobTripNo(j)}</span>
-                  <span className="trip-switch-meta">
-                    {j.vehicle_plate} · {j.orders.length} จุดส่ง · {fmtWeightHuman(j.total_weight)}
-                  </span>
-                  <Badge label={TRIP_STATUS_LABEL[j.status]} tone={j.status} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Modal>
-      )}
 
       {podFor && (
         <PodSheet
