@@ -10,8 +10,11 @@
       (function () {
         try {
           var t = localStorage.getItem('tms-theme')
+          /* ยังไม่เคยเลือกเอง = โหมดสว่าง ไม่ตามการตั้งค่าเครื่อง
+             มือถือที่ตั้งโหมดมืดไว้จะเปิดแอปครั้งแรกมาเจอจอมืด ทั้งที่คนที่นี่
+             ทำงานกลางวันและคาดหวังจอสว่างแบบเอกสาร */
           if (t !== 'light' && t !== 'dark') {
-            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+            t = 'light'
           }
           document.documentElement.setAttribute('data-theme', t)
           if (t === 'dark') {

@@ -1,4 +1,9 @@
-/** โหมดสว่าง/มืด — เก็บที่ localStorage, ค่าเริ่มต้นตามการตั้งค่าเครื่อง */
+/** โหมดสว่าง/มืด — เก็บที่ localStorage, ค่าเริ่มต้นคือโหมดสว่าง
+ *
+ *  เคยตามการตั้งค่าเครื่อง ซึ่งแปลว่ามือถือที่ตั้งโหมดมืดไว้ (ซึ่งเป็นค่าเริ่มต้น
+ *  ของเครื่องจำนวนมาก) เปิดแอปครั้งแรกมาเจอจอมืดทันที ทั้งที่คนส่วนใหญ่ที่นี่
+ *  ทำงานกลางวันและคาดหวังจอสว่างแบบเอกสาร — ปุ่มสลับยังอยู่ครบ ใครชอบมืดกดครั้งเดียว
+ *  แล้วระบบจำไว้ตลอด */
 
 export type Theme = 'light' | 'dark'
 
@@ -16,9 +21,9 @@ export function getStoredTheme(): Theme | null {
   }
 }
 
-export function systemTheme(): Theme {
-  if (typeof window.matchMedia !== 'function') return 'light'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+/** ธีมตั้งต้นสำหรับคนที่ยังไม่เคยเลือกเอง */
+export function defaultTheme(): Theme {
+  return 'light'
 }
 
 /** ค่าที่ใช้อยู่จริง
@@ -27,7 +32,7 @@ export function systemTheme(): Theme {
 export function currentTheme(): Theme {
   const attr = document.documentElement.getAttribute('data-theme')
   if (attr === 'light' || attr === 'dark') return attr
-  return getStoredTheme() ?? systemTheme()
+  return getStoredTheme() ?? defaultTheme()
 }
 
 /** ทาธีมลง <html> + ปรับ theme-color ของเบราว์เซอร์ (แถบ address บนมือถือ) */
