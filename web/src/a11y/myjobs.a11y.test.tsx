@@ -2,7 +2,6 @@ import { render } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { expectNoAxeViolations } from '../test/axe'
 import { JobFocus } from '../components/driver/JobFocus'
-import { JobProgress } from '../components/driver/JobProgress'
 import type { MyJob, MyJobOrder } from '../types'
 
 function makeOrder(over: Partial<MyJobOrder> = {}): MyJobOrder {
@@ -64,22 +63,26 @@ describe('หน้าคนขับ — a11y', () => {
     await expectNoAxeViolations(container)
   })
 
-  it('แถบขั้นตอนบอกขั้นปัจจุบันด้วย aria-current', async () => {
-    const { container } = render(<JobProgress job={JOB} />)
-    // คนขับที่ใช้ screen reader ต้องรู้ว่าอยู่ขั้นไหน ไม่ใช่รู้แค่ว่ามี 4 ขั้น
-    expect(container.querySelectorAll('[aria-current="step"]')).toHaveLength(1)
-    await expectNoAxeViolations(container)
-  })
-
   it('ยังส่งไม่ครบทุกจุด ปิดเที่ยวไม่ได้', () => {
     /* ถ้าปล่อยให้ปิดตอนนี้ จุดที่เหลือจะถูกเหมาเป็น "ส่งแล้ว" ทั้งที่ยังไม่ได้ไป
-       แล้ว POD ของร้านเหล่านั้นก็ไม่มีใครเก็บ */
+       แล้ว POD ของร้านเหล่านั้นก็ไม่มีใครเก็บ
+       ปุ่มหลักปุ่มเดียวล่างจอต้องเป็นงานของ "จุดนี้" ไม่ใช่ปุ่มปิดเที่ยวที่กดไม่ได้ */
     const { container } = render(
       <JobFocus job={JOB} busy={false} deliveringId={0} canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
     )
     const cta = container.querySelector('.job-cta-bar button') as HTMLButtonElement
-    expect(cta.disabled).toBe(true)
-    expect(cta.textContent).toContain('เหลืออีก 1 จุด')
+    expect(cta.textContent).toContain('ส่งจุดนี้เสร็จแล้ว')
+    expect(container.textContent).not.toContain('ปิดงาน')
+  })
+
+  it('ส่งครบทุกจุดแล้วจึงขึ้นปุ่มปิดงาน', () => {
+    const done = { ...JOB, orders: JOB.orders.map((o) => ({ ...o, status: 'delivered' as const, has_pod: 1 })) }
+    const { container } = render(
+      <JobFocus job={done} busy={false} deliveringId={0} canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
+    )
+    const cta = container.querySelector('.job-cta-bar button') as HTMLButtonElement
+    expect(cta.disabled).toBe(false)
+    expect(cta.textContent).toContain('ปิดงาน')
   })
 
   it('เที่ยวที่ปิดงานแล้วไม่แสดงปุ่มดำเนินการ', () => {

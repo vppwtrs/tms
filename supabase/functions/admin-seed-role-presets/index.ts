@@ -5,8 +5,12 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const caller = (auth: string) => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } }, auth: { autoRefreshToken: false, persistSession: false } })
 const admin = () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } })
 
-const dispatcher = new Set(['customers.view', 'customers.write', 'orders.view', 'orders.write', 'dispatch.view', 'dispatch.write', 'drivers.view', 'drivers.write', 'vehicles.view', 'vehicles.write', 'myjobs.view'])
-const driver = new Set(['myjobs.view', 'pod.insert', 'pod.update'])
+/* ปุ่มนี้ "ล้างแล้วเซ็ตใหม่" ทั้งตาราง role_permissions — สิทธิ์ที่ไม่ได้อยู่ในสามชุดนี้
+   จะหลุดหายทันทีที่กด เพิ่มสิทธิ์ใหม่ที่ไหนก็ต้องมาเพิ่มที่นี่ด้วยเสมอ
+   pod.view/pod.write เพิ่มตาม 20260819040000 — ไม่มีสองตัวนี้คนวางแผนอ่านตาราง pod ไม่ได้ */
+const dispatcher = new Set(['customers.view', 'customers.write', 'orders.view', 'orders.write', 'dispatch.view', 'dispatch.write', 'drivers.view', 'drivers.write', 'vehicles.view', 'vehicles.write', 'myjobs.view', 'pod.view', 'pod.write'])
+/* myjobs.progress/myjobs.pod เพิ่มตาม 20260819030000 — ไม่มีแล้วปุ่มรับงานไม่ขึ้นทั้งหน้า */
+const driver = new Set(['myjobs.view', 'myjobs.progress', 'myjobs.pod', 'pod.insert', 'pod.update'])
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers })

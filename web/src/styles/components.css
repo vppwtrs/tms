@@ -2329,60 +2329,62 @@
 .job-focus.status-completed { border-left-color: var(--success); }
 .job-focus.status-cancelled { border-left-color: var(--danger); }
 
-.job-focus-head {
+/* ---- หัวเที่ยวบรรทัดเดียว ----
+   ของเดิมเป็นบล็อกสามบรรทัด (เลขเที่ยว / ทะเบียน+จำนวนจุด+น้ำหนัก / badge)
+   กินพื้นที่บนสุดของจอทั้งที่ไม่มีอะไรต้องทำกับมัน */
+.job-bar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.job-focus-head .job-no { margin: 0; }
-.job-focus-head .job-sub { margin: 4px 0 0; }
-
-/* ---- แถบขั้นตอน ---- */
-.job-progress {
-  display: flex;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  gap: 2px;
-}
-.job-progress-step {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  position: relative;
-  font-size: var(--font-xs);
-  color: var(--faint);
-  text-align: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
-/* เส้นเชื่อมระหว่างจุด — วาดด้วย ::before ของจุดถัดไป จะได้ไม่มีเส้นเกินท้ายแถว */
-.job-progress-step + .job-progress-step::before {
-  content: '';
-  position: absolute;
-  top: 7px;
-  right: 50%;
-  left: -50%;
-  height: 2px;
-  background: var(--line);
+.job-bar-no { font-size: var(--font-lg); font-weight: 700; color: var(--ink); }
+.job-bar-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-sm);
+  color: var(--muted);
+  margin-right: auto;
 }
-.job-progress-step.is-done + .job-progress-step::before { background: var(--ok); }
-.job-progress-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--line);
-  background: var(--surface);
-  position: relative;
-  z-index: 1;
-}
-.job-progress-step.is-done .job-progress-dot { background: var(--ok); border-color: var(--ok); }
-.job-progress-step.is-done .job-progress-label { color: var(--ink-2); }
-.job-progress-step.is-current .job-progress-dot { border-color: var(--warn); box-shadow: 0 0 0 4px var(--warn-bg); }
-.job-progress-step.is-current .job-progress-label { color: var(--ink); font-weight: 650; }
 
-/* ---- จุดส่งถัดไป ---- */
+/* ---- แถบคืบหน้าเส้นเดียว แทนจุด 4 ขั้นแบบเดิม ---- */
+.job-meter { display: flex; align-items: center; gap: var(--space-3); }
+.job-meter-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.job-meter-fill {
+  height: 100%;
+  background: var(--ok);
+  border-radius: 999px;
+  transition: width var(--dur-2, 200ms) ease;
+}
+.job-meter-text { font-size: var(--font-sm); font-weight: 650; color: var(--ink-2); flex: none; }
+
+.job-alert {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--info);
+  background: var(--info-bg);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+.job-alert.is-warn { color: var(--warn); background: var(--warn-bg); }
+
+/* แถวปุ่มรอง — เล็กกว่าปุ่มหลักชัดเจน กันกดสลับกันตอนรถสั่น */
+.job-secondary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.job-crew { font-size: var(--font-sm); color: var(--muted); }
+
 .stop-focus-kicker {
   margin: 0;
   font-size: var(--font-sm);
@@ -2430,6 +2432,23 @@
 }
 .stop-focus-actions .btn { min-height: var(--driver-tap); }
 .stop-focus-pod { min-height: var(--driver-tap); }
+.stop-focus-ok { color: var(--ok); font-weight: 650; display: inline-flex; align-items: center; gap: 3px; }
+
+/* ---- รายละเอียดที่พับไว้ ---- */
+.stop-detail-toggle {
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--link);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.stop-detail { display: flex; flex-direction: column; gap: var(--space-2); }
 
 /* ---- จุดอื่นในเที่ยว: ย่อเหลือบรรทัดเดียว ---- */
 .stop-others { display: flex; flex-direction: column; gap: var(--space-2); }

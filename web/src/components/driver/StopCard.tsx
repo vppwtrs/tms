@@ -17,37 +17,33 @@ function mapsUrl(order: MyJobOrder): string {
  */
 export function NextStop({
   order,
-  canPod,
-  canProgress,
-  busy,
-  onPod,
-  onDeliver,
+  detailOpen,
+  onToggleDetail,
 }: {
   order: MyJobOrder
-  canPod: boolean
-  canProgress: boolean
-  busy: boolean
-  onPod: (order: MyJobOrder) => void
-  onDeliver: (order: MyJobOrder) => void
+  /** รายละเอียดที่ไม่ได้ใช้ตอนขับ (สินค้า น้ำหนัก เลข PL หมายเหตุ) พับไว้เป็นค่าเริ่มต้น */
+  detailOpen: boolean
+  onToggleDetail: () => void
 }): React.JSX.Element {
+  const hasRef = Boolean(order.tms_picking_list_no ?? order.tms_trip_no)
   return (
     <section className="stop-focus" aria-label="จุดส่งถัดไป">
       <div className="stop-focus-dest">{order.destination}</div>
       <div className="stop-focus-customer">{order.customer_name ?? 'ไม่ระบุลูกค้า'}</div>
+      {/* บรรทัดเดียวที่ต้องอ่านตอนขับ: ถึงกี่โมง และส่งไปแล้วหรือยัง */}
       <div className="stop-focus-meta">
-        นัดหมาย {fmtDateTime(order.scheduled_at)} · {order.goods_desc} · {fmtWeightHuman(order.weight_kg)}
+        นัดหมาย {fmtDateTime(order.scheduled_at)}
+        {order.status === 'delivered' && (
+          <>
+            {' · '}
+            <span className="stop-focus-ok">
+              <IconCheck size={13} /> ส่งแล้ว{order.has_pod ? ' · เก็บหลักฐานแล้ว' : ' · ยังไม่เก็บหลักฐาน'}
+            </span>
+          </>
+        )}
       </div>
-      {/* เลขที่คลังกับร้านใช้อ้างถึงใบนี้ — คนขับต้องอ่านให้ทางโทรศัพท์ได้ทันที
-          ไม่ใช่ต้องเปิด TMS อีกจอตอนยืนอยู่หน้าร้าน */}
-      {(order.tms_picking_list_no ?? order.tms_trip_no) && (
-        <div className="stop-focus-meta">
-          {order.tms_trip_no && <>เที่ยว {order.tms_trip_no}</>}
-          {order.tms_picking_list_no && <> · PL {order.tms_picking_list_no}</>}
-          {order.tms_unit_count ? <> · {order.tms_unit_count} หน่วย</> : null}
-        </div>
-      )}
-      {order.notes && <div className="stop-focus-note">หมายเหตุ: {order.notes}</div>}
 
+      {/* ปุ่มสองปุ่มนี้ใช้บ่อยที่สุดตอนถึงหน้าร้าน จึงอยู่ติดชื่อร้าน ไม่ปนกับปุ่มหลักล่างจอ */}
       <div className="stop-focus-actions">
         {order.customer_phone ? (
           <a className="btn btn-outline btn-lg" href={`tel:${order.customer_phone}`}>
@@ -61,25 +57,28 @@ export function NextStop({
         </a>
       </div>
 
-      {/* ปิดร้านนี้ทีละจุด — กดแล้วเด้งเข้าฟอร์ม POD ต่อทันที ไม่ต้องกดสองที
-          เพราะที่หน้าร้านคนขับทำสองอย่างนี้ติดกันเสมอ */}
-      {order.status === 'in_transit' && canProgress && (
-        <Button size="lg" className="stop-focus-pod" loading={busy} onClick={() => onDeliver(order)}>
-          ส่งจุดนี้เสร็จแล้ว
-        </Button>
+      {/* กดดูเมื่ออยากดู — ของเดิมแสดงตลอดเวลา ดันปุ่มหลักตกจอไปทุกครั้ง */}
+      <button type="button" className="stop-detail-toggle" aria-expanded={detailOpen} onClick={onToggleDetail}>
+        {detailOpen ? 'ซ่อนรายละเอียด' : 'รายละเอียดสินค้าและเลขอ้างอิง'}
+      </button>
+      {detailOpen && (
+        <div className="stop-detail">
+          <div className="stop-focus-meta">
+            {order.goods_desc} · {fmtWeightHuman(order.weight_kg)}
+          </div>
+          {order.customer_address && <div className="stop-focus-meta">{order.customer_address}</div>}
+          {/* เลขที่คลังกับร้านใช้อ้างถึงใบนี้ — คนขับต้องอ่านให้ทางโทรศัพท์ได้ทันที
+              ไม่ใช่ต้องเปิด TMS อีกจอตอนยืนอยู่หน้าร้าน */}
+          {hasRef && (
+            <div className="stop-focus-meta">
+              {order.tms_trip_no && <>เที่ยว {order.tms_trip_no}</>}
+              {order.tms_picking_list_no && <> · PL {order.tms_picking_list_no}</>}
+              {order.tms_unit_count ? <> · {order.tms_unit_count} หน่วย</> : null}
+            </div>
+          )}
+          {order.notes && <div className="stop-focus-note">หมายเหตุ: {order.notes}</div>}
+        </div>
       )}
-
-      {order.status === 'delivered' &&
-        canPod &&
-        (order.has_pod ? (
-          <p className="job-pod-done">
-            <IconCheck size={16} /> เก็บหลักฐานแล้ว
-          </p>
-        ) : (
-          <Button size="lg" className="stop-focus-pod" onClick={() => onPod(order)}>
-            เก็บหลักฐานการส่งมอบ
-          </Button>
-        ))}
     </section>
   )
 }
