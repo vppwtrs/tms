@@ -76,6 +76,9 @@ interface StoreGroup {
   key: string
   store: string
   destination: string
+  /* destination เต็มทุกแบบที่อยู่ในจุดนี้ — มากกว่าหนึ่งเมื่อ TMS ส่งชื่อคนรับ
+     ต่างกันมาในช่องที่อยู่ของร้านเดียวกัน */
+  spots: string[]
   rows: OrderListRow[]
   /* สรุปหลักฐานระดับ "จุดแวะ" ไม่ใช่ระดับใบ — คนขับเซ็นครั้งเดียวที่หน้าร้าน
      แล้วลายเซ็นชุดนั้นถูกบันทึกลงทุกใบของร้านนั้น ป้ายรายใบจึงพูดข้อเท็จจริง
@@ -113,6 +116,22 @@ interface TripGroup {
  *
  * แถวยังเป็นหนึ่งใบเหมือนเดิม เพราะปุ่มแก้ไข/ยกเลิกและ POD ผูกกับใบ ไม่ใช่ผูกกับร้าน
  */
+/** ชื่อจุดส่ง = ส่วนหน้าสุดของ destination
+ *
+ *  ตอนนำเข้า destination ถูกประกอบเป็น "ชื่อจุดส่ง · ที่อยู่ จ.จังหวัด" และช่อง
+ *  ที่อยู่ที่ TMS ส่งมาบ่อยครั้งเป็นชื่อกับเบอร์ของคนรับ ไม่ใช่ถนน ร้านเดียวที่สั่ง
+ *  สามใบโดยระบุคนรับคนละคนจึงได้ destination สามแบบ แล้วแตกเป็นสามจุดแวะ
+ *  ทั้งที่คนขับจอดครั้งเดียว */
+function shipToName(dest: string): string {
+  const head = dest.split(' · ')[0] ?? dest
+  return head.trim() || dest
+}
+
+/** จังหวัดท้ายสตริง — กันร้านชื่อซ้ำกันคนละจังหวัดถูกยุบรวมเป็นจุดเดียว */
+function province(dest: string): string {
+  return /จ\.([^·]+)$/.exec(dest)?.[1]?.trim() ?? ''
+}
+
 function groupOrders(rows: OrderListRow[]): TripGroup[] {
   const norm = (v: string | null): string => (v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
   const trips = new Map<string, Map<string, OrderListRow[]>>()
@@ -120,7 +139,11 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
   for (const o of rows) {
     /* ใบที่ยังไม่จัดเที่ยวไปรวมกันเป็นก้อนเดียว — เป็นกองงานที่ต้องจัด ไม่ใช่เที่ยว */
     const tripKey = String(o.trip_id ?? 0)
-    const storeKey = `${norm(o.customer_name) || norm(o.destination)}|${norm(o.destination)}`
+    /* ลูกค้าที่จับคู่ไว้แล้วคือตัวตนที่แน่นอนที่สุด ใช้ก่อนเสมอ ที่เหลือค่อยเดา
+       จากชื่อจุดส่งกับจังหวัด — ไม่ใช่จาก destination เต็มซึ่งมีชื่อคนรับปนอยู่ */
+    const storeKey = o.customer_id
+      ? `c${o.customer_id}`
+      : `${norm(shipToName(o.destination))}|${norm(province(o.destination))}`
     let stores = trips.get(tripKey)
     if (!stores) { stores = new Map(); trips.set(tripKey, stores) }
     const found = stores.get(storeKey)
@@ -143,10 +166,15 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
         const rows = [...group].sort((a, b) => billNo(a).localeCompare(billNo(b), 'th'))
         const delivered = rows.filter((r) => r.status === 'delivered')
         const withPod = delivered.filter((r) => r.pod_status)
+        /* ที่อยู่ที่ต่างกันภายในจุดเดียวกันไม่ถูกกลืนหาย — ยุบเป็นจุดเดียวเพื่อให้
+           อ่านง่าย แต่ยังบอกครบว่าในนั้นมีที่อยู่/คนรับกี่แบบ คนวางแผนที่สงสัยว่า
+           ยุบผิดร้านหรือเปล่า ต้องตรวจได้จากหน้าจอ ไม่ใช่ต้องไปเปิดฐาน */
+        const spots = [...new Set(rows.map((r) => r.destination))]
         return {
           key: `${tripKey}|${storeKey}`,
-          store: head.customer_name ?? head.destination,
-          destination: head.destination,
+          store: head.customer_name ?? shipToName(head.destination),
+          destination: spots.length === 1 ? head.destination : `${spots.length} จุดส่งย่อย`,
+          spots,
           rows,
           delivered: delivered.length,
           withPod: withPod.length,
@@ -477,6 +505,13 @@ export default function CloudOrders(): React.JSX.Element {
                           )}
                         </div>
                       </div>
+
+                      {/* จุดเดียวกันแต่ที่อยู่/คนรับในใบไม่ตรงกัน — บอกรายใบไปเลยว่าใบนี้
+                          ระบุใครไว้ ยุบหัวร้านให้อ่านง่ายได้ แต่ห้ามกลืนข้อมูลนี้หาย
+                          เพราะคนขับใช้มันหาคนรับตอนไปถึงหน้าร้าน */}
+                      {store.spots.length > 1 && (
+                        <div className="text-xs text-muted" style={{ marginTop: 2 }}>{o.destination}</div>
+                      )}
 
                       {/* รายการของครบทุกบรรทัด ไม่ย่อ ไม่ตัดท้าย — บรรทัดพวกนี้คือสิ่งที่
                           คนโหลดของเทียบกับใบจริงทีละรุ่น */}

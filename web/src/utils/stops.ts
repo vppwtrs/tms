@@ -41,10 +41,18 @@ export interface StopGroup {
   unit_count: number
 }
 
-/** ชื่อร้าน + ที่อยู่ = ตัวระบุร้าน — ฐานไม่ได้ส่ง customer_id มาในชุดข้อมูลของคนขับ */
+/** ชื่อร้าน + ที่อยู่ = ตัวระบุร้าน — ฐานไม่ได้ส่ง customer_id มาในชุดข้อมูลของคนขับ
+ *
+ *  ใบที่ไม่ได้จับคู่ลูกค้าไว้ต้องเดาจาก destination ซึ่งตอนนำเข้าถูกประกอบเป็น
+ *  "ชื่อจุดส่ง · ที่อยู่ จ.จังหวัด" และช่องที่อยู่ที่ TMS ส่งมามักเป็นชื่อกับเบอร์
+ *  ของคนรับ ไม่ใช่ถนน ร้านเดียวที่สั่งสามใบโดยระบุคนรับคนละคนจึงเคยกลายเป็น
+ *  สามจุดแวะ แล้วคนขับต้องขอลายเซ็นสามรอบที่หน้าร้านเดียว — เทียบเฉพาะส่วนหน้า
+ *  บวกจังหวัด ซึ่งเป็นตัวที่บอกว่า "รถจอดที่เดียวกันไหม" จริง ๆ */
 function keyOf(o: MyJobOrder): string {
   const norm = (s: string | null): string => (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-  return `${norm(o.customer_name) || norm(o.destination)}|${norm(o.customer_address)}`
+  const head = (o.destination.split(' · ')[0] ?? o.destination).trim()
+  const prov = /จ\.([^·]+)$/.exec(o.destination)?.[1]?.trim() ?? ''
+  return `${norm(o.customer_name) || norm(head)}|${norm(o.customer_address) || norm(prov)}`
 }
 
 /**
