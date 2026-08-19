@@ -1,14 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Badge, Button } from '../ui'
 import { StopItem } from './StopCard'
 import { IconTruck } from '../icons'
 import { TRIP_STATUS_LABEL } from '../../utils/constants'
-import type { MyJob, MyJobOrder } from '../../types'
-
-/** จุดแรกที่ยังไม่ถูกส่งหรือยกเลิก — จุดที่คนขับกำลังจะไป */
-function firstPending(job: MyJob): MyJobOrder | undefined {
-  return job.orders.find((o) => o.status !== 'delivered' && o.status !== 'cancelled')
-}
+import { groupStops, type StopGroup } from '../../utils/stops'
+import type { MyJob } from '../../types'
 
 /**
  * งานหนึ่งเที่ยว — รายการจุดส่งทั้งเที่ยวอยู่บนจอเสมอ
@@ -20,11 +16,13 @@ function firstPending(job: MyJob): MyJobOrder | undefined {
  * โครงนี้เป็นรายการล้วน: ทุกจุดเห็นพร้อมกัน จุดที่ทำอยู่กางอยู่กับที่ในลำดับของมัน
  * แตะจุดไหนก็กางจุดนั้นแทน ปุ่มของจุด (ปิดจุด/เก็บหลักฐาน) อยู่ในจุดนั้น
  * ล่างจอสงวนไว้ให้คำสั่งของทั้งเที่ยวเท่านั้น — รับงาน เริ่มเดินทาง ปิดงาน
+ *
+ * หนึ่งจุด = หนึ่งร้าน ใบเบิกหลายใบของร้านเดียวถูกยุบเข้าด้วยกัน (ดู utils/stops)
  */
 export function JobFocus({
   job,
   busy,
-  deliveringId,
+  deliveringKey,
   canProgress,
   canPod,
   onAct,
@@ -35,39 +33,38 @@ export function JobFocus({
 }: {
   job: MyJob
   busy: boolean
-  /** เลขออเดอร์ที่กำลังส่งคำสั่งปิดจุดอยู่ (0 = ไม่มี) */
-  deliveringId: number
+  /** คีย์ของร้านที่กำลังส่งคำสั่งปิดจุดอยู่ ('' = ไม่มี) */
+  deliveringKey: string
   canProgress: boolean
   canPod: boolean
   onAct: (job: MyJob, action: 'start' | 'complete' | 'accept') => void
   /** เปิดฟอร์มแจ้งปัญหา — แจ้งได้ ไม่ใช่ปฏิเสธงาน งานยังเป็นของคนขับ
    *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
   onReportIssue?: (job: MyJob) => void
-  onPod: (order: MyJobOrder) => void
-  onDeliver: (order: MyJobOrder) => void
+  onPod: (stop: StopGroup) => void
+  onDeliver: (stop: StopGroup) => void
   /* จัดลำดับร้านใหม่ทั้งเที่ยว — คนขับรู้เส้นทางจริงดีกว่าลำดับที่เอกสารให้มา
      ไม่ส่งมา = สแตกที่ยังไม่มีการจัดลำดับ (ฝั่ง LAN) ปุ่มขึ้น/ลงจะไม่ขึ้น */
   onReorder?: (job: MyJob, orderIds: number[]) => void
 }): React.JSX.Element {
-  const pending = firstPending(job)
-  const [openId, setOpenId] = useState<number | null>(pending?.id ?? job.orders[0]?.id ?? null)
+  const stops = useMemo(() => groupStops(job.orders), [job.orders])
+  const firstPending = stops.find((s) => !s.done && !s.cancelled)
+  const [openKey, setOpenKey] = useState<string | null>(firstPending?.key ?? stops[0]?.key ?? null)
 
   // สลับเที่ยวแล้วต้องกลับไปกางจุดถัดไปของเที่ยวใหม่ ไม่ใช่ค้างที่จุดของเที่ยวเก่า
   useEffect(() => {
-    setOpenId(firstPending(job)?.id ?? job.orders[0]?.id ?? null)
+    const list = groupStops(job.orders)
+    setOpenKey(list.find((s) => !s.done && !s.cancelled)?.key ?? list[0]?.key ?? null)
   }, [job.id])
 
   /* ปิดจุดที่กางอยู่แล้ว ให้เด้งไปกางจุดถัดไปเอง — จังหวะที่คนขับต้องการต่อคือจุดต่อไป
      ไม่ใช่นั่งดูจุดที่เพิ่งปิด (ยกเว้นยังไม่ได้เก็บหลักฐาน ซึ่งปุ่มยังอยู่ในจุดนั้น) */
   useEffect(() => {
-    const open = job.orders.find((o) => o.id === openId)
-    if (open && open.status === 'delivered' && open.has_pod) {
-      const next = firstPending(job)
-      if (next) setOpenId(next.id)
-    }
-  }, [job.orders, openId])
+    const open = stops.find((s) => s.key === openKey)
+    if (open && open.done && open.needPod.length === 0 && firstPending) setOpenKey(firstPending.key)
+  }, [stops, openKey])
 
-  const delivered = job.orders.filter((o) => o.status === 'delivered').length
+  const delivered = stops.filter((s) => s.done).length
   const active = job.status !== 'completed' && job.status !== 'cancelled'
   /* ประตูเป็นของ "ฉัน" ไม่ใช่ของเที่ยว — คนขับหลักกดรับไปแล้วไม่ได้แปลว่าผู้ช่วยรับแล้ว
      my_accepted_at เป็น undefined บนสแตก LAN ที่ยังไม่มีคอลัมน์นี้ ถอยไปใช้ของเดิม */
@@ -83,17 +80,18 @@ export function JobFocus({
   const stopsLive = canProgress && active && !waiting && job.status !== 'planned'
   const crew = job.driver_count ?? 1
 
-  const move = (order: MyJobOrder, dir: -1 | 1): void => {
-    const ids = job.orders.map((o) => o.id)
-    const at = ids.indexOf(order.id)
+  /* สลับตำแหน่งทั้งร้าน ไม่ใช่ทีละใบ — ใบของร้านเดียวกันต้องติดกันเสมอ
+     ไม่งั้นลำดับที่บันทึกกลับไปจะแยกร้านออกจากกันอีกรอบ */
+  const move = (stop: StopGroup, dir: -1 | 1): void => {
+    const at = stops.indexOf(stop)
     const to = at + dir
-    if (at < 0 || to < 0 || to >= ids.length) return
-    const moved = ids[at]
-    const swapped = ids[to]
-    if (moved === undefined || swapped === undefined) return
-    ids[at] = swapped
-    ids[to] = moved
-    onReorder?.(job, ids)
+    if (at < 0 || to < 0 || to >= stops.length) return
+    const next = [...stops]
+    const a = next[at] as StopGroup
+    const b = next[to] as StopGroup
+    next[at] = b
+    next[to] = a
+    onReorder?.(job, next.flatMap((s) => s.orders.map((o) => o.id)))
   }
 
   /* ล่างจอเป็นคำสั่งของ "ทั้งเที่ยว" เท่านั้น ปุ่มของจุดอยู่ในจุด
@@ -121,11 +119,11 @@ export function JobFocus({
         </Button>
       )
     }
-    if (pending) {
+    if (firstPending) {
       /* ยังส่งไม่ครบ ห้ามปิดเที่ยว — ถ้าปิดตอนนี้ จุดที่เหลือจะถูกเหมาเป็น "ส่งแล้ว"
          ทั้งที่ยังไม่ได้ไป แล้ว POD ของร้านเหล่านั้นก็ไม่มีใครเก็บ
          บอกจำนวนที่เหลือแทนปุ่มที่กดไม่ได้ เพราะคำถามคือ "อีกกี่ร้าน" */
-      return <p className="job-cta-hint">เหลืออีก {job.orders.length - delivered} จุด — ปิดงานได้เมื่อส่งครบ</p>
+      return <p className="job-cta-hint">เหลืออีก {stops.length - delivered} จุด — ปิดงานได้เมื่อส่งครบ</p>
     }
     if (canClose) {
       return (
@@ -149,16 +147,16 @@ export function JobFocus({
         <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot />
       </header>
 
-      {/* แถบคืบหน้าเส้นเดียว — ตัวเลข "ส่งแล้ว x/y" คือสิ่งที่คนขับถามจริงระหว่างวัน */}
+      {/* แถบคืบหน้าเส้นเดียว — นับเป็น "ร้าน" ไม่ใช่ "ใบ" เพราะสิ่งที่คนขับทำคือแวะร้าน */}
       <div className="job-meter">
         <div className="job-meter-track">
           <div
             className="job-meter-fill"
-            style={{ width: `${job.orders.length ? (delivered / job.orders.length) * 100 : 0}%` }}
+            style={{ width: `${stops.length ? (delivered / stops.length) * 100 : 0}%` }}
           />
         </div>
         <span className="job-meter-text">
-          ส่งแล้ว {delivered}/{job.orders.length}
+          ส่งแล้ว {delivered}/{stops.length} ร้าน
         </span>
       </div>
 
@@ -168,25 +166,25 @@ export function JobFocus({
       )}
       {job.issue_note && <p className="job-alert is-warn">แจ้งปัญหาไว้: {job.issue_note}</p>}
 
-      {job.orders.length === 0 ? (
+      {stops.length === 0 ? (
         <p className="job-sub">เที่ยวนี้ยังไม่มีจุดส่ง</p>
       ) : (
         <ol className="stop-list" aria-label="จุดส่งในเที่ยวนี้">
-          {job.orders.map((o, i) => (
+          {stops.map((s, i) => (
             <StopItem
-              key={o.id}
-              order={o}
+              key={s.key}
+              stop={s}
               index={i + 1}
-              open={o.id === openId}
-              busy={deliveringId === o.id}
+              open={s.key === openKey}
+              busy={deliveringKey === s.key}
               canProgress={stopsLive}
               canPod={canPod}
-              onOpen={() => setOpenId(o.id === openId ? null : o.id)}
+              onOpen={() => setOpenKey(s.key === openKey ? null : s.key)}
               onPod={onPod}
               onDeliver={onDeliver}
               onMove={canReorder ? move : undefined}
               canMoveUp={i > 0}
-              canMoveDown={i < job.orders.length - 1}
+              canMoveDown={i < stops.length - 1}
             />
           ))}
         </ol>

@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
+import type { StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtWeightHuman } from '../utils/format'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
@@ -32,8 +33,9 @@ export default function MyJobs(): React.JSX.Element {
   const [showDone, setShowDone] = useState(false)
   const [busy, setBusy] = useState(0)
   // แยกจาก busy เพราะ busy เก็บเลขเที่ยว ส่วนนี่เก็บเลขออเดอร์ — ชนกันได้ถ้าใช้ตัวเดียว
-  const [delivering, setDelivering] = useState(0)
-  const [podFor, setPodFor] = useState<MyJobOrder | null>(null)
+  const [delivering, setDelivering] = useState('')
+  /* POD เก็บเป็นชุดของ "ร้าน" — ผู้รับเซ็นครั้งเดียวตอนรับของทั้งกอง */
+  const [podFor, setPodFor] = useState<MyJobOrder[] | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
   const [switching, setSwitching] = useState(false)
 
@@ -73,19 +75,29 @@ export default function MyJobs(): React.JSX.Element {
     }
   }
 
-  /* ปิดร้านทีละจุด แล้วเปิดฟอร์ม POD ต่อทันทีในจังหวะเดียว
+  /* ปิดร้านทีละร้าน ทุกใบของร้านนั้นพร้อมกัน แล้วเปิดฟอร์ม POD ต่อทันทีในจังหวะเดียว
      คนขับยืนอยู่หน้าร้านตอนนั้น ถ้าให้กลับมากดอีกทีทีหลัง ลายเซ็นก็เก็บไม่ได้แล้ว */
-  const deliver = async (order: MyJobOrder): Promise<void> => {
-    setDelivering(order.id)
+  const deliver = async (stop: StopGroup): Promise<void> => {
+    setDelivering(stop.key)
     try {
-      const updated = await api.post<MyJob>(`/my-jobs/orders/${order.id}/deliver`, {})
-      setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
-      toast.push('success', `ส่ง ${order.destination} เรียบร้อย`)
-      if (can('myjobs.pod')) setPodFor(updated.orders.find((o) => o.id === order.id) ?? order)
+      let updated: MyJob | null = null
+      /* ทีละใบตามลำดับ — server คำนวณสถานะเที่ยวใหม่ทุกครั้งที่ปิดใบ */
+      for (const order of stop.pending) {
+        updated = await api.post<MyJob>(`/my-jobs/orders/${order.id}/deliver`, {})
+      }
+      if (updated) {
+        const done = updated
+        setJobs((list) => list.map((j) => (j.id === done.id ? done : j)))
+      }
+      toast.push('success', `ส่ง ${stop.customer_name ?? stop.destination} เรียบร้อย`)
+      if (can('myjobs.pod')) {
+        const ids = new Set(stop.orders.map((o) => o.id))
+        setPodFor(updated ? updated.orders.filter((o) => ids.has(o.id)) : stop.orders)
+      }
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
-      setDelivering(0)
+      setDelivering('')
     }
   }
 
@@ -113,14 +125,14 @@ export default function MyJobs(): React.JSX.Element {
           <JobFocus
             job={active}
             busy={busy === active.id}
-            deliveringId={delivering}
+            deliveringKey={delivering}
             canProgress={can('myjobs.progress')}
             canPod={can('myjobs.pod')}
             /* สแตก LAN ไม่มีประตูรับงาน — JobFocus จึงไม่ส่ง 'accept' มาที่นี่
                (ปุ่มรับงานขึ้นเฉพาะเมื่อมี onReportIssue ซึ่งหน้านี้ไม่ได้ส่งให้) */
             onAct={(job, action) => { if (action !== 'accept') void act(job, action) }}
-            onPod={setPodFor}
-            onDeliver={(order) => void deliver(order)}
+            onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
+            onDeliver={(stop) => void deliver(stop)}
           />
 
           {others.length > 0 && (
@@ -159,7 +171,7 @@ export default function MyJobs(): React.JSX.Element {
 
       {podFor && (
         <PodSheet
-          order={podFor}
+          orders={podFor}
           onClose={() => setPodFor(null)}
           onSaved={() => {
             setPodFor(null)
@@ -173,8 +185,10 @@ export default function MyJobs(): React.JSX.Element {
 }
 
 /** เก็บ POD จากในรถ — ลายเซ็น + ชื่อผู้รับ + รูปหน้างาน + พิกัด ครบในครั้งเดียว */
-function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () => void; onSaved: () => void }): React.JSX.Element {
+/* รับมาเป็นใบทั้งหมดของร้าน ลายเซ็นชุดเดียวบันทึกลงทุกใบ — ฐานยังผูก POD กับใบเหมือนเดิม */
+function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose: () => void; onSaved: () => void }): React.JSX.Element {
   const toast = useToast()
+  const order = orders[0] as MyJobOrder
   const [name, setName] = useState(order.customer_name ?? '')
   const [sig, setSig] = useState('')
   const [note, setNote] = useState('')
@@ -203,30 +217,33 @@ function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () 
     }
     setSaving(true)
     try {
-      /* มีรูป → multipart (server แยกไฟล์ออกจาก field ได้เอง)
+      /* ทีละใบ ลายเซ็นชุดเดียวกัน — รูปแนบไปกับใบแรกใบเดียว ไม่อัปซ้ำตามจำนวนใบ
+         มีรูป → multipart (server แยกไฟล์ออกจาก field ได้เอง)
          ไม่มีรูป → JSON เหมือนเดิม ประหยัด overhead ตอนสัญญาณอ่อน */
-      const fields = {
-        order_id: String(order.id),
-        recipient_name: name,
-        signature_data: sig,
-        notes: note || '',
-        lat: coords ? String(coords.lat) : '',
-        lng: coords ? String(coords.lng) : '',
-      }
-      if (photo) {
-        const form = new FormData()
-        for (const [k, v] of Object.entries(fields)) if (v !== '') form.append(k, v)
-        form.append('photo', photo.blob, `pod-${order.order_no}.jpg`)
-        await api.post('/my-jobs/pod', form)
-      } else {
-        await api.post('/my-jobs/pod', {
-          order_id: order.id,
+      for (const [i, o] of orders.entries()) {
+        const fields = {
+          order_id: String(o.id),
           recipient_name: name,
           signature_data: sig,
-          notes: note || null,
-          lat: coords?.lat ?? null,
-          lng: coords?.lng ?? null,
-        })
+          notes: note || '',
+          lat: coords ? String(coords.lat) : '',
+          lng: coords ? String(coords.lng) : '',
+        }
+        if (photo && i === 0) {
+          const form = new FormData()
+          for (const [k, v] of Object.entries(fields)) if (v !== '') form.append(k, v)
+          form.append('photo', photo.blob, `pod-${o.order_no}.jpg`)
+          await api.post('/my-jobs/pod', form)
+        } else {
+          await api.post('/my-jobs/pod', {
+            order_id: o.id,
+            recipient_name: name,
+            signature_data: sig,
+            notes: note || null,
+            lat: coords?.lat ?? null,
+            lng: coords?.lng ?? null,
+          })
+        }
       }
       onSaved()
     } catch (e) {
@@ -240,7 +257,7 @@ function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () 
     <Modal
       open
       onClose={onClose}
-      title={`หลักฐานการส่งมอบ — ${order.order_no}`}
+      title={`หลักฐานการส่งมอบ — ${order.customer_name ?? order.destination}`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>

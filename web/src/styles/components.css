@@ -2455,6 +2455,18 @@
 .stop-item-facts > div { display: flex; gap: var(--space-2); }
 .stop-item-facts dt { flex: none; width: 62px; color: var(--faint); }
 .stop-item-facts dd { margin: 0; color: var(--ink-2); }
+/* ใบเบิกของร้านนี้ — รายการรอง อ่านเพื่อเช็คของ ไม่ใช่เพื่อกด
+   จึงเล็กกว่าและไม่มีปุ่มของตัวเอง ปุ่มปิดจุดมีอันเดียวต่อร้าน */
+.stop-bills { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.stop-bill {
+  display: flex; gap: var(--space-2); align-items: baseline;
+  font-size: var(--font-sm); padding: 4px 0; border-top: 1px solid var(--line);
+}
+.stop-bill-no { font-family: ui-monospace, Consolas, monospace; font-size: var(--font-xs); color: var(--ink-2); }
+.stop-bill-goods { flex: 1; color: var(--faint); }
+.stop-bill-qty { flex: none; color: var(--ink-2); }
+.stop-bill.is-done .stop-bill-no { text-decoration: line-through; }
+
 .stop-item-note {
   margin: 0;
   font-size: var(--font-sm);

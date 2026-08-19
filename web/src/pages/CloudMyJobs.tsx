@@ -10,6 +10,7 @@ import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
+import type { StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtWeightHuman } from '../utils/format'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
@@ -38,9 +39,11 @@ export default function CloudMyJobs(): React.JSX.Element {
   const [error, setError] = useState('')
   const [showDone, setShowDone] = useState(false)
   const [busy, setBusy] = useState(0)
-  // แยกจาก busy เพราะ busy เก็บเลขเที่ยว ส่วนนี่เก็บเลขออเดอร์ — ชนกันได้ถ้าใช้ตัวเดียว
-  const [delivering, setDelivering] = useState(0)
-  const [podFor, setPodFor] = useState<MyJobOrder | null>(null)
+  // แยกจาก busy เพราะ busy เก็บเลขเที่ยว ส่วนนี่เก็บร้านที่กำลังปิด — ชนกันได้ถ้าใช้ตัวเดียว
+  const [delivering, setDelivering] = useState('')
+  /* POD เก็บเป็นชุดของ "ร้าน" ไม่ใช่ใบเดียว — ลายเซ็นหนึ่งครั้งครอบทุกใบที่ส่งร้านนั้น
+     ผู้รับเซ็นครั้งเดียวตอนรับของทั้งกอง ให้เซ็นซ้ำตามจำนวนใบคือเรื่องที่หน้างานไม่ยอมทำ */
+  const [podFor, setPodFor] = useState<MyJobOrder[] | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
   const [switching, setSwitching] = useState(false)
   const [issueFor, setIssueFor] = useState<MyJob | null>(null)
@@ -133,20 +136,26 @@ export default function CloudMyJobs(): React.JSX.Element {
     }
   }
 
-  /* ปิดร้านทีละจุด แล้วเปิดฟอร์ม POD ต่อทันทีในจังหวะเดียว
+  /* ปิดร้านทีละร้าน ทุกใบของร้านนั้นพร้อมกัน แล้วเปิดฟอร์ม POD ต่อทันทีในจังหวะเดียว
      คนขับยืนอยู่หน้าร้านตอนนั้น ถ้าให้กลับมากดอีกทีทีหลัง ลายเซ็นก็เก็บไม่ได้แล้ว */
-  const deliver = async (order: MyJobOrder): Promise<void> => {
-    setDelivering(order.id)
+  const deliver = async (stop: StopGroup): Promise<void> => {
+    setDelivering(stop.key)
     try {
-      await deliverOrder(order.id)
-      const updated = await reloadJob(order.trip_id, showDone)
+      /* ทีละใบตามลำดับ ไม่ยิงพร้อมกัน — ฝั่งฐานคำนวณสถานะเที่ยวใหม่ทุกครั้งที่ปิดใบ
+         ยิงขนานกันแล้วจะแย่งกันเขียนสถานะเดียวกัน */
+      for (const order of stop.pending) await deliverOrder(order.id)
+      const tripId = stop.orders[0]?.trip_id
+      const updated = tripId ? await reloadJob(tripId, showDone) : null
       if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
-      toast.push('success', `ส่ง ${order.destination} เรียบร้อย`)
-      if (can('myjobs.pod')) setPodFor(updated?.orders.find((o) => o.id === order.id) ?? order)
+      toast.push('success', `ส่ง ${stop.customer_name ?? stop.destination} เรียบร้อย`)
+      if (can('myjobs.pod')) {
+        const ids = new Set(stop.orders.map((o) => o.id))
+        setPodFor(updated ? updated.orders.filter((o) => ids.has(o.id)) : stop.orders)
+      }
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
-      setDelivering(0)
+      setDelivering('')
     }
   }
 
@@ -190,13 +199,13 @@ export default function CloudMyJobs(): React.JSX.Element {
           <JobFocus
             job={active}
             busy={busy === active.id}
-            deliveringId={delivering}
+            deliveringKey={delivering}
             canProgress={can('myjobs.progress')}
             canPod={can('myjobs.pod')}
             onAct={(job, action) => void act(job, action)}
             onReportIssue={(job) => { setIssueFor(job); setIssueNote('') }}
-            onPod={setPodFor}
-            onDeliver={(order) => void deliver(order)}
+            onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
+            onDeliver={(stop) => void deliver(stop)}
             onReorder={(job, ids) => void reorder(job, ids)}
           />
 
@@ -250,7 +259,7 @@ export default function CloudMyJobs(): React.JSX.Element {
 
       {podFor && (
         <PodSheet
-          order={podFor}
+          orders={podFor}
           onClose={() => setPodFor(null)}
           onSaved={() => {
             setPodFor(null)
@@ -293,9 +302,16 @@ export default function CloudMyJobs(): React.JSX.Element {
 const podKindLabel = (kind: string): string =>
   POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? kind
 
-/** เก็บ POD จากในรถ — ลายเซ็น + ชื่อผู้รับ + รูปหน้างาน + พิกัด ครบในครั้งเดียว */
-function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () => void; onSaved: () => void }): React.JSX.Element {
+/**
+ * เก็บ POD จากในรถ — ลายเซ็น + ชื่อผู้รับ + รูปหน้างาน + พิกัด ครบในครั้งเดียว
+ *
+ * รับมาเป็น "ใบทั้งหมดของร้านนี้" ลายเซ็นชุดเดียวถูกบันทึกลงทุกใบ เพราะผู้รับ
+ * เซ็นรับของทั้งกองครั้งเดียวจริง ๆ ส่วนฐานยังเก็บ POD ผูกกับใบเหมือนเดิม
+ * ฝ่ายบัญชีจึงยังเปิดหลักฐานรายใบได้
+ */
+function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose: () => void; onSaved: () => void }): React.JSX.Element {
   const toast = useToast()
+  const order = orders[0] as MyJobOrder
   const [name, setName] = useState(order.customer_name ?? '')
   const [sig, setSig] = useState('')
   const [note, setNote] = useState('')
@@ -335,15 +351,18 @@ function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () 
         photos.push({ path: await uploadPodPhoto(order.id, shot.img.blob), kind: shot.kind })
       }
 
-      await savePodWithPhotos({
-        orderId: order.id,
-        recipientName: name,
-        signatureData: sig,
-        photos,
-        notes: note || null,
-        lat: coords?.lat ?? null,
-        lng: coords?.lng ?? null,
-      })
+      /* ทีละใบตามลำดับ — รูปชุดเดียวถูกอ้างจากทุกใบ ไม่ต้องอัปซ้ำตามจำนวนใบ */
+      for (const o of orders) {
+        await savePodWithPhotos({
+          orderId: o.id,
+          recipientName: name,
+          signatureData: sig,
+          photos,
+          notes: note || null,
+          lat: coords?.lat ?? null,
+          lng: coords?.lng ?? null,
+        })
+      }
       onSaved()
     } catch (e) {
       toast.push('error', (e as Error).message)
@@ -356,7 +375,7 @@ function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () 
     <Modal
       open
       onClose={onClose}
-      title={`หลักฐานการส่งมอบ — ${order.order_no}`}
+      title={`หลักฐานการส่งมอบ — ${order.customer_name ?? order.destination}`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -368,6 +387,11 @@ function PodSheet({ order, onClose, onSaved }: { order: MyJobOrder; onClose: () 
         </>
       }
     >
+      {orders.length > 1 && (
+        <p className="job-sub" style={{ marginBottom: 10 }}>
+          ลายเซ็นนี้ใช้กับใบทั้งหมด {orders.length} ใบของร้านนี้
+        </p>
+      )}
       <Field label="ชื่อผู้รับสินค้า" required>
         <Input value={name} onChange={(e) => setName(e.target.value)} />
       </Field>

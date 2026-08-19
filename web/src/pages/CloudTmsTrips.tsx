@@ -3,7 +3,7 @@ import { useRealtime } from '../hooks/useRealtime'
 import {
   previewTrips, importTrip, createDriverFromTms, mapTmsDriverToExisting, driversBusyOn,
   linkOrdersToCustomers, tripDetail,
-  type TmsTripsPreview, type TmsTripDetail,
+  type TmsTripsPreview, type TmsTripDetail, type TmsPickingList,
 } from '../api/tms'
 import { listDrivers } from '../api/vehicles'
 import type { DriverRow } from '../types/database'
@@ -55,6 +55,29 @@ const costCell = (cost: number | null, actual: number | null): React.JSX.Element
       {actual === null && <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>ยังไม่ปิดยอด</div>}
     </>
   )
+}
+
+/**
+ * รวมใบเบิกของร้านเดียวกันเข้าด้วยกัน — คนวางแผนต้องรู้ว่าเที่ยวนี้แวะกี่ร้าน
+ * ไม่ใช่กี่ใบ ร้านเดียวสั่งหลายใบเป็นเรื่องปกติของ TMS
+ */
+function groupByStore(
+  lists: TmsPickingList[],
+): { name: string; province: string | null; qty: number | null; lists: TmsPickingList[] }[] {
+  const map = new Map<string, TmsPickingList[]>()
+  for (const pl of lists) {
+    const name = (pl.ship_to_name ?? pl.dealer_name ?? 'ไม่ระบุร้าน').trim()
+    const found = map.get(name)
+    if (found) found.push(pl)
+    else map.set(name, [pl])
+  }
+  return [...map.entries()].map(([name, group]) => ({
+    name,
+    province: group.find((pl) => pl.province)?.province ?? null,
+    /* ใบไหนไม่ส่งจำนวนมา ทั้งร้านก็สรุปยอดไม่ได้ — บวกข้ามไปจะได้ตัวเลขที่น้อยกว่าจริง */
+    qty: group.some((pl) => pl.qty == null) ? null : group.reduce((sum, pl) => sum + (pl.qty ?? 0), 0),
+    lists: group,
+  }))
 }
 
 const driverNames = (raw: string | null): string[] =>
@@ -537,27 +560,37 @@ export default function CloudTmsTrips(): React.JSX.Element {
             </div>
 
             <div className="text-strong" style={{ marginBottom: 6 }}>
-              ใบทั้งหมด {detail.picking_lists.length} ใบ · รวม {detail.total_unit ?? 0} คัน
+              {groupByStore(detail.picking_lists).length} ร้าน · {detail.picking_lists.length} ใบ · รวม {detail.total_unit ?? 0} คัน
             </div>
 
-            {detail.picking_lists.map((pl) => (
-              <div key={pl.picking_list_no} className="card" style={{ padding: 12, marginBottom: 8 }}>
+            {/* จัดกลุ่มตามร้าน ไม่ใช่ตามใบ — ร้านเดียวสั่งหลายใบเป็นเรื่องปกติ
+                เรียงตามใบแล้วชื่อร้านเดิมจะซ้ำติดกันจนคนวางแผนอ่านไม่ออกว่ามีกี่จุดจริง */}
+            {groupByStore(detail.picking_lists).map((g) => (
+              <div key={g.name} className="card" style={{ padding: 12, marginBottom: 8 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                  <span className="text-strong">{pl.picking_list_no}</span>
-                  {pl.pl_type && <Badge label={pl.pl_type} tone="neutral" />}
-                  {/* ใบที่ยังไม่ผูกลูกค้าไม่ได้กันการนำเข้า แต่เป็นของที่ต้องตามเก็บทีหลัง */}
-                  {!pl.customer_linked && <Badge label="ยังไม่ผูกลูกค้า" tone="warning" />}
+                  <span className="text-strong">{g.name}</span>
+                  {g.province && <span className="text-xs text-muted">{g.province}</span>}
                   <div style={{ flex: 1 }} />
-                  {/* ไม่รู้จำนวน ต้องเขียนว่าไม่รู้ — 0 บนจอทำให้คนอ่านคิดว่าใบนี้ไม่มีของ */}
                   <span className="text-xs text-muted">
-                    {pl.qty == null ? 'TMS ไม่ส่งจำนวนมา' : `${pl.qty} ชิ้น`}
+                    {g.lists.length} ใบ{g.qty == null ? '' : ` · ${g.qty} ชิ้น`}
                   </span>
                 </div>
-                <div className="text-xs text-muted" style={{ marginTop: 2 }}>
-                  {[pl.ship_to_name ?? pl.dealer_name, pl.province].filter(Boolean).join(' · ') || '—'}
-                </div>
-                {pl.items.length > 0 && (
-                  <div style={{ marginTop: 6 }}>
+
+                {g.lists.map((pl) => (
+                  <div key={pl.picking_list_no} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12.5 }}>
+                        {pl.picking_list_no}
+                      </span>
+                      {pl.pl_type && <Badge label={pl.pl_type} tone="neutral" />}
+                      {/* ใบที่ยังไม่ผูกลูกค้าไม่ได้กันการนำเข้า แต่เป็นของที่ต้องตามเก็บทีหลัง */}
+                      {!pl.customer_linked && <Badge label="ยังไม่ผูกลูกค้า" tone="warning" />}
+                      <div style={{ flex: 1 }} />
+                      {/* ไม่รู้จำนวน ต้องเขียนว่าไม่รู้ — 0 บนจอทำให้คนอ่านคิดว่าใบนี้ไม่มีของ */}
+                      <span className="text-xs text-muted">
+                        {pl.qty == null ? 'TMS ไม่ส่งจำนวนมา' : `${pl.qty} ชิ้น`}
+                      </span>
+                    </div>
                     {pl.items.map((it) => (
                       <div
                         key={it.item_no}
@@ -571,7 +604,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                       </div>
                     ))}
                   </div>
-                )}
+                ))}
               </div>
             ))}
           </>

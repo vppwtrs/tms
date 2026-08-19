@@ -48,7 +48,10 @@ const JOB: MyJob = {
   issue_note: null,
   orders: [
     makeOrder({ id: 1, status: 'delivered', has_pod: 1 }),
-    makeOrder({ id: 2, order_no: 'ORD-2026-0002', destination: 'ขอนแก่น' }),
+    makeOrder({
+      id: 2, order_no: 'ORD-2026-0002', destination: 'ขอนแก่น',
+      customer_name: 'ร้านขอนแก่นค้าส่ง', customer_address: 'ถนนศรีจันทร์ ขอนแก่น',
+    }),
   ],
   total_weight: 6800,
 }
@@ -58,7 +61,7 @@ const noop = (): void => {}
 describe('หน้าคนขับ — a11y', () => {
   it('งานที่กำลังทำ (JobFocus) ไม่มี violation', async () => {
     const { container } = render(
-      <JobFocus job={JOB} busy={false} deliveringId={0} canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
+      <JobFocus job={JOB} busy={false} deliveringKey="" canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
     )
     await expectNoAxeViolations(container)
   })
@@ -69,7 +72,7 @@ describe('หน้าคนขับ — a11y', () => {
        แถบล่างจอเป็นคำสั่งของทั้งเที่ยว ตอนยังไม่ครบจึงต้องไม่มีปุ่มให้กดเลย
        มีแต่ข้อความบอกว่าเหลืออีกกี่จุด */
     const { container } = render(
-      <JobFocus job={JOB} busy={false} deliveringId={0} canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
+      <JobFocus job={JOB} busy={false} deliveringKey="" canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
     )
     expect(container.querySelector('.job-cta-bar button')).toBeNull()
     expect(container.querySelector('.job-cta-bar')?.textContent).toContain('เหลืออีก 1 จุด')
@@ -78,16 +81,34 @@ describe('หน้าคนขับ — a11y', () => {
   it('ส่งครบทุกจุดแล้วจึงขึ้นปุ่มปิดงาน', () => {
     const done = { ...JOB, orders: JOB.orders.map((o) => ({ ...o, status: 'delivered' as const, has_pod: 1 })) }
     const { container } = render(
-      <JobFocus job={done} busy={false} deliveringId={0} canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
+      <JobFocus job={done} busy={false} deliveringKey="" canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
     )
     const cta = container.querySelector('.job-cta-bar button') as HTMLButtonElement
     expect(cta.disabled).toBe(false)
     expect(cta.textContent).toContain('ปิดงาน')
   })
 
+  it('ใบหลายใบของร้านเดียวกันยุบเป็นจุดเดียว', () => {
+    /* TMS ส่งมาเป็นใบ ร้านเดียวสั่งหลายใบเป็นเรื่องปกติ ถ้าเอาใบมาวางเป็นจุดตรง ๆ
+       คนขับจะเห็นร้านเดิมซ้ำติดกัน แล้วต้องกด "ส่งเสร็จ" ซ้ำที่หน้าร้านเดียว */
+    const twoBills = {
+      ...JOB,
+      orders: [
+        makeOrder({ id: 1, tms_picking_list_no: 'PL-001' }),
+        makeOrder({ id: 2, order_no: 'ORD-2026-0002', tms_picking_list_no: 'PL-002' }),
+      ],
+    }
+    const { container } = render(
+      <JobFocus job={twoBills} busy={false} deliveringKey="" canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
+    )
+    expect(container.querySelectorAll('.stop-item')).toHaveLength(1)
+    expect(container.querySelectorAll('.stop-bill')).toHaveLength(2)
+    expect(container.querySelector('.job-meter-text')?.textContent).toContain('0/1')
+  })
+
   it('เที่ยวที่ปิดงานแล้วไม่แสดงปุ่มดำเนินการ', () => {
     const { container } = render(
-      <JobFocus job={{ ...JOB, status: 'completed' }} busy={false} deliveringId={0} canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
+      <JobFocus job={{ ...JOB, status: 'completed' }} busy={false} deliveringKey="" canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
     )
     expect(container.querySelector('.job-cta-bar')).toBeNull()
   })
