@@ -12,7 +12,7 @@ import {
 } from '../utils/constants'
 import { dateInputToIso, fmtDate, fmtMoney, fmtRoute, fmtWeightHuman, isoToDateInput } from '../utils/format'
 import {
-  Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, HelpTip, Input, Modal,
+  Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
 import { IconBox, IconEdit, IconPlus, IconTrash } from '../components/icons'
@@ -33,7 +33,9 @@ import { IconBox, IconEdit, IconPlus, IconTrash } from '../components/icons'
  * ตอบลูกค้าทีหลัง 0003 ไม่มี policy delete บนตารางนี้เลยด้วยซ้ำ
  */
 
-const PAGE_SIZE = 15
+/* การ์ดหนึ่งใบต่อหนึ่งเที่ยว — หน้าละ 15 ใบทำให้เที่ยวเดียวกินทั้งหน้าแล้วยังไม่ครบ
+   ต้องเห็นทั้งเที่ยวจบในหน้าเดียว ไม่งั้นการจัดกลุ่มก็ไม่ได้ตอบอะไร */
+const PAGE_SIZE = 100
 
 type OrderKind = 'vehicle' | 'box'
 
@@ -327,114 +329,96 @@ export default function CloudOrders(): React.JSX.Element {
           />
         </div>
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                {/* เลขที่หัวคอลัมน์คือ PL — เลขเดียวกับใบจริงที่คลังยื่นให้คนขับ
-                    ORD ถูกถอดออกจากหน้าจอทั้งหน้า เหลือไว้เฉพาะใบที่สร้างเองซึ่งไม่มี PL */}
-                <th>เลข PL / รายการของ</th>
-                <th className="num">ค่าขนส่ง</th>
-                <th>กำหนดส่ง</th>
-                <th>สถานะ</th>
-                <th>POD<HelpTip text="หลักฐานการส่งมอบ — ลายเซ็นผู้รับ + รูปถ่าย ณ จุดส่ง ฉบับคลาวด์ยังดูได้แค่ว่ามีหรือไม่มี" /></th>
-                <th className="actions">การจัดการ</th>
-              </tr>
-            </thead>
-            {/* สามชั้นตามที่งานจริงเป็น: เที่ยว แล้วร้าน แล้วใบ (รายการของอยู่ในใบ)
-                เลขเที่ยวกับชื่อร้านจึงพิมพ์ครั้งเดียวต่อกลุ่ม ไม่ซ้ำลงมาทุกบรรทัด */}
-            {groupOrders(data.rows).map((trip) => (
-              <tbody key={trip.key}>
-                <tr className="row-trip">
-                  <td colSpan={6}>
-                    <span className="text-strong">{trip.tripNo}</span>
-                    <span className="text-xs text-muted">
-                      {' · '}{trip.stores.length} ร้าน · {trip.bills} ใบ
-                      {trip.driver ? ` · ${trip.driver}` : ' · ยังไม่จัดคิว'}
-                      {' · '}{fmtDate(trip.scheduled)}
-                    </span>
-                  </td>
-                </tr>
-                {trip.stores.map((store) => (
-                  <Fragment key={store.key}>
-                    <tr className="row-group">
-                      <td colSpan={6}>
-                        <span className="text-strong">{store.store}</span>
-                        <span className="text-xs text-muted"> · {store.destination} · {store.rows.length} ใบ</span>
-                      </td>
-                    </tr>
-                    {store.rows.map((o) => (
-                      <tr key={o.id} className="row-grouped">
-                        <td>
-                          <div className="cell-no">
-                            <span className="text-strong">{billNo(o)}</span>
-                            {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
-                            {!o.tms_picking_list_no && <Badge label="สร้างเอง" tone="neutral" />}
-                          </div>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+        /* รูปแบบเดียวกับหน้าตรวจเที่ยวจาก TMS: การ์ดเที่ยว ในนั้นเป็นการ์ดร้าน
+           ในนั้นเป็นใบ แล้วรายการของอยู่ในใบ — ไม่ตัดอะไรทิ้ง เห็นครบทุกชั้น
+           ตารางทำแบบนี้ไม่ได้ เพราะสามชั้นซ้อนกันในตารางเดียวอ่านเป็นแถวแบน ๆ เสมอ */
+        <div style={{ display: 'grid', gap: 14 }}>
+          {groupOrders(data.rows).map((trip) => (
+            <section key={trip.key} className="card" style={{ padding: 14 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                <span className="text-strong" style={{ fontSize: 15 }}>{trip.tripNo}</span>
+                <span className="text-xs text-muted">
+                  {trip.stores.length} ร้าน · {trip.bills} ใบ · {fmtDate(trip.scheduled)}
+                </span>
+                <div style={{ flex: 1 }} />
+                <span className="text-xs text-muted">
+                  {trip.driver ?? 'ยังไม่จัดคิว'}
+                </span>
+              </div>
+
+              {trip.stores.map((store) => (
+                <div key={store.key} className="card" style={{ padding: 12, marginTop: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    <span className="text-strong">{store.store}</span>
+                    <span className="text-xs text-muted">{store.destination}</span>
+                    <div style={{ flex: 1 }} />
+                    <span className="text-xs text-muted">{store.rows.length} ใบ</span>
+                  </div>
+
+                  {store.rows.map((o) => (
+                    <div
+                      key={o.id}
+                      style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)' }}
+                    >
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* เลขที่ใช้เรียกใบนี้กับคนนอกระบบคือ PL ไม่ใช่ ORD ที่เราสร้างเอง */}
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>{billNo(o)}</span>
+                        {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
+                        {!o.tms_picking_list_no && <Badge label="สร้างเอง" tone="neutral" />}
+                        <Badge
+                          label={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
+                          tone={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'accent' : 'neutral'}
+                        />
+                        <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} dot={o.status === 'in_transit'} />
+                        {o.status === 'delivered' && (
+                          o.pod_status ? (
                             <Badge
-                              label={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'กล่อง' : 'รถ'}
-                              tone={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'accent' : 'neutral'}
+                              label={o.pod_status === 'verified' ? 'ยืนยันแล้ว' : 'มี POD'}
+                              tone={o.pod_status === 'verified' ? 'delivered' : 'in_transit'}
+                              dot={o.pod_status === 'collected'}
                             />
-                            <span className="text-xs text-muted">{fmtWeightHuman(o.weight_kg)}</span>
-                          </div>
-                          {/* รายการของบรรทัดละรุ่น — ต่อกันเป็นข้อความเดียวแล้วเทียบกับใบจริง
-                              ตอนโหลดของไม่ได้ ซึ่งเป็นตอนเดียวที่คนเปิดดูรหัสสินค้า */}
-                          {o.items.length > 0 ? (
-                            <ul className="cell-items">
-                              {o.items.map((it) => (
-                                <li key={it.item_no}>
-                                  <span className="cell-item-no">{it.item_no}</span>
-                                  <span className="text-muted">{it.item_name ?? ''}</span>
-                                  <span>×{it.qty}</span>
-                                </li>
-                              ))}
-                            </ul>
                           ) : (
-                            <div className="text-xs text-muted" style={{ marginTop: 2 }}>{o.goods_desc}</div>
+                            <Badge label="ไม่มี POD" tone="pending" />
+                          )
+                        )}
+                        <div style={{ flex: 1 }} />
+                        <span className="text-xs text-muted">
+                          {fmtWeightHuman(o.weight_kg)} · {fmtMoney(o.fee)}
+                          {' · '}{fmtDate(o.scheduled_at)}
+                          {o.delivered_at ? ` · ส่ง ${fmtDate(o.delivered_at)}` : ''}
+                        </span>
+                        <div className="actions">
+                          {canEdit && (o.status === 'pending' || o.status === 'assigned') && (
+                            <Button variant="ghost" size="sm" title="แก้ไข" onClick={() => openEdit(o)}><IconEdit size={14} /></Button>
                           )}
-                        </td>
-                        <td className="num text-strong">{fmtMoney(o.fee)}</td>
-                        <td className="cell-date">
-                          {fmtDate(o.scheduled_at)}
-                          {o.delivered_at && <div className="text-xs text-success">ส่ง {fmtDate(o.delivered_at)}</div>}
-                        </td>
-                        <td>
-                          <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} dot={o.status === 'in_transit'} />
-                        </td>
-                        <td>
-                          {o.status === 'delivered' ? (
-                            o.pod_status ? (
-                              <Badge
-                                label={o.pod_status === 'verified' ? 'ยืนยันแล้ว' : 'มี POD'}
-                                tone={o.pod_status === 'verified' ? 'delivered' : 'in_transit'}
-                                dot={o.pod_status === 'collected'}
-                              />
-                            ) : (
-                              <Badge label="ไม่มี POD" tone="pending" />
-                            )
-                          ) : (
-                            <span className="text-muted text-xs">—</span>
+                          {canCancel && (o.status === 'pending' || o.status === 'assigned') && (
+                            <Button variant="ghost" size="sm" title="ยกเลิก" className="text-danger" onClick={() => setCancelling(o)}><IconTrash size={14} /></Button>
                           )}
-                        </td>
-                        <td>
-                          <div className="actions">
-                            {canEdit && (o.status === 'pending' || o.status === 'assigned') && (
-                              <Button variant="ghost" size="sm" title="แก้ไข" onClick={() => openEdit(o)}><IconEdit size={14} /></Button>
-                            )}
-                            {canCancel && (o.status === 'pending' || o.status === 'assigned') && (
-                              <Button variant="ghost" size="sm" title="ยกเลิก" className="text-danger" onClick={() => setCancelling(o)}><IconTrash size={14} /></Button>
-                            )}
-                            {o.status === 'delivered' && <span className="text-xs text-muted">เสร็จสิ้น</span>}
+                        </div>
+                      </div>
+
+                      {/* รายการของครบทุกบรรทัด ไม่ย่อ ไม่ตัดท้าย — บรรทัดพวกนี้คือสิ่งที่
+                          คนโหลดของเทียบกับใบจริงทีละรุ่น */}
+                      {o.items.length > 0 ? (
+                        o.items.map((it) => (
+                          <div
+                            key={it.item_no}
+                            style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '2px 0' }}
+                          >
+                            <span style={{ fontFamily: 'var(--font-mono)' }}>{it.item_no}</span>
+                            <span className="text-muted" style={{ flex: 1 }}>{it.item_name ?? ''}</span>
+                            <span>×{it.qty}</span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </Fragment>
-                ))}
-              </tbody>
-            ))}
-          </table>
+                        ))
+                      ) : (
+                        <div className="text-xs text-muted" style={{ marginTop: 2 }}>{o.goods_desc}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </section>
+          ))}
         </div>
       )}
 
