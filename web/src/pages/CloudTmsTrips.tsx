@@ -93,6 +93,11 @@ function confirmedAtTms(status: string | null, statusId: number | null): boolean
     'delivering', 'delivered', 'complete', 'completed'].includes(s)
 }
 
+/* ชื่อคนขับใน TMS พิมพ์อิสระ มักมีชื่อเล่นในวงเล็บต่อท้าย ("ฉัตรชัย ปานประเสริฐ (ฝ้าง)")
+   ส่วนทะเบียนพนักงานขับของเราเก็บชื่อจริงล้วน เทียบดิบ ๆ จึงไม่มีวันตรง */
+const nameKey = (raw: string): string =>
+  raw.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+
 const driverNames = (raw: string | null): string[] =>
   (raw ?? '').split(',').map((n) => n.trim()).filter(Boolean)
 
@@ -198,6 +203,28 @@ export default function CloudTmsTrips(): React.JSX.Element {
       setBusy('')
     }
   }
+
+  /* เดาชื่อไว้ให้ในช่อง แต่ไม่ตัดสินใจแทน — คนยังต้องกด "สั่งงานเที่ยวนี้" เอง
+     ที่เลิกทำไปเมื่อวานคือการ "สั่งงานให้เองโดยไม่มีใครดู" ไม่ใช่การกรอกช่องไว้ให้
+     ตอบครั้งเดียวแล้ว import_tms_trip จะจำคำตอบไว้ใช้รอบถัดไปเอง */
+  useEffect(() => {
+    if (!data || roster.length === 0) return
+    setAssign((prev) => {
+      const next = { ...prev }
+      let touched = false
+      for (const t of data.trips) {
+        if (t.imported || next[t.tms_id]?.some((id) => id > 0)) continue
+        const names = driverNames(t.driver_name)
+        if (names.length === 0) continue
+        const guess = names.map((n) => roster.find((d) => nameKey(d.name) === nameKey(n))?.id ?? 0)
+        if (guess.some((id) => id > 0)) {
+          next[t.tms_id] = guess
+          touched = true
+        }
+      }
+      return touched ? next : prev
+    })
+  }, [data, roster])
 
   const loadRoster = (): void => {
     listDrivers({ limit: 200 })
@@ -514,7 +541,11 @@ export default function CloudTmsTrips(): React.JSX.Element {
                                เที่ยวที่ข้อมูลครบทุกอย่างแล้วแต่ปุ่มเทา ทำให้คนวางแผนไปไล่หา
                                ปัญหาที่ไม่มีอยู่ ทั้งที่เหลือแค่เลือกชื่อในช่องข้างบน */
                             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                              เลือกคนขับก่อนถึงจะสั่งงานได้ — ไปคนเดียวก็เลือกแค่ช่องแรก
+                              {t.driver_name
+                                /* บอกชื่อที่ TMS ส่งมาด้วย — ไม่งั้นคนอ่านเห็นชื่อคนขับอยู่บนแถว
+                                   แล้วไม่เข้าใจว่าทำไมยังต้องเลือกอีก */
+                                ? `TMS ส่งชื่อ “${t.driver_name}” มา แต่ยังไม่รู้ว่าเป็นใครในระบบ — เลือกให้ครั้งเดียว รอบหน้าจะจำได้เอง`
+                                : 'เลือกคนขับก่อนถึงจะสั่งงานได้ — ไปคนเดียวก็เลือกแค่ช่องแรก'}
                             </span>
                           ) : null}
                           {/* เตือนตอนที่ยังแก้ได้ ไม่ใช่ตอนกดสั่งงานแล้ว */}
