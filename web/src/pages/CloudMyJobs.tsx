@@ -12,13 +12,14 @@ import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
-import { fmtWeightHuman } from '../utils/format'
+import { fmtDateTime, fmtWeightHuman } from '../utils/format'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
 import { CameraCapture } from '../components/CameraCapture'
 import { JobFocus } from '../components/driver/JobFocus'
 import type { CompressedImage } from '../utils/image'
-import { IconTruck } from '../components/icons'
+import { IconCheck, IconTruck, IconUsers } from '../components/icons'
+import { ChangePasswordModal } from '../components/ChangePasswordModal'
 
 /**
  * หน้าของคนขับ — ออกแบบให้ใช้บนมือถือในรถเป็นหลัก
@@ -32,12 +33,17 @@ import { IconTruck } from '../components/icons'
  *  • ไม่มีตัวเลขเงินเลย — server ไม่ได้ส่งมาให้ตั้งแต่ต้น
  */
 export default function CloudMyJobs(): React.JSX.Element {
-  const { can } = useCloudAuth()
+  const { can, user, logout } = useCloudAuth()
   const toast = useToast()
   const [jobs, setJobs] = useState<MyJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showDone, setShowDone] = useState(false)
+  /* โหลดงานที่จบแล้วมาด้วยเสมอ — เดิมเป็นสวิตช์ "ดูงานที่จบแล้วด้วย" ที่คนขับต้องไปหาเจอก่อน
+     ตอนนี้มันคือแท็บ "ประวัติ" ที่ล่างจอ ซึ่งเห็นตลอดเวลา */
+  const showDone = true
+  /* แท็บล่างจอ — โครงของแอปที่ใช้งานจริงบนมือถือ นิ้วโป้งถึงทุกอันโดยไม่ต้องขยับมือ */
+  const [tab, setTab] = useState<'jobs' | 'history' | 'me'>('jobs')
+  const [pwOpen, setPwOpen] = useState(false)
   const [busy, setBusy] = useState(0)
   // แยกจาก busy เพราะ busy เก็บเลขเที่ยว ส่วนนี่เก็บร้านที่กำลังปิด — ชนกันได้ถ้าใช้ตัวเดียว
   const [delivering, setDelivering] = useState('')
@@ -61,7 +67,7 @@ export default function CloudMyJobs(): React.JSX.Element {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => load(showDone), [showDone])
+  useEffect(() => load(showDone), [])
 
   /* คนขับถือมือถือวิ่งอยู่ ฝ่ายจัดรถแก้เที่ยวให้ระหว่างทางได้ — งานที่ถูกเพิ่ม/ถอด
      ต้องขึ้นเองโดยไม่ต้องบอกให้คนขับดึงหน้าจอรีเฟรชกลางถนน */
@@ -69,12 +75,17 @@ export default function CloudMyJobs(): React.JSX.Element {
 
   /* เที่ยวที่ควรโชว์เป็นค่าเริ่มต้น: กำลังวิ่งก่อน แล้วค่อยเที่ยวที่วางแผนไว้
      คนขับมีเที่ยวที่ยังไม่จบพร้อมกันได้หลายใบ แต่ "กำลังวิ่ง" มีความหมายชัดที่สุด */
+  /* งานที่ยังไม่จบเท่านั้นที่อยู่ในแท็บงาน — งานที่ปิดแล้วเป็นประวัติ ไม่ใช่สิ่งที่ต้องทำ */
+  const live = useMemo(() => jobs.filter((j) => j.status !== 'completed' && j.status !== 'cancelled'), [jobs])
+  const done = useMemo(() => jobs.filter((j) => j.status === 'completed' || j.status === 'cancelled'), [jobs])
   const defaultJob = useMemo(
-    () => jobs.find((j) => j.status === 'in_progress') ?? jobs.find((j) => j.status === 'planned') ?? jobs[0] ?? null,
-    [jobs],
+    () => live.find((j) => j.status === 'in_progress') ?? live.find((j) => j.status === 'planned') ?? live[0] ?? null,
+    [live],
   )
-  const active = jobs.find((j) => j.id === activeId) ?? defaultJob
-  const others = jobs.filter((j) => j.id !== active?.id)
+  const active = live.find((j) => j.id === activeId) ?? defaultJob
+  const others = live.filter((j) => j.id !== active?.id)
+  /* งานใหม่ที่ยังไม่ได้กดรับ — ตัวเลขบนแท็บมีไว้ตอบว่า "มีอะไรรอฉันอยู่ไหม" โดยไม่ต้องเปิดดู */
+  const unread = live.filter((j) => !(j.my_accepted_at ?? j.accepted_at)).length
   /* บันทึกตำแหน่งเฉพาะเที่ยวที่รับแล้วและยังไม่จบ — นอกช่วงนั้นไม่ใช่เรื่องของระบบนี้ */
   const tracking = useTripTracking(
     active?.id ?? null,
@@ -180,13 +191,58 @@ export default function CloudMyJobs(): React.JSX.Element {
   return (
     <div className="driver-scope">
       <header className="driver-head">
-        <h1 className="driver-title">งานของฉัน</h1>
-        <Button variant="ghost" size="sm" onClick={() => setShowDone((v) => !v)}>
-          {showDone ? 'ดูเฉพาะงานค้าง' : 'ดูงานที่จบแล้วด้วย'}
-        </Button>
+        <h1 className="driver-title">
+          {tab === 'jobs' ? 'งานของฉัน' : tab === 'history' ? 'ประวัติงาน' : 'บัญชีของฉัน'}
+        </h1>
+        {tab === 'jobs' && others.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => setSwitching(true)}>
+            เที่ยวอื่น ({others.length})
+          </Button>
+        )}
       </header>
 
-      {loading ? (
+      {tab === 'history' && (
+        /* ประวัติเป็นรายการอ่านอย่างเดียว — ปิดงานแล้วไม่มีปุ่มอะไรให้กดอีก
+           สิ่งที่คนขับมาหาที่นี่คือ "เมื่อวานฉันวิ่งกี่เที่ยว ร้านไหนบ้าง" */
+        <ul className="trip-switch-list">
+          {done.length === 0 && (
+            <EmptyState icon={<IconTruck size={28} />} title="ยังไม่มีงานที่ปิดแล้ว" desc="งานที่ปิดงานเรียบร้อยจะมาอยู่ที่นี่" />
+          )}
+          {done.map((j) => (
+            <li key={j.id}>
+              <div className="trip-switch">
+                <span className="trip-switch-no">{jobTripNo(j)}</span>
+                <span className="trip-switch-meta">
+                  {j.vehicle_plate} · {j.orders.length} ใบ · {fmtWeightHuman(j.total_weight)}
+                  {j.arrived_at ? ` · ปิดงาน ${fmtDateTime(j.arrived_at)}` : ''}
+                </span>
+                <Badge label={TRIP_STATUS_LABEL[j.status]} tone={j.status} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {tab === 'me' && (
+        <div className="driver-me">
+          <div className="driver-me-card">
+            <span className="driver-me-name">{user?.name}</span>
+            <span className="driver-me-sub">{user?.username} · พนักงานขับรถ</span>
+          </div>
+          {/* สองอย่างที่คนขับต้องทำเองได้จริงจากในรถ ไม่ต้องโทรหาออฟฟิศ */}
+          <Button variant="outline" className="driver-me-action" onClick={() => setPwOpen(true)}>
+            เปลี่ยนรหัสผ่าน
+          </Button>
+          <Button variant="ghost" className="driver-me-action" onClick={() => void logout()}>
+            ออกจากระบบ
+          </Button>
+          <p className="text-xs text-muted">
+            เปิดหน้านี้ค้างไว้ระหว่างขับ ระบบถึงจะบันทึกตำแหน่งของเที่ยวให้ฝ่ายวางแผนเห็น
+          </p>
+        </div>
+      )}
+
+      {tab === 'jobs' && (loading ? (
         <Skeleton height={320} />
       ) : !active ? (
         <EmptyState
@@ -223,13 +279,31 @@ export default function CloudMyJobs(): React.JSX.Element {
             </p>
           )}
 
-          {others.length > 0 && (
-            <Button variant="outline" className="driver-switch" onClick={() => setSwitching(true)}>
-              เที่ยวอื่น ({others.length})
-            </Button>
-          )}
         </>
-      )}
+      ))}
+
+      {/* แถบล่างจอ — โครงเดียวกับแอปที่คนใช้ทุกวัน ถึงด้วยนิ้วโป้งข้างเดียว
+          ไม่ใช่เมนูที่ต้องกดเปิดจากมุมบนซ้ายก่อนถึงจะเห็นว่ามีอะไรบ้าง */}
+      <nav className="driver-tabs" aria-label="เมนูหลัก">
+        <button type="button" className={`driver-tab${tab === 'jobs' ? ' is-active' : ''}`}
+          aria-current={tab === 'jobs' ? 'page' : undefined} onClick={() => setTab('jobs')}>
+          <IconTruck size={20} />
+          <span>งานของฉัน</span>
+          {unread > 0 && <span className="driver-tab-badge" aria-label={`งานใหม่ ${unread}`}>{unread}</span>}
+        </button>
+        <button type="button" className={`driver-tab${tab === 'history' ? ' is-active' : ''}`}
+          aria-current={tab === 'history' ? 'page' : undefined} onClick={() => setTab('history')}>
+          <IconCheck size={20} />
+          <span>ประวัติ</span>
+        </button>
+        <button type="button" className={`driver-tab${tab === 'me' ? ' is-active' : ''}`}
+          aria-current={tab === 'me' ? 'page' : undefined} onClick={() => setTab('me')}>
+          <IconUsers size={20} />
+          <span>ฉัน</span>
+        </button>
+      </nav>
+
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} onDone={() => setPwOpen(false)} />
 
       {switching && (
         <Modal open onClose={() => setSwitching(false)} title="เลือกเที่ยววิ่ง">

@@ -2420,7 +2420,8 @@
   flex-direction: column;
   gap: var(--space-4);
   /* เผื่อที่ให้แถบปุ่มที่ตรึงล่างจอ ไม่ให้ทับเนื้อหาบรรทัดสุดท้าย */
-  padding-bottom: calc(var(--driver-tap) + var(--space-6));
+  /* เผื่อที่ให้ทั้งแถบคำสั่งของเที่ยวและแถบเมนูล่างจอ ไม่ให้ทับเนื้อหาบรรทัดสุดท้าย */
+  padding-bottom: calc(var(--driver-tap) + 58px + var(--space-6));
 }
 
 .driver-head {
@@ -2436,6 +2437,74 @@
   margin: 0;
 }
 .driver-switch { align-self: stretch; min-height: 48px; }
+
+/* แถบเมนูล่างจอของคนขับ — ตรึงติดขอบล่างจริง ไม่ใช่ลอยตามการเลื่อนหน้า
+   คนขับถือมือถือมือเดียว นิ้วโป้งถึงแค่ครึ่งล่างของจอ เมนูที่อยู่บนสุดจึงกดไม่ถึง */
+.driver-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  /* กันแถบชนแถบ home ของ iPhone */
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.driver-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 58px;
+  padding: 6px 4px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--font-xs);
+  color: var(--faint);
+  cursor: pointer;
+}
+.driver-tab.is-active { color: var(--info); font-weight: 600; }
+.driver-tab:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+/* ตัวเลขงานใหม่ — ตอบว่า "มีอะไรรอฉันอยู่ไหม" โดยไม่ต้องเปิดแท็บดู */
+.driver-tab-badge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  margin-left: 6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--danger);
+  /* ไม่ใช่ #fff ตายตัว — โหมดมืดใช้แดงอ่อน ตัวอักษรขาวบนพื้นนั้นได้ 2.6:1 ซึ่งตกเกณฑ์
+     var(--surface) กลับด้านให้เองทั้งสองโหมด */
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* แท็บ "ฉัน" — ของที่คนขับต้องทำเองได้จากในรถ ไม่ต้องโทรหาออฟฟิศ */
+.driver-me { display: flex; flex-direction: column; gap: var(--space-3); }
+.driver-me-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.driver-me-name { font-size: var(--font-lg); font-weight: 700; color: var(--ink); }
+.driver-me-sub { font-size: var(--font-sm); color: var(--faint); }
+.driver-me-action { min-height: var(--driver-tap); }
 
 .job-focus {
   background: var(--surface);
@@ -2605,9 +2674,11 @@
 
 /* ---- แถบปุ่มหลักที่ตรึงล่างจอ ----
    env(safe-area-inset-bottom) กันแถบ home ของ iPhone ทับปุ่ม */
+/* ลอยเหนือแถบเมนูล่างจอ ไม่ใช่ใต้มัน — bottom: 0 จะไปนั่งอยู่หลังแถบเมนูพอดี
+   แล้วปุ่ม "รับงานนี้" จะถูกบังครึ่งใบ */
 .job-cta-bar {
   position: sticky;
-  bottom: 0;
+  bottom: calc(58px + env(safe-area-inset-bottom, 0px));
   margin: var(--space-2) calc(var(--space-5) * -1) calc(var(--space-5) * -1);
   padding: var(--space-3) var(--space-5) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
