@@ -439,6 +439,46 @@
   animation: storeOpen var(--motion-enter) var(--ease-enter);
 }
 
+/* แถบสถานะรอบดึงข้อมูล — เล็ก อยู่ใต้หัวเรื่อง ไม่แย่งที่จากตารางเที่ยว
+   ข้อมูลไหลเข้าเองอยู่แล้ว แถบนี้มีไว้ตอบว่า "ตอนนี้ยังต่อกับ TMS อยู่ไหม" */
+.tms-pullbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.tms-pulldot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success, var(--info));
+}
+.tms-pulldot.is-busy {
+  background: var(--info);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+/* แถบวิ่งในจอกำลังโหลด — ไม่ใช่ % ความคืบหน้า เพราะจำนวนหน้าที่ต้องไล่ยังไม่รู้ตอนเริ่ม
+   หลอกเป็นตัวเลขที่ดูแม่นแล้วค้างอยู่ที่ 80% นานกว่าเดิมคือแย่กว่าไม่บอก */
+.tms-pullbars {
+  display: flex;
+  gap: 6px;
+}
+.tms-pullbars span {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--info);
+  opacity: 0.25;
+  animation: pulse 1.1s ease-in-out infinite;
+}
+.tms-pullbars span:nth-child(2) { animation-delay: 0.15s; }
+.tms-pullbars span:nth-child(3) { animation-delay: 0.3s; }
+
 /* หัวเที่ยว — ชั้นบนสุดของตารางออเดอร์ เข้มกว่าหัวร้านหนึ่งระดับ
    เพื่อให้เห็นว่าอันไหนครอบอันไหนโดยไม่ต้องมีเส้นกรอบ */
 .table tbody tr.row-trip td {

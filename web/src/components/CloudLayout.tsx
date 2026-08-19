@@ -32,8 +32,9 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: '/my-jobs', label: 'งานของฉัน', icon: IconTruckBig, perm: 'myjobs.view' },
   { to: '/customers', label: 'ลูกค้า', icon: IconBuilding, perm: 'customers.view' },
-  { to: '/tms-pull', label: 'รับงานจาก TMS', icon: IconTable, perm: 'orders.write' },
-  { to: '/tms-trips', label: 'ตรวจเที่ยวจาก TMS', icon: IconRoute, perm: 'dispatch.view' },
+  /* หน้าเดียวจบ — รอบดึงข้อมูลเดินอยู่บนหน้านี้เอง แยกเป็นสองหน้าแล้วรอบดึงจะหยุด
+     ทันทีที่คนสลับมาดูเที่ยว ซึ่งเป็นสิ่งที่เกิดตลอดวัน */
+  { to: '/tms-trips', label: 'งานจาก TMS', icon: IconRoute, perm: 'dispatch.view' },
   { to: '/orders', label: 'ออเดอร์', icon: IconBox, perm: 'orders.view' },
   { to: '/dispatch', label: 'แผนงานขนส่ง', icon: IconRoute, perm: 'dispatch.view' },
   { to: '/tracking', label: 'ติดตามรถ', icon: IconPin, perm: 'myjobs.view' },

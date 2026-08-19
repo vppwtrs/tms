@@ -7,7 +7,7 @@ import { IconBox, IconRoute, IconTable, IconTruckBig } from '../components/icons
 export default function CloudHome(): React.JSX.Element {
   const { can, user } = useCloudAuth()
   const actions = [
-    can('orders.write') && { to: '/tms-pull', icon: IconTable, title: 'รับงานจาก TMS', desc: 'ดึงเที่ยวล่าสุดจากทั้งสองคลังและสร้างงานอัตโนมัติ', label: 'เริ่มดึงข้อมูล', tone: 'accent' },
+    can('dispatch.view') && { to: '/tms-trips', icon: IconTable, title: 'งานจาก TMS', desc: 'ข้อมูลไหลเข้าเองทุก 5 นาที — ตรวจเที่ยวแล้วสั่งงานได้ที่หน้าเดียว', label: 'เปิดงานจาก TMS', tone: 'accent' },
     can('dispatch.view') && { to: '/dispatch', icon: IconRoute, title: 'จัดแผนงาน', desc: 'ตรวจเที่ยว รถ คนขับ และลำดับงานก่อนปล่อยงาน', label: 'เปิดแผนงาน', tone: 'neutral' },
     can('orders.view') && { to: '/orders', icon: IconBox, title: 'ติดตามออเดอร์', desc: 'ดูว่างานอยู่ขั้นตอนไหนและมีอะไรต้องจัดการ', label: 'ดูออเดอร์', tone: 'neutral' },
     can('myjobs.view') && { to: '/my-jobs', icon: IconTruckBig, title: 'งานของฉัน', desc: 'เปิดเที่ยวที่ได้รับมอบหมายและเริ่มส่งงาน', label: 'เปิดงานของฉัน', tone: 'accent' },
@@ -26,7 +26,7 @@ export default function CloudHome(): React.JSX.Element {
           </Link>
         })}
       </section>
-      <div className="ops-home-note"><strong>ลำดับการทำงานแนะนำ</strong><span>รับงานจาก TMS → ตรวจแผนงาน → ปล่อยงานให้คนขับ</span></div>
+      <div className="ops-home-note"><strong>ลำดับการทำงานแนะนำ</strong><span>งานจาก TMS → ตรวจแผนงาน → ปล่อยงานให้คนขับ</span></div>
     </>
   )
 }

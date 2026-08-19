@@ -26,7 +26,6 @@ const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudData = lazy(() => import('./pages/CloudData'))
 const CloudPermissionGroups = lazy(() => import('./pages/CloudPermissionGroups'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
-const TmsPull = lazy(() => import('./pages/TmsPull'))
 const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
 const CloudTmsTrips = lazy(() => import('./pages/CloudTmsTrips'))
 const CloudVehicles = lazy(() => import('./pages/CloudVehicles'))
@@ -112,7 +111,8 @@ export default function AppCloud(): React.JSX.Element {
         <Route element={<Protected />}>
           <Route path="/" element={<Home />} />
           <Route path="/my-jobs" element={<RequirePermission permission="myjobs.view"><CloudMyJobs /></RequirePermission>} />
-          <Route path="/tms-pull" element={<RequirePermission permission="orders.write"><TmsPull /></RequirePermission>} />
+          {/* หน้าดึงข้อมูลถูกยุบเข้าหน้าเที่ยวแล้ว — ลิงก์เก่าที่ใครบุ๊กมาร์กไว้ต้องไม่ตาย */}
+          <Route path="/tms-pull" element={<Navigate to="/tms-trips" replace />} />
           <Route path="/tms-import" element={<RequirePermission permission="orders.write"><CloudTmsImport /></RequirePermission>} />
           <Route path="/tms-trips" element={<RequirePermission permission="dispatch.view"><CloudTmsTrips /></RequirePermission>} />
           <Route path="/orders" element={<RequirePermission permission="orders.view"><CloudOrders /></RequirePermission>} />
