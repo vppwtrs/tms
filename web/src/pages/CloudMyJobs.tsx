@@ -12,7 +12,7 @@ import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
-import { fmtDateTime, fmtLongToday, fmtWeightHuman } from '../utils/format'
+import { fmtDateTime, fmtLongToday } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
@@ -215,7 +215,7 @@ export default function CloudMyJobs(): React.JSX.Element {
               <div className="trip-switch">
                 <span className="trip-switch-no">{jobTripNo(j)}</span>
                 <span className="trip-switch-meta">
-                  {j.vehicle_plate} · {j.orders.length} ใบ · {fmtWeightHuman(j.total_weight)}
+                  {j.vehicle_plate} · {j.orders.length} ใบ
                   {j.arrived_at ? ` · ปิดงาน ${fmtDateTime(j.arrived_at)}` : ''}
                 </span>
                 <Badge label={TRIP_STATUS_LABEL[j.status]} tone={j.status} />

@@ -225,7 +225,7 @@ export default function CustomerDetail(): React.JSX.Element {
               ) : (
                 <table className="table">
                   <thead>
-                    <tr><th>เลขที่</th><th>เส้นทาง</th><th>สินค้า</th><th className="num">น้ำหนัก</th><th className="num">ค่าขนส่ง</th><th>กำหนดส่ง</th><th>สถานะ</th></tr>
+                    <tr><th>เลขที่</th><th>เส้นทาง</th><th>สินค้า</th><th className="num">ค่าขนส่ง</th><th>กำหนดส่ง</th><th>สถานะ</th></tr>
                   </thead>
                   <tbody>
                     {ordersList.map((o: Order) => (
@@ -233,7 +233,6 @@ export default function CustomerDetail(): React.JSX.Element {
                         <td className="text-strong" style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{o.order_no}</td>
                         <td className="text-sm">{o.origin} → {o.destination}</td>
                         <td className="text-sm">{o.goods_desc}</td>
-                        <td className="num">{fmtNum(o.weight_kg)} กก.</td>
                         <td className="num">{fmtMoney(o.fee)}</td>
                         <td className="text-sm">{fmtDate(o.scheduled_at)}</td>
                         <td><Badge label={ORDER_STATUS_LABEL[o.status as keyof typeof ORDER_STATUS_LABEL] ?? o.status} tone={ORDER_TONE[o.status as keyof typeof ORDER_TONE] ?? 'pending'} dot={o.status === 'in_transit'} /></td>

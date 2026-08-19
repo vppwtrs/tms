@@ -352,7 +352,7 @@ export default function CloudDispatch(): React.JSX.Element {
               <div style={{ flex: 1 }}>
                 <div className="text-sm text-strong">{o.tms_pl_no ?? o.order_no}</div>
                 <div className="text-xs text-muted">
-                  {o.origin} → {o.destination} · {fmtWeight(o.weight_kg)} · {fmtDate(o.scheduled_at)}
+                  {o.origin} → {o.destination} · {fmtDate(o.scheduled_at)}
                 </div>
               </div>
               {o.priority === 'urgent' && <Badge label={PRIORITY_LABEL.urgent} tone="urgent" dot />}
@@ -367,7 +367,9 @@ export default function CloudDispatch(): React.JSX.Element {
           )}
         </div>
 
-        {selectedVehicle && (
+        {/* แถบความจุขึ้นเฉพาะตอนที่ใบที่เลือกมีน้ำหนักจริง — ใบจาก TMS ไม่มีน้ำหนักมาให้
+            แถบที่เต็ม 0% ทุกครั้งไม่ได้เตือนอะไร มีแต่ทำให้คนเลิกมองมันไปเลย */}
+        {selectedVehicle && selectedWeight > 0 && (
           <>
             <div className="capacity-bar" style={{ marginTop: 12 }}>
               <div className={`fill ${capacityClass}`} style={{ width: `${Math.min(100, capacityPct)}%` }} />
@@ -407,7 +409,7 @@ export default function CloudDispatch(): React.JSX.Element {
               />
               <div style={{ flex: 1 }}>
                 <div className="text-sm text-strong" style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{billNo(o)}</div>
-                <div className="text-xs text-muted">{o.origin} → {o.destination} · {fmtWeight(o.weight_kg)} · {fmtMoney(o.fee)}</div>
+                <div className="text-xs text-muted">{o.origin} → {o.destination} · {fmtMoney(o.fee)}</div>
               </div>
               {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
             </label>
@@ -493,7 +495,6 @@ function TripCard({
           {' · '}{VEHICLE_TYPE_LABEL[trip.vehicle_type as keyof typeof VEHICLE_TYPE_LABEL] ?? trip.vehicle_type}
         </span>
         <span><IconUsers size={14} style={{ verticalAlign: -2 }} /> <b>{trip.driver_name}</b></span>
-        <span>น้ำหนักรวม <b>{fmtWeight(trip.total_weight)}</b> / {fmtWeight(trip.vehicle_capacity)}</span>
         {/* ค่าจ้างขนส่งของเที่ยว มาจาก TMS — เที่ยวที่สร้างเองในระบบยังไม่มีตัวเลขนี้
             จึงไม่แสดงช่องเปล่า แทนที่จะขึ้น ฿0 ซึ่งอ่านผิดเป็นงานฟรี */}
         {trip.freight_cost !== null && (
@@ -571,7 +572,6 @@ function TripCard({
                 </span>
                 {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" />}
                 <span className="grow" />
-                <span className="text-xs text-muted">{fmtWeight(o.weight_kg)}</span>
                 <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} />
                 {canEdit && trip.status === 'planned' && onRemoveOrder && (
                   <Button variant="ghost" size="sm" title="ถอนใบนี้ออกจากเที่ยว" onClick={() => onRemoveOrder(o.id)}>

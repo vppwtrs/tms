@@ -1,6 +1,6 @@
 import { Button } from '../ui'
 import { IconCheck, IconPhone, IconPin } from '../icons'
-import { fmtTime, fmtWeightHuman } from '../../utils/format'
+import { fmtTime } from '../../utils/format'
 import type { StopGroup } from '../../utils/stops'
 
 /** ลิงก์นำทาง — ใช้ที่อยู่ลูกค้าก่อน ถ้าไม่มีค่อยใช้ชื่อปลายทาง */
@@ -113,10 +113,6 @@ export function StopItem({
                 <dd>{stop.customer_address}</dd>
               </div>
             )}
-            <div>
-              <dt>น้ำหนักรวม</dt>
-              <dd>{fmtWeightHuman(stop.weight_kg)}</dd>
-            </div>
           </dl>
 
           {/* ใบของร้านนี้ทั้งหมด — เลขที่คลังกับร้านใช้อ้างถึงใบนี้ ต้องอ่านให้ทางโทรศัพท์

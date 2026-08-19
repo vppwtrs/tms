@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { BolDocument } from '../types'
 import { Button, Modal } from './ui'
-import { fmtDate, fmtDateTime, fmtMoney, fmtRoute, fmtWeightHuman } from '../utils/format'
+import { fmtDate, fmtDateTime, fmtMoney, fmtRoute } from '../utils/format'
 import { IconPrinter } from './icons'
 
 /** ใบนำส่ง (BOL) — เอกสาร A4 พิมพ์ได้ กดปุ่มแล้วสั่งพิมพ์ผ่านเบราว์เซอร์ */
@@ -87,12 +87,13 @@ export function BolModal({ doc, onClose }: { doc: BolDocument; onClose: () => vo
 
           <table className="bol-table bol-goods">
             <thead>
-              <tr><th>รายละเอียดสินค้า</th><th className="num">น้ำหนัก</th><th className="num">ค่าขนส่ง</th></tr>
+              {/* ช่องน้ำหนักถูกถอด — ยังไม่มีการชั่งจริง พิมพ์ "0 กก." ลงใบนำส่งคือระบุตัวเลข
+                  ที่ไม่ใช่ความจริงลงในเอกสารที่ใช้อ้างอิงกันได้ */}
+              <tr><th>รายละเอียดสินค้า</th><th className="num">ค่าขนส่ง</th></tr>
             </thead>
             <tbody>
               <tr>
                 <td>{doc.goods_desc}</td>
-                <td className="num">{fmtWeightHuman(doc.weight_kg)}</td>
                 <td className="num">{fmtMoney(doc.fee, doc.org.currency_symbol)}</td>
               </tr>
             </tbody>

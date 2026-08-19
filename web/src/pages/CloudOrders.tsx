@@ -10,7 +10,7 @@ import type { CustomerRow, DriverRow, OrderPriority, OrderStatus } from '../type
 import {
   ORDER_STATUS_LABEL, ORDER_STATUS_ORDER, ORDER_TONE,
 } from '../utils/constants'
-import { dateInputToIso, fmtDate, fmtMoney, fmtRoute, fmtWeightHuman, isoToDateInput } from '../utils/format'
+import { dateInputToIso, fmtDate, fmtMoney, fmtRoute, isoToDateInput } from '../utils/format'
 import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
@@ -399,7 +399,7 @@ export default function CloudOrders(): React.JSX.Element {
                         )}
                         <div style={{ flex: 1 }} />
                         <span className="text-xs text-muted">
-                          {fmtWeightHuman(o.weight_kg)} · {fmtMoney(o.fee)}
+                          {fmtMoney(o.fee)}
                           {' · '}{fmtDate(o.scheduled_at)}
                           {o.delivered_at ? ` · ส่ง ${fmtDate(o.delivered_at)}` : ''}
                         </span>
@@ -478,9 +478,9 @@ export default function CloudOrders(): React.JSX.Element {
           <Field label="ระยะทาง (กม.)">
             <Input type="number" min={0} value={form.distance_km} onChange={set('distance_km')} placeholder="130" />
           </Field>
-          <Field label="น้ำหนัก (กก.)">
-            <Input type="number" min={0} value={form.weight_kg} onChange={set('weight_kg')} placeholder="1000" />
-          </Field>
+          {/* ช่องน้ำหนักถูกซ่อน — ยังไม่มีใครใช้ตัวเลขนี้ในงานจริง และ TMS ไม่ส่งมาให้
+              คอลัมน์ในฐานยังอยู่ครบ ใบที่สร้างเองบันทึกเป็น 0 ถ้าวันหนึ่งต้องชั่งจริง
+              เปิดช่องนี้กลับมาแล้วข้อมูลเก่ายังอ่านได้เหมือนเดิม */}
           <Field label="รายละเอียดสินค้า" required>
             <Input value={form.goods_desc} onChange={set('goods_desc')} placeholder="เช่น เครื่องใช้ไฟฟ้า" />
           </Field>
