@@ -448,12 +448,19 @@ export default function CloudTmsTrips(): React.JSX.Element {
                           >
                             สั่งงานเที่ยวนี้
                           </Button>
-                          {!confirmed && (
+                          {!confirmed ? (
                             /* จับคู่คนขับล่วงหน้าได้ แต่สั่งงานจริงต้องรอ TMS Confirm ก่อน */
                             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                               รอ TMS Confirm ก่อนถึงจะสั่งงานได้
                             </span>
-                          )}
+                          ) : !(assign[t.tms_id] ?? []).some((id) => id > 0) ? (
+                            /* บอกเหตุผลที่ปุ่มกดไม่ได้ให้ตรงกับเงื่อนไขจริงของปุ่ม
+                               เที่ยวที่ข้อมูลครบทุกอย่างแล้วแต่ปุ่มเทา ทำให้คนวางแผนไปไล่หา
+                               ปัญหาที่ไม่มีอยู่ ทั้งที่เหลือแค่เลือกชื่อในช่องข้างบน */
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                              เลือกคนขับก่อนถึงจะสั่งงานได้ — ไปคนเดียวก็เลือกแค่ช่องแรก
+                            </span>
+                          ) : null}
                           {/* เตือนตอนที่ยังแก้ได้ ไม่ใช่ตอนกดสั่งงานแล้ว */}
                           {(assign[t.tms_id] ?? []).some((id) => busyDrivers[id]) && (
                             <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>
@@ -508,9 +515,12 @@ export default function CloudTmsTrips(): React.JSX.Element {
                           นำเข้าเที่ยวนี้
                         </Button>
                       )}
-                      {blocked && !waitingTms && !t.imported && t.status_id !== 6 && (
+                      {/* เฉพาะกิ่งที่กำลังให้จับคู่ชื่อจาก TMS จริง ๆ — กิ่งสั่งงาน (ยังไม่รู้จักคนขับ)
+                          ก็เข้าเงื่อนไข blocked ด้วย ข้อความนี้จึงเคยไปโผล่ใต้ปุ่มสั่งงาน
+                          แล้วชี้ไปที่การจับคู่ ทั้งที่ปุ่มติดเพราะยังไม่ได้เลือกคนในช่อง */}
+                      {unmapped.length > 0 && !waitingTms && !t.imported && t.status_id !== 6 && (
                         <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
-                          จับคู่แล้วถึงจะนำเข้าได้
+                          จับคู่ชื่อคนขับแล้วถึงจะนำเข้าได้
                         </div>
                       )}
                     </td>
