@@ -460,8 +460,12 @@ export default function CloudOrders(): React.JSX.Element {
                         )}
                         <div style={{ flex: 1 }} />
                         <span className="text-xs text-muted">
-                          {fmtMoney(o.fee)}
-                          {' · '}{fmtDate(o.scheduled_at)}
+                          {/* ค่าขนส่งคิดเหมาทั้งเที่ยว ไม่ได้คิดรายใบ ใบที่มาจาก TMS จึงมี
+                              fee = 0 ทุกใบเสมอ และ "0 ฿" ที่ขึ้นทุกบรรทัดอ่านได้ว่า
+                              "ใบนี้ไม่มีค่าขนส่ง" ซึ่งไม่จริง — ค่ามันอยู่ที่เที่ยว
+                              ไม่ใช่ที่ใบ ตัวเลขจึงขึ้นเฉพาะใบที่มีคนกรอกค่าไว้จริง */}
+                          {o.fee > 0 && `${fmtMoney(o.fee)} · `}
+                          {fmtDate(o.scheduled_at)}
                           {o.delivered_at ? ` · ส่ง ${fmtDate(o.delivered_at)}` : ''}
                         </span>
                         <div className="actions">
