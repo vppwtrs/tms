@@ -24,6 +24,7 @@ const CloudHome = lazy(() => import('./pages/CloudHome'))
 const CloudMyJobs = lazy(() => import('./pages/CloudMyJobs'))
 const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudData = lazy(() => import('./pages/CloudData'))
+const CloudUsage = lazy(() => import('./pages/CloudUsage'))
 const CloudPermissionGroups = lazy(() => import('./pages/CloudPermissionGroups'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
 const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
@@ -125,6 +126,7 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/users" element={<RequirePermission permission="users.manage"><CloudUsers /></RequirePermission>} />
           <Route path="/permission-groups" element={<RequirePermission permission="users.manage"><CloudPermissionGroups /></RequirePermission>} />
           <Route path="/data" element={<RequirePermission permission="users.manage"><CloudData /></RequirePermission>} />
+          <Route path="/usage" element={<RequirePermission permission="users.manage"><CloudUsage /></RequirePermission>} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

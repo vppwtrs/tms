@@ -4,7 +4,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { ROLE_LABEL } from '../utils/constants'
 import { fmtDate, fmtLongToday, initials } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { IconBox, IconBuilding, IconRoute, IconKey, IconLogout, IconMenu, IconMoon, IconPin, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
+import { IconBox, IconBuilding, IconRoute, IconKey, IconLogout, IconMenu, IconMoon, IconPin, IconChart, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
 import { ChangePasswordModal } from './ChangePasswordModal'
 
 /**
@@ -43,6 +43,7 @@ const NAV: NavItem[] = [
   { to: '/users', label: 'ผู้ใช้และสิทธิ์', icon: IconShield, perm: 'users.manage' },
   { to: '/permission-groups', label: 'กลุ่มสิทธิ์', icon: IconShield, perm: 'users.manage' },
   { to: '/data', label: 'ข้อมูลระบบ', icon: IconTable, perm: 'users.manage' },
+  { to: '/usage', label: 'การใช้งานระบบ', icon: IconChart, perm: 'users.manage' },
 ]
 
 export function CloudLayout(): React.JSX.Element {

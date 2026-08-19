@@ -3107,3 +3107,33 @@
   .store-head-row > .pod-badge-btn,
   .store-head-row > .badge { margin-left: 32px; }
 }
+
+/* ===== แถบโควตา (หน้าการใช้งานระบบ) =====
+   สีบอกระยะห่างจากเพดาน ไม่ใช่ปริมาณ — "40 MB" ไม่มีความหมายจนกว่าจะรู้ว่า
+   เพดานอยู่ที่ 500 MB คำถามที่คนเปิดหน้านี้ถามคือ "ยังเหลือเท่าไหร่" */
+.quota-list { display: grid; gap: var(--space-4); }
+.quota-row { display: grid; gap: 6px; }
+.quota-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.quota-label {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.quota-value { font-size: var(--font-sm); white-space: nowrap; }
+.quota-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+/* ค่าที่วัดจากที่นี่ไม่ได้ ไม่วาดเป็นแถบว่าง — แถบว่างอ่านได้ว่า "ยังไม่ได้ใช้เลย"
+   ซึ่งเป็นคนละเรื่องกับ "ไม่รู้" และชวนให้วางแผนผิดไปคนละทาง */
+.quota-bar.is-unknown { background: repeating-linear-gradient(135deg, var(--line) 0 4px, var(--surface-2) 4px 9px); }
+.quota-bar.is-unknown .quota-fill { display: none; }
+.quota-fill { display: block; height: 100%; border-radius: 999px; }
+.quota-fill.is-ok { background: var(--ok); }
+.quota-fill.is-warning { background: var(--warning); }
+.quota-fill.is-danger { background: var(--danger); }
+.quota-note { margin-top: 2px; }

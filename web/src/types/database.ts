@@ -558,6 +558,18 @@ export interface Database {
           orphan_photo_paths: string[]
         }
       }
+      usage_stats: {
+        Args: Record<string, never>
+        Returns: {
+          db_bytes: number
+          file_bytes: number
+          file_objects: number
+          mau_estimate: number
+          tables: { name: string; bytes: number; approx_rows: number }[]
+          buckets: { name: string; objects: number; bytes: number }[]
+          measured_at: string
+        }
+      }
       verify_pod: {
         Args: { p_pod_id: number }
         Returns: { id: number; status: 'verified'; already: boolean }
