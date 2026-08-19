@@ -12,7 +12,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select } from '../components/ui'
 import { IconInfo, IconTruck } from '../components/icons'
-import { fmtDate, fmtDateTime, fmtMoney } from '../utils/format'
+import { fmtDate, fmtDateTime, fmtMoney, todayIso } from '../utils/format'
 
 /**
  * เที่ยวของ TMS -> เที่ยวของเรา
@@ -108,7 +108,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
   const canDrivers = can('drivers.write')
   const canOrders = can('orders.write')
 
-  const [date, setDate] = useState('')
+  const [date, setDate] = useState(() => todayIso())
   const [data, setData] = useState<TmsTripsPreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState('')
@@ -134,9 +134,6 @@ export default function CloudTmsTrips(): React.JSX.Element {
     try {
       const p = await previewTrips(d)
       setData(p)
-      /* วันไหนก่อน แล้วค่อยแสดง — ไม่เดาจากปฏิทินเครื่อง เพราะวันที่ไม่มีงาน
-         กับวันที่ระบบยังไม่ดึงข้อมูล หน้าจอหน้าตาเหมือนกันเป๊ะ */
-      if (!d && p.date) setDate(p.date)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ดูข้อมูลเที่ยวไม่สำเร็จ')
       setData(null)
@@ -145,8 +142,11 @@ export default function CloudTmsTrips(): React.JSX.Element {
     }
   }, [])
 
+  /* เปิดหน้ามาที่ "วันนี้" เสมอ ไม่ถอยไปหาวันล่าสุดที่มีงานให้เอง
+     ของเดิมเปิดมาแล้วค้างอยู่ที่เมื่อวาน ซึ่งอ่านได้เป็น "งานวันนี้ยังไม่มา" ทั้งที่มาแล้ว
+     และทำให้คนสั่งงานของเมื่อวานซ้ำโดยไม่รู้ตัว ย้อนหลังยังดูได้ แค่ต้องเลือกวันเอง */
   useEffect(() => {
-    void load()
+    void load(todayIso())
   }, [load])
 
   useEffect(() => {
@@ -376,8 +376,8 @@ export default function CloudTmsTrips(): React.JSX.Element {
         <div style={{ marginTop: 16 }}>
           <EmptyState
             icon={<IconTruck />}
-            title="วันนี้ยังไม่มีเที่ยวของกองรถเรา"
-            desc="ไปที่หน้า ดึงข้อมูลจาก TMS แล้วกดส่งขึ้นระบบก่อน · เที่ยวของผู้รับจ้างรายอื่นไม่ถูกดึงเข้ามาโดยตั้งใจ"
+            title={`${fmtDate(date)} ยังไม่มีเที่ยวของกองรถเรา`}
+            desc="ระบบดึงงานของวันนี้ให้เองทุก 5 นาที · ของวันก่อนหน้าต้องเลือกวันเองแล้วกดดึงย้อนหลังที่ปุ่มรายละเอียด · เที่ยวของผู้รับจ้างรายอื่นไม่ถูกดึงเข้ามาโดยตั้งใจ"
           />
         </div>
       )}
