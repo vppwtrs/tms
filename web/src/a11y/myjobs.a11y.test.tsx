@@ -46,6 +46,8 @@ const JOB: MyJob = {
   driver_count: 1,
   accepted_count: 1,
   issue_note: null,
+  warehouse_code: 'KM23-CW-02',
+  area: 'BKK1',
   orders: [
     makeOrder({ id: 1, status: 'delivered', has_pod: 1 }),
     makeOrder({

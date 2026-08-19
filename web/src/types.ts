@@ -78,6 +78,9 @@ export interface MyJob {
   driver_count: number
   accepted_count: number
   issue_note: string | null
+  /* คลังต้นทางที่ต้องไปโหลดของ — null สำหรับเที่ยวที่สร้างเองในระบบ ซึ่งไม่มีคลัง */
+  warehouse_code: string | null
+  area: string | null
   orders: MyJobOrder[]
   total_weight: number
 }

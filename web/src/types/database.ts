@@ -259,6 +259,9 @@ export type MyTripRow = {
   is_primary: boolean
   driver_count: number
   accepted_count: number
+  /* คลังต้นทางกับเขต อ่านจากเที่ยวดิบของ TMS — null สำหรับเที่ยวที่สร้างเองในระบบ */
+  warehouse_code: string | null
+  area: string | null
 }
 
 export type MyOrderRow = {

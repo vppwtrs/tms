@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Button } from '../ui'
 import { StopItem } from './StopCard'
-import { IconTruck } from '../icons'
+import { IconBuilding, IconTruck } from '../icons'
 import { TRIP_STATUS_LABEL } from '../../utils/constants'
 import { groupStops, jobTripNo, type StopGroup } from '../../utils/stops'
 import type { MyJob, MyJobOrder } from '../../types'
@@ -147,6 +147,14 @@ export function JobFocus({
         <span className="job-bar-meta">
           <IconTruck size={13} /> {job.vehicle_plate}
         </span>
+        {/* คลังที่ต้องไปโหลดของ — บริษัทมีหลายคลังในเมืองเดียวกัน ไปผิดคลัง
+            คือเสียครึ่งเช้า ก่อนหน้านี้รหัสนี้อยู่แต่ในข้อความหมายเหตุของเที่ยว
+            ซึ่งคนขับต้องอ่านเองแล้วเดาว่าท่อนไหนคือคลัง */}
+        {job.warehouse_code && (
+          <span className="job-bar-meta">
+            <IconBuilding size={13} /> {job.warehouse_code}
+          </span>
+        )}
         <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot />
       </header>
 

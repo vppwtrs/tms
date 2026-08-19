@@ -137,6 +137,8 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
       driver_count: t.driver_count,
       accepted_count: t.accepted_count,
       issue_note: t.issue_note,
+      warehouse_code: t.warehouse_code,
+      area: t.area,
       vehicle_type: t.vehicle_type,
       orders: list,
       total_weight: list.reduce((s, o) => s + (o.weight_kg || 0), 0),
