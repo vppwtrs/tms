@@ -542,7 +542,7 @@ export interface Database {
       }
       refresh_order_item_qty: {
         Args: Record<string, never>
-        Returns: { fixed: number }
+        Returns: { fixed: number; added: number }
       }
       reconcile_tms_trips: {
         Args: { p_from: string; p_to: string; p_warehouses: string[]; p_seen: string[] }

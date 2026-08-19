@@ -145,10 +145,11 @@ export async function driversBusyOn(date: string, driverIds: number[]): Promise<
 
 /** ซ่อมจำนวนสินค้าของออเดอร์ที่นำเข้าไปแล้ว ให้ตรงกับใบดิบจาก TMS
  *  ใช้ตอนกติกาการอ่านจำนวนเปลี่ยน — ของที่นำเข้าไปก่อนหน้านั้นยังถือค่าที่คำนวณด้วยกติกาเก่า */
-export async function refreshOrderItemQty(): Promise<number> {
+export async function refreshOrderItemQty(): Promise<{ fixed: number; added: number }> {
   const { data, error } = await supabase.rpc('refresh_order_item_qty')
   if (error) throw toDataError(error)
-  return ((data ?? {}) as { fixed?: number }).fixed ?? 0
+  const r = (data ?? {}) as { fixed?: number; added?: number }
+  return { fixed: r.fixed ?? 0, added: r.added ?? 0 }
 }
 
 /**

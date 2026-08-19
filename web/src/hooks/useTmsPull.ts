@@ -211,8 +211,10 @@ export function useTmsPull(): TmsPullEngine {
            เรียกเฉพาะรอบที่มีของเปลี่ยนจริง ไม่ใช่ทุก 5 นาที */
         if (t.inserted + t.updated > 0) {
           try {
-            const fixed = await refreshOrderItemQty()
-            if (fixed > 0) goneNote += ` · ซ่อมจำนวนสินค้า ${fixed} รายการ`
+            const q = await refreshOrderItemQty()
+            if (q.fixed + q.added > 0) {
+              goneNote += ` · ซ่อมจำนวนสินค้า ${q.fixed} รายการ${q.added ? ` · เติมรายการที่หาย ${q.added}` : ''}`
+            }
           } catch {
             /* ซ่อมไม่ผ่านไม่ใช่ความล้มเหลวของรอบดึง ของจาก TMS เข้าฐานเรียบร้อยแล้ว */
           }

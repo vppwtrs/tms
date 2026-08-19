@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRealtime } from '../hooks/useRealtime'
 import {
   previewTrips, importTrip, createDriverFromTms, mapTmsDriverToExisting, driversBusyOn,
-  linkOrdersToCustomers, tripDetail, autoImportReadyTrips,
+  linkOrdersToCustomers, tripDetail, autoImportReadyTrips, refreshOrderItemQty,
   type TmsTripsPreview, type TmsTripDetail, type TmsPickingList,
 } from '../api/tms'
 import { listDrivers } from '../api/vehicles'
@@ -276,6 +276,20 @@ export default function CloudTmsTrips(): React.JSX.Element {
   /* หน้าต่างรายละเอียดรอบดึง — ของที่คนดูนาน ๆ ครั้ง (ยอดรวม ความครอบคลุม ดึงย้อนหลัง)
      ไม่ควรกินพื้นที่ถาวรบนหน้าที่คนเปิดจ้องทั้งวัน */
   const [pullOpen, setPullOpen] = useState(false)
+
+  /* ปุ่มที่กดแล้วเห็นผลทันที — ของเดิมซ่อมให้เงียบ ๆ ท้ายรอบดึง แล้วถ้าไม่ได้ผล
+     ก็ไม่มีใครรู้ว่ามันทำงานหรือเปล่า ปุ่มนี้ตอบให้ชัดว่าแก้ไปกี่รายการ */
+  const fixQty = async (): Promise<void> => {
+    try {
+      const r = await refreshOrderItemQty()
+      push(r.fixed + r.added > 0 ? 'success' : 'warning',
+        r.fixed + r.added > 0
+          ? `ซ่อมจำนวนสินค้า ${r.fixed} รายการ · เติมรายการที่หาย ${r.added}`
+          : 'ไม่มีรายการที่ต้องซ่อม — จำนวนในออเดอร์ตรงกับใบดิบจาก TMS แล้ว')
+    } catch (e) {
+      push('error', e instanceof Error ? e.message : 'ซ่อมจำนวนไม่สำเร็จ')
+    }
+  }
 
   const tone = (id: number | null): string =>
     id === 5 ? 'success' : id === 6 ? 'danger' : id === 2 ? 'neutral' : 'accent'
@@ -808,6 +822,15 @@ export default function CloudTmsTrips(): React.JSX.Element {
               </b>
             </div>
           )}
+
+          <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 8 }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>ซ่อมจำนวนสินค้าในออเดอร์</div>
+            <div className="text-xs text-muted">
+              จำนวนในออเดอร์ถูกคำนวณตอนนำเข้า ไม่ได้อ่านสดจากใบดิบ ใบที่นำเข้าไปตอนที่ TMS
+              ยังส่งจำนวนมาไม่ครบจึงค้างเป็น 0 ปุ่มนี้คำนวณใหม่จากใบดิบที่มีอยู่ ไม่ต้องดึงจาก TMS ใหม่
+            </div>
+            <Button variant="outline" onClick={() => void fixQty()}>ซ่อมจำนวนสินค้า</Button>
+          </div>
 
           <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 12 }}>
             <div style={{ fontWeight: 600, fontSize: 13 }}>ดึงย้อนหลังเอง</div>
