@@ -297,6 +297,9 @@ export default function CloudTmsTrips(): React.JSX.Element {
                    เที่ยวที่ไปสองคนต้องจับคู่ให้ครบทั้งคู่ ไม่ใช่แค่คนแรกที่จับคู่ไปแล้ว */
                 const waitingTms = !t.driver_name
                 const unmapped = t.unmapped_driver_names ?? []
+                /* นำเข้าได้เฉพาะเที่ยวที่ TMS Confirm แล้ว — ก่อนหน้านั้นแผนยังเปลี่ยนได้
+                   ทั้งรถ คนขับ และรายการของ ฐานปฏิเสธอยู่แล้ว ตรงนี้คือไม่ให้กดแล้วเด้ง error */
+                const confirmed = (t.status ?? '').trim().toLowerCase() === 'confirm'
                 const blocked = unmapped.length > 0 || !t.driver_id
                 return (
                   <tr key={t.tms_id}>
@@ -418,10 +421,16 @@ export default function CloudTmsTrips(): React.JSX.Element {
                           <Button
                             onClick={() => void run(t.tms_id, t.trip_no)}
                             loading={busy === t.tms_id}
-                            disabled={!canDispatch || !(assign[t.tms_id] ?? []).some((id) => id > 0)}
+                            disabled={!canDispatch || !confirmed || !(assign[t.tms_id] ?? []).some((id) => id > 0)}
                           >
                             สั่งงานเที่ยวนี้
                           </Button>
+                          {!confirmed && (
+                            /* จับคู่คนขับล่วงหน้าได้ แต่สั่งงานจริงต้องรอ TMS Confirm ก่อน */
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                              รอ TMS Confirm ก่อนถึงจะสั่งงานได้
+                            </span>
+                          )}
                           {/* เตือนตอนที่ยังแก้ได้ ไม่ใช่ตอนกดสั่งงานแล้ว */}
                           {(assign[t.tms_id] ?? []).some((id) => busyDrivers[id]) && (
                             <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>
@@ -463,6 +472,10 @@ export default function CloudTmsTrips(): React.JSX.Element {
                             </div>
                           ))}
                         </div>
+                      ) : !confirmed ? (
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          รอ TMS Confirm
+                        </span>
                       ) : (
                         <Button
                           onClick={() => void run(t.tms_id, t.trip_no)}
