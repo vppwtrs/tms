@@ -34,9 +34,14 @@ const ROUTER_BASE = BASE.replace(/\/$/, '')
 // PWA: เปิด service worker เฉพาะ production build (dev ไม่ cache เพื่อไม่ให้ค้าง)
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${BASE}sw.js`).catch(() => {
-      /* เฉยๆ — ไม่ขัดการใช้งานถ้า register ไม่สำเร็จ */
-    })
+    navigator.serviceWorker
+      .register(`${BASE}sw.js`)
+      /* บังคับเช็ครุ่นใหม่ทุกครั้งที่เปิดแอป — เบราว์เซอร์เช็คให้เองก็จริง แต่ไม่ทุกครั้ง
+         และรุ่นที่ค้างอยู่คือรุ่นที่ถือแคชเก่าไว้ ซึ่งเป็นต้นเหตุของ manifest เก่าค้างเครื่อง */
+      .then((reg) => reg.update())
+      .catch(() => {
+        /* เฉยๆ — ไม่ขัดการใช้งานถ้า register ไม่สำเร็จ */
+      })
   })
 }
 

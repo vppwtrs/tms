@@ -8,7 +8,9 @@
    จึงแทนค่า import.meta.env.BASE_URL ให้ไม่ได้ ถ้าเขียน '/' ตายตัวไว้
    SHELL จะ cache ผิดที่ แล้วเปิด offline เจอจอขาว */
 const BASE = new URL('./', self.location).pathname
-const CACHE = `tms-shell-${BASE}-v1`
+/* ขึ้นเลขรุ่นเมื่อกติกาการแคชเปลี่ยน — activate ลบแคชที่ชื่อไม่ตรงทิ้งทั้งก้อน
+   v2: manifest กับไอคอนย้ายไป network-first (ดูเหตุผลด้านล่าง) */
+const CACHE = `tms-shell-${BASE}-v2`
 const INDEX = `${BASE}index.html`
 const SHELL = [
   BASE,
@@ -43,6 +45,26 @@ self.addEventListener('fetch', (event) => {
 
   // เฉพาะ GET + โดเมนเดียวกัน + ข้าม API (ข้อมูลต้องสด)
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith(`${BASE}api`)) return
+
+  /* manifest กับไอคอนต้องเอาของใหม่ก่อนเสมอ — ไฟล์พวกนี้ไม่มี hash ในชื่อ
+     cache-first จึงแปลว่าเครื่องที่เคยเปิดเว็บแล้วจะถือ manifest รุ่นแรกไปตลอดกาล
+     ซึ่งเคยทำให้ "เพิ่มไปยังหน้าจอโฮม" ได้ทางลัดชี้ไปรากเว็บ (start_url เก่า)
+     และไอคอนไม่ขึ้นเพราะ path ในไฟล์เก่าชี้ไป /icons/ ที่ไม่มีอยู่จริง */
+  const fresh = url.pathname === `${BASE}manifest.webmanifest` || url.pathname.startsWith(`${BASE}icons/`)
+  if (fresh) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone()
+            caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {})
+          }
+          return res
+        })
+        .catch(() => caches.match(request)),
+    )
+    return
+  }
 
   // navigation → network-first
   if (request.mode === 'navigate') {
