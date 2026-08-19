@@ -166,6 +166,19 @@
   animation: donutIn var(--motion-enter) var(--ease-enter);
 }
 
+/* รายละเอียดร้านไหลลงมาตอนกางการ์ด — ไม่ใช้ height เพราะจำนวนใบต่อร้านไม่เท่ากัน
+   และการ animate height บังคับให้เบราว์เซอร์คำนวณ layout ใหม่ทุกเฟรม */
+@keyframes storeOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ผู้ใช้ต้องการ motion น้อยลง → ปิด animation ทั้งหมด */
 @media (prefers-reduced-motion: reduce) {
   *,

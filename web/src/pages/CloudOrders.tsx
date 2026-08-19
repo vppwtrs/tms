@@ -145,6 +145,15 @@ export default function CloudOrders(): React.JSX.Element {
   const [error, setError] = useState('')
 
   const [page, setPage] = useState(1)
+  /* ร้านที่กางอยู่ — ปิดไว้เป็นค่าเริ่มต้น หน้านี้ตอบคำถาม "เที่ยวนี้แวะร้านไหนบ้าง"
+     ก่อนเสมอ รายการของเป็นคำถามที่สองซึ่งถามทีละร้าน ไม่ได้ถามพร้อมกันทุกร้าน */
+  const [openStores, setOpenStores] = useState<Set<string>>(new Set())
+  const toggleStore = (key: string): void => setOpenStores((prev) => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
+  })
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
@@ -346,15 +355,22 @@ export default function CloudOrders(): React.JSX.Element {
                 </span>
               </div>
 
-              {trip.stores.map((store) => (
-                <div key={store.key} className="card" style={{ padding: 12, marginTop: 10 }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                    <span className="text-strong">{store.store}</span>
-                    <span className="text-xs text-muted">{store.destination}</span>
-                    <div style={{ flex: 1 }} />
+              {trip.stores.map((store) => {
+                const open = openStores.has(store.key)
+                return (
+                <div key={store.key} className="card store-card" style={{ padding: 0, marginTop: 10 }}>
+                  {/* ชื่อร้านเป็นปุ่ม — ทั้งแถบกดได้ ไม่ใช่ลูกศรเล็ก ๆ ที่ต้องเล็งกด */}
+                  <button type="button" className="store-head" aria-expanded={open} onClick={() => toggleStore(store.key)}>
+                    <span className={`store-caret${open ? ' is-open' : ''}`} aria-hidden="true">›</span>
+                    <span className="store-head-text">
+                      <span className="text-strong">{store.store}</span>
+                      <span className="text-xs text-muted">{store.destination}</span>
+                    </span>
                     <span className="text-xs text-muted">{store.rows.length} ใบ</span>
-                  </div>
+                  </button>
 
+                  {open && (
+                  <div className="store-body">
                   {store.rows.map((o) => (
                     <div
                       key={o.id}
@@ -415,8 +431,11 @@ export default function CloudOrders(): React.JSX.Element {
                       )}
                     </div>
                   ))}
+                  </div>
+                  )}
                 </div>
-              ))}
+                )
+              })}
             </section>
           ))}
         </div>

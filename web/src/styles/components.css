@@ -409,6 +409,36 @@
 .table thead th.actions {
   text-align: right;
 }
+/* การ์ดร้านในหน้าออเดอร์ — หุบไว้เป็นค่าเริ่มต้น กดที่ชื่อร้านแล้วรายละเอียดไหลลงมา
+   ทั้งแถบเป็นปุ่ม ไม่ใช่ลูกศรเล็ก ๆ ที่ต้องเล็งกด */
+.store-card { overflow: hidden; }
+.store-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.store-head:hover { background: var(--table-row-hover); }
+.store-head:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.store-head-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.store-caret {
+  flex: none;
+  color: var(--faint);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+.store-caret.is-open { transform: rotate(90deg); }
+.store-body {
+  padding: 0 12px 12px;
+  animation: storeOpen var(--motion-enter) var(--ease-enter);
+}
+
 /* หัวเที่ยว — ชั้นบนสุดของตารางออเดอร์ เข้มกว่าหัวร้านหนึ่งระดับ
    เพื่อให้เห็นว่าอันไหนครอบอันไหนโดยไม่ต้องมีเส้นกรอบ */
 .table tbody tr.row-trip td {
