@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip,
-  startTrip, completeTrip, cancelTrip, acceptTrip, clearTripIssue, type BoardTrip,
+  startTrip, completeTrip, cancelTrip, acceptTrip, clearTripIssue, forceDeleteTrip, type BoardTrip,
 } from '../api/trips'
 import { listUnassignedOrders, type DispatchOrderRow } from '../api/orders'
 import { useRealtime } from '../hooks/useRealtime'
@@ -81,6 +81,10 @@ export default function CloudDispatch(): React.JSX.Element {
   const [creating, setCreating] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [cancelling, setCancelling] = useState<BoardTrip | null>(null)
+  /* ลบถาวร — ของเก็บกวาดข้อมูลทดสอบ ไม่ใช่ทางทำงานปกติ จึงเห็นเฉพาะผู้ดูแลระบบ
+     และมีกล่องยืนยันของตัวเองที่บอกจำนวน POD ที่กำลังจะหายไปด้วย */
+  const [purging, setPurging] = useState<BoardTrip | null>(null)
+  const canPurge = can('users.manage')
   const [addTo, setAddTo] = useState<BoardTrip | null>(null)
   const [addSelected, setAddSelected] = useState<Set<number>>(new Set())
 
@@ -238,6 +242,7 @@ export default function CloudDispatch(): React.JSX.Element {
                 onAccept={() => void act(t.id, () => acceptTrip(t.id), `รับงานแทนคนขับใน ${tripNo(t)} แล้ว`)}
                 onAddOrders={() => { setAddTo(t); setAddSelected(new Set()) }}
                 onCancel={() => setCancelling(t)}
+                onPurge={canPurge ? () => setPurging(t) : undefined}
                 onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
                 onRemoveOrder={(orderId) => void act(t.id, () => removeOrderFromTrip(t.id, orderId), 'ถอนออเดอร์ออกจากเที่ยวแล้ว')}
               />
@@ -268,6 +273,7 @@ export default function CloudDispatch(): React.JSX.Element {
                   ? () => void act(t.id, () => completeTrip(t.id), `เที่ยว ${tripNo(t)} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)
                   : undefined}
                 onCancel={() => setCancelling(t)}
+                onPurge={canPurge ? () => setPurging(t) : undefined}
                 onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
               />
             ))}
@@ -283,7 +289,13 @@ export default function CloudDispatch(): React.JSX.Element {
               {/* จบแล้วไม่ต้องการปุ่มอะไร มีไว้ให้เห็นว่าวันนี้ทำอะไรไปบ้าง
                   ประวัติเต็มอยู่ที่หน้าออเดอร์ กระดานนี้เป็นของวันนี้ */}
               {done.map((t) => (
-                <TripCard key={t.id} trip={t} busy={false} canEdit={false} />
+                <TripCard
+                  key={t.id}
+                  trip={t}
+                  busy={busyId === t.id}
+                  canEdit={false}
+                  onPurge={canPurge ? () => setPurging(t) : undefined}
+                />
               ))}
             </div>
           )}
@@ -419,6 +431,25 @@ export default function CloudDispatch(): React.JSX.Element {
       </Modal>
 
       <ConfirmDialog
+        open={purging !== null}
+        title="ลบเที่ยวนี้ถาวร"
+        message={purging ? <>ลบเที่ยว <b>{tripNo(purging)}</b> ออกจากระบบถาวร รวมออเดอร์ทุกใบและ<b>หลักฐานการส่งมอบทั้งหมดของเที่ยวนี้</b> — กู้คืนไม่ได้ ใช้กับข้อมูลทดสอบเท่านั้น งานจริงที่ส่งไปแล้วให้ปิดงานตามจริงแทน ใบจาก TMS จะกลับไปสั่งงานใหม่ได้</> : ''}
+        confirmLabel="ลบถาวร"
+        danger
+        onClose={() => setPurging(null)}
+        onConfirm={() => {
+          const t = purging
+          setPurging(null)
+          if (t) {
+            void act(t.id, async () => {
+              const r = await forceDeleteTrip(t.id)
+              return r
+            }, `ลบเที่ยว ${tripNo(t)} ถาวรแล้ว`)
+          }
+        }}
+      />
+
+      <ConfirmDialog
         open={cancelling !== null}
         onClose={() => setCancelling(null)}
         title="ยกเลิกเที่ยวขนส่ง"
@@ -437,7 +468,7 @@ export default function CloudDispatch(): React.JSX.Element {
 }
 
 function TripCard({
-  trip, busy, canEdit, onStart, onComplete, onCancel, onAccept, onClearIssue,
+  trip, busy, canEdit, onStart, onComplete, onCancel, onPurge, onAccept, onClearIssue,
   onAddOrders, onRemoveOrder,
 }: {
   trip: BoardTrip
@@ -447,6 +478,8 @@ function TripCard({
   onComplete?: () => void
   /* การ์ดในช่อง "จบวันนี้" เป็นของอ่านอย่างเดียว ทุกปุ่มจึงไม่บังคับ */
   onCancel?: () => void
+  /** ลบถาวร — ส่งมาเฉพาะผู้ดูแลระบบ (ดูเหตุผลที่ต้นทาง) */
+  onPurge?: () => void
   onAccept?: () => void
   onClearIssue?: () => void
   onAddOrders?: () => void
@@ -485,6 +518,13 @@ function TripCard({
         {canEdit && onCancel && (
           <Button variant="ghost" size="sm" className="text-danger" onClick={onCancel} disabled={busy}>
             ยกเลิกเที่ยว
+          </Button>
+        )}
+        {/* อยู่ท้ายสุดเสมอ และเขียนว่า "ลบถาวร" ไม่ใช่ไอคอนถังขยะเฉย ๆ
+            ปุ่มที่ลบหลักฐานได้ต้องอ่านออกว่ามันทำอะไรก่อนนิ้วจะไปถึง */}
+        {onPurge && (
+          <Button variant="ghost" size="sm" className="text-danger" onClick={onPurge} disabled={busy}>
+            ลบถาวร
           </Button>
         )}
       </div>

@@ -256,6 +256,14 @@ export const clearTripIssue = (tripId: number) => call('clear_trip_issue', { p_t
 /** ยกเลิกเที่ยว — ออเดอร์กลับไปรอจัดใหม่ ไม่ได้ถูกยกเลิกตาม */
 export const cancelTrip = (tripId: number) => call('dispatch_cancel_trip', { p_trip_id: tripId })
 
+/** ลบเที่ยวถาวร — สำหรับเก็บกวาดข้อมูลทดสอบเท่านั้น ฐานจำกัดไว้ที่ผู้ดูแลระบบ
+ *  ต่างจาก cancelTrip ตรงที่ลบได้แม้มี POD แล้ว ซึ่งเป็นเหตุผลที่มันไม่ใช่ปุ่มของคนทั่วไป */
+export async function forceDeleteTrip(tripId: number): Promise<{ trip_no: string; deleted_orders: number; deleted_pods: number }> {
+  const { data, error } = await supabase.rpc('admin_force_delete_trip', { p_trip_id: tripId })
+  if (error) throw toDataError(error)
+  return data as { trip_no: string; deleted_orders: number; deleted_pods: number }
+}
+
 /** ค่าน้ำมัน/ทางด่วน/อื่น ๆ — แตะตาราง trips ตารางเดียว ยิงตรงได้
  *  คนขับมองไม่เห็นตัวเลขพวกนี้เพราะอ่านผ่าน view my_trips ที่ไม่มีคอลัมน์ต้นทุน */
 export async function updateTripCosts(

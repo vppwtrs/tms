@@ -540,6 +540,10 @@ export interface Database {
           already: boolean
         }
       }
+      admin_force_delete_trip: {
+        Args: { p_trip_id: number }
+        Returns: { trip_no: string; deleted_orders: number; deleted_pods: number }
+      }
       refresh_order_item_qty: {
         Args: Record<string, never>
         Returns: { fixed: number; added: number }
