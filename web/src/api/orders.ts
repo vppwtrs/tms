@@ -48,16 +48,26 @@ export interface OrderListRow extends OrderRow {
 interface OrderJoined extends OrderRow {
   customers: { name: string } | null
   trips: { trip_no: string; drivers: { name: string } | null } | null
-  pod: { status: string }[] | null
+  /* PostgREST คืนก้อนที่ฝังมาเป็น "อ็อบเจ็กต์" ไม่ใช่ "อาร์เรย์" เมื่อคอลัมน์ที่ชี้กลับมา
+     มี unique constraint — pod.order_id มี เพราะ save_pod ใช้ on conflict (order_id)
+     ความสัมพันธ์จึงเป็นหนึ่งต่อหนึ่งในสายตาของมัน รับไว้ทั้งสองรูป ไม่ผูกกับรูปเดียว
+     เพราะรูปที่ได้ขึ้นกับ constraint ในฐาน ไม่ใช่สิ่งที่หน้าจอควบคุมได้ */
+  pod: { status: string }[] | { status: string } | null
   order_items: OrderItem[] | null
 }
+
+/** ก้อนที่ฝังมาแบบหนึ่งต่อหนึ่ง — อ่านได้ทั้งตอนที่มาเป็นอาร์เรย์และตอนที่มาเป็นอ็อบเจ็กต์
+ *  เขียน r.pod?.[0] ตรง ๆ แล้วได้ undefined เงียบ ๆ ตอนมันเป็นอ็อบเจ็กต์ ซึ่งอ่านออกมา
+ *  เป็น "ใบนี้ไม่มีหลักฐาน" ทั้งที่หลักฐานอยู่ในฐานครบ */
+const embedOne = <T,>(v: T[] | T | null | undefined): T | null =>
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
 
 const flatten = (r: OrderJoined): OrderListRow => ({
   ...r,
   customer_name: r.customers?.name ?? null,
   driver_name: r.trips?.drivers?.name ?? null,
   trip_no: r.trips?.trip_no ?? null,
-  pod_status: r.pod?.[0]?.status ?? null,
+  pod_status: embedOne(r.pod)?.status ?? null,
   items: r.order_items ?? [],
 })
 
@@ -117,11 +127,12 @@ export interface DispatchOrderRow extends OrderRow {
 export async function listUnassignedOrders(q?: string): Promise<DispatchOrderRow[]> {
   let query = supabase.from('orders').select('*, tms_shipments(picking_list_no, pl_type, item_qty, unit)').eq('status', 'pending').is('trip_id', null)
   if (q) query = query.or(`order_no.ilike.%${q}%,destination.ilike.%${q}%`)
+  type Shipment = { picking_list_no?: string | null; pl_type?: string | null; item_qty?: number | null; unit?: number | null }
   const rows = await unwrap(query.order('scheduled_at')) as unknown as (OrderRow & {
-    tms_shipments?: { picking_list_no?: string | null; pl_type?: string | null; item_qty?: number | null; unit?: number | null }[]
+    tms_shipments?: Shipment[] | Shipment | null
   })[]
   return rows.map((o) => {
-    const t = o.tms_shipments?.[0]
+    const t = embedOne(o.tms_shipments)
     return {
       ...o,
       tms_pl_no: o.tms_picking_list_no ?? t?.picking_list_no ?? null,
