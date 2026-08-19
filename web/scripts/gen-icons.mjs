@@ -78,46 +78,71 @@ const aa = (d) => clamp01(0.5 - d)
 const sdCircle = (px, py, cx, cy, r) => Math.hypot(px - cx, py - cy) - r
 
 /* ---------- วาดไอคอน ---------- */
-function drawIcon(size) {
+/* รถบรรทุกตู้เขียว หัวเก๋งครีม — โลโก้ที่เจ้าของระบบเลือก
+   วาดด้วย SDF ล้วนเหมือนเดิม ไม่พึ่ง dependency ภายนอก จึงรันได้ทุกเครื่องที่มี Node */
+
+const CREAM = [238, 232, 214]
+const CREAM_DARK = [206, 197, 176]
+const GREEN = [47, 122, 47]
+const GREEN_DARK = [28, 84, 30]
+const GLASS = [176, 210, 226]
+const TIRE = [38, 38, 40]
+const HUB = [150, 150, 152]
+const INK = [32, 30, 28]
+const BG = [246, 242, 254]
+
+/** ทับสีทีละชั้นจากหลังไปหน้า — ชั้นหน้าชนะตามค่า alpha ของมันเอง */
+function over(dst, src, alpha) {
+  if (alpha <= 0) return
+  for (let i = 0; i < 3; i++) dst[i] = Math.round(dst[i] * (1 - alpha) + src[i] * alpha)
+  dst[3] = Math.max(dst[3], alpha)
+}
+
+function drawIcon(size, { bleed = false } = {}) {
   const rgba = Buffer.alloc(size * size * 4)
-  const px = (u) => u * size // fraction → pixel
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const fx = (x + 0.5) / size
       const fy = (y + 0.5) / size
 
-      // พื้นหลัง: ช่องอำพันมุมมน + gradient แนวตั้ง
-      const bgA = aa(sdRoundRect(fx, fy, 0.5, 0.5, 0.5, 0.5, 0.21))
-      const t = clamp01(fy)
-      const r = Math.round(lerp(204, 158, t)) // #cc8a14 → #9e6208
-      const g = Math.round(lerp(138, 98, t))
-      const b = Math.round(lerp(20, 8, t))
+      /* maskable ต้องเต็มกรอบ ระบบปฏิบัติการเป็นคนตัดมุมเอง
+         ส่วนไอคอนธรรมดาตัดมุมเองเพื่อไม่ให้เป็นสี่เหลี่ยมทื่อบนจอโฮม */
+      const bgA = bleed ? 1 : aa(sdRoundRect(fx, fy, 0.5, 0.5, 0.5, 0.5, 0.22) * size)
+      const c = [BG[0], BG[1], BG[2], 0]
+      over(c, BG, bgA)
 
-      // รถบรรทุก (หมึกเข้ม) — ใช้ alpha สูงสุดของชิ้นส่วน
-      let truckA = 0
-      // ตัวตู้สินค้า
-      truckA = Math.max(truckA, aa(sdRoundRect(fx, fy, 0.4, 0.475, 0.2, 0.165, 0.025)))
-      // ห้องคนขับ (หลังคาลาด)
-      const cabTop = 0.42 + (fx - 0.6) * 0.55
-      if (fx >= 0.6 && fx <= 0.84) {
-        const d = Math.max(fy - cabTop, sdRoundRect(fx, fy, 0.72, 0.545, 0.12, 0.13, 0.025))
-        truckA = Math.max(truckA, aa(-Math.min(d, 0)))
+      /* แชสซี — เส้นเข้มใต้ท้องรถ ผูกหัวเก๋งกับตู้ให้เป็นคันเดียวกัน */
+      over(c, INK, aa(sdRoundRect(fx, fy, 0.5, 0.665, 0.35, 0.028, 0.012) * size))
+
+      /* ตู้สินค้า */
+      const boxA = aa(sdRoundRect(fx, fy, 0.635, 0.475, 0.225, 0.185, 0.022) * size)
+      over(c, GREEN_DARK, boxA)
+      over(c, GREEN, aa(sdRoundRect(fx, fy, 0.635, 0.475, 0.211, 0.171, 0.018) * size))
+      /* ร่องแนวนอนบนตู้ — เส้นที่ทำให้อ่านออกว่าเป็นตู้บรรทุก ไม่ใช่กล่องเปล่า */
+      for (const gy of [0.345, 0.41, 0.475, 0.54, 0.605]) {
+        const inBox = aa(sdRoundRect(fx, fy, 0.635, 0.475, 0.205, 0.165, 0.016) * size)
+        over(c, GREEN_DARK, Math.min(inBox, aa((Math.abs(fy - gy) - 0.008) * size)))
       }
-      // ล้อ
-      truckA = Math.max(truckA, aa(sdCircle(fx, fy, 0.38, 0.72, 0.062)))
-      truckA = Math.max(truckA, aa(sdCircle(fx, fy, 0.74, 0.72, 0.062)))
 
-      const a = Math.min(1, Math.max(bgA, truckA * 0.96))
-      const cr = truckA > 0.01 ? 36 : r
-      const cg = truckA > 0.01 ? 31 : g
-      const cb = truckA > 0.01 ? 20 : b
+      /* หัวเก๋ง */
+      const cabA = aa(sdRoundRect(fx, fy, 0.255, 0.545, 0.145, 0.115, 0.035) * size)
+      over(c, CREAM_DARK, cabA)
+      over(c, CREAM, aa(sdRoundRect(fx, fy, 0.255, 0.545, 0.133, 0.103, 0.03) * size))
+      /* กระจกหน้า */
+      over(c, GLASS, aa(sdRoundRect(fx, fy, 0.245, 0.5, 0.1, 0.05, 0.022) * size))
+
+      /* ล้อ — หน้าหนึ่ง หลังคู่ ตามรถหกล้อที่กองรถใช้จริง */
+      for (const wx of [0.285, 0.62, 0.79]) {
+        over(c, TIRE, aa(sdCircle(fx, fy, wx, 0.72, 0.082) * size))
+        over(c, HUB, aa(sdCircle(fx, fy, wx, 0.72, 0.034) * size))
+      }
 
       const idx = (y * size + x) * 4
-      rgba[idx] = cr
-      rgba[idx + 1] = cg
-      rgba[idx + 2] = cb
-      rgba[idx + 3] = Math.round(a * 255)
+      rgba[idx] = c[0]
+      rgba[idx + 1] = c[1]
+      rgba[idx + 2] = c[2]
+      rgba[idx + 3] = Math.round(Math.min(1, c[3]) * 255)
     }
   }
   return rgba
@@ -131,7 +156,9 @@ const targets = [
 ]
 
 for (const { file, size } of targets) {
-  const png = encodePNG(size, size, drawIcon(size))
+  /* maskable = เต็มกรอบ ไม่ตัดมุมเอง — Android ครอบรูปทรงของเครื่องทับอีกที
+     ถ้าตัดมุมมาให้แล้ว จะโดนตัดซ้ำจนขอบรถแหว่ง */
+  const png = encodePNG(size, size, drawIcon(size, { bleed: file.includes('maskable') }))
   writeFileSync(join(outDir, file), png)
   console.log(`✔ ${file} (${size}x${size}, ${png.length.toLocaleString()} bytes)`)
 }
