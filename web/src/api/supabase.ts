@@ -59,7 +59,14 @@ export function toDataError(err: unknown): DataError {
   if (e.code === 'P0001' && e.message) return new DataError(e.code, e.message)
 
   const known = e.code ? MESSAGES[e.code] : undefined
-  return new DataError(e.code ?? 'UNKNOWN', known ?? e.message ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+  if (!known) return new DataError(e.code ?? 'UNKNOWN', e.message ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่')
+
+  /* ข้อความไทยบอกว่า "เกิดอะไร" แต่ไม่บอกว่า "ที่ไหน" — คำว่าข้อมูลซ้ำอย่างเดียว
+     ทำให้ไล่หาสาเหตุไม่ได้เลย ต้องเปิด SQL Editor ไปเดาว่าซ้ำที่ตารางไหนคอลัมน์ไหน
+     Postgres บอกชื่อ constraint มาอยู่แล้วใน details/message ต่อท้ายไปด้วย
+     คนใช้งานอ่านข้ามได้ ส่วนคนแก้ปัญหาได้คำตอบทันทีโดยไม่ต้องรื้อฐาน */
+  const detail = (e.details ?? e.message ?? '').trim()
+  return new DataError(e.code ?? 'UNKNOWN', detail ? `${known} (${detail})` : known)
 }
 
 /* ผลลัพธ์ของ supabase-js เป็น union ระหว่างสำเร็จกับล้มเหลว ไม่ใช่ { data: T | null }
