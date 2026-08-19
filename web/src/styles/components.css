@@ -1366,6 +1366,15 @@
   max-width: 1560px;
   width: 100%;
 }
+/* จอของคนขับ — ไม่มีแถบข้างและแถบบน เนื้อหาจึงเริ่มที่ขอบจอ
+   ระยะขอบเท่ามือถือเสมอ ไม่ใช่ 40px แบบจอออฟฟิศ ซึ่งกินความกว้างไปเปล่า ๆ */
+.app-shell.is-driver { display: block; }
+.driver-content {
+  padding: var(--space-4) var(--space-4) 0;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 .page-enter {
   animation: fadeUp 0.24s ease-out;
 }

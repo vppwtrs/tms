@@ -12,7 +12,8 @@ import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
-import { fmtDateTime, fmtWeightHuman } from '../utils/format'
+import { fmtDateTime, fmtLongToday, fmtWeightHuman } from '../utils/format'
+import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
 import { CameraCapture } from '../components/CameraCapture'
@@ -44,6 +45,7 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* แท็บล่างจอ — โครงของแอปที่ใช้งานจริงบนมือถือ นิ้วโป้งถึงทุกอันโดยไม่ต้องขยับมือ */
   const [tab, setTab] = useState<'jobs' | 'history' | 'me'>('jobs')
   const [pwOpen, setPwOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>(() => currentTheme())
   const [busy, setBusy] = useState(0)
   // แยกจาก busy เพราะ busy เก็บเลขเที่ยว ส่วนนี่เก็บร้านที่กำลังปิด — ชนกันได้ถ้าใช้ตัวเดียว
   const [delivering, setDelivering] = useState('')
@@ -227,8 +229,14 @@ export default function CloudMyJobs(): React.JSX.Element {
         <div className="driver-me">
           <div className="driver-me-card">
             <span className="driver-me-name">{user?.name}</span>
-            <span className="driver-me-sub">{user?.username} · พนักงานขับรถ</span>
+            <span className="driver-me-sub">{user?.username} · พนักงานขับรถ · {fmtLongToday()}</span>
           </div>
+          {/* ปุ่มธีมเคยอยู่บนแถบบนที่ถูกถอดออกไป — กลางแดดกับตอนกลางคืนคนละเรื่องกัน
+              คนขับต้องสลับเองได้ */}
+          <Button variant="outline" className="driver-me-action"
+            onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(next); applyTheme(next) }}>
+            {theme === 'dark' ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด'}
+          </Button>
           {/* สองอย่างที่คนขับต้องทำเองได้จริงจากในรถ ไม่ต้องโทรหาออฟฟิศ */}
           <Button variant="outline" className="driver-me-action" onClick={() => setPwOpen(true)}>
             เปลี่ยนรหัสผ่าน

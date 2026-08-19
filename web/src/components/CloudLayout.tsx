@@ -66,6 +66,19 @@ export function CloudLayout(): React.JSX.Element {
 
   const items = NAV.filter((i) => can(i.perm))
 
+  /* คนขับได้จอเปล่า ไม่มีแถบบน ไม่มีเมนูข้าง — หน้าเขามีเมนูล่างจอของตัวเองแล้ว
+     แถบบนกินที่หนึ่งแถวเต็มบนมือถือเพื่อของที่เขาไม่ได้ใช้: วันที่ ปุ่มธีม ชื่อบัญชี
+     ทั้งสามอย่างย้ายไปอยู่ในแท็บ "ฉัน" ซึ่งเป็นที่ของมันจริง ๆ */
+  if (user?.role === 'driver') {
+    return (
+      <div className="app-shell is-driver">
+        <main className="content driver-content" key={location.pathname}>
+          <Outlet />
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="app-shell">
       <aside className={`sidebar${menuOpen ? ' open' : ''}`}>
