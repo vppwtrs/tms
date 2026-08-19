@@ -549,7 +549,18 @@ export interface Database {
       }
       admin_force_delete_trip: {
         Args: { p_trip_id: number }
-        Returns: { trip_no: string; deleted_orders: number; deleted_pods: number }
+        Returns: {
+          trip_no: string
+          deleted_orders: number
+          deleted_pods: number
+          /* path ของรูปที่เพิ่งกำพร้า — ฝั่งเว็บสั่งลบไฟล์ต่อเอง เพราะลบจาก SQL
+             ทำให้แถวหายแต่ไฟล์ยังอยู่ */
+          orphan_photo_paths: string[]
+        }
+      }
+      verify_pod: {
+        Args: { p_pod_id: number }
+        Returns: { id: number; status: 'verified'; already: boolean }
       }
       refresh_order_item_qty: {
         Args: Record<string, never>

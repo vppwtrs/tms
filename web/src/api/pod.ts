@@ -55,3 +55,17 @@ export async function podOfOrder(orderId: number): Promise<PodView | null> {
   }
   return { ...raw, photos }
 }
+
+/** ยืนยันหลักฐาน — ปิดใบไม่ให้แก้อีก
+ *
+ * ก่อนหน้านี้สแตกคลาวด์ไม่มีทางเรียกใช้เลย ปุ่มเดียวที่เคยมีอยู่ใน PodModal ฝั่ง LAN
+ * ซึ่งยิง PATCH /pod/:id/verify ของ Express ที่ production ไม่มี ผลคือทุกใบค้างที่
+ * 'collected' ตลอดกาล และกฎ "ยืนยันแล้วแก้ไม่ได้" ใน save_pod ไม่เคยมีผลกับใบไหนเลย
+ *
+ * ยืนยันซ้ำไม่ถือเป็นข้อผิดพลาด — ฐานคืน already: true กลับมาแทนการโยน error
+ */
+export async function verifyPod(podId: number): Promise<{ id: number; status: 'verified'; already: boolean }> {
+  const { data, error } = await supabase.rpc('verify_pod', { p_pod_id: podId })
+  if (error) throw toDataError(error)
+  return data as unknown as { id: number; status: 'verified'; already: boolean }
+}

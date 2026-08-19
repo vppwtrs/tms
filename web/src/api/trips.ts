@@ -1,4 +1,5 @@
 import { supabase, unwrap, toDataError } from './supabase.js'
+import { removePodPhotos } from './storage.js'
 import type { TripRow, TripStatus, OrderRow, VehicleRow, DriverRow } from '../types/database.js'
 import type { Paged } from './customers.js'
 
@@ -258,10 +259,15 @@ export const cancelTrip = (tripId: number) => call('dispatch_cancel_trip', { p_t
 
 /** ลบเที่ยวถาวร — สำหรับเก็บกวาดข้อมูลทดสอบเท่านั้น ฐานจำกัดไว้ที่ผู้ดูแลระบบ
  *  ต่างจาก cancelTrip ตรงที่ลบได้แม้มี POD แล้ว ซึ่งเป็นเหตุผลที่มันไม่ใช่ปุ่มของคนทั่วไป */
-export async function forceDeleteTrip(tripId: number): Promise<{ trip_no: string; deleted_orders: number; deleted_pods: number }> {
+export async function forceDeleteTrip(tripId: number): Promise<{ trip_no: string; deleted_orders: number; deleted_pods: number; deleted_photos: number }> {
   const { data, error } = await supabase.rpc('admin_force_delete_trip', { p_trip_id: tripId })
   if (error) throw toDataError(error)
-  return data as { trip_no: string; deleted_orders: number; deleted_pods: number }
+  const res = data as unknown as { trip_no: string; deleted_orders: number; deleted_pods: number; orphan_photo_paths: string[] }
+  /* ไฟล์ในถังไม่หายตามแถวที่ถูกลบ และไม่มีอะไรในระบบเคยเก็บกวาดมันเลย
+     ลบหลังฐานจบแล้ว ไม่ใช่ก่อน — ลบไฟล์สำเร็จแต่ลบแถวไม่ผ่าน จะเหลือหลักฐาน
+     ที่อ้างถึงรูปซึ่งไม่มีอยู่ ซึ่งแย่กว่าไฟล์กำพร้าที่ไม่มีใครเห็น */
+  const deleted_photos = await removePodPhotos(res.orphan_photo_paths ?? [])
+  return { ...res, deleted_photos }
 }
 
 /** ค่าน้ำมัน/ทางด่วน/อื่น ๆ — แตะตาราง trips ตารางเดียว ยิงตรงได้

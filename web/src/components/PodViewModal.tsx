@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, Modal, Skeleton } from './ui'
-import { podOfOrder, type PodView } from '../api/pod'
+import { podOfOrder, verifyPod, type PodView } from '../api/pod'
+import { useCloudAuth } from '../context/CloudAuthContext'
+import { useToast } from '../context/ToastContext'
 import { POD_PHOTO_KINDS } from '../api/myjobs'
 import { fmtDateTime } from '../utils/format'
 
@@ -14,9 +16,13 @@ const kindLabel = (kind: string): string =>
  * สแตกคลาวด์ไม่มี endpoint นั้น หน้าออเดอร์จึงบอกได้แค่ว่ามีหรือไม่มีหลักฐาน
  * กดเข้าไปดูของจริงไม่ได้เลย ตัวนี้อ่านผ่าน RPC pod_of_order แทน
  *
- * อ่านอย่างเดียวโดยตั้งใจ: การแก้หลักฐานหลังเก็บแล้วเป็นเรื่องที่ต้องคิดแยกต่างหาก
- * และ POD ที่ยืนยันแล้วฐานปฏิเสธการแก้อยู่แล้ว หน้าต่างที่มีปุ่มแก้ซึ่งกดแล้ว
- * ขึ้น error ครึ่งหนึ่งของเวลา แย่กว่าหน้าต่างที่บอกตรง ๆ ว่าดูได้อย่างเดียว
+ * แก้ไม่ได้โดยตั้งใจ: การแก้หลักฐานหลังเก็บแล้วเป็นเรื่องที่ต้องคิดแยกต่างหาก
+ * หน้าต่างที่มีปุ่มแก้ซึ่งกดแล้วขึ้น error ครึ่งหนึ่งของเวลา แย่กว่าหน้าต่างที่บอก
+ * ตรง ๆ ว่าดูได้อย่างเดียว
+ *
+ * สิ่งเดียวที่ทำได้จากที่นี่คือ "ยืนยัน" ซึ่งไม่ใช่การแก้ แต่เป็นการปิดใบไม่ให้แก้อีก
+ * ก่อนหน้านี้ไม่มีทางทำได้เลยในสแตกคลาวด์ ทุกใบจึงค้างที่ collected ตลอดกาล
+ * และกฎ "ยืนยันแล้วแก้ไม่ได้" ใน save_pod ไม่เคยมีผลกับใบไหนเลยสักใบ
  */
 export function PodViewModal({
   orderId,
@@ -28,9 +34,28 @@ export function PodViewModal({
   billNo: string
   onClose: () => void
 }): React.JSX.Element {
+  const { can } = useCloudAuth()
+  const toast = useToast()
   const [pod, setPod] = useState<PodView | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
+
+  const canVerify = can('pod.verify')
+
+  const verify = async (): Promise<void> => {
+    if (!pod) return
+    setVerifying(true)
+    try {
+      const r = await verifyPod(pod.id)
+      setPod({ ...pod, status: 'verified' })
+      toast.push('success', r.already ? 'หลักฐานใบนี้ยืนยันไว้แล้ว' : 'ยืนยันหลักฐานแล้ว — แก้ไขไม่ได้อีก')
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   useEffect(() => {
     let dead = false
@@ -49,7 +74,18 @@ export function PodViewModal({
       onClose={onClose}
       size="lg"
       title={`หลักฐานการส่งมอบ — ${billNo}`}
-      footer={<Button variant="ghost" onClick={onClose}>ปิด</Button>}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>ปิด</Button>
+          {/* ขึ้นเฉพาะใบที่ยังยืนยันไม่ได้ยืนยัน และเฉพาะคนที่ถือสิทธิ์นั้นจริง
+              ปุ่มที่กดแล้วฐานปฏิเสธ สอนให้คนเลิกเชื่อสิ่งที่หน้าจอบอก */}
+          {pod && pod.status === 'collected' && canVerify && (
+            <Button variant="success" loading={verifying} onClick={() => void verify()}>
+              ยืนยันหลักฐาน
+            </Button>
+          )}
+        </>
+      }
     >
       {loading && <Skeleton height={220} />}
       {!loading && err && <p className="job-alert is-warn">{err}</p>}
