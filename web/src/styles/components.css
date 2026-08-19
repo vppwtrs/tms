@@ -3086,3 +3086,24 @@
 /* ปุ่มบันทึกกินความกว้างที่เหลือ — เป้าหมายเดียวของหน้านี้ ควรพลาดยาก */
 .pod-actions { display: flex; gap: 10px; width: 100%; }
 .pod-actions > :last-child { flex: 1; }
+
+/* หัวการ์ดร้าน: ปุ่มพับ/กาง กับป้ายหลักฐานของจุดแวะอยู่บรรทัดเดียวกัน
+   ป้ายต้องอยู่ "นอก" ปุ่ม — ปุ่มซ้อนปุ่มคือสิ่งที่ HTML ไม่ยอมรับ และ
+   screen reader อ่านออกมาเป็นปุ่มเดียวที่มีข้อความปนกันจนไม่รู้ว่ากดอะไร */
+.store-head-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+}
+.store-head-row .store-head { flex: 1; min-width: 0; }
+
+/* บนมือถือชื่อร้านยาวเกินกว่าจะแบ่งบรรทัดกับป้ายหลักฐานได้ ป้ายลงมาอยู่บรรทัด
+   ของตัวเอง เยื้องให้ตรงกับชื่อร้าน — บีบให้อยู่บรรทัดเดียวกันแล้วชื่อร้านจะ
+   ถูกหั่นเป็นสามบรรทัดซึ่งอ่านยากกว่าการเสียพื้นที่หนึ่งบรรทัด */
+@media (max-width: 640px) {
+  .store-head-row { flex-wrap: wrap; padding-bottom: var(--space-2); }
+  .store-head-row .store-head { flex: 1 1 100%; }
+  .store-head-row > .pod-badge-btn,
+  .store-head-row > .badge { margin-left: 32px; }
+}

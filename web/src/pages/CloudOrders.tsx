@@ -77,6 +77,22 @@ interface StoreGroup {
   store: string
   destination: string
   rows: OrderListRow[]
+  /* สรุปหลักฐานระดับ "จุดแวะ" ไม่ใช่ระดับใบ — คนขับเซ็นครั้งเดียวที่หน้าร้าน
+     แล้วลายเซ็นชุดนั้นถูกบันทึกลงทุกใบของร้านนั้น ป้ายรายใบจึงพูดข้อเท็จจริง
+     เดียวกันซ้ำเท่าจำนวนใบ ซึ่งอ่านเหมือนมีหลักฐานหลายชุดทั้งที่มีชุดเดียว */
+  delivered: number
+  withPod: number
+  verified: number
+  /* ใบที่ใช้เปิดดูหลักฐานของจุดนี้ — ใบไหนก็ได้ที่มี POD เพราะเป็นลายเซ็นใบเดียวกัน */
+  podRow: OrderListRow | null
+}
+
+/** ป้ายหลักฐานของจุดแวะ — บอกความจริงระดับจุด ไม่ใช่ระดับใบ
+ *  "มี POD" เฉย ๆ ตอบไม่ได้ว่าครบทุกใบหรือยัง ซึ่งเป็นคำถามเดียวที่คนวางแผนถาม */
+function podStopLabel(store: { delivered: number; withPod: number; verified: number }): string {
+  if (store.verified === store.delivered) return 'ยืนยันแล้ว'
+  if (store.withPod === store.delivered) return store.delivered > 1 ? `มี POD · ${store.delivered} ใบ` : 'มี POD'
+  return `มี POD ${store.withPod}/${store.delivered} ใบ`
 }
 
 interface TripGroup {
@@ -123,12 +139,19 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
       bills: all.length,
       stores: [...stores.entries()].map(([storeKey, group]) => {
         const head = group[0] as OrderListRow
+        /* ในร้านเรียงตามเลข PL — เลขเดียวกับที่คลังยื่นใบมาให้ */
+        const rows = [...group].sort((a, b) => billNo(a).localeCompare(billNo(b), 'th'))
+        const delivered = rows.filter((r) => r.status === 'delivered')
+        const withPod = delivered.filter((r) => r.pod_status)
         return {
           key: `${tripKey}|${storeKey}`,
           store: head.customer_name ?? head.destination,
           destination: head.destination,
-          /* ในร้านเรียงตามเลข PL — เลขเดียวกับที่คลังยื่นใบมาให้ */
-          rows: [...group].sort((a, b) => billNo(a).localeCompare(billNo(b), 'th')),
+          rows,
+          delivered: delivered.length,
+          withPod: withPod.length,
+          verified: withPod.filter((r) => r.pod_status === 'verified').length,
+          podRow: withPod[0] ?? null,
         }
       }),
     }
@@ -172,6 +195,9 @@ export default function CloudOrders(): React.JSX.Element {
   const [cancelling, setCancelling] = useState<OrderListRow | null>(null)
   /* ใบที่กำลังเปิดดูหลักฐาน — เก็บทั้งใบไว้เพราะหัวหน้าต่างต้องขึ้นเลข PL ไม่ใช่ id */
   const [podOrder, setPodOrder] = useState<OrderListRow | null>(null)
+  /* ลายเซ็นชุดเดียวถูกบันทึกลงทุกใบของร้าน หน้าต่างจึงต้องบอกว่ามันครอบกี่ใบ
+     ไม่งั้นคนเปิดจากใบเดียวจะเข้าใจว่าใบอื่นยังไม่มีหลักฐาน */
+  const [podCovers, setPodCovers] = useState(1)
   const [cancelLoading, setCancelLoading] = useState(false)
 
   const load = useCallback(async (): Promise<void> => {
@@ -363,14 +389,36 @@ export default function CloudOrders(): React.JSX.Element {
                 return (
                 <div key={store.key} className="card store-card" style={{ padding: 0, marginTop: 10 }}>
                   {/* ชื่อร้านเป็นปุ่ม — ทั้งแถบกดได้ ไม่ใช่ลูกศรเล็ก ๆ ที่ต้องเล็งกด */}
-                  <button type="button" className="store-head" aria-expanded={open} onClick={() => toggleStore(store.key)}>
-                    <span className={`store-caret${open ? ' is-open' : ''}`} aria-hidden="true">›</span>
-                    <span className="store-head-text">
-                      <span className="text-strong">{store.store}</span>
-                      <span className="text-xs text-muted">{store.destination}</span>
-                    </span>
-                    <span className="text-xs text-muted">{store.rows.length} ใบ</span>
-                  </button>
+                  <div className="store-head-row">
+                    <button type="button" className="store-head" aria-expanded={open} onClick={() => toggleStore(store.key)}>
+                      <span className={`store-caret${open ? ' is-open' : ''}`} aria-hidden="true">›</span>
+                      <span className="store-head-text">
+                        <span className="text-strong">{store.store}</span>
+                        <span className="text-xs text-muted">{store.destination}</span>
+                      </span>
+                      <span className="text-xs text-muted">{store.rows.length} ใบ</span>
+                    </button>
+                    {/* หลักฐานของทั้งจุดแวะ อยู่นอกปุ่มพับ/กาง — เห็นได้โดยไม่ต้องกางร้าน
+                        และปุ่มซ้อนในปุ่มเป็นสิ่งที่ HTML ไม่ยอมรับตั้งแต่แรก */}
+                    {store.delivered > 0 && (
+                      store.podRow ? (
+                        <button
+                          type="button"
+                          className="pod-badge-btn"
+                          onClick={() => { setPodOrder(store.podRow); setPodCovers(store.withPod) }}
+                          title="ดูลายเซ็นและรูปหลักฐานของจุดนี้"
+                        >
+                          <Badge
+                            label={podStopLabel(store)}
+                            tone={store.verified === store.delivered ? 'delivered' : 'in_transit'}
+                            dot={store.verified < store.delivered}
+                          />
+                        </button>
+                      ) : (
+                        <Badge label="ไม่มี POD" tone="pending" />
+                      )
+                    )}
+                  </div>
 
                   {open && (
                   <div className="store-body">
@@ -389,14 +437,15 @@ export default function CloudOrders(): React.JSX.Element {
                           tone={orderKind(o.work_kind, o.goods_desc) === 'box' ? 'accent' : 'neutral'}
                         />
                         <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} dot={o.status === 'in_transit'} />
-                        {o.status === 'delivered' && (
+                        {/* ป้ายรายใบขึ้นเฉพาะตอนที่จุดนี้ "ไม่เท่ากัน" — บางใบมีหลักฐาน
+                            บางใบไม่มี ตอนนั้นเท่านั้นที่ป้ายรายใบบอกอะไรใหม่
+                            ถ้าทั้งจุดเหมือนกันหมด ป้ายบนหัวร้านพูดแทนไปแล้ว */}
+                        {o.status === 'delivered' && store.withPod > 0 && store.withPod < store.delivered && (
                           o.pod_status ? (
-                            /* ป้ายเป็นปุ่ม ไม่ใช่ป้ายเฉย ๆ — คนที่เห็นว่า "มี POD" คือคนที่
-                               กำลังจะถามว่าใครเซ็น ให้กดต่อได้จากตรงนั้นเลย */
                             <button
                               type="button"
                               className="pod-badge-btn"
-                              onClick={() => setPodOrder(o)}
+                              onClick={() => { setPodOrder(o); setPodCovers(1) }}
                               title="ดูลายเซ็นและรูปหลักฐาน"
                             >
                               <Badge
@@ -406,7 +455,7 @@ export default function CloudOrders(): React.JSX.Element {
                               />
                             </button>
                           ) : (
-                            <Badge label="ไม่มี POD" tone="pending" />
+                            <Badge label="ยังไม่เซ็น" tone="pending" />
                           )
                         )}
                         <div style={{ flex: 1 }} />
@@ -512,7 +561,7 @@ export default function CloudOrders(): React.JSX.Element {
       </Modal>
 
       {podOrder && (
-        <PodViewModal orderId={podOrder.id} billNo={billNo(podOrder)} onClose={() => setPodOrder(null)} />
+        <PodViewModal orderId={podOrder.id} billNo={billNo(podOrder)} covers={podCovers} onClose={() => setPodOrder(null)} />
       )}
 
       <ConfirmDialog

@@ -27,11 +27,15 @@ const kindLabel = (kind: string): string =>
 export function PodViewModal({
   orderId,
   billNo,
+  covers = 1,
   onClose,
 }: {
   orderId: number
   /** เลขที่คนใช้เรียกใบนี้จริง — PL ถ้ามี ไม่ใช่ ORD ที่ระบบสร้าง */
   billNo: string
+  /** จำนวนใบที่ลายเซ็นชุดนี้ครอบอยู่ — คนขับเซ็นครั้งเดียวที่หน้าร้าน แล้วลายเซ็น
+   *  ชุดนั้นถูกบันทึกลงทุกใบของร้านนั้น เปิดจากใบเดียวโดยไม่บอกจะเข้าใจว่าใบอื่นยังว่าง */
+  covers?: number
   onClose: () => void
 }): React.JSX.Element {
   const { can } = useCloudAuth()
@@ -131,6 +135,9 @@ export function PodViewModal({
             <span className="text-xs text-muted">{fmtDateTime(pod.collected_at)}</span>
             {pod.collected_by_name && (
               <span className="text-xs text-muted">· เก็บโดย {pod.collected_by_name}</span>
+            )}
+            {covers > 1 && (
+              <span className="text-xs text-muted">· ลายเซ็นชุดนี้ใช้กับ {covers} ใบของร้านนี้</span>
             )}
           </div>
 
