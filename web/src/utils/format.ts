@@ -14,6 +14,7 @@ const longDateFmt = new Intl.DateTimeFormat('th-TH', {
   month: 'long',
   year: 'numeric',
 })
+const timeFmt = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit' })
 const monthShortFmt = new Intl.DateTimeFormat('th-TH', { month: 'short' })
 const dayShortFmt = new Intl.DateTimeFormat('th-TH', { day: 'numeric' })
 
@@ -29,6 +30,15 @@ export function fmtDateTime(iso?: string | null): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
   return dateTimeFmt.format(d)
+}
+
+/* เวลาอย่างเดียว — ในรายการจุดส่งของคนขับ วันที่ซ้ำกันทุกบรรทัดจนอ่านไม่ทัน
+   สิ่งที่ต้องเทียบคือ "ร้านนี้กี่โมง" เทียบกับร้านถัดไป */
+export function fmtTime(iso?: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return timeFmt.format(d)
 }
 
 export function fmtLongToday(date = new Date()): string {

@@ -1,7 +1,6 @@
-import { Badge, Button } from '../ui'
+import { Button } from '../ui'
 import { IconCheck, IconPhone, IconPin } from '../icons'
-import { ORDER_STATUS_LABEL } from '../../utils/constants'
-import { fmtDateTime, fmtWeightHuman } from '../../utils/format'
+import { fmtTime, fmtWeightHuman } from '../../utils/format'
 import type { MyJobOrder } from '../../types'
 
 /** ลิงก์นำทาง — ใช้ที่อยู่ลูกค้าก่อน ถ้าไม่มีค่อยใช้ชื่อปลายทาง */
@@ -10,133 +9,149 @@ function mapsUrl(order: MyJobOrder): string {
 }
 
 /**
- * จุดส่งที่กำลังจะไป — ตัวเดียวในจอที่ได้พื้นที่เต็ม
+ * จุดส่งหนึ่งจุดในรายการทั้งเที่ยว — ย่อเป็นแถว กางเมื่อถูกเลือก
  *
- * ปลายทางตัวใหญ่สุดเพราะเป็นข้อมูลเดียวที่คนขับต้องอ่านตอนขับ
- * ปุ่มโทร/นำทางแบ่งครึ่งจอเท่ากัน สูง 56px — กดได้ทั้งที่ใส่ถุงมือและรถสั่น
+ * ทุกจุดอยู่บนจอพร้อมกันเสมอ เพราะลำดับจริงไม่ได้เดินตามเอกสาร คนขับแวะร้าน 2
+ * ก่อนร้าน 1 ได้ตลอด ถ้าต้องเปิดแผ่นซ้อนก่อนถึงจะสลับจุดได้ ก็คือเพิ่มการกด
+ * ให้กับสิ่งที่เกิดขึ้นทุกวัน แอปส่งของที่ใช้งานจริงจึงวางเป็นรายการเสมอ
+ *
+ * ปุ่มของจุดอยู่ในจุดนั้น ไม่ยกไปไว้ล่างจอ — ล่างจอสงวนไว้ให้คำสั่งระดับเที่ยว
+ * จะได้ไม่มีวันกดปิดจุดผิดจุด
  */
-export function NextStop({
+export function StopItem({
   order,
-  detailOpen,
-  onToggleDetail,
-}: {
-  order: MyJobOrder
-  /** รายละเอียดที่ไม่ได้ใช้ตอนขับ (สินค้า น้ำหนัก เลข PL หมายเหตุ) พับไว้เป็นค่าเริ่มต้น */
-  detailOpen: boolean
-  onToggleDetail: () => void
-}): React.JSX.Element {
-  const hasRef = Boolean(order.tms_picking_list_no ?? order.tms_trip_no)
-  return (
-    <section className="stop-focus" aria-label="จุดส่งถัดไป">
-      <div className="stop-focus-dest">{order.destination}</div>
-      <div className="stop-focus-customer">{order.customer_name ?? 'ไม่ระบุลูกค้า'}</div>
-      {/* บรรทัดเดียวที่ต้องอ่านตอนขับ: ถึงกี่โมง และส่งไปแล้วหรือยัง */}
-      <div className="stop-focus-meta">
-        นัดหมาย {fmtDateTime(order.scheduled_at)}
-        {order.status === 'delivered' && (
-          <>
-            {' · '}
-            <span className="stop-focus-ok">
-              <IconCheck size={13} /> ส่งแล้ว{order.has_pod ? ' · เก็บหลักฐานแล้ว' : ' · ยังไม่เก็บหลักฐาน'}
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* ปุ่มสองปุ่มนี้ใช้บ่อยที่สุดตอนถึงหน้าร้าน จึงอยู่ติดชื่อร้าน ไม่ปนกับปุ่มหลักล่างจอ */}
-      <div className="stop-focus-actions">
-        {order.customer_phone ? (
-          <a className="btn btn-outline btn-lg" href={`tel:${order.customer_phone}`}>
-            <IconPhone size={18} /> โทรหาผู้รับ
-          </a>
-        ) : (
-          <span className="stop-focus-nophone">ไม่มีเบอร์ผู้รับ</span>
-        )}
-        <a className="btn btn-outline btn-lg" href={mapsUrl(order)} target="_blank" rel="noreferrer">
-          <IconPin size={18} /> นำทาง
-        </a>
-      </div>
-
-      {/* กดดูเมื่ออยากดู — ของเดิมแสดงตลอดเวลา ดันปุ่มหลักตกจอไปทุกครั้ง */}
-      <button type="button" className="stop-detail-toggle" aria-expanded={detailOpen} onClick={onToggleDetail}>
-        {detailOpen ? 'ซ่อนรายละเอียด' : 'รายละเอียดสินค้าและเลขอ้างอิง'}
-      </button>
-      {detailOpen && (
-        <div className="stop-detail">
-          <div className="stop-focus-meta">
-            {order.goods_desc} · {fmtWeightHuman(order.weight_kg)}
-          </div>
-          {order.customer_address && <div className="stop-focus-meta">{order.customer_address}</div>}
-          {/* เลขที่คลังกับร้านใช้อ้างถึงใบนี้ — คนขับต้องอ่านให้ทางโทรศัพท์ได้ทันที
-              ไม่ใช่ต้องเปิด TMS อีกจอตอนยืนอยู่หน้าร้าน */}
-          {hasRef && (
-            <div className="stop-focus-meta">
-              {order.tms_trip_no && <>เที่ยว {order.tms_trip_no}</>}
-              {order.tms_picking_list_no && <> · PL {order.tms_picking_list_no}</>}
-              {order.tms_unit_count ? <> · {order.tms_unit_count} หน่วย</> : null}
-            </div>
-          )}
-          {order.notes && <div className="stop-focus-note">หมายเหตุ: {order.notes}</div>}
-        </div>
-      )}
-    </section>
-  )
-}
-
-/** จุดอื่นในเที่ยวเดียวกัน — ย่อเหลือบรรทัดเดียว กดเพื่อสลับมาโฟกัสได้ */
-export function StopRow({
-  order,
-  active,
-  onSelect,
+  index,
+  open,
+  busy,
+  canProgress,
+  canPod,
+  onOpen,
+  onPod,
+  onDeliver,
   onMove,
   canMoveUp,
   canMoveDown,
 }: {
   order: MyJobOrder
-  active: boolean
-  onSelect: (order: MyJobOrder) => void
-  /* ลำดับการแวะเป็นของคนขับ ปุ่มขึ้น/ลงแทนการลาก — ลากในรถที่สั่นแล้วพลาดง่าย
-     และนิ้วโป้งกดปุ่มสองปุ่มได้โดยไม่ต้องมองจอนาน */
+  /** ลำดับที่แสดง (เริ่มที่ 1) */
+  index: number
+  open: boolean
+  busy: boolean
+  canProgress: boolean
+  canPod: boolean
+  onOpen: () => void
+  onPod: (order: MyJobOrder) => void
+  onDeliver: (order: MyJobOrder) => void
+  /* ลำดับการแวะเป็นของคนขับ ปุ่มขึ้น/ลงแทนการลาก — ลากในรถที่สั่นแล้วพลาดง่าย */
   onMove?: (order: MyJobOrder, dir: -1 | 1) => void
   canMoveUp?: boolean
   canMoveDown?: boolean
 }): React.JSX.Element {
   const done = order.status === 'delivered'
+  const cancelled = order.status === 'cancelled'
+  const state = done ? 'is-done' : cancelled ? 'is-cancelled' : 'is-todo'
+
   return (
-    <li className="stop-row-wrap">
+    <li className={`stop-item ${state}${open ? ' is-open' : ''}`}>
       <button
         type="button"
-        className={`stop-row${active ? ' is-active' : ''}${done ? ' is-done' : ''}`}
-        onClick={() => onSelect(order)}
-        aria-current={active ? 'true' : undefined}
+        className="stop-item-head"
+        onClick={onOpen}
+        aria-expanded={open}
+        aria-label={`จุดที่ ${index} ${order.destination}`}
       >
-        <span className="stop-row-mark" aria-hidden="true">
-          {done ? <IconCheck size={14} /> : null}
+        <span className="stop-item-seq" aria-hidden="true">
+          {done ? <IconCheck size={15} /> : index}
         </span>
-        <span className="stop-row-dest">{order.destination}</span>
-        <Badge label={ORDER_STATUS_LABEL[order.status]} tone={order.status} />
+        <span className="stop-item-text">
+          <span className="stop-item-dest">{order.destination}</span>
+          <span className="stop-item-sub">
+            {order.customer_name ?? 'ไม่ระบุลูกค้า'} · {fmtTime(order.scheduled_at)}
+            {done && (order.has_pod ? ' · เก็บหลักฐานแล้ว' : ' · ยังไม่เก็บหลักฐาน')}
+          </span>
+        </span>
       </button>
-      {onMove && !done && (
-        <span className="stop-row-move">
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={`เลื่อน ${order.destination} ขึ้นก่อน`}
-            disabled={!canMoveUp}
-            onClick={() => onMove(order, -1)}
-          >
-            ขึ้น
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={`เลื่อน ${order.destination} ไปทีหลัง`}
-            disabled={!canMoveDown}
-            onClick={() => onMove(order, 1)}
-          >
-            ลง
-          </Button>
-        </span>
+
+      {open && (
+        <div className="stop-item-body">
+          {/* สองปุ่มที่ใช้บ่อยที่สุดตอนถึงหน้าร้าน อยู่บนสุดของจุดที่กางอยู่ */}
+          <div className="stop-item-actions">
+            {order.customer_phone ? (
+              <a className="btn btn-outline btn-lg" href={`tel:${order.customer_phone}`}>
+                <IconPhone size={18} /> โทรหาผู้รับ
+              </a>
+            ) : (
+              <span className="stop-item-nophone">ไม่มีเบอร์ผู้รับ</span>
+            )}
+            <a className="btn btn-outline btn-lg" href={mapsUrl(order)} target="_blank" rel="noreferrer">
+              <IconPin size={18} /> นำทาง
+            </a>
+          </div>
+
+          {/* ปุ่มของจุดนี้ ติดกับชื่อจุดนี้ ไม่มีทางกดผิดจุด */}
+          {canProgress && order.status === 'in_transit' && (
+            <Button size="lg" className="stop-item-cta" loading={busy} onClick={() => onDeliver(order)}>
+              ส่งจุดนี้เสร็จแล้ว
+            </Button>
+          )}
+          {canPod && done && !order.has_pod && (
+            <Button size="lg" className="stop-item-cta" onClick={() => onPod(order)}>
+              เก็บหลักฐานการส่งมอบ
+            </Button>
+          )}
+
+          <dl className="stop-item-facts">
+            <div>
+              <dt>สินค้า</dt>
+              <dd>
+                {order.goods_desc} · {fmtWeightHuman(order.weight_kg)}
+                {order.tms_unit_count ? ` · ${order.tms_unit_count} หน่วย` : ''}
+              </dd>
+            </div>
+            {order.customer_address && (
+              <div>
+                <dt>ที่อยู่</dt>
+                <dd>{order.customer_address}</dd>
+              </div>
+            )}
+            {/* เลขที่คลังกับร้านใช้อ้างถึงใบนี้ — ต้องอ่านให้ทางโทรศัพท์ได้ทันที
+                ไม่ใช่ต้องเปิด TMS อีกจอตอนยืนอยู่หน้าร้าน */}
+            {(order.tms_picking_list_no ?? order.tms_trip_no) && (
+              <div>
+                <dt>เลขอ้างอิง</dt>
+                <dd>
+                  {order.tms_picking_list_no ?? order.tms_trip_no}
+                </dd>
+              </div>
+            )}
+          </dl>
+
+          {order.notes && <p className="stop-item-note">หมายเหตุ: {order.notes}</p>}
+
+          {onMove && !done && (
+            <div className="stop-item-move">
+              <span className="stop-item-move-label">ลำดับการแวะ</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`เลื่อน ${order.destination} ขึ้นก่อน`}
+                disabled={!canMoveUp}
+                onClick={() => onMove(order, -1)}
+              >
+                ขึ้น
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`เลื่อน ${order.destination} ไปทีหลัง`}
+                disabled={!canMoveDown}
+                onClick={() => onMove(order, 1)}
+              >
+                ลง
+              </Button>
+            </div>
+          )}
+        </div>
       )}
     </li>
   )

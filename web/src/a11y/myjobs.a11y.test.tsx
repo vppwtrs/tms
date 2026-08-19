@@ -66,13 +66,13 @@ describe('หน้าคนขับ — a11y', () => {
   it('ยังส่งไม่ครบทุกจุด ปิดเที่ยวไม่ได้', () => {
     /* ถ้าปล่อยให้ปิดตอนนี้ จุดที่เหลือจะถูกเหมาเป็น "ส่งแล้ว" ทั้งที่ยังไม่ได้ไป
        แล้ว POD ของร้านเหล่านั้นก็ไม่มีใครเก็บ
-       ปุ่มหลักปุ่มเดียวล่างจอต้องเป็นงานของ "จุดนี้" ไม่ใช่ปุ่มปิดเที่ยวที่กดไม่ได้ */
+       แถบล่างจอเป็นคำสั่งของทั้งเที่ยว ตอนยังไม่ครบจึงต้องไม่มีปุ่มให้กดเลย
+       มีแต่ข้อความบอกว่าเหลืออีกกี่จุด */
     const { container } = render(
       <JobFocus job={JOB} busy={false} deliveringId={0} canProgress canPod onAct={noop} onPod={noop} onDeliver={noop} />,
     )
-    const cta = container.querySelector('.job-cta-bar button') as HTMLButtonElement
-    expect(cta.textContent).toContain('ส่งจุดนี้เสร็จแล้ว')
-    expect(container.textContent).not.toContain('ปิดงาน')
+    expect(container.querySelector('.job-cta-bar button')).toBeNull()
+    expect(container.querySelector('.job-cta-bar')?.textContent).toContain('เหลืออีก 1 จุด')
   })
 
   it('ส่งครบทุกจุดแล้วจึงขึ้นปุ่มปิดงาน', () => {

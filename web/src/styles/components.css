@@ -2385,108 +2385,87 @@
 }
 .job-crew { font-size: var(--font-sm); color: var(--muted); }
 
-.stop-focus-kicker {
-  margin: 0;
-  font-size: var(--font-sm);
-  color: var(--muted);
-  font-weight: 600;
+/* ---- รายการจุดส่งทั้งเที่ยว (accordion) ----
+   ทุกจุดอยู่บนจอเสมอ จุดที่ทำอยู่กางอยู่กับที่ในลำดับของมัน แตะสลับได้ทันที
+   แถวย่อสูง 64px กดด้วยนิ้วโป้งในรถที่สั่นได้ */
+.stop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.stop-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
 }
-.stop-focus {
+.stop-item.is-open { border-color: var(--info); background: var(--surface); box-shadow: var(--sh-1); }
+.stop-item.is-done { background: var(--paper); }
+.stop-item-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-3);
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+/* เลขลำดับกลม ๆ — คนขับอ้างถึงจุดด้วยลำดับ ไม่ใช่ชื่อร้านยาว ๆ */
+.stop-item-seq {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.stop-item.is-done .stop-item-seq { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.stop-item.is-open .stop-item-seq { background: var(--info); border-color: var(--info); color: var(--surface); }
+.stop-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stop-item-dest { font-size: var(--font-base); font-weight: 700; line-height: 1.25; }
+.stop-item-sub { font-size: var(--font-sm); color: var(--muted); }
+.stop-item.is-done .stop-item-dest { color: var(--muted); font-weight: 600; }
+.stop-item.is-cancelled .stop-item-dest { color: var(--faint); text-decoration: line-through; }
+
+.stop-item-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
 }
-/* ตัวใหญ่สุดในจอ: ข้อมูลเดียวที่คนขับต้องอ่านให้ออกตั้งแต่แวบแรก */
-.stop-focus-dest {
-  font-size: var(--font-2xl);
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.2;
-}
-.stop-focus-customer {
-  font-size: var(--font-lg);
-  color: var(--ink-2);
-  font-weight: 600;
-}
-.stop-focus-meta { font-size: var(--font-sm); color: var(--muted); }
-.stop-focus-note {
-  font-size: var(--font-sm);
-  color: var(--warn);
-  background: var(--warn-bg);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-}
-.stop-focus-nophone {
+/* สองปุ่มกว้างเท่ากันคนละครึ่ง — กดด้วยนิ้วโป้งได้ทั้งซ้ายและขวา */
+.stop-item-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.stop-item-actions .btn { min-height: var(--driver-tap); }
+.stop-item-nophone {
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: var(--font-sm);
   color: var(--faint);
 }
-/* สองปุ่มกว้างเท่ากันคนละครึ่ง — กดด้วยนิ้วโป้งได้ทั้งซ้ายและขวา */
-.stop-focus-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-}
-.stop-focus-actions .btn { min-height: var(--driver-tap); }
-.stop-focus-pod { min-height: var(--driver-tap); }
-.stop-focus-ok { color: var(--ok); font-weight: 650; display: inline-flex; align-items: center; gap: 3px; }
-
-/* ---- รายละเอียดที่พับไว้ ---- */
-.stop-detail-toggle {
-  align-self: flex-start;
-  min-height: 40px;
-  padding: 0;
-  background: none;
-  border: none;
-  font: inherit;
-  font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--link);
-  text-decoration: underline;
-  cursor: pointer;
-}
-.stop-detail { display: flex; flex-direction: column; gap: var(--space-2); }
-
-/* ---- จุดอื่นในเที่ยว: ย่อเหลือบรรทัดเดียว ---- */
-.stop-others { display: flex; flex-direction: column; gap: var(--space-2); }
-.stop-others-title {
-  font-size: var(--font-sm);
-  font-weight: 650;
-  color: var(--muted);
+.stop-item-cta { width: 100%; min-height: var(--driver-tap); }
+.stop-item-facts { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--font-sm); }
+.stop-item-facts > div { display: flex; gap: var(--space-2); }
+.stop-item-facts dt { flex: none; width: 62px; color: var(--faint); }
+.stop-item-facts dd { margin: 0; color: var(--ink-2); }
+.stop-item-note {
   margin: 0;
-}
-.stop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.stop-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 48px;
+  font-size: var(--font-sm);
+  color: var(--warn);
+  background: var(--warn-bg);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--line-soft);
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: var(--ink);
 }
-.stop-row-wrap { display: flex; align-items: center; gap: 6px; }
-/* ปุ่มขึ้น/ลงอยู่นอกปุ่มเลือกจุด ไม่ใช่ปุ่มซ้อนปุ่ม — กดผิดในรถที่สั่นแล้วเสียลำดับ */
-.stop-row-move { display: flex; flex-direction: column; gap: 2px; flex: none; }
-.stop-row:hover { background: var(--paper-deep); }
-.stop-row.is-active { border-color: var(--info); }
-.stop-row-dest { flex: 1; font-weight: 600; }
-.stop-row-mark {
-  width: 20px;
-  display: flex;
-  justify-content: center;
-  color: var(--ok);
-}
-.stop-row.is-done .stop-row-dest { color: var(--muted); font-weight: 500; }
+.stop-item-move { display: flex; align-items: center; gap: var(--space-2); }
+.stop-item-move-label { font-size: var(--font-sm); color: var(--faint); margin-right: auto; }
+
 
 /* ---- แถบปุ่มหลักที่ตรึงล่างจอ ----
    env(safe-area-inset-bottom) กันแถบ home ของ iPhone ทับปุ่ม */
@@ -2501,6 +2480,8 @@
   z-index: 10;
 }
 .job-cta-bar .btn { width: 100%; min-height: var(--driver-tap); font-size: var(--font-base); }
+/* ข้อความแทนปุ่มที่กดไม่ได้ — ปุ่มเทาชวนให้กดแล้วงงว่าทำไมไม่มีอะไรเกิดขึ้น */
+.job-cta-hint { margin: 0; text-align: center; font-size: var(--font-sm); font-weight: 600; color: var(--muted); }
 
 /* ---- ตัวเลือกเที่ยววิ่ง ---- */
 .trip-switch-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
@@ -2526,8 +2507,8 @@
 .trip-switch-meta { grid-column: 1; font-size: var(--font-sm); color: var(--muted); }
 
 @media (max-width: 560px) {
-  /* จอแคบ: ชื่อปลายทางยังต้องอ่านออกจากระยะแขน */
-  .stop-focus-dest { font-size: var(--font-xl); }
+  /* จอแคบ: ชื่อร้านยังต้องอ่านออกจากระยะแขน */
+  .stop-item-dest { font-size: var(--font-lg); }
   .job-focus { padding: var(--space-4); }
   .job-cta-bar {
     margin: var(--space-2) calc(var(--space-4) * -1) calc(var(--space-4) * -1);
