@@ -131,9 +131,12 @@ export function StopItem({
             ))}
           </ul>
 
-          {stop.orders.map((o) => o.notes && (
+          {/* หมายเหตุที่ระบบเขียนเองตอนนำเข้า ("นำเข้าจาก TMS · PL … · เที่ยว …") ไม่ต้องขึ้น
+              เลข PL เลขเที่ยว และจำนวนหน่วย อยู่บนจอนี้อยู่แล้วทั้งหมด
+              เหลือแต่หมายเหตุที่คนพิมพ์เอง ซึ่งเป็นสิ่งเดียวที่คนขับต้องอ่านจริง */}
+          {stop.orders.map((o) => (o.notes && !o.notes.startsWith('นำเข้าจาก TMS') ? (
             <p className="stop-item-note" key={o.id}>หมายเหตุ: {o.notes}</p>
-          ))}
+          ) : null))}
 
           {onMove && !stop.done && (
             <div className="stop-item-move">

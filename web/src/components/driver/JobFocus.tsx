@@ -3,7 +3,7 @@ import { Badge, Button } from '../ui'
 import { StopItem } from './StopCard'
 import { IconTruck } from '../icons'
 import { TRIP_STATUS_LABEL } from '../../utils/constants'
-import { groupStops, type StopGroup } from '../../utils/stops'
+import { groupStops, jobTripNo, type StopGroup } from '../../utils/stops'
 import type { MyJob } from '../../types'
 
 /**
@@ -140,7 +140,7 @@ export function JobFocus({
     <article className={`job-focus status-${job.status}`}>
       {/* บรรทัดเดียวจบ: เที่ยวไหน รถคันไหน สถานะอะไร */}
       <header className="job-bar">
-        <span className="job-bar-no">{job.trip_no}</span>
+        <span className="job-bar-no">{jobTripNo(job)}</span>
         <span className="job-bar-meta">
           <IconTruck size={13} /> {job.vehicle_plate}
         </span>

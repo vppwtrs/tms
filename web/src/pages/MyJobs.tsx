@@ -3,7 +3,7 @@ import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
-import type { StopGroup } from '../utils/stops'
+import { jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtWeightHuman } from '../utils/format'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
@@ -67,7 +67,7 @@ export default function MyJobs(): React.JSX.Element {
     try {
       const updated = await api.post<MyJob>(`/my-jobs/${job.id}/${action}`, {})
       setJobs((list) => list.map((j) => (j.id === job.id ? updated : j)))
-      toast.push('success', action === 'start' ? `เริ่มเดินทาง ${job.trip_no}` : `ปิดงาน ${job.trip_no} เรียบร้อย`)
+      toast.push('success', action === 'start' ? `เริ่มเดินทาง ${jobTripNo(job)}` : `ปิดงาน ${jobTripNo(job)} เรียบร้อย`)
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
@@ -157,7 +157,7 @@ export default function MyJobs(): React.JSX.Element {
                   }}
                   aria-current={j.id === active?.id ? 'true' : undefined}
                 >
-                  <span className="trip-switch-no">{j.trip_no}</span>
+                  <span className="trip-switch-no">{jobTripNo(j)}</span>
                   <span className="trip-switch-meta">
                     {j.vehicle_plate} · {j.orders.length} จุดส่ง · {fmtWeightHuman(j.total_weight)}
                   </span>

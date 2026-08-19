@@ -1,4 +1,14 @@
-import type { MyJobOrder } from '../types'
+import type { MyJob, MyJobOrder } from '../types'
+
+/**
+ * เลขเที่ยวที่คนเรียกกันจริง — ของ TMS ก่อน TRP ของเราเป็นตัวสำรอง
+ *
+ * คนขับอ้างเลขนี้เวลาโทรหาคลังหรือร้าน เลข TRP เป็นเลขที่ระบบเราสร้างเอง
+ * ไม่มีใครนอกระบบรู้จัก ตาราง trips ไม่ได้เก็บเลขของ TMS ไว้ แต่ใบทุกใบในเที่ยวเก็บ
+ */
+export function jobTripNo(job: Pick<MyJob, 'trip_no' | 'orders'>): string {
+  return job.orders.find((o) => o.tms_trip_no)?.tms_trip_no ?? job.trip_no
+}
 
 /**
  * จุดส่งหนึ่งจุด = หนึ่งร้าน ไม่ใช่หนึ่งใบ

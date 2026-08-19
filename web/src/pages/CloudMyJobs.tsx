@@ -10,7 +10,7 @@ import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
-import type { StopGroup } from '../utils/stops'
+import { jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtWeightHuman } from '../utils/format'
 import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select, Skeleton, Textarea } from '../components/ui'
@@ -109,9 +109,9 @@ export default function CloudMyJobs(): React.JSX.Element {
       const updated = await reloadJob(job.id, showDone)
       setJobs((list) => (updated ? list.map((j) => (j.id === job.id ? updated : j)) : list.filter((j) => j.id !== job.id)))
       toast.push('success',
-        action === 'accept' ? `รับงาน ${job.trip_no} แล้ว`
-          : action === 'start' ? `เริ่มเดินทาง ${job.trip_no}`
-          : `ปิดงาน ${job.trip_no} เรียบร้อย`)
+        action === 'accept' ? `รับงาน ${jobTripNo(job)} แล้ว`
+          : action === 'start' ? `เริ่มเดินทาง ${jobTripNo(job)}`
+          : `ปิดงาน ${jobTripNo(job)} เรียบร้อย`)
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
@@ -245,7 +245,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                   }}
                   aria-current={j.id === active?.id ? 'true' : undefined}
                 >
-                  <span className="trip-switch-no">{j.trip_no}</span>
+                  <span className="trip-switch-no">{jobTripNo(j)}</span>
                   <span className="trip-switch-meta">
                     {j.vehicle_plate} · {j.orders.length} จุดส่ง · {fmtWeightHuman(j.total_weight)}
                   </span>
@@ -272,7 +272,7 @@ export default function CloudMyJobs(): React.JSX.Element {
       <Modal
         open={issueFor !== null}
         onClose={() => setIssueFor(null)}
-        title={issueFor ? `แจ้งปัญหา — ${issueFor.trip_no}` : ''}
+        title={issueFor ? `แจ้งปัญหา — ${jobTripNo(issueFor)}` : ''}
         footer={
           <>
             <Button variant="ghost" onClick={() => setIssueFor(null)}>ปิด</Button>
