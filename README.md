@@ -1,57 +1,72 @@
-# TMS Web — ระบบบริหารจัดการขนส่ง
+# TMS Web — Transport Management for an In-House Fleet
 
-เว็บแอปสำหรับกองรถของบริษัท ใช้จัดงานขนส่งประจำวันตั้งแต่รับเที่ยวจากระบบ TMS ของบริษัท
-ไปจนถึงคนขับกดรับงาน ส่งของ และเก็บหลักฐานการส่งมอบจากในรถ
+A dispatch office runs on two questions all day: *where is the truck*, and *did the customer
+actually get the goods*. This is the web app that answers both without anyone picking up
+the phone.
 
-เปิดใช้งานที่ <https://vppwtrs.github.io/tms/>
+## The gap it fills
 
-## ปัญหาที่ระบบนี้แก้
+The company already runs a TMS. That system does its job right up to the moment a trip is
+handed to a carrier — and then it stops. For trips the company's own fleet drives, everything
+after that point used to live on paper, in chat threads, and in calls asking a driver where
+he is.
 
-บริษัทมีระบบ TMS อยู่แล้ว แต่ระบบนั้นจบที่ "จ่ายเที่ยวให้ผู้รับจ้างขนส่ง" งานของกองรถตัวเอง
-จึงถูกจัดการต่อด้วยกระดาษ ไลน์ และการโทรถามว่า "รถถึงไหนแล้ว"
+This app takes over exactly there. It reads the trips the corporate TMS has planned, turns
+them into work a driver can accept on his phone, and follows that work until there is a
+signature to show for it. It never writes a single byte back into the corporate TMS.
 
-ระบบนี้รับข้อมูลจาก TMS มาเป็นตัวตั้ง แล้วเติมส่วนที่ขาด: ใครขับเที่ยวไหน คนขับรับงานหรือยัง
-ตอนนี้อยู่ที่ไหน ส่งครบหรือยัง และมีหลักฐานอะไรยืนยันบ้าง โดย **ไม่เขียนข้อมูลกลับเข้า TMS**
-ของบริษัทเลยแม้แต่ครั้งเดียว — อ่านอย่างเดียวเสมอ
+## How a day goes
 
-## ใครใช้ ใช้ทำอะไร
+**Trips arrive on their own.** Confirmed trips flow in every few minutes. If the system
+already knows who each driver name refers to, the job goes straight to that driver's phone.
+If a name is new, the trip waits for a planner to answer *who is this* — once. The answer is
+remembered, and the next trip for that driver needs no answer at all.
 
-**ผู้วางแผนงาน** ดึงเที่ยวของกองรถจาก TMS แล้วสั่งงาน เที่ยวที่ TMS ยืนยันแล้วและรู้จักชื่อคนขับ
-ครบทุกคนจะถูกส่งถึงคนขับเอง ที่เหลือรอให้คนชี้ตัวคนขับก่อน ระบบไม่เดาว่าใครคือคนขับให้
-เพราะชื่อใน TMS พิมพ์อิสระและเดาผิดได้ — คนเป็นผู้ตัดสิน ระบบเป็นผู้จำคำตอบไว้ใช้รอบถัดไป
+**The driver works from a stop list.** He opens his phone, accepts the job, and sees every
+shop on the trip as one row each. He decides the order himself, because he knows the traffic
+and the loading dock, and the app never argues with that. At a shop he taps once to close it,
+however many picking lists it holds, and hands the phone over for a signature. Photos,
+location and time are attached automatically.
 
-**พนักงานขับรถ** เปิดจากมือถือ กดรับงาน เห็นร้านทั้งเที่ยวเป็นรายการ แวะร้านไหนก่อนก็ได้
-ปิดงานทีละร้าน และเก็บหลักฐานการส่งมอบ — ลายเซ็นผู้รับ รูปหลายมุม (สินค้า หน้าร้าน ใบเซ็นรับ)
-พร้อมพิกัดและเวลา
+**The office watches without interrupting.** A planner sees which trips reached a driver,
+which are still waiting, which driver reported a problem, and where each truck is right now.
+Nobody has to call anyone to find out.
 
-**ผู้ดูแลระบบ** จัดการบัญชีผู้ใช้ กลุ่มสิทธิ์ ทะเบียนรถ และทะเบียนพนักงานขับ
+**The proof stays.** Every delivery keeps its signature, its photos, its coordinates and its
+timestamps. Once verified, it cannot be edited.
 
-## ความสามารถ
+## What it refuses to do
 
-- **ดึงข้อมูลจาก TMS** — เที่ยวของกองรถ ใบ Picking List รายการสินค้า ค่าขนส่ง และสถานะ
-  โดยกรองเฉพาะเที่ยวของกองรถเรา ไม่ดึงงานของผู้รับจ้างรายอื่นเข้ามาปน
-- **สั่งงาน** — นำเข้าเป็นเที่ยววิ่งพร้อมจุดส่งและรายการของครบ แล้วส่งถึงมือถือคนขับทันที
-- **แอปคนขับ** — รายการร้านทั้งเที่ยวอยู่บนจอเสมอ ปุ่มขนาดนิ้วโป้ง คำสั่งหลักตรึงล่างจอ
-  ใช้งานได้จริงในรถ
-- **หลักฐานการส่งมอบ** — ลายเซ็น รูปหลายมุมพร้อมป้ายบอกว่ารูปไหนคืออะไร พิกัด และเวลา
-  หลักฐานที่ยืนยันแล้วแก้ไขไม่ได้
-- **ติดตามรถ** — แผนที่แสดงตำแหน่งล่าสุดของทุกเที่ยวที่กำลังวิ่ง เส้นทางย้อนหลัง
-  และหมุดทุกจุดที่เก็บหลักฐานไปแล้ว
-- **สิทธิ์การใช้งาน** — กำหนดเป็นกลุ่ม (ผู้ดูแลระบบ / วางแผนงาน / ดูอย่างเดียว / พนักงานขับรถ)
-  ปรับรายคนได้ และทุกการเปลี่ยนสิทธิ์ถูกบันทึกไว้
+Good software is defined as much by what it declines. This one declines four things on
+purpose.
 
-## สิ่งที่ระบบนี้ตั้งใจไม่ทำ
+**It does not write back to the corporate TMS.** Every call to it is a read, and the list of
+endpoints it may touch is fixed server-side. The system of record stays the system of record.
 
-- **ไม่เขียนกลับเข้า TMS** ของบริษัท ทุกการเรียกเป็นการอ่าน และรายการที่เรียกได้ถูกล็อกไว้
-  ฝั่งเซิร์ฟเวอร์
-- **ไม่เดาแทนคน** ในเรื่องที่เดาผิดแล้วมีคนเดือดร้อน — ใครคือคนขับ ใครคือลูกค้า
-  ระบบถาม แล้วจำคำตอบ
-- **ไม่ให้ TMS เดินสถานะงานแทนคนขับ** — หลังนำเข้าแล้ว สถานะเปลี่ยนเพราะคนขับกดเท่านั้น
-  ยกเว้นเที่ยวที่ TMS ยกเลิก ซึ่งยังตัดงานฝั่งเราตามเดิม
-- **ไม่ตามตำแหน่งนอกเวลางาน** — บันทึกตำแหน่งตั้งแต่คนขับกดรับงานจนปิดเที่ยวเท่านั้น
-  และลบอัตโนมัติหลัง 30 วัน หน้าจอของคนขับบอกตลอดว่ากำลังบันทึกอยู่หรือหยุดแล้ว
-- **ไม่แสดง 0 แทนคำว่าไม่รู้** — ข้อมูลที่ต้นทางไม่ได้ส่งมาจะเขียนว่าไม่รู้ ไม่ใช่เติมศูนย์
-  ซึ่งอ่านได้เป็น "ไม่มีของ"
+**It does not guess when a wrong guess costs someone.** Driver names in the TMS are free
+text; a clever match once assigned a day's work to the wrong man. Now the system asks a human
+and remembers the answer, which is automation without the guessing.
 
-กฎการเข้าถึงข้อมูลทั้งหมดอยู่ในฐานข้อมูล ไม่ใช่ในหน้าจอ — คนขับเห็นเฉพาะงานของตัวเอง
-เพราะฐานข้อมูลบังคับไว้ ไม่ใช่เพราะหน้าจอไม่แสดง
+**It does not track anyone off the clock.** Location recording starts when a driver accepts a
+job and stops when he closes it — never before, never after — and it deletes itself after
+thirty days. His screen says plainly, at all times, whether recording is on.
+
+**It does not print zero where it means "unknown".** A number the source never sent is shown
+as unknown, not as 0, because 0 reads as "there is nothing there" and sends people to a shop
+expecting an empty truck.
+
+## Who uses it
+
+**Planners** confirm what arrives, name any driver the system does not recognise yet, and
+watch the day unfold. **Drivers** get one screen with their trips, their stops and the
+evidence they need to capture, sized for a thumb and readable through a windscreen.
+**Administrators** manage accounts, permission groups, vehicles and the driver roster.
+
+Permissions are enforced in the database, not in the interface. A driver sees only his own
+work because the data layer will not return anyone else's — not because a screen chose to
+hide it.
+
+## Status
+
+In production use by the company's fleet, with the driver app, delivery evidence, live
+tracking and TMS intake all running daily.
