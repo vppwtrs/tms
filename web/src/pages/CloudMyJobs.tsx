@@ -75,7 +75,10 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* บันทึกตำแหน่งเฉพาะเที่ยวที่รับแล้วและยังไม่จบ — นอกช่วงนั้นไม่ใช่เรื่องของระบบนี้ */
   const tracking = useTripTracking(
     active?.id ?? null,
-    !!active?.accepted_at && active.status !== 'completed' && active.status !== 'cancelled',
+    /* ของ "ฉัน" ไม่ใช่ของเที่ยว — ผู้ช่วยที่ยังไม่กดรับไม่ควรถูกตามตำแหน่ง
+       เขายังไม่ได้ยืนยันว่ารับงานนี้ด้วยซ้ำ */
+    !!(active?.my_accepted_at ?? active?.accepted_at) &&
+      active?.status !== 'completed' && active?.status !== 'cancelled',
   )
 
   /* ขอสิทธิ์ตำแหน่งก่อนรับงาน ไม่ใช่หลังจากนั้น — งานที่รับแล้วแต่ตามไม่ได้
@@ -199,7 +202,7 @@ export default function CloudMyJobs(): React.JSX.Element {
 
           {/* บอกตรง ๆ ว่าตอนนี้บันทึกอยู่หรือไม่ — เบราว์เซอร์หยุดให้ตำแหน่งเมื่อพับหน้าจอ
               ถ้าไม่บอก คนขับจะเชื่อว่ามีการบันทึกตลอดเวลา แล้ววันที่ต้องใช้จะไม่มีข้อมูล */}
-          {active.accepted_at && (
+          {(active.my_accepted_at ?? active.accepted_at) && (
             <p className={`track-note${tracking === 'denied' ? ' is-off' : ''}`}>
               {tracking === 'on'
                 ? 'กำลังบันทึกตำแหน่งของเที่ยวนี้ — เปิดหน้านี้ค้างไว้ระหว่างขับ'

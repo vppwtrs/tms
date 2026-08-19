@@ -125,6 +125,24 @@ export async function importTrip(tmsId: string, driverIds?: number[]): Promise<{
   return data as { trip_id: number; created_orders: number; already: boolean }
 }
 
+/** คนขับที่ถูกจ่ายไปเที่ยวอื่นของวันนั้นแล้ว — ใช้เตือนตอนเลือกคน ไม่ใช่ห้าม
+ *  วันที่รถเสียแล้วต้องสลับคนกลางวันมีจริง การห้ามคือการบังคับให้เลี่ยงระบบ */
+export async function driversBusyOn(date: string, driverIds: number[]): Promise<{
+  driver_id: number
+  driver_name: string
+  trip_id: number
+  trip_no: string
+  status: string
+}[]> {
+  if (!driverIds.length) return []
+  const { data, error } = await supabase.rpc('drivers_busy_on', {
+    p_date: date,
+    p_driver_ids: driverIds,
+  })
+  if (error) throw toDataError(error)
+  return (data ?? []) as { driver_id: number; driver_name: string; trip_id: number; trip_no: string; status: string }[]
+}
+
 /**
  * นำเข้าเที่ยวที่พร้อมแล้วโดยอัตโนมัติ
  *

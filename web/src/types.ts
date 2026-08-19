@@ -72,6 +72,11 @@ export interface MyJob {
   vehicle_plate: string
   vehicle_type: VehicleType
   accepted_at: string | null
+  /* null = "ฉัน" ยังไม่กดรับ ถึงแม้คนอื่นในเที่ยวจะรับไปแล้ว */
+  my_accepted_at: string | null
+  is_primary: boolean
+  driver_count: number
+  accepted_count: number
   issue_note: string | null
   orders: MyJobOrder[]
   total_weight: number

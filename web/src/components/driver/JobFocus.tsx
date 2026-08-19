@@ -60,7 +60,14 @@ export function JobFocus({
   const active = job.status !== 'completed' && job.status !== 'cancelled'
   /* ยังไม่กดรับ = งานยังไม่ถึงมือจริง ๆ ทุกปุ่มที่เดินงานต่อต้องรอตรงนี้ก่อน
      ไม่งั้นก็กลับไปเป็นแบบเดิมที่งานวิ่งเองโดยคนขับไม่เคยยืนยันว่าเห็น */
-  const waiting = active && !job.accepted_at && onReportIssue !== undefined
+  /* ประตูเป็นของ "ฉัน" ไม่ใช่ของเที่ยว — คนขับหลักกดรับไปแล้วไม่ได้แปลว่าผู้ช่วยรับแล้ว
+     ของเก่าดูที่ job.accepted_at ตัวเดียว ผู้ช่วยจึงถูกข้ามประตูไปโดยไม่เคยเห็นงาน
+     my_accepted_at เป็น undefined บนสแตก LAN ที่ยังไม่มีคอลัมน์นี้ ถอยไปใช้ของเดิม */
+  const mineAccepted = job.my_accepted_at ?? job.accepted_at
+  const waiting = active && !mineAccepted && onReportIssue !== undefined
+  /* ปิดเที่ยวได้เฉพาะคนขับหลัก — ผู้ช่วยยังปิดจุดส่งและเก็บ POD ได้ตามปกติ
+     ฐานปฏิเสธอยู่แล้ว ตรงนี้คือไม่แสดงปุ่มที่กดแล้วขึ้น error เป็นอย่างเดียว */
+  const canClose = job.is_primary !== false
   /* จัดลำดับได้เฉพาะงานที่รับแล้วและยังไม่จบ — ลำดับของงานที่จบไปแล้วคือประวัติ */
   const canReorder = onReorder !== undefined && canProgress && active && !waiting
 
@@ -92,6 +99,14 @@ export function JobFocus({
       {waiting && (
         <p className="job-sub" style={{ marginTop: 8 }}>
           งานใหม่จาก TMS — กดรับงานก่อนถึงจะเริ่มเดินทางได้
+        </p>
+      )}
+
+      {/* เที่ยวที่ไปหลายคน ต้องเห็นว่าคนครบหรือยัง ทั้งคนขับและคนวางแผนถามข้อนี้ */}
+      {(job.driver_count ?? 1) > 1 && (
+        <p className="job-sub" style={{ marginTop: 8 }}>
+          ไปด้วยกัน {job.driver_count} คน · รับงานแล้ว {job.accepted_count}/{job.driver_count}
+          {job.is_primary === false && ' · คุณเป็นผู้ช่วย ปิดเที่ยวโดยคนขับหลัก'}
         </p>
       )}
 
@@ -168,9 +183,14 @@ export function JobFocus({
             <Button size="lg" variant="success" disabled>
               เหลืออีก {job.orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length} จุด
             </Button>
-          ) : (
+          ) : canClose ? (
             <Button size="lg" variant="success" loading={busy} onClick={() => onAct(job, 'complete')}>
               ส่งครบแล้ว — ปิดงาน
+            </Button>
+          ) : (
+            /* ผู้ช่วยส่งครบแล้วต้องรู้ว่าไม่มีอะไรให้เขากดต่อ ไม่ใช่เห็นปุ่มเทาแล้วเดาเอง */
+            <Button size="lg" variant="success" disabled>
+              ส่งครบแล้ว — รอคนขับหลักปิดงาน
             </Button>
           )}
         </div>

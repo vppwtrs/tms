@@ -3,7 +3,7 @@ import {
   loadProfile, signIn, signOut, onAuthChange,
   PendingApprovalError, type Profile,
 } from '../api/auth'
-import { signInWithTms, clearTmsToken } from '../api/tmsAuth'
+import { signInWithTms, clearTmsToken, TMS_EXPIRED_EVENT } from '../api/tmsAuth'
 
 /**
  * ตัวตนฝั่ง Supabase — ตัวแทนของ AuthContext เดิมที่คุยกับ Express
@@ -25,6 +25,8 @@ interface CloudAuthValue {
   loginDriver: (email: string, password: string) => Promise<void>
   loginOffice: (username: string, password: string, tenant?: string) => Promise<void>
   logout: () => Promise<void>
+  /** โหลดโปรไฟล์ใหม่ — ใช้หลังเปลี่ยนสิ่งที่อยู่ในแถว users เช่นธงบังคับตั้งรหัสใหม่ */
+  refreshProfile: () => Promise<void>
   /** ซ่อน/แสดงปุ่มเท่านั้น — ตัวบังคับสิทธิ์จริงคือ RLS ในฐานข้อมูล */
   can: (perm: string) => boolean
 }
@@ -49,6 +51,15 @@ export function CloudAuthProvider({ children }: { children: ReactNode }): React.
       setLoading(false)
     }
   }
+
+  /* token ของ TMS หมดอายุ = ตัวตนฝั่งบริษัทหมดอายุ ซึ่งเป็นสิ่งเดียวที่รับรองบัญชีออฟฟิศ
+     ต้องพาออกไปหน้าล็อกอินทันที ไม่ใช่ปล่อยให้เห็นข้อมูลค้างบนจอแล้วกดอะไรก็ error
+     คนขับไม่โดน — เขาไม่มี token ของ TMS ตั้งแต่แรก */
+  useEffect(() => {
+    const onExpired = (): void => { void logout() }
+    window.addEventListener(TMS_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(TMS_EXPIRED_EVENT, onExpired)
+  }, [])
 
   useEffect(() => {
     void refresh()
@@ -88,7 +99,7 @@ export function CloudAuthProvider({ children }: { children: ReactNode }): React.
   }
 
   return (
-    <Ctx.Provider value={{ user, loading, pendingName, loginDriver, loginOffice, logout, can }}>
+    <Ctx.Provider value={{ user, loading, pendingName, loginDriver, loginOffice, logout, refreshProfile: refresh, can }}>
       {children}
     </Ctx.Provider>
   )

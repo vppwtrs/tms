@@ -161,6 +161,15 @@ async function handleCreate(req: Request, callerAuth: string): Promise<Response>
     }
   }
 
+  /* รหัสนี้ถูกอ่านให้เจ้าตัวฟังทางโทรศัพท์หรือส่งทางไลน์เสมอ ตั้งธงไว้ให้แอปบังคับ
+     ตั้งรหัสใหม่ตอนเข้าครั้งแรก ล้มก็ไม่ถอยทั้งคำขอ — บัญชีใช้ได้แล้วจริง
+     เสียแค่ด่านบังคับเปลี่ยนรหัส ซึ่งแลกกับการลบบัญชีที่เพิ่งสร้างทิ้งไม่คุ้ม */
+  /* เฉพาะบัญชีที่ใช้รหัสของเรา — บัญชีที่ยืนยันตัวผ่าน TMS บริษัทตั้งรหัสฝั่งเราไม่ได้
+     ตั้งธงให้ก็จะโดนกั้นทั้งแอปโดยไม่มีทางปลด */
+  await sb.from('users').update({ must_change_password: true })
+    .eq('id', (row as { user_id: number }).user_id)
+    .eq('auth_source', 'local')
+
   return json({
     user: row,
     email,
@@ -191,6 +200,10 @@ async function handleReset(req: Request, callerAuth: string): Promise<Response> 
   const password = tempPassword()
   const { error } = await sb.auth.admin.updateUserById(u.auth_id, { password })
   if (error) return json({ error: 'ตั้งรหัสใหม่ไม่สำเร็จ' }, 500)
+
+  /* เหมือนตอนสร้างบัญชี — รหัสที่ผู้ดูแลตั้งให้เป็นรหัสชั่วคราวเสมอ */
+  await sb.from('users').update({ must_change_password: true })
+    .eq('id', user_id).eq('auth_source', 'local')
 
   return json({ username: u.username, password })
 }

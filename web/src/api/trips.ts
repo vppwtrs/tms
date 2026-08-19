@@ -84,6 +84,9 @@ export interface BoardTrip {
   freight_cost: number | null
   /* null บนเที่ยวที่ยังไม่จบ = ยังไม่ถึงมือคนขับ คือประตูที่กันงานไม่ให้วิ่งเอง */
   accepted_at: string | null
+  /* เที่ยวที่ไปหลายคน: รับแล้วกี่คนจากกี่คน — accepted_at บอกแค่ว่ามีคนแรกรับแล้ว */
+  crew_size: number
+  crew_accepted: number
   /* ปัญหาที่คนขับแจ้ง — ไม่ใช่การปฏิเสธงาน */
   issue_note: string | null
   issue_at: string | null
@@ -123,14 +126,14 @@ export async function getTripBoardDetailed(): Promise<{
     unwrap(
       supabase
         .from('trip_drivers')
-        .select('trip_id, driver_id')
+        .select('trip_id, driver_id, accepted_at')
         .in('trip_id', trips.map((t) => t.id))
         .order('seq'),
     ),
     unwrap(supabase.from('orders').select('*').in('trip_id', trips.map((t) => t.id)).order('scheduled_at')),
   ])
 
-  const links = tripDrivers as { trip_id: number; driver_id: number }[]
+  const links = tripDrivers as { trip_id: number; driver_id: number; accepted_at: string | null }[]
   const driverIds = [...new Set([...trips.map((t) => t.driver_id), ...links.map((r) => r.driver_id)])]
     .filter((id): id is number => id != null)
   const drivers = driverIds.length
@@ -165,6 +168,10 @@ export async function getTripBoardDetailed(): Promise<{
       total_weight: mine.reduce((s, o) => (o.status === 'cancelled' ? s : s + o.weight_kg), 0),
       freight_cost: t.freight_actual_cost ?? t.freight_cost,
       accepted_at: t.accepted_at,
+      /* "รับแล้ว 2/3" — คำถามแรกของคนวางแผนตอนเช้าคือคนครบหรือยัง ไม่ใช่รถออกหรือยัง
+         เที่ยวคนเดียวก็ยังตอบได้ตามปกติ (1/1) หน้าจอเป็นคนตัดสินว่าจะโชว์ไหม */
+      crew_size: crew.length,
+      crew_accepted: links.filter((r) => r.trip_id === t.id && r.accepted_at != null).length,
       issue_note: t.issue_note,
       issue_at: t.issue_at,
       driver_has_account: dById.get(t.driver_id)?.user_id != null,

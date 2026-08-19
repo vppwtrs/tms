@@ -29,6 +29,51 @@ const TMS_TOKEN_KEY = 'tmsToken'
 export const getTmsToken = (): string | null => sessionStorage.getItem(TMS_TOKEN_KEY)
 export const clearTmsToken = (): void => sessionStorage.removeItem(TMS_TOKEN_KEY)
 
+/* token ของ TMS หมดอายุ = ตัวตนฝั่งบริษัทหมดอายุ ซึ่งเป็นสิ่งเดียวที่รับรองบัญชีออฟฟิศ
+   ปล่อยให้อยู่หน้าเดิมแปลว่าเห็นข้อมูลค้างบนจอ กดอะไรก็ขึ้น error ทีละปุ่ม
+   ยิงเหตุการณ์ออกไปให้ตัวจัดการ session พาออกไปหน้าล็อกอินทีเดียว
+
+   ใช้ event ไม่ใช่ import ตรง เพราะไฟล์นี้เป็นชั้น API — ให้มันเรียก context ของ React
+   คือผูกชั้นล่างเข้ากับชั้นบน แล้วเทสต์ชั้น API ต้องลาก React มาด้วยทั้งชุด */
+export const TMS_EXPIRED_EVENT = 'tms-token-expired'
+
+let expiredFired = false
+export function signalTmsExpired(): void {
+  clearTmsToken()
+  /* ยิงครั้งเดียวต่อการหมดอายุหนึ่งครั้ง — รอบดึงข้อมูลยิงหลายคำขอซ้อนกัน
+     ทุกตัวจะเจอ 401 พร้อมกัน ถ้ายิง event ทุกตัวก็เด้งซ้ำเป็นสิบรอบ */
+  if (expiredFired) return
+  expiredFired = true
+  window.dispatchEvent(new CustomEvent(TMS_EXPIRED_EVENT))
+}
+
+/** เรียกหลังล็อกอินสำเร็จ — เปิดให้เตือนหมดอายุได้อีกครั้งในรอบถัดไป */
+const armTmsExpiry = (): void => { expiredFired = false }
+
+/** อายุที่เหลือของ token TMS เป็นวินาที — null = อ่านไม่ออกหรือไม่มี token
+ *
+ *  ใช้ตอบคำถามเดียว: ย้ายรอบซิงก์ไปฝั่งเซิร์ฟเวอร์แบบเก็บ token แทนรหัสผ่านได้ไหม
+ *  token อายุสั้นแปลว่าต้องมีคนล็อกอินใหม่บ่อยจนไม่ต่างจากเปิดแท็บค้าง
+ *  token อายุยาวแปลว่าคุ้มที่จะทำ และไม่ต้องเก็บรหัสผ่านของใครเลย
+ *
+ *  อ่านจาก payload ของ JWT ตรง ๆ ไม่ตรวจลายเซ็น — ตรงนี้ไม่ได้ใช้ตัดสินสิทธิ์อะไร
+ *  แค่อ่านวันหมดอายุที่ TMS ประกาศมาเอง ตัวตัดสินจริงคือ TMS ที่ปฏิเสธ 401 */
+export function tmsTokenSecondsLeft(token = getTmsToken()): number | null {
+  if (!token) return null
+  const part = token.split('.')[1]
+  if (!part) return null
+  try {
+    /* base64url ไม่ใช่ base64 — ต้องแปลง - _ กลับก่อน ไม่งั้น atob โยน error
+       กับ token ที่มีอักขระสองตัวนี้ ซึ่งเจอเมื่อไหร่ก็ไม่รู้ */
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'))
+    const exp = (JSON.parse(json) as { exp?: number }).exp
+    if (typeof exp !== 'number') return null
+    return Math.floor(exp - Date.now() / 1000)
+  } catch {
+    return null
+  }
+}
+
 async function gateway<T>(route: 'auth' | 'call', body: unknown): Promise<T> {
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
   const res = await fetch(`${FUNCTIONS_BASE}/${route}`, {
@@ -51,6 +96,12 @@ async function gateway<T>(route: 'auth' | 'call', body: unknown): Promise<T> {
 
   if (!res.ok) {
     const msg = (data as { error?: string } | null)?.error
+    /* 401 จากเส้น call = TMS ปฏิเสธ token ไม่ใช่ปฏิเสธรหัสผ่าน (เส้น auth ต่างหาก)
+       เป็นตัวตัดสินจริงว่าหมดอายุแล้ว ค่า exp ที่อ่านเองเป็นแค่การคาดการณ์ */
+    if (route === 'call' && res.status === 401) {
+      signalTmsExpired()
+      throw new DataError('TMS_TOKEN_EXPIRED', 'การเข้าระบบ TMS หมดอายุ — เข้าสู่ระบบใหม่')
+    }
     throw new DataError(String(res.status), msg ?? 'ติดต่อระบบ TMS ไม่ได้')
   }
   return data as T
@@ -86,6 +137,7 @@ export async function signInWithTms(
   if (error) throw new DataError('SESSION', 'รับ session ไม่สำเร็จ')
 
   sessionStorage.setItem(TMS_TOKEN_KEY, r.tms_token)
+  armTmsExpiry()
   return { pending: r.pending, account: r.account }
 }
 
@@ -98,7 +150,17 @@ export async function tmsCall<T>(
 ): Promise<T> {
   const token = getTmsToken()
   if (!token) {
+    signalTmsExpired()
     throw new DataError('NO_TMS_TOKEN', 'ยังไม่ได้เข้าสู่ระบบ TMS — ออกแล้วเข้าใหม่')
   }
+
+  /* ตัดจบก่อนยิง ถ้า exp บอกว่าหมดแล้ว — ประหยัดคำขอที่รู้ผลอยู่แล้วว่า 401
+     เผื่อ 30 วินาทีให้นาฬิกาเครื่องที่เดินคลาดจาก server ไม่ให้ตัดก่อนเวลาจริง */
+  const left = tmsTokenSecondsLeft(token)
+  if (left !== null && left <= -30) {
+    signalTmsExpired()
+    throw new DataError('TMS_TOKEN_EXPIRED', 'การเข้าระบบ TMS หมดอายุ — เข้าสู่ระบบใหม่')
+  }
+
   return gateway<T>('call', { path, method, body, token })
 }

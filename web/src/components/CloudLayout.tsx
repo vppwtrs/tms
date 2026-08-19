@@ -4,7 +4,8 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { ROLE_LABEL } from '../utils/constants'
 import { fmtDate, fmtLongToday, initials } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { IconBox, IconBuilding, IconRoute, IconLogout, IconMenu, IconMoon, IconPin, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
+import { IconBox, IconBuilding, IconRoute, IconKey, IconLogout, IconMenu, IconMoon, IconPin, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
+import { ChangePasswordModal } from './ChangePasswordModal'
 
 /**
  * โครงหน้าจอฉบับคลาวด์ — คู่ขนานกับ Layout.tsx ที่ยังคุยกับ Express
@@ -49,6 +50,9 @@ export function CloudLayout(): React.JSX.Element {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(() => currentTheme())
+  /* ทางเข้าเปลี่ยนรหัสผ่านอยู่ตรงนี้ ไม่ใช่ในหน้าผู้ใช้และสิทธิ์ เพราะหน้านั้นต้องมี
+     users.manage คนขับกับผู้วางแผนงานจึงไม่มีทางเข้าถึงรหัสของตัวเองเลย */
+  const [passwordOpen, setPasswordOpen] = useState(false)
 
   useEffect(() => {
     applyTheme(theme)
@@ -130,6 +134,18 @@ export function CloudLayout(): React.JSX.Element {
                 </div>
               </div>
             )}
+            {/* บัญชีที่ยืนยันตัวด้วยรหัสของ TMS บริษัท ตั้งรหัสที่นี่ไม่มีผล —
+                gateway สุ่มรหัสฝั่งเราใหม่ทุกครั้งที่ล็อกอิน ซ่อนปุ่มดีกว่าให้กดแล้วรอเก้อ */}
+            {user?.authSource !== 'tms' && (
+            <button
+              className="btn btn-ghost btn-icon"
+              onClick={() => setPasswordOpen(true)}
+              title="เปลี่ยนรหัสผ่านของฉัน"
+              aria-label="เปลี่ยนรหัสผ่านของฉัน"
+            >
+              <IconKey size={17} />
+            </button>
+            )}
             <button className="btn btn-ghost btn-icon" onClick={() => void handleLogout()} title="ออกจากระบบ" aria-label="ออกจากระบบ">
               <IconLogout size={17} />
             </button>
@@ -139,6 +155,8 @@ export function CloudLayout(): React.JSX.Element {
         <main className="content page-enter" key={location.pathname}>
           <Outlet />
         </main>
+
+        <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       </div>
     </div>
   )

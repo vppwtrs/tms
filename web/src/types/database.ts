@@ -32,6 +32,8 @@ export type UserRow = {
   approved_at: string | null
   approved_by: number | null
   last_login_at: string | null
+  /* true = ยังใช้รหัสชั่วคราวที่ผู้ดูแลตั้งให้ แอปกั้นไว้จนกว่าจะตั้งรหัสของตัวเอง */
+  must_change_password: boolean
 }
 
 export type UserPermissionRow = {
@@ -115,6 +117,8 @@ export type TripRow = {
   issue_at: string | null
   notes: string | null
   created_at: string
+  /* คนขับที่กดปิดเที่ยว — ปิดได้เฉพาะคนขับหลัก แต่บันทึกไว้เพื่อตรวจย้อนหลัง */
+  closed_by: number | null
 }
 
 export type OrderRow = {
@@ -229,7 +233,10 @@ export type TmsShipmentRow = {
 export type TripDriverRow = {
   trip_id: number
   driver_id: number
+  /* 1 = คนขับหลัก (คนเดียวที่ปิดเที่ยวได้) ที่เหลือคือผู้ช่วย */
   seq: number
+  /* คนนี้กดรับงานเมื่อไหร่ — ต่างจาก trips.accepted_at ที่เป็นของทั้งเที่ยว */
+  accepted_at: string | null
   created_at: string
 }
 
@@ -246,6 +253,12 @@ export type MyTripRow = {
   accepted_at: string | null
   issue_note: string | null
   issue_at: string | null
+  /* ของคนที่เปิดแอปอยู่ ไม่ใช่ของทั้งเที่ยว — เที่ยวถูกรับแล้วไม่ได้แปลว่า "ฉัน" รับแล้ว */
+  my_accepted_at: string | null
+  /* คนขับหลักเท่านั้นที่ปิดเที่ยวได้ ผู้ช่วยปิดจุดส่งและเก็บ POD ได้ตามปกติ */
+  is_primary: boolean
+  driver_count: number
+  accepted_count: number
 }
 
 export type MyOrderRow = {
@@ -346,7 +359,7 @@ export interface Database {
          ส่งมาเองก็ได้ แต่ปกติปล่อยว่างแล้วให้ DB ตั้งเลขต่อจากใบล่าสุดของปีนี้ */
       trips: Table<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'status' | 'trip_no' | 'fuel_cost' | 'toll_cost' | 'other_cost' | 'freight_cost' | 'freight_actual_cost'>>
       /* คนขับของเที่ยว รวมคนที่ไปด้วย — trips.driver_id เก็บได้แค่คนขับหลัก */
-      trip_drivers: Table<TripDriverRow, Insertable<TripDriverRow, 'created_at' | 'seq'>>
+      trip_drivers: Table<TripDriverRow, Insertable<TripDriverRow, 'created_at' | 'seq' | 'accepted_at'>>
       orders: Table<OrderRow, Insertable<OrderRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'order_no' | 'priority' | 'distance_km' | 'weight_kg' | 'fee'>>
       pod: Table<PodRow, Insertable<PodRow, 'id' | 'updated_at' | 'status'>>
       quotes: Table<QuoteRow, Insertable<QuoteRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'quote_no' | 'distance_km' | 'weight_kg' | 'fee'>>
@@ -630,6 +643,18 @@ export interface Database {
       effective_permissions: { Args: { p_user_id: number }; Returns: UserPermissionRow[] }
       admin_save_user_permission: { Args: { p_user_id: number; p_permission: string; p_mode: PermissionMode; p_reason?: string | null }; Returns: void }
       admin_reset_user_permissions: { Args: { p_user_id: number; p_reason?: string | null }; Returns: void }
+      clear_my_password_flag: { Args: Record<string, never>; Returns: void }
+      drivers_busy_on: { Args: { p_date: string; p_driver_ids: number[] }; Returns: unknown }
+      trip_accept_state: { Args: { p_trip_id: number }; Returns: unknown }
+      log_tms_pull_run: {
+        Args: {
+          p_mode: string; p_date_from: string; p_date_to: string; p_warehouses: string[]
+          p_trips_seen?: number; p_trips_ours?: number; p_rows_changed?: number
+          p_ok?: boolean; p_error?: string | null
+        }
+        Returns: number
+      }
+      tms_pull_coverage: { Args: { p_hours?: number }; Returns: unknown }
       admin_set_role_permission: { Args: { p_role: UserRole; p_permission: string; p_allowed: boolean; p_reason?: string | null }; Returns: void }
     }
     Enums: {

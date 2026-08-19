@@ -42,6 +42,10 @@ const JOB: MyJob = {
   vehicle_plate: '9กก-0123',
   vehicle_type: 'truck6',
   accepted_at: '2026-08-13T04:55:00.000Z',
+  my_accepted_at: '2026-08-13T04:55:00.000Z',
+  is_primary: true,
+  driver_count: 1,
+  accepted_count: 1,
   issue_note: null,
   orders: [
     makeOrder({ id: 1, status: 'delivered', has_pod: 1 }),

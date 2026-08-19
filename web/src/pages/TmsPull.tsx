@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge, Button, Field, Input, PageHeader, ErrorBox } from '../components/ui'
 import {
   listWarehouses, pullTrips, pullRecentTrips, pushShipments, pushTrips, tmsBoard,
+  logPullRun, pullCoverage,
   POLL_MS,
-  type Warehouse, type TmsBoard,
+  type Warehouse, type TmsBoard, type PullCoverage,
 } from '../api/tmsPull'
 import { fmtDate, fmtDateTime } from '../utils/format'
+import { tmsTokenSecondsLeft } from '../api/tmsAuth'
 
 /**
  * ดึงข้อมูลจาก TMS บริษัท — แทนโปรแกรม extractor ที่เคยแยกต่างหาก
@@ -53,6 +55,11 @@ export default function TmsPull(): React.JSX.Element {
   const [board, setBoard] = useState<TmsBoard | null>(null)
   const [auto, setAuto] = useState(true)
   const [lastRun, setLastRun] = useState<string>('')
+  /* รอบดึงของทั้งวัน ไม่ใช่แค่ของแท็บนี้ — คนที่เปิดหน้านี้ต้องรู้ว่าคนอื่นดึงคลังไหนไปแล้ว */
+  const [coverage, setCoverage] = useState<PullCoverage | null>(null)
+  /* อายุที่เหลือของ token TMS — วัดไว้ตอบคำถามเดียว: ย้ายรอบซิงก์ไปฝั่งเซิร์ฟเวอร์
+     โดยเก็บ token แทนรหัสผ่านได้ไหม สั้นเกินก็ไม่คุ้ม ยาวพอก็ไม่ต้องเก็บรหัสใคร */
+  const [tokenLeft, setTokenLeft] = useState<number | null>(() => tmsTokenSecondsLeft())
 
   /* กันรอบซ้อนกัน — รอบก่อนยังไม่จบแล้วรอบใหม่มาถึง คือยิง TMS สองชุดพร้อมกัน
      ใช้ ref ไม่ใช่ state เพราะต้องอ่านค่าล่าสุดตอน timer ยิง ไม่ใช่ค่าตอน render */
@@ -60,6 +67,7 @@ export default function TmsPull(): React.JSX.Element {
 
   const refreshBoard = useCallback((): void => {
     tmsBoard().then(setBoard).catch(() => setBoard(null))
+    pullCoverage(24).then(setCoverage).catch(() => setCoverage(null))
   }, [])
 
   useEffect(() => {
@@ -83,6 +91,12 @@ export default function TmsPull(): React.JSX.Element {
       running.current = true
       setBusy(true)
       setError(null)
+      /* เก็บไว้นอก try เพราะรอบที่ล้มกลางทางก็ต้องถูกบันทึก — รอบที่ล้ม
+         คือรอบที่ครอบคลุมไม่ครบ ซึ่งเป็นสิ่งที่บันทึกนี้มีไว้เพื่อบอก */
+      let seen = 0
+      let ours = 0
+      let changed = 0
+      let failed: string | null = null
       try {
         /* สองแหล่งในรอบเดียว — ใบตอบว่า "มีของต้องส่ง" เที่ยวตอบว่า "ใครวิ่ง ถึงไหน"
            ดึงแหล่งเดียวคือได้ครึ่งเดียวของคำถามที่คนจัดรถถามทุกเช้า */
@@ -94,6 +108,8 @@ export default function TmsPull(): React.JSX.Element {
           batches.push(tr)
         }
         const allTrips = batches.flatMap((batch) => batch.trips)
+        seen = batches.reduce((n, b) => n + b.scanned, 0)
+        ours = allTrips.length
 
         if (!allTrips.length) {
           setLog(mode === 'poll' ? '' : 'ไม่พบใบสั่งหรือเที่ยวในช่วงที่เลือก')
@@ -128,7 +144,7 @@ export default function TmsPull(): React.JSX.Element {
            การตัดสินว่า "เที่ยวนี้ใครขับ แล้วสั่งงานเมื่อไหร่" เป็นของคนวางแผนงาน
            ของเดิมเดาคนขับจากชื่อใน TMS แล้วสร้างงานให้เอง ซึ่งจับคนผิดสะสมมาเรื่อย ๆ */
 
-        const changed = t.inserted + t.updated
+        changed = t.inserted + t.updated
         setLog(
           changed === 0
             ? mode === 'poll'
@@ -140,8 +156,21 @@ export default function TmsPull(): React.JSX.Element {
         )
         refreshBoard()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'ดึงข้อมูลไม่สำเร็จ')
+        failed = e instanceof Error ? e.message : 'ดึงข้อมูลไม่สำเร็จ'
+        setError(failed)
       } finally {
+        await logPullRun({
+          mode,
+          from: mode === 'poll' ? iso(0) : from,
+          to: mode === 'poll' ? iso(0) : to,
+          warehouses: warehouses.map((w) => w.code),
+          tripsSeen: seen,
+          tripsOurs: ours,
+          rowsChanged: changed,
+          ok: failed === null,
+          error: failed,
+        })
+        pullCoverage(24).then(setCoverage).catch(() => {})
         setLastRun(new Date().toLocaleTimeString('th-TH', { timeStyle: 'short' }))
         running.current = false
         setBusy(false)
@@ -152,6 +181,13 @@ export default function TmsPull(): React.JSX.Element {
 
   /* รอบเฝ้าสถานะ — ยิงทันทีที่มีคลังแล้ว จากนั้นทุก 5 นาทีตราบที่เปิดหน้าค้างไว้
      ข้อเสียที่รับไว้: ปิดหน้าแล้วรอบหยุด — จึงมีวันที่ดึงล่าสุดขึ้นบนกระดานให้เห็นว่าข้อมูลเก่าแค่ไหน */
+  /* นับถอยหลังทุกนาที ไม่ใช่คำนวณครั้งเดียวตอนเปิดหน้า — ค่าที่ค้างอยู่
+     ตอบคำถามผิดทันทีที่เปิดหน้าค้างไว้ครึ่งชั่วโมง */
+  useEffect(() => {
+    const t = setInterval(() => setTokenLeft(tmsTokenSecondsLeft()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
   useEffect(() => {
     if (!auto || !warehouses.length) return
     void cycle('poll')
@@ -263,10 +299,61 @@ export default function TmsPull(): React.JSX.Element {
         </div>
       )}
 
+      {/* บัญชี TMS แต่ละคนเห็นคลังไม่เท่ากัน — คนที่กดปุ่มนี้ต้องเห็นว่าวันนี้ทั้งบริษัท
+          ดึงคลังไหนไปแล้วบ้าง ไม่ใช่เห็นแค่ผลของตัวเองแล้วเข้าใจว่าครบ */}
+      {coverage && coverage.runs > 0 && (
+        <div className="card" style={{ padding: 16, marginBottom: 16, maxWidth: 560, display: 'grid', gap: 8 }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5 }}>ความครอบคลุมของรอบดึงใน 24 ชั่วโมง</div>
+          <div style={{ fontSize: 12.5 }}>
+            คลังที่ถูกดึงแล้ว: <b>{coverage.warehouses.length ? coverage.warehouses.join(', ') : 'ไม่มี'}</b>
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', display: 'grid', gap: 3 }}>
+            {coverage.people.map((p) => (
+              <div key={p.name}>
+                {p.name} · {p.runs} รอบ · {(p.warehouses ?? []).join(', ') || 'ไม่ได้ระบุคลัง'} ·
+                ล่าสุด {fmtDateTime(p.last_at)}
+              </div>
+            ))}
+          </div>
+          {/* คลังที่บัญชีนี้เห็นแต่ยังไม่มีใครดึงเลยใน 24 ชม. คือช่องโหว่ที่มองไม่เห็น
+              ถ้าไม่ขึ้นตรงนี้ ต้องไปเทียบรายชื่อสองชุดในหัวเอง ซึ่งไม่มีใครทำ */}
+          {(() => {
+            const missing = warehouses.map((w) => w.code).filter((c) => !coverage.warehouses.includes(c))
+            return missing.length > 0 ? (
+              <div style={{ fontSize: 12.5, color: 'var(--warning, var(--danger))' }}>
+                ยังไม่มีใครดึงคลัง: <b>{missing.join(', ')}</b>
+              </div>
+            ) : null
+          })()}
+          {coverage.last_run && !coverage.last_run.ok && (
+            <div style={{ fontSize: 12.5, color: 'var(--danger)' }}>
+              รอบล่าสุด ({coverage.last_run.by ?? 'ไม่ทราบชื่อ'}) ล้มเหลว: {coverage.last_run.error}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card" style={{ padding: 18, display: 'grid', gap: 14, maxWidth: 560 }}>
         <div style={{ fontSize: 13, color: 'var(--muted)' }}>
           ระบบจะดึง Trip ครบทุกคลังที่บัญชีนี้มีสิทธิ์ ({warehouses.length} คลัง)
         </div>
+
+        {/* ตัวเลขนี้มีไว้ตัดสินใจเรื่องเดียว: ย้ายรอบซิงก์ไปฝั่งเซิร์ฟเวอร์แบบเก็บ token
+            แทนรหัสผ่าน คุ้มหรือไม่ — คุ้มก็ไม่ต้องเก็บรหัสผ่านของใครเลย */}
+        {tokenLeft !== null && (
+          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+            token ของ TMS หมดอายุในอีก{' '}
+            <b>
+              {tokenLeft <= 0
+                ? 'หมดอายุแล้ว'
+                : tokenLeft < 3600
+                  ? `${Math.floor(tokenLeft / 60)} นาที`
+                  : tokenLeft < 86400
+                    ? `${Math.floor(tokenLeft / 3600)} ชั่วโมง ${Math.floor((tokenLeft % 3600) / 60)} นาที`
+                    : `${Math.floor(tokenLeft / 86400)} วัน`}
+            </b>
+          </div>
+        )}
 
         <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13 }}>
           <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />

@@ -468,6 +468,12 @@ function TripCard({
           <span>ค่าขนส่ง <b>{fmtMoney(trip.freight_cost)}</b></span>
         )}
         {trip.accepted_at && <span>คนขับรับงาน <b>{fmtDateTime(trip.accepted_at)}</b></span>}
+        {/* เที่ยวที่ไปหลายคน "รับแล้ว" ของคนแรกไม่ได้แปลว่าคนครบ — คำถามคือคนครบหรือยัง */}
+        {trip.crew_size > 1 && (
+          <span style={trip.crew_accepted < trip.crew_size ? { color: 'var(--danger)' } : undefined}>
+            รับงานแล้ว <b>{trip.crew_accepted}/{trip.crew_size}</b> คน
+          </span>
+        )}
         {trip.status === 'in_progress' && trip.departed_at && <span>ออกเดินทาง <b>{fmtDateTime(trip.departed_at)}</b></span>}
       </div>
 

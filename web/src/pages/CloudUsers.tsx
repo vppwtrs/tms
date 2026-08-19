@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listUserPermissionOverrides, saveUserPermission, resetUserPermissions, seedRolePermissionPresets } from '../api/users'
 import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
-import { changeMyPassword } from '../api/auth'
+import { ChangePasswordModal } from '../components/ChangePasswordModal'
 import type { PermissionMode, UserRow, UserRole } from '../types/database'
 import { permissionInfo } from '../utils/permissions'
 import { fmtDateTime } from '../utils/format'
@@ -66,8 +66,6 @@ export default function CloudUsers(): React.JSX.Element {
   const [creating, setCreating] = useState(false)
   /* รหัสที่เพิ่งสุ่มได้ — อยู่ใน state เท่านั้น ไม่เขียนลง localStorage หรือส่งไปไหน */
   const [secret, setSecret] = useState<{ title: string; username: string; password: string } | null>(null)
-  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
-  const [passwordBusy, setPasswordBusy] = useState(false)
   const [selfPasswordOpen, setSelfPasswordOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [permissionTarget, setPermissionTarget] = useState<UserRow | null>(null)
@@ -234,23 +232,6 @@ export default function CloudUsers(): React.JSX.Element {
     }
   }
 
-  const changePassword = async (): Promise<void> => {
-    if (passwordForm.next.length < 8) { setError('รหัสใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'); return }
-    if (passwordForm.next !== passwordForm.confirm) { setError('รหัสใหม่กับการยืนยันรหัสไม่ตรงกัน'); return }
-    setPasswordBusy(true)
-    try {
-      await changeMyPassword(passwordForm.current, passwordForm.next)
-      setPasswordForm({ current: '', next: '', confirm: '' })
-      setSelfPasswordOpen(false)
-      setError(null)
-      setNotice('เปลี่ยนรหัสผ่านของบัญชีคุณสำเร็จแล้ว')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
-    } finally {
-      setPasswordBusy(false)
-    }
-  }
-
   if (!users) {
     return (
       <>
@@ -296,21 +277,11 @@ export default function CloudUsers(): React.JSX.Element {
         <Button onClick={() => setCreateOpen(true)}>สร้างบัญชีผู้ใช้</Button>
       </div>
 
-      <Modal open={selfPasswordOpen} onClose={() => setSelfPasswordOpen(false)} title="เปลี่ยนรหัสผ่านของฉัน">
-        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>เปลี่ยนเฉพาะบัญชีที่กำลังล็อกอินอยู่ ต้องยืนยันรหัสเดิมก่อน</p>
-        <div style={{ display: 'grid', gap: 12 }}>
-          <Field label="รหัสผ่านเดิม" required>
-            <Input type="password" value={passwordForm.current} onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })} autoComplete="current-password" />
-          </Field>
-          <Field label="รหัสผ่านใหม่" required>
-            <Input type="password" value={passwordForm.next} onChange={(e) => setPasswordForm({ ...passwordForm, next: e.target.value })} autoComplete="new-password" />
-          </Field>
-          <Field label="ยืนยันรหัสผ่านใหม่" required>
-            <Input type="password" value={passwordForm.confirm} onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })} autoComplete="new-password" />
-          </Field>
-          <Button loading={passwordBusy} onClick={() => void changePassword()} disabled={!passwordForm.current || !passwordForm.next || !passwordForm.confirm}>บันทึกรหัสผ่านใหม่</Button>
-        </div>
-      </Modal>
+      <ChangePasswordModal
+        open={selfPasswordOpen}
+        onClose={() => setSelfPasswordOpen(false)}
+        onDone={() => setNotice('เปลี่ยนรหัสผ่านของบัญชีคุณสำเร็จแล้ว')}
+      />
 
       <Modal open={permissionTarget !== null} onClose={() => setPermissionTarget(null)} title={permissionTarget ? `สิทธิ์ของ ${permissionTarget.name}` : 'สิทธิ์ผู้ใช้'} size="md">
         <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>

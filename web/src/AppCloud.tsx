@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useCloudAuth } from './context/CloudAuthContext'
 import { CloudLayout } from './components/CloudLayout'
+import { ChangePasswordModal } from './components/ChangePasswordModal'
 
 /**
  * แอปฉบับคลาวด์ — คู่ขนานกับ App.tsx ที่ยังคุยกับ Express บน LAN
@@ -48,9 +49,22 @@ function Splash(): React.JSX.Element {
 
 /** ด่านล็อกอิน + โครงหน้าจอ (เมนู/แถบบน) — หน้าที่อยู่ข้างในไม่ต้องรู้เรื่องทั้งสองอย่าง */
 function Protected(): React.JSX.Element {
-  const { user, loading } = useCloudAuth()
+  const { user, loading, refreshProfile } = useCloudAuth()
   if (loading) return <Splash />
   if (!user) return <Navigate to="/login" replace />
+  /* ยังใช้รหัสชั่วคราวที่ผู้ดูแลตั้งให้ = รหัสที่คนอื่นเคยเห็น กั้นทั้งแอปไว้ก่อน
+     ไม่ใช่แค่เตือน เพราะคำเตือนที่กดข้ามได้จะไม่มีใครทำจนกว่าจะมีเรื่อง
+     วาง CloudLayout ไว้ข้างหลังด้วยเพื่อไม่ให้จอว่างเปล่าจนดูเหมือนระบบพัง */
+  /* กันไว้สองชั้น: บัญชีที่ยืนยันตัวผ่าน TMS บริษัทตั้งรหัสฝั่งเราไม่ได้
+     ถ้าธงหลุดไปตั้งให้บัญชีกลุ่มนี้ เขาจะถูกกั้นทั้งแอปโดยไม่มีทางปลดด้วยตัวเอง */
+  if (user.mustChangePassword && user.authSource !== 'tms') {
+    return (
+      <>
+        <CloudLayout />
+        <ChangePasswordModal forced open onClose={() => {}} onDone={() => void refreshProfile()} />
+      </>
+    )
+  }
   return <CloudLayout />
 }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRealtime } from '../hooks/useRealtime'
 import {
-  previewTrips, importTrip, createDriverFromTms, mapTmsDriverToExisting,
+  previewTrips, importTrip, createDriverFromTms, mapTmsDriverToExisting, driversBusyOn,
   linkOrdersToCustomers, tripDetail,
   type TmsTripsPreview, type TmsTripDetail,
 } from '../api/tms'
@@ -77,7 +77,11 @@ export default function CloudTmsTrips(): React.JSX.Element {
   const [roster, setRoster] = useState<DriverRow[]>([])
   const [pick, setPick] = useState<Record<string, string>>({})
   /* คนขับที่คนวางแผนเลือกให้เที่ยวนั้น เก็บด้วย tms_id ของเที่ยว */
-  const [assign, setAssign] = useState<Record<string, string>>({})
+  /* คนขับของเที่ยวหนึ่งเป็นรายการ ไม่ใช่คนเดียว — คนแรกคือคนขับหลัก (คนที่ปิดเที่ยวได้)
+     ที่เหลือคือผู้ช่วย ลำดับในอาร์เรย์คือลำดับที่ส่งให้ import_tms_trip ตรง ๆ */
+  const [assign, setAssign] = useState<Record<string, number[]>>({})
+  /* คนที่ถูกจ่ายไปเที่ยวอื่นของวันเดียวกันแล้ว — เตือน ไม่ห้าม */
+  const [busyDrivers, setBusyDrivers] = useState<Record<number, string>>({})
   const [detailId, setDetailId] = useState('')
   const [detail, setDetail] = useState<TmsTripDetail | null>(null)
   const [detailError, setDetailError] = useState('')
@@ -110,6 +114,20 @@ export default function CloudTmsTrips(): React.JSX.Element {
       .catch(() => setRoster([]))
   }, [])
 
+  /* ถามทีเดียวสำหรับทั้งทะเบียน ไม่ใช่ต่อเที่ยว — หน้านี้แสดงหลายเที่ยวของวันเดียวกัน
+     ถามต่อเที่ยวคือยิงคำถามเดิมซ้ำเท่าจำนวนแถว */
+  useEffect(() => {
+    if (!roster.length) return
+    const day = date || new Date().toISOString().slice(0, 10)
+    driversBusyOn(day, roster.map((d) => d.id))
+      .then((rows) => {
+        const map: Record<number, string> = {}
+        for (const r of rows) map[r.driver_id] = r.trip_no
+        setBusyDrivers(map)
+      })
+      .catch(() => setBusyDrivers({}))
+  }, [roster, date])
+
   const openDetail = async (tmsId: string): Promise<void> => {
     setDetailId(tmsId)
     setDetail(null)
@@ -130,8 +148,8 @@ export default function CloudTmsTrips(): React.JSX.Element {
     try {
       /* คนวางแผนเลือกคนขับไว้ที่แถวนี้หรือยัง ถ้าเลือกแล้วให้ใช้คนนั้น
          ไม่เลือกก็ใช้การจับคู่ชื่อที่เคยยืนยันไว้ตามเดิม */
-      const chosen = assign[tmsId]
-      const r = await importTrip(tmsId, chosen ? [Number(chosen)] : undefined)
+      const chosen = (assign[tmsId] ?? []).filter((id) => id > 0)
+      const r = await importTrip(tmsId, chosen.length ? chosen : undefined)
       push('success', r.already
         ? `เที่ยว ${tripNo} นำเข้าไปแล้วก่อนหน้านี้`
         : `นำเข้าเที่ยว ${tripNo} แล้ว · ออเดอร์ใหม่ ${r.created_orders} ใบ` +
@@ -339,23 +357,77 @@ export default function CloudTmsTrips(): React.JSX.Element {
                            คนวางแผนชี้ตัวคนขับเองได้ที่นี่ แล้วสั่งงานได้เลย
                            การเดาชื่อจาก TMS เคยจับคนผิดมาแล้ว คนเป็นคนตัดสินดีกว่า */
                         <div style={{ display: 'grid', gap: 6, justifyItems: 'stretch' }}>
-                          <Select
-                            value={assign[t.tms_id] ?? ''}
-                            disabled={!canDispatch}
-                            onChange={(e) => setAssign({ ...assign, [t.tms_id]: e.target.value })}
-                          >
-                            <option value="">— เลือกพนักงานขับ —</option>
-                            {roster.map((d) => (
-                              <option key={d.id} value={d.id}>{d.name}</option>
-                            ))}
-                          </Select>
+                          {/* ช่องแรกคือคนขับหลัก ช่องที่เหลือคือผู้ช่วย
+                              บอกไว้บนหน้าจอ เพราะความต่างมีผลจริง: ปิดเที่ยวได้เฉพาะคนหลัก */}
+                          {[...(assign[t.tms_id] ?? [0])].map((chosen, i) => (
+                            <div key={i} style={{ display: 'grid', gap: 3 }}>
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                {i === 0 ? 'คนขับหลัก (ปิดเที่ยวได้)' : `ผู้ช่วยคนที่ ${i}`}
+                              </div>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <Select
+                                  value={chosen || ''}
+                                  disabled={!canDispatch}
+                                  onChange={(e) => {
+                                    const next = [...(assign[t.tms_id] ?? [0])]
+                                    next[i] = Number(e.target.value) || 0
+                                    setAssign({ ...assign, [t.tms_id]: next })
+                                  }}
+                                >
+                                  <option value="">— เลือกพนักงานขับ —</option>
+                                  {roster.map((d) => (
+                                    <option
+                                      key={d.id}
+                                      value={d.id}
+                                      /* คนเดียวกันซ้ำในเที่ยวเดียวชน primary key ที่ฐาน
+                                         กันตั้งแต่ตอนเลือก ดีกว่าปล่อยให้กดแล้วเจอ error ดิบ */
+                                      disabled={(assign[t.tms_id] ?? []).some((x, j) => x === d.id && j !== i)}
+                                    >
+                                      {d.name}{busyDrivers[d.id] ? ` · ติดเที่ยว ${busyDrivers[d.id]}` : ''}
+                                    </option>
+                                  ))}
+                                </Select>
+                                {i > 0 && (
+                                  <Button
+                                    variant="outline"
+                                    disabled={!canDispatch}
+                                    onClick={() => setAssign({
+                                      ...assign,
+                                      [t.tms_id]: (assign[t.tms_id] ?? []).filter((_, j) => j !== i),
+                                    })}
+                                  >
+                                    เอาออก
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {/* เพดาน 6 คนบังคับที่ฐานอยู่แล้ว ตรงนี้แค่ไม่ชวนให้กดเกิน */}
+                          {(assign[t.tms_id] ?? [0]).length < 6 && (
+                            <Button
+                              variant="outline"
+                              disabled={!canDispatch}
+                              onClick={() => setAssign({
+                                ...assign,
+                                [t.tms_id]: [...(assign[t.tms_id] ?? [0]), 0],
+                              })}
+                            >
+                              + เพิ่มคนที่ไปด้วย
+                            </Button>
+                          )}
                           <Button
                             onClick={() => void run(t.tms_id, t.trip_no)}
                             loading={busy === t.tms_id}
-                            disabled={!canDispatch || !assign[t.tms_id]}
+                            disabled={!canDispatch || !(assign[t.tms_id] ?? []).some((id) => id > 0)}
                           >
                             สั่งงานเที่ยวนี้
                           </Button>
+                          {/* เตือนตอนที่ยังแก้ได้ ไม่ใช่ตอนกดสั่งงานแล้ว */}
+                          {(assign[t.tms_id] ?? []).some((id) => busyDrivers[id]) && (
+                            <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>
+                              มีคนที่ถูกจ่ายไปเที่ยวอื่นของวันนี้แล้ว — สั่งงานได้ แต่ตรวจก่อน
+                            </span>
+                          )}
                           {waitingTms && (
                             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                               TMS ยังไม่จ่ายคนขับให้เที่ยวนี้

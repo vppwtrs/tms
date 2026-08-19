@@ -733,3 +733,60 @@ export interface TmsBoard {
   by_status: { pl_status: string; trip_status: string; picking_lists: number }[]
   recent_days: { date: string; trips: number; picking_lists: number; pending: number }[]
 }
+
+/* ---------- ความครอบคลุมของรอบดึง ----------
+ *
+ * tms-gateway ใช้ token ของคนที่ล็อกอิน แต่ละบัญชี TMS จึงเห็นคลังไม่เท่ากัน
+ * สองคนกดปุ่มเดียวกันในวันเดียวกันแล้วได้ผลไม่เท่ากัน โดยทั้งคู่ไม่มีทางรู้
+ * บันทึกไว้ว่ารอบไหนใครกดและครอบคลุมคลังไหน แล้วเอาขึ้นหน้าจอ
+ */
+
+export interface PullRunLog {
+  mode: 'poll' | 'range'
+  from: string
+  to: string
+  warehouses: string[]
+  tripsSeen: number
+  tripsOurs: number
+  rowsChanged: number
+  ok: boolean
+  error?: string | null
+}
+
+/** บันทึกรอบดึงหนึ่งรอบ — ล้มเหลวก็บันทึก เพราะรอบที่ล้มคือรอบที่ครอบคลุมไม่ครบ
+ *  ตัวมันเองล้มแล้วไม่โยนต่อ: บันทึกไม่ลงไม่ควรทำให้ข้อมูลที่ดึงมาแล้วดูเหมือนพัง */
+export async function logPullRun(run: PullRunLog): Promise<void> {
+  const { error } = await supabase.rpc('log_tms_pull_run', {
+    p_mode: run.mode,
+    p_date_from: run.from,
+    p_date_to: run.to,
+    p_warehouses: run.warehouses,
+    p_trips_seen: run.tripsSeen,
+    p_trips_ours: run.tripsOurs,
+    p_rows_changed: run.rowsChanged,
+    p_ok: run.ok,
+    p_error: run.error ?? null,
+  })
+  if (error) console.warn('บันทึกรอบดึงไม่สำเร็จ', error.message)
+}
+
+export interface PullCoverage {
+  hours: number
+  runs: number
+  warehouses: string[]
+  people: { name: string; runs: number; warehouses: string[] | null; last_at: string }[]
+  last_run: {
+    at: string
+    by: string | null
+    mode: 'poll' | 'range'
+    warehouses: string[]
+    ok: boolean
+    error: string | null
+  } | null
+}
+
+export async function pullCoverage(hours = 24): Promise<PullCoverage> {
+  const { data, error } = await supabase.rpc('tms_pull_coverage', { p_hours: hours })
+  if (error) throw toDataError(error)
+  return data as PullCoverage
+}

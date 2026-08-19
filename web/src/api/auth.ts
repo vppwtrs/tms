@@ -17,6 +17,11 @@ export interface Profile {
   username: string
   name: string
   role: UserRow['role']
+  /** ยังใช้รหัสที่ผู้ดูแลตั้งให้อยู่ — ต้องตั้งรหัสของตัวเองก่อนถึงใช้งานได้ */
+  mustChangePassword: boolean
+  /** 'tms' = ยืนยันตัวด้วยรหัสของบริษัท รหัสฝั่งเราถูกสุ่มใหม่ทุกครั้งที่ล็อกอิน
+   *  คนกลุ่มนี้ตั้งรหัสที่นี่ไม่ได้ (ตั้งไปก็ไม่มีผล) ต้องไปเปลี่ยนที่ TMS บริษัท */
+  authSource: 'local' | 'tms'
   permissions: ReadonlySet<string>
 }
 
@@ -42,6 +47,11 @@ export async function changeMyPassword(currentPassword: string, newPassword: str
 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw new DataError('AUTH_UPDATE', 'เปลี่ยนรหัสผ่านไม่สำเร็จ')
+
+  /* ปลดธง "ยังใช้รหัสที่ผู้ดูแลตั้งให้" — ถ้าบรรทัดนี้ล้ม รหัสเปลี่ยนไปแล้วจริง
+     จึงไม่โยนต่อ ผู้ใช้แค่จะถูกถามซ้ำรอบหน้า ซึ่งดีกว่าเห็นว่าเปลี่ยนไม่สำเร็จ
+     ทั้งที่รหัสเดิมใช้ไม่ได้แล้ว */
+  await supabase.rpc('clear_my_password_flag')
 }
 
 export const AUTH_DOMAIN = 'tms.local'
@@ -74,7 +84,7 @@ export async function loadProfile(): Promise<Profile | null> {
      infer generic ไม่ออก (ได้ never) — เขียนเช็ค error เองชัดกว่าไปฝืน type helper */
   const { data: user, error } = await supabase
     .from('users')
-    .select('id, username, name, role')
+    .select('id, username, name, role, must_change_password, auth_source')
     .eq('auth_id', sessionData.session.user.id)
     .maybeSingle()
   if (error) throw toDataError(error)
@@ -91,7 +101,13 @@ export async function loadProfile(): Promise<Profile | null> {
     throw new DataError('NO_PROFILE', 'บัญชีนี้ยังไม่ได้ผูกกับผู้ใช้ในระบบ ติดต่อผู้ดูแล')
   }
 
-  return { ...user, permissions: await loadPermissions(user.id, user.role) }
+  const { must_change_password, auth_source, ...rest } = user
+  return {
+    ...rest,
+    mustChangePassword: !!must_change_password,
+    authSource: auth_source ?? 'local',
+    permissions: await loadPermissions(user.id, user.role),
+  }
 }
 
 async function loadPermissions(userId: number, role: UserRow['role']): Promise<ReadonlySet<string>> {
