@@ -72,6 +72,9 @@ export async function getTripBoard(): Promise<{ planned: TripRow[]; in_progress:
 export interface BoardTrip {
   id: number
   trip_no: string
+  /* เลขเที่ยวของ TMS — เลขเดียวกับที่คลังและคนขับใช้เรียกงานนี้
+     null = เที่ยวที่สร้างเองในระบบ ซึ่งมีแต่ trip_no ของเรา */
+  tms_trip_no: string | null
   status: TripStatus
   departed_at: string | null
   vehicle_plate: string
@@ -158,6 +161,9 @@ export async function getTripBoardDetailed(): Promise<{
     return {
       id: t.id,
       trip_no: t.trip_no,
+      /* ตาราง trips ไม่ได้เก็บเลขของ TMS ไว้ ใบในเที่ยวเก็บไว้ทุกใบ เอาใบแรกที่มีก็พอ
+         ทุกใบในเที่ยวเดียวกันมาจากเที่ยวเดียวกันของ TMS อยู่แล้ว */
+      tms_trip_no: mine.find((o) => o.tms_trip_no)?.tms_trip_no ?? null,
       status: t.status,
       departed_at: t.departed_at,
       vehicle_plate: v?.plate_no ?? '—',

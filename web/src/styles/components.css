@@ -1465,6 +1465,16 @@
   flex-direction: column;
   gap: 6px;
 }
+/* หัวจุดส่งในการ์ดเที่ยว — ขึ้นเฉพาะปลายทางที่มีมากกว่าหนึ่งใบ
+   ใบใต้หัวนี้จึงไม่ต้องพิมพ์ชื่อปลายทางซ้ำอีกทุกบรรทัด */
+.trip-order-store {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 2px 8px;
+  margin-top: 2px;
+}
+
 .trip-order-row {
   display: flex;
   align-items: center;

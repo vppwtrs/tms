@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip,
   startTrip, completeTrip, cancelTrip, acceptTrip, clearTripIssue, type BoardTrip,
@@ -30,6 +30,33 @@ import { IconBox, IconCheck, IconPlus, IconRoute, IconTruck, IconUsers, IconX } 
  *
  * น้ำหนักเกินความจุ **เตือน ไม่ห้าม** คนจัดรถรู้หน้างานดีกว่าตัวเลขที่กรอกไว้ในระบบ
  */
+
+/** เลขที่ใช้เรียกใบนี้กับคนนอกระบบ — PL ก่อนเสมอ เหมือนหน้าออเดอร์
+ *
+ * ORD เป็นเลขที่ระบบเราสร้างเอง คลัง ร้านค้า และคนขับไม่รู้จัก ทุกฝ่ายอ้าง PL
+ * ใบที่สร้างเองในระบบไม่มี PL จึงเป็นกรณีเดียวที่ยังต้องใช้ ORD
+ */
+function billNo(o: { tms_picking_list_no?: string | null; order_no: string }): string {
+  return o.tms_picking_list_no ?? o.order_no
+}
+
+/** เลขเที่ยวที่คนเรียกกันจริง — ของ TMS ก่อน TRP ของเราเป็นตัวสำรอง */
+function tripNo(t: { tms_trip_no?: string | null; trip_no: string }): string {
+  return t.tms_trip_no ?? t.trip_no
+}
+
+/** รวมใบที่ไปปลายทางเดียวกันเป็นจุดเดียว — หลักเดียวกับหน้าออเดอร์และจอคนขับ
+ *  ข้อมูลชุดนี้ไม่มีชื่อลูกค้าติดมา (เป็นแถวดิบของตาราง orders) ปลายทางจึงเป็นตัวแทนร้าน */
+function byStore<T extends { destination: string }>(rows: T[]): { key: string; rows: T[] }[] {
+  const map = new Map<string, T[]>()
+  for (const o of rows) {
+    const key = o.destination.trim().toLowerCase().replace(/\s+/g, ' ')
+    const found = map.get(key)
+    if (found) found.push(o)
+    else map.set(key, [o])
+  }
+  return [...map.entries()].map(([key, group]) => ({ key, rows: group }))
+}
 
 export default function CloudDispatch(): React.JSX.Element {
   const { can } = useCloudAuth()
@@ -85,7 +112,9 @@ export default function CloudDispatch(): React.JSX.Element {
     const s = q.trim().toLowerCase()
     if (!s) return pendingOrders
     return pendingOrders.filter(
-      (o) => o.order_no.toLowerCase().includes(s) || o.destination.toLowerCase().includes(s),
+      /* ค้นด้วยเลข PL ได้ด้วย — เป็นเลขที่คนถืออยู่ในมือตอนค้น */
+      (o) => billNo(o).toLowerCase().includes(s) || o.order_no.toLowerCase().includes(s)
+        || o.destination.toLowerCase().includes(s),
     )
   }, [pendingOrders, q])
 
@@ -206,7 +235,7 @@ export default function CloudDispatch(): React.JSX.Element {
                 canEdit={canEdit}
                 /* คนวางแผนกดรับแทนได้เมื่อโทรคุยกันแล้ว — คนขับที่ไม่มีบัญชี
                    หรือไม่ได้เปิดแอป ไม่ควรทำให้งานทั้งเที่ยวค้างอยู่ตรงนี้ */
-                onAccept={() => void act(t.id, () => acceptTrip(t.id), `รับงานแทนคนขับใน ${t.trip_no} แล้ว`)}
+                onAccept={() => void act(t.id, () => acceptTrip(t.id), `รับงานแทนคนขับใน ${tripNo(t)} แล้ว`)}
                 onAddOrders={() => { setAddTo(t); setAddSelected(new Set()) }}
                 onCancel={() => setCancelling(t)}
                 onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
@@ -233,10 +262,10 @@ export default function CloudDispatch(): React.JSX.Element {
                 busy={busyId === t.id}
                 canEdit={canEdit}
                 onStart={t.status === 'planned'
-                  ? () => void act(t.id, () => startTrip(t.id), `เริ่มเที่ยว ${t.trip_no} — สถานะออเดอร์เป็นกำลังขนส่ง`)
+                  ? () => void act(t.id, () => startTrip(t.id), `เริ่มเที่ยว ${tripNo(t)} — สถานะออเดอร์เป็นกำลังขนส่ง`)
                   : undefined}
                 onComplete={t.status === 'in_progress'
-                  ? () => void act(t.id, () => completeTrip(t.id), `เที่ยว ${t.trip_no} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)
+                  ? () => void act(t.id, () => completeTrip(t.id), `เที่ยว ${tripNo(t)} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)
                   : undefined}
                 onCancel={() => setCancelling(t)}
                 onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
@@ -354,7 +383,7 @@ export default function CloudDispatch(): React.JSX.Element {
       <Modal
         open={addTo !== null}
         onClose={() => setAddTo(null)}
-        title={addTo ? `เพิ่มออเดอร์ใน ${addTo.trip_no}` : ''}
+        title={addTo ? `เพิ่มใบส่งของใน ${tripNo(addTo)}` : ''}
         footer={
           <>
             <Button variant="ghost" onClick={() => setAddTo(null)}>ปิด</Button>
@@ -377,7 +406,7 @@ export default function CloudDispatch(): React.JSX.Element {
                 style={{ accentColor: 'var(--accent)' }}
               />
               <div style={{ flex: 1 }}>
-                <div className="text-sm text-strong" style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{o.order_no}</div>
+                <div className="text-sm text-strong" style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{billNo(o)}</div>
                 <div className="text-xs text-muted">{o.origin} → {o.destination} · {fmtWeight(o.weight_kg)} · {fmtMoney(o.fee)}</div>
               </div>
               {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" dot />}
@@ -391,14 +420,14 @@ export default function CloudDispatch(): React.JSX.Element {
         open={cancelling !== null}
         onClose={() => setCancelling(null)}
         title="ยกเลิกเที่ยวขนส่ง"
-        message={cancelling ? <>ต้องการยกเลิกเที่ยว <b>{cancelling.trip_no}</b> ({cancelling.vehicle_plate} · {cancelling.driver_name}) ใช่หรือไม่? ออเดอร์ในเที่ยวจะกลับเป็น <b>รอจัดคิว</b> และรถ/คนขับจะว่างทันที</> : ''}
+        message={cancelling ? <>ต้องการยกเลิกเที่ยว <b>{tripNo(cancelling)}</b> ({cancelling.vehicle_plate} · {cancelling.driver_name}) ใช่หรือไม่? ออเดอร์ในเที่ยวจะกลับเป็น <b>รอจัดคิว</b> และรถ/คนขับจะว่างทันที</> : ''}
         confirmLabel="ยกเลิกเที่ยว"
         danger
         loading={busyId !== null}
         onConfirm={() => {
           const t = cancelling
           setCancelling(null)
-          if (t) void act(t.id, () => cancelTrip(t.id), `ยกเลิกเที่ยว ${t.trip_no} แล้ว — รถ/คนขับกลับว่าง`)
+          if (t) void act(t.id, () => cancelTrip(t.id), `ยกเลิกเที่ยว ${tripNo(t)} แล้ว — รถ/คนขับกลับว่าง`)
         }}
       />
     </>
@@ -428,7 +457,7 @@ function TripCard({
   return (
     <div className="trip-card">
       <div className="trip-head">
-        <span className="trip-no">{trip.trip_no}</span>
+        <span className="trip-no">{tripNo(trip)}</span>
         <Badge label={TRIP_STATUS_LABEL[trip.status]} tone={TRIP_TONE[trip.status]} dot={trip.status === 'in_progress'} />
         <div className="spacer" style={{ flex: 1 }} />
         {canEdit && onAccept && (
@@ -506,20 +535,34 @@ function TripCard({
       {routes && <div className="text-sm" style={{ marginTop: 8 }}>{routes}</div>}
 
       <div className="trip-orders">
-        {trip.orders.map((o) => (
-          <div key={o.id} className="trip-order-row">
-            <span className="text-strong" style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{o.order_no}</span>
-            <span className="text-xs text-muted">{o.origin} → {o.destination}</span>
-            {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" />}
-            <span className="grow" />
-            <span className="text-xs text-muted">{fmtWeight(o.weight_kg)}</span>
-            <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} />
-            {canEdit && trip.status === 'planned' && onRemoveOrder && (
-              <Button variant="ghost" size="sm" title="ถอนออเดอร์" onClick={() => onRemoveOrder(o.id)}>
-                <IconX size={13} />
-              </Button>
+        {/* จัดกลุ่มตามปลายทาง — ร้านเดียวสั่งหลายใบเป็นเรื่องปกติ เรียงเป็นใบล้วน
+            แล้วชื่อปลายทางซ้ำติดกันจนอ่านไม่ออกว่าเที่ยวนี้แวะกี่จุดจริง */}
+        {byStore(trip.orders).map((store) => (
+          <Fragment key={store.key}>
+            {store.rows.length > 1 && (
+              <div className="trip-order-store">
+                {(store.rows[0] as OrderRow).destination}
+                <span className="text-xs text-muted"> · {store.rows.length} ใบ</span>
+              </div>
             )}
-          </div>
+            {store.rows.map((o) => (
+              <div key={o.id} className="trip-order-row">
+                <span className="text-strong" style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{billNo(o)}</span>
+                <span className="text-xs text-muted">
+                  {store.rows.length > 1 ? o.origin : `${o.origin} → ${o.destination}`}
+                </span>
+                {o.priority === 'urgent' && <Badge label="ด่วน" tone="urgent" />}
+                <span className="grow" />
+                <span className="text-xs text-muted">{fmtWeight(o.weight_kg)}</span>
+                <Badge label={ORDER_STATUS_LABEL[o.status]} tone={ORDER_TONE[o.status]} />
+                {canEdit && trip.status === 'planned' && onRemoveOrder && (
+                  <Button variant="ghost" size="sm" title="ถอนใบนี้ออกจากเที่ยว" onClick={() => onRemoveOrder(o.id)}>
+                    <IconX size={13} />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </Fragment>
         ))}
         {canEdit && trip.status === 'planned' && onAddOrders && (
           <Button variant="ghost" size="sm" onClick={onAddOrders} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
