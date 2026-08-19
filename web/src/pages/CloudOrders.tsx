@@ -94,8 +94,10 @@ interface StoreGroup {
  *  "มี POD" เฉย ๆ ตอบไม่ได้ว่าครบทุกใบหรือยัง ซึ่งเป็นคำถามเดียวที่คนวางแผนถาม */
 function podStopLabel(store: { delivered: number; withPod: number; verified: number }): string {
   if (store.verified === store.delivered) return 'ยืนยันแล้ว'
-  if (store.withPod === store.delivered) return store.delivered > 1 ? `มี POD · ${store.delivered} ใบ` : 'มี POD'
-  return `มี POD ${store.withPod}/${store.delivered} ใบ`
+  /* จำนวนใบมีอยู่ข้าง ๆ อยู่แล้ว ("3 ใบ") พูดซ้ำในป้ายไม่ได้เพิ่มอะไร
+     เหลือเลขไว้เฉพาะตอนที่ยังไม่ครบ ซึ่งเป็นตอนเดียวที่ตัวเลขบอกอะไรใหม่ */
+  if (store.withPod === store.delivered) return 'POD'
+  return `POD ${store.withPod}/${store.delivered}`
 }
 
 interface TripGroup {
