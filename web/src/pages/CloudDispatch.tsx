@@ -81,8 +81,10 @@ export default function CloudDispatch(): React.JSX.Element {
   const [creating, setCreating] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [cancelling, setCancelling] = useState<BoardTrip | null>(null)
-  /* ลบถาวร — ของเก็บกวาดข้อมูลทดสอบ ไม่ใช่ทางทำงานปกติ จึงเห็นเฉพาะผู้ดูแลระบบ
-     และมีกล่องยืนยันของตัวเองที่บอกจำนวน POD ที่กำลังจะหายไปด้วย */
+  /* ลบถาวร — ของเก็บกวาดข้อมูลทดสอบและข้อมูลที่เสีย ไม่ใช่ทางทำงานปกติ
+     จึงเห็นเฉพาะผู้ดูแลระบบ และมีกล่องยืนยันของตัวเองที่บอกว่าอะไรจะหายไปบ้าง
+     ลบถึงข้อมูลดิบจาก TMS ด้วย — เก็บซากไว้แล้วมันจะโผล่กลับมาให้กดนำเข้าซ้ำ
+     จากข้อมูลชุดเดิมที่มีปัญหาอยู่แล้ว ซึ่งไม่ใช่สิ่งที่คนกดปุ่มนี้ต้องการ */
   const [purging, setPurging] = useState<BoardTrip | null>(null)
   const canPurge = can('users.manage')
   const [addTo, setAddTo] = useState<BoardTrip | null>(null)
@@ -433,7 +435,7 @@ export default function CloudDispatch(): React.JSX.Element {
       <ConfirmDialog
         open={purging !== null}
         title="ลบเที่ยวนี้ถาวร"
-        message={purging ? <>ลบเที่ยว <b>{tripNo(purging)}</b> ออกจากระบบถาวร รวมออเดอร์ทุกใบและ<b>หลักฐานการส่งมอบทั้งหมดของเที่ยวนี้</b> — กู้คืนไม่ได้ ใช้กับข้อมูลทดสอบเท่านั้น งานจริงที่ส่งไปแล้วให้ปิดงานตามจริงแทน ใบจาก TMS จะกลับไปสั่งงานใหม่ได้</> : ''}
+        message={purging ? <>ลบเที่ยว <b>{tripNo(purging)}</b> ออกจากระบบถาวร รวมออเดอร์ทุกใบ <b>หลักฐานการส่งมอบทั้งหมดของเที่ยวนี้</b> และ<b>ข้อมูลดิบจาก TMS ของเที่ยวนี้</b> — กู้คืนไม่ได้ ใช้กับข้อมูลทดสอบหรือข้อมูลที่เสียเท่านั้น งานจริงที่ส่งไปแล้วให้ปิดงานตามจริงแทน ถ้าต้นทางยังมีเที่ยวนี้อยู่ รอบดึงถัดไปจะพากลับมาให้ใหม่</> : ''}
         confirmLabel="ลบถาวร"
         danger
         onClose={() => setPurging(null)}
