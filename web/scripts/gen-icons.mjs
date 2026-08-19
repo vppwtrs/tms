@@ -1,12 +1,15 @@
 /**
  * สร้างไอคอนแอป (PNG) ด้วย Node ล้วน — ไม่พึ่ง dependency ภายนอก
- * ดีไซน์: ช่องอำพันมุมมน + รถบรรทุกหมึกเข้ม (ตรงกับธีม Warm Editorial Premium)
  * ใช้สำหรับ: PWA manifest (192/512/maskable) + apple-touch-icon (180)
+ *
+ * **ใช้รูปจริงได้** วางไฟล์ต้นฉบับไว้ที่ web/assets-src/logo.png (PNG, ยิ่งใหญ่ยิ่งดี — 512px ขึ้นไป)
+ * แล้วสคริปต์จะย่อ/ขยายเป็นทุกขนาดให้เอง ถ้าไม่มีไฟล์นั้นจะถอยไปวาดรถบรรทุกด้วยโค้ดแทน
+ * (ของเดิม) เพื่อให้ repo สร้างไอคอนได้เสมอ ไม่ว่าจะมีไฟล์ต้นฉบับติดมาหรือไม่
  *
  * รัน: node scripts/gen-icons.mjs  (หรือ npm run icons -w web)
  */
-import { deflateSync } from 'node:zlib'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { deflateSync, inflateSync } from 'node:zlib'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -148,6 +151,137 @@ function drawIcon(size, { bleed = false } = {}) {
   return rgba
 }
 
+/* ---------- อ่าน PNG (สำหรับโหมด "ใช้รูปจริง") ---------- */
+/* รองรับ bit depth 8 ทุก color type ที่โปรแกรมแต่งรูปทั่วไปบันทึกออกมา
+   (0 เทา, 2 RGB, 3 palette, 4 เทา+alpha, 6 RGBA) พอสำหรับไฟล์โลโก้ */
+function decodePNG(buf) {
+  if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error('ไม่ใช่ไฟล์ PNG')
+  let pos = 8
+  let w = 0, h = 0, depth = 0, type = 0
+  let palette = null
+  let trns = null
+  const idat = []
+
+  while (pos < buf.length) {
+    const len = buf.readUInt32BE(pos)
+    const tag = buf.toString('ascii', pos + 4, pos + 8)
+    const data = buf.subarray(pos + 8, pos + 8 + len)
+    if (tag === 'IHDR') {
+      w = data.readUInt32BE(0)
+      h = data.readUInt32BE(4)
+      depth = data[8]
+      type = data[9]
+      if (data[12] !== 0) throw new Error('PNG แบบ interlace ยังไม่รองรับ — บันทึกใหม่แบบไม่ interlace')
+    } else if (tag === 'PLTE') palette = Buffer.from(data)
+    else if (tag === 'tRNS') trns = Buffer.from(data)
+    else if (tag === 'IDAT') idat.push(Buffer.from(data))
+    else if (tag === 'IEND') break
+    pos += 12 + len
+  }
+  if (depth !== 8) throw new Error(`PNG ต้องเป็น 8 บิตต่อช่อง (ไฟล์นี้ ${depth}) — บันทึกใหม่เป็น 8 บิต`)
+
+  const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[type]
+  if (!channels) throw new Error(`PNG color type ${type} ไม่รองรับ`)
+
+  const raw = inflateSync(Buffer.concat(idat))
+  const stride = w * channels
+  const out = Buffer.alloc(w * h * 4)
+  const line = Buffer.alloc(stride)
+  const prev = Buffer.alloc(stride)
+  let rp = 0
+
+  for (let y = 0; y < h; y++) {
+    const filter = raw[rp++]
+    raw.copy(line, 0, rp, rp + stride)
+    rp += stride
+    for (let i = 0; i < stride; i++) {
+      const a = i >= channels ? line[i - channels] : 0
+      const b = prev[i]
+      const c = i >= channels ? prev[i - channels] : 0
+      let v = line[i]
+      if (filter === 1) v += a
+      else if (filter === 2) v += b
+      else if (filter === 3) v += (a + b) >> 1
+      else if (filter === 4) {
+        const p = a + b - c
+        const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c)
+        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c
+      }
+      line[i] = v & 0xff
+    }
+    line.copy(prev)
+
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4
+      const i = x * channels
+      if (type === 0) { out[o] = out[o + 1] = out[o + 2] = line[i]; out[o + 3] = 255 }
+      else if (type === 2) { out[o] = line[i]; out[o + 1] = line[i + 1]; out[o + 2] = line[i + 2]; out[o + 3] = 255 }
+      else if (type === 3) {
+        const idx = line[i]
+        out[o] = palette[idx * 3]; out[o + 1] = palette[idx * 3 + 1]; out[o + 2] = palette[idx * 3 + 2]
+        out[o + 3] = trns && idx < trns.length ? trns[idx] : 255
+      } else if (type === 4) { out[o] = out[o + 1] = out[o + 2] = line[i]; out[o + 3] = line[i + 1] }
+      else { out[o] = line[i]; out[o + 1] = line[i + 1]; out[o + 2] = line[i + 2]; out[o + 3] = line[i + 3] }
+    }
+  }
+  return { width: w, height: h, data: out }
+}
+
+/** ย่อ/ขยายแบบ bilinear แล้ววางกลางกรอบสี่เหลี่ยมจัตุรัส
+ *  รูปต้นฉบับมักไม่ใช่จัตุรัส การยืดให้เต็มกรอบทำให้รถผอมหรืออ้วนผิดส่วน */
+function fitSquare(src, size, { bleed, pad }) {
+  const bg = [246, 242, 254]
+  const rgba = Buffer.alloc(size * size * 4)
+  const inner = size * (1 - pad * 2)
+  const scale = Math.min(inner / src.width, inner / src.height)
+  const dw = src.width * scale
+  const dh = src.height * scale
+  const ox = (size - dw) / 2
+  const oy = (size - dh) / 2
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const fx = (x + 0.5) / size
+      const fy = (y + 0.5) / size
+      const bgA = bleed ? 1 : aa(sdRoundRect(fx, fy, 0.5, 0.5, 0.5, 0.5, 0.22) * size)
+      const c = [bg[0], bg[1], bg[2], 0]
+      over(c, bg, bgA)
+
+      const sx = (x + 0.5 - ox) / scale
+      const sy = (y + 0.5 - oy) / scale
+      if (sx >= 0 && sy >= 0 && sx < src.width && sy < src.height) {
+        const x0 = Math.min(src.width - 1, Math.max(0, Math.floor(sx - 0.5)))
+        const y0 = Math.min(src.height - 1, Math.max(0, Math.floor(sy - 0.5)))
+        const x1 = Math.min(src.width - 1, x0 + 1)
+        const y1 = Math.min(src.height - 1, y0 + 1)
+        const tx = Math.min(1, Math.max(0, sx - 0.5 - x0))
+        const ty = Math.min(1, Math.max(0, sy - 0.5 - y0))
+        const px = []
+        for (let ch = 0; ch < 4; ch++) {
+          const p00 = src.data[(y0 * src.width + x0) * 4 + ch]
+          const p10 = src.data[(y0 * src.width + x1) * 4 + ch]
+          const p01 = src.data[(y1 * src.width + x0) * 4 + ch]
+          const p11 = src.data[(y1 * src.width + x1) * 4 + ch]
+          px.push(lerp(lerp(p00, p10, tx), lerp(p01, p11, tx), ty))
+        }
+        over(c, [px[0], px[1], px[2]], (px[3] / 255) * Math.min(1, bgA + (bleed ? 1 : 0)))
+      }
+
+      const idx = (y * size + x) * 4
+      rgba[idx] = c[0]
+      rgba[idx + 1] = c[1]
+      rgba[idx + 2] = c[2]
+      rgba[idx + 3] = Math.round(Math.min(1, c[3]) * 255)
+    }
+  }
+  return rgba
+}
+
+const SOURCE = join(root, 'assets-src', 'logo.png')
+const source = existsSync(SOURCE) ? decodePNG(readFileSync(SOURCE)) : null
+if (source) console.log(`ใช้รูปจริงจาก assets-src/logo.png (${source.width}x${source.height})`)
+else console.log('ไม่พบ assets-src/logo.png — วาดรถบรรทุกด้วยโค้ดแทน')
+
 const targets = [
   { file: 'icon-192.png', size: 192 },
   { file: 'icon-512.png', size: 512 },
@@ -158,7 +292,13 @@ const targets = [
 for (const { file, size } of targets) {
   /* maskable = เต็มกรอบ ไม่ตัดมุมเอง — Android ครอบรูปทรงของเครื่องทับอีกที
      ถ้าตัดมุมมาให้แล้ว จะโดนตัดซ้ำจนขอบรถแหว่ง */
-  const png = encodePNG(size, size, drawIcon(size, { bleed: file.includes('maskable') }))
+  const bleed = file.includes('maskable')
+  const pixels = source
+    /* maskable ต้องเผื่อขอบให้ระบบครอบ — ของ Android ครอบได้ลึกถึง ~10% ของด้าน
+       รูปที่ชิดขอบจะโดนตัดหัวรถหรือท้ายตู้ทิ้ง */
+    ? fitSquare(source, size, { bleed, pad: bleed ? 0.18 : 0.08 })
+    : drawIcon(size, { bleed })
+  const png = encodePNG(size, size, pixels)
   writeFileSync(join(outDir, file), png)
   console.log(`✔ ${file} (${size}x${size}, ${png.length.toLocaleString()} bytes)`)
 }
