@@ -409,6 +409,21 @@
 .table thead th.actions {
   text-align: right;
 }
+/* หัวกลุ่มร้าน — บอกว่าใบใต้แถวนี้ไปร้านเดียวกัน ไม่ใช่แถวข้อมูลของตัวเอง
+   จึงไม่ตอบ hover และไม่มีปุ่มใด ๆ */
+.table tbody tr.row-group td {
+  background: var(--surface-2);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.table tbody tr.row-group:hover td {
+  background: var(--surface-2);
+}
+/* เส้นข้างซ้ายผูกใบที่อยู่ในกลุ่มเดียวกันเข้าด้วยกันด้วยสายตา */
+.table tbody tr.row-grouped td:first-child {
+  box-shadow: inset 3px 0 0 var(--line);
+}
+
 .table tbody tr.row-new {
   animation: flashRow 1.2s ease-out;
 }

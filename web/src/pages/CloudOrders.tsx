@@ -60,6 +60,35 @@ const emptyForm: OrderForm = {
   weight_kg: '', fee: '', priority: 'normal', scheduled_at: '', notes: '',
 }
 
+/**
+ * รวมใบของร้านเดียวกันในเที่ยวเดียวกันเป็นกลุ่ม — หลักเดียวกับหน้าเที่ยวจาก TMS
+ * และจอคนขับ: ร้านเดียวสั่งหลายใบเป็นเรื่องปกติ ตารางที่เรียงตามใบล้วนทำให้
+ * ชื่อร้านเดิมซ้ำติดกันจนอ่านไม่ออกว่ามีกี่จุดส่งจริง
+ *
+ * แถวยังเป็นหนึ่งใบเหมือนเดิม เพราะปุ่มแก้ไข/ยกเลิกและ POD ผูกกับใบ ไม่ใช่ผูกกับร้าน
+ * ที่เพิ่มมาคือหัวกลุ่มบอกว่าใบเหล่านี้ไปร้านเดียวกัน
+ */
+function groupOrders(rows: OrderListRow[]): { key: string; label: string; sub: string; rows: OrderListRow[] }[] {
+  const norm = (v: string | null): string => (v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+  const map = new Map<string, OrderListRow[]>()
+  for (const o of rows) {
+    /* เที่ยวเป็นส่วนหนึ่งของคีย์ — ร้านเดียวกันคนละเที่ยวคือคนละงาน ห้ามยุบรวม */
+    const key = `${o.trip_id ?? 0}|${norm(o.customer_name) || norm(o.destination)}|${norm(o.destination)}`
+    const found = map.get(key)
+    if (found) found.push(o)
+    else map.set(key, [o])
+  }
+  return [...map.entries()].map(([key, group]) => {
+    const first = group[0] as OrderListRow
+    return {
+      key,
+      label: first.customer_name ?? first.destination,
+      sub: [first.tms_trip_no ?? first.trip_no ?? 'ยังไม่จัดเที่ยว', first.destination].join(' · '),
+      rows: group,
+    }
+  })
+}
+
 export default function CloudOrders(): React.JSX.Element {
   const { can } = useCloudAuth()
   const { push } = useToast()
@@ -270,9 +299,20 @@ export default function CloudOrders(): React.JSX.Element {
                 <th className="actions">การจัดการ</th>
               </tr>
             </thead>
-            <tbody>
-              {data.rows.map((o) => (
-                <tr key={o.id}>
+            {groupOrders(data.rows).map((g) => (
+              <tbody key={g.key}>
+                {/* หัวกลุ่มขึ้นเฉพาะร้านที่มีมากกว่าหนึ่งใบ — ร้านที่มีใบเดียวไม่ต้องมี
+                    หัวเรื่องของตัวเอง ไม่งั้นจำนวนแถวเพิ่มเท่าตัวโดยไม่ได้ข้อมูลเพิ่ม */}
+                {g.rows.length > 1 && (
+                  <tr className="row-group">
+                    <td colSpan={9}>
+                      <span className="text-strong">{g.label}</span>
+                      <span className="text-xs text-muted"> · {g.sub} · {g.rows.length} ใบ</span>
+                    </td>
+                  </tr>
+                )}
+                {g.rows.map((o) => (
+                <tr key={o.id} className={g.rows.length > 1 ? 'row-grouped' : undefined}>
                   <td>
                     <div className="cell-no">
                       <span className="text-strong">{o.tms_trip_no ?? o.trip_no ?? 'ยังไม่จัดเที่ยว'}</span>
@@ -348,8 +388,9 @@ export default function CloudOrders(): React.JSX.Element {
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
+                ))}
+              </tbody>
+            ))}
           </table>
         </div>
       )}
