@@ -84,15 +84,20 @@ const sdCircle = (px, py, cx, cy, r) => Math.hypot(px - cx, py - cy) - r
 /* รถบรรทุกตู้เขียว หัวเก๋งครีม — โลโก้ที่เจ้าของระบบเลือก
    วาดด้วย SDF ล้วนเหมือนเดิม ไม่พึ่ง dependency ภายนอก จึงรันได้ทุกเครื่องที่มี Node */
 
-const CREAM = [238, 232, 214]
-const CREAM_DARK = [206, 197, 176]
+const CREAM = [240, 233, 214]
+const CREAM_SHADE = [214, 204, 181]
+const CREAM_LINE = [178, 168, 146]
 const GREEN = [47, 122, 47]
-const GREEN_DARK = [28, 84, 30]
+const GREEN_DARK = [26, 78, 28]
+const GREEN_LINE = [20, 60, 22]
 const GLASS = [176, 210, 226]
-const TIRE = [38, 38, 40]
-const HUB = [150, 150, 152]
-const INK = [32, 30, 28]
-const BG = [246, 242, 254]
+const GLASS_DARK = [138, 180, 202]
+const TIRE = [30, 30, 32]
+const RIM = [168, 168, 172]
+const RIM_DARK = [120, 120, 126]
+const INK = [26, 25, 24]
+const LAMP = [246, 226, 150]
+const BG = [255, 255, 255]
 
 /** ทับสีทีละชั้นจากหลังไปหน้า — ชั้นหน้าชนะตามค่า alpha ของมันเอง */
 function over(dst, src, alpha) {
@@ -101,44 +106,57 @@ function over(dst, src, alpha) {
   dst[3] = Math.max(dst[3], alpha)
 }
 
+/* รถบรรทุกตู้เขียว หัวเก๋งครีม — โลโก้ที่เจ้าของระบบเลือก
+   วาดด้วย SDF ล้วน ไม่พึ่ง dependency ภายนอก จึงรันได้ทุกเครื่องที่มี Node
+   ถ้าต้องการรูปต้นฉบับเป๊ะ ๆ ให้วางไฟล์ที่ assets-src/logo.png แล้วสคริปต์จะใช้ไฟล์นั้นแทน */
 function drawIcon(size, { bleed = false } = {}) {
   const rgba = Buffer.alloc(size * size * 4)
+  /* maskable ถูกครอบทีหลัง จึงต้องย่อรถลงมาให้มีขอบเหลือ ไม่งั้นหัวรถกับท้ายตู้โดนตัด */
+  const k = bleed ? 0.78 : 1
+  const at = (v) => 0.5 + (v - 0.5) * k
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const fx = (x + 0.5) / size
       const fy = (y + 0.5) / size
+      /* พิกัดในระบบของรถ — ย้อนสเกลกลับ เพื่อให้สูตรทุกบรรทัดเขียนด้วยพิกัดชุดเดียว */
+      const px = 0.5 + (fx - 0.5) / k
+      const py = 0.5 + (fy - 0.5) / k
 
-      /* maskable ต้องเต็มกรอบ ระบบปฏิบัติการเป็นคนตัดมุมเอง
-         ส่วนไอคอนธรรมดาตัดมุมเองเพื่อไม่ให้เป็นสี่เหลี่ยมทื่อบนจอโฮม */
       const bgA = bleed ? 1 : aa(sdRoundRect(fx, fy, 0.5, 0.5, 0.5, 0.5, 0.22) * size)
       const c = [BG[0], BG[1], BG[2], 0]
       over(c, BG, bgA)
 
-      /* แชสซี — เส้นเข้มใต้ท้องรถ ผูกหัวเก๋งกับตู้ให้เป็นคันเดียวกัน */
-      over(c, INK, aa(sdRoundRect(fx, fy, 0.5, 0.665, 0.35, 0.028, 0.012) * size))
+      /* เงาใต้ท้องรถ — บาง ๆ พอให้รถไม่ลอย */
+      over(c, [232, 232, 236], aa((sdRoundRect(px, py, 0.52, 0.79, 0.33, 0.022, 0.022)) * size) * 0.7)
 
-      /* ตู้สินค้า */
-      const boxA = aa(sdRoundRect(fx, fy, 0.635, 0.475, 0.225, 0.185, 0.022) * size)
-      over(c, GREEN_DARK, boxA)
-      over(c, GREEN, aa(sdRoundRect(fx, fy, 0.635, 0.475, 0.211, 0.171, 0.018) * size))
-      /* ร่องแนวนอนบนตู้ — เส้นที่ทำให้อ่านออกว่าเป็นตู้บรรทุก ไม่ใช่กล่องเปล่า */
-      for (const gy of [0.345, 0.41, 0.475, 0.54, 0.605]) {
-        const inBox = aa(sdRoundRect(fx, fy, 0.635, 0.475, 0.205, 0.165, 0.016) * size)
-        over(c, GREEN_DARK, Math.min(inBox, aa((Math.abs(fy - gy) - 0.008) * size)))
+      /* ตู้สินค้า: ขอบเข้ม ตัวตู้เขียว ร่องแนวนอนห้าเส้นตามต้นฉบับ */
+      over(c, GREEN_DARK, aa(sdRoundRect(px, py, 0.645, 0.455, 0.235, 0.205, 0.026) * size))
+      over(c, GREEN, aa(sdRoundRect(px, py, 0.645, 0.455, 0.221, 0.191, 0.02) * size))
+      for (const gy of [0.315, 0.385, 0.455, 0.525, 0.595]) {
+        const inBox = aa(sdRoundRect(px, py, 0.645, 0.455, 0.214, 0.184, 0.018) * size)
+        over(c, GREEN_LINE, Math.min(inBox, aa((Math.abs(py - gy) - 0.0075) * size)))
       }
 
-      /* หัวเก๋ง */
-      const cabA = aa(sdRoundRect(fx, fy, 0.255, 0.545, 0.145, 0.115, 0.035) * size)
-      over(c, CREAM_DARK, cabA)
-      over(c, CREAM, aa(sdRoundRect(fx, fy, 0.255, 0.545, 0.133, 0.103, 0.03) * size))
-      /* กระจกหน้า */
-      over(c, GLASS, aa(sdRoundRect(fx, fy, 0.245, 0.5, 0.1, 0.05, 0.022) * size))
+      /* หัวเก๋ง: หลังคาแคบกว่าฐานเล็กน้อยเหมือนรูปต้นฉบับ */
+      over(c, CREAM_LINE, aa(sdRoundRect(px, py, 0.255, 0.53, 0.155, 0.135, 0.04) * size))
+      over(c, CREAM, aa(sdRoundRect(px, py, 0.255, 0.53, 0.143, 0.123, 0.034) * size))
+      /* เงาใต้แนวประตู ทำให้หัวเก๋งไม่แบน */
+      over(c, CREAM_SHADE, aa(sdRoundRect(px, py, 0.255, 0.625, 0.143, 0.028, 0.02) * size) * 0.9)
+      /* กระจกหน้าและกระจกข้าง */
+      over(c, GLASS_DARK, aa(sdRoundRect(px, py, 0.238, 0.474, 0.108, 0.062, 0.026) * size))
+      over(c, GLASS, aa(sdRoundRect(px, py, 0.238, 0.47, 0.1, 0.054, 0.022) * size))
+      /* ไฟหน้า */
+      over(c, LAMP, aa(sdRoundRect(px, py, 0.126, 0.6, 0.022, 0.016, 0.008) * size))
+
+      /* แชสซี — เส้นเข้มใต้ท้องรถ ผูกหัวเก๋งกับตู้ให้เป็นคันเดียวกัน */
+      over(c, INK, aa(sdRoundRect(px, py, 0.5, 0.672, 0.36, 0.026, 0.012) * size))
 
       /* ล้อ — หน้าหนึ่ง หลังคู่ ตามรถหกล้อที่กองรถใช้จริง */
-      for (const wx of [0.285, 0.62, 0.79]) {
-        over(c, TIRE, aa(sdCircle(fx, fy, wx, 0.72, 0.082) * size))
-        over(c, HUB, aa(sdCircle(fx, fy, wx, 0.72, 0.034) * size))
+      for (const wx of [0.263, 0.612, 0.782]) {
+        over(c, TIRE, aa(sdCircle(px, py, wx, 0.712, 0.088) * size))
+        over(c, RIM_DARK, aa(sdCircle(px, py, wx, 0.712, 0.042) * size))
+        over(c, RIM, aa(sdCircle(px, py, wx, 0.708, 0.034) * size))
       }
 
       const idx = (y * size + x) * 4
