@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRealtime } from '../hooks/useRealtime'
 import {
   previewTrips, importTrip, createDriverFromTms, mapTmsDriverToExisting, driversBusyOn,
-  linkOrdersToCustomers, tripDetail,
+  linkOrdersToCustomers, tripDetail, autoImportReadyTrips,
   type TmsTripsPreview, type TmsTripDetail, type TmsPickingList,
 } from '../api/tms'
 import { listDrivers } from '../api/vehicles'
@@ -205,6 +205,14 @@ export default function CloudTmsTrips(): React.JSX.Element {
         push('success', `เพิ่มพนักงานขับ ${name} แล้ว — ยังไม่มีบัญชีเข้าแอป ต้องสร้างให้ที่หน้าผู้ใช้`)
       }
       loadRoster()
+      /* ตอบว่า "ชื่อนี้คือใคร" คือประตูบานสุดท้ายของเที่ยวที่รออยู่ — พอตอบแล้ว
+         เที่ยวที่ครบเงื่อนไขต้องวิ่งเข้าหาคนขับทันที ไม่ใช่รอรอบดึงข้อมูลรอบหน้า */
+      try {
+        const auto = await autoImportReadyTrips()
+        if (auto.imported > 0) push('success', `ส่งงานถึงคนขับอัตโนมัติ ${auto.imported} เที่ยว`)
+      } catch {
+        /* จับคู่สำเร็จไปแล้ว ตรงนี้ล้มก็แค่ต้องกดสั่งงานเอง ไม่ใช่ความล้มเหลวของการจับคู่ */
+      }
       await load(date)
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'จับคู่พนักงานขับไม่สำเร็จ')

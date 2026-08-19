@@ -6,6 +6,7 @@ import {
   POLL_MS,
   type Warehouse, type TmsBoard, type PullCoverage,
 } from '../api/tmsPull'
+import { autoImportReadyTrips } from '../api/tms'
 import { fmtDate, fmtDateTime } from '../utils/format'
 import { tmsTokenSecondsLeft } from '../api/tmsAuth'
 
@@ -139,20 +140,37 @@ export default function TmsPull(): React.JSX.Element {
         }
         setTripPush(t)
 
-        /* ไม่มีการสร้างเที่ยว/ออเดอร์อัตโนมัติอีกแล้ว
-           รอบดึงข้อมูลมีหน้าที่เดียวคือเอาของจาก TMS มาเก็บไว้ให้ตรง
-           การตัดสินว่า "เที่ยวนี้ใครขับ แล้วสั่งงานเมื่อไหร่" เป็นของคนวางแผนงาน
-           ของเดิมเดาคนขับจากชื่อใน TMS แล้วสร้างงานให้เอง ซึ่งจับคนผิดสะสมมาเรื่อย ๆ */
+        /* เที่ยวที่ข้อมูลครบแล้วส่งถึงคนขับเองในรอบเดียวกับที่ดึงมา
+           "ครบ" ที่ฐานตรวจให้: TMS Confirm แล้ว ชื่อคนขับทุกชื่อจับคู่แล้ว และมีใบอย่างน้อยหนึ่งใบ
+           ขาดข้อไหนเที่ยวนั้นค้างรอคนกดที่หน้า "เที่ยวจาก TMS" เหมือนเดิม ไม่มีการเดาชื่อคนขับ
+           คนขับยังต้องกดรับงานเองอยู่ นำเข้าแล้วไม่ได้แปลว่ารับแล้ว */
+        let autoNote = ''
+        try {
+          const auto = await autoImportReadyTrips()
+          if (auto.imported > 0) {
+            autoNote = ` · ส่งถึงคนขับอัตโนมัติ ${auto.imported} เที่ยว (${auto.createdOrders} ใบงาน)`
+          }
+          /* เที่ยวที่ติดต้องดังพอให้เห็น ไม่งั้นคนวางแผนเชื่อว่าอัตโนมัติจัดการหมดแล้ว
+             แล้วงานที่ค้างจะไม่มีใครไปกด */
+          if (auto.waitingForDriver > 0) autoNote += ` · รอจับคู่ชื่อคนขับ ${auto.waitingForDriver} เที่ยว`
+          if (auto.failed > 0) autoNote += ` · นำเข้าไม่สำเร็จ ${auto.failed} เที่ยว`
+        } catch (e) {
+          /* นำเข้าอัตโนมัติล้มไม่ควรทำให้รอบดึงข้อมูลกลายเป็นล้มเหลว
+             ของจาก TMS ถูกเก็บลงฐานเรียบร้อยแล้วตั้งแต่ก่อนถึงบรรทัดนี้ */
+          autoNote = ` · นำเข้าอัตโนมัติไม่สำเร็จ: ${e instanceof Error ? e.message : 'ไม่ทราบสาเหตุ'}`
+        }
 
         changed = t.inserted + t.updated
         setLog(
           changed === 0
             ? mode === 'poll'
-              ? ''
-              : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${allTrips.length} เที่ยวจาก ${warehouses.length} คลัง`
+              /* รอบเฝ้าสถานะเงียบไว้ตามเดิม ยกเว้นรอบที่ส่งงานถึงคนขับจริง
+                 ซึ่งเป็นเรื่องที่คนดูหน้านี้ต้องรู้ว่าเกิดขึ้นแล้ว */
+              ? autoNote.trim().replace(/^· /, '')
+              : `ไม่มีอะไรเปลี่ยน · ตรวจแล้ว ${allTrips.length} เที่ยวจาก ${warehouses.length} คลัง${autoNote}`
             : `เที่ยว +${t.inserted}/~${t.updated}` +
               (t.skipped_carrier ? ` · ข้ามเที่ยวผู้รับจ้างอื่น ${t.skipped_carrier}` : '') +
-              ' · สั่งงานต่อที่หน้า “เที่ยวจาก TMS”',
+              (autoNote || ' · สั่งงานต่อที่หน้า “เที่ยวจาก TMS”'),
         )
         refreshBoard()
       } catch (e) {
