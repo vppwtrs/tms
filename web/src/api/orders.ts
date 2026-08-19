@@ -47,7 +47,14 @@ export interface OrderListRow extends OrderRow {
 
 interface OrderJoined extends OrderRow {
   customers: { name: string } | null
-  trips: { trip_no: string; drivers: { name: string } | null } | null
+  trips: {
+    trip_no: string
+    drivers: { name: string } | null
+    /* คนขับทั้งคันของเที่ยวนั้น ไม่ใช่แค่คนที่ตารางเที่ยวชี้ไว้เป็นคนหลัก
+       เที่ยวที่ไปกันสองคน คนใดคนหนึ่งกดรับงานแทนทั้งคู่ได้ ชื่อที่หายไปหนึ่งชื่อ
+       ทำให้คนวางแผนโทรตามผิดคน และทำให้คนที่ไปด้วยหายไปจากหลักฐานว่าใครวิ่งงานนี้ */
+    trip_drivers: { drivers: { name: string } | null }[] | { drivers: { name: string } | null } | null
+  } | null
   /* PostgREST คืนก้อนที่ฝังมาเป็น "อ็อบเจ็กต์" ไม่ใช่ "อาร์เรย์" เมื่อคอลัมน์ที่ชี้กลับมา
      มี unique constraint — pod.order_id มี เพราะ save_pod ใช้ on conflict (order_id)
      ความสัมพันธ์จึงเป็นหนึ่งต่อหนึ่งในสายตาของมัน รับไว้ทั้งสองรูป ไม่ผูกกับรูปเดียว
@@ -59,13 +66,24 @@ interface OrderJoined extends OrderRow {
 /** ก้อนที่ฝังมาแบบหนึ่งต่อหนึ่ง — อ่านได้ทั้งตอนที่มาเป็นอาร์เรย์และตอนที่มาเป็นอ็อบเจ็กต์
  *  เขียน r.pod?.[0] ตรง ๆ แล้วได้ undefined เงียบ ๆ ตอนมันเป็นอ็อบเจ็กต์ ซึ่งอ่านออกมา
  *  เป็น "ใบนี้ไม่มีหลักฐาน" ทั้งที่หลักฐานอยู่ในฐานครบ */
+/** ชื่อคนขับทุกคนของเที่ยว คนหลักขึ้นก่อน — รูปแบบเดียวกับหน้าเที่ยวจาก TMS ("ก + ข")
+ *  ไม่มีคนไปด้วยก็ได้ชื่อเดียวเหมือนเดิม ไม่ต้องมีเงื่อนไขแยกที่หน้าจอ */
+const driverNames = (r: OrderJoined): string | null => {
+  const primary = r.trips?.drivers?.name ?? null
+  const extra = (Array.isArray(r.trips?.trip_drivers) ? r.trips.trip_drivers : r.trips?.trip_drivers ? [r.trips.trip_drivers] : [])
+    .map((td) => td?.drivers?.name)
+    .filter((n): n is string => !!n && n !== primary)
+  const all = [...(primary ? [primary] : []), ...new Set(extra)]
+  return all.length > 0 ? all.join(' + ') : null
+}
+
 const embedOne = <T,>(v: T[] | T | null | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
 
 const flatten = (r: OrderJoined): OrderListRow => ({
   ...r,
   customer_name: r.customers?.name ?? null,
-  driver_name: r.trips?.drivers?.name ?? null,
+  driver_name: driverNames(r),
   trip_no: r.trips?.trip_no ?? null,
   pod_status: embedOne(r.pod)?.status ?? null,
   items: r.order_items ?? [],
@@ -79,14 +97,19 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
   /* !inner เฉพาะตอนกรองตามคนขับ — ถ้าใส่ไว้ตลอด ออเดอร์ที่ยังไม่ได้จัดเที่ยว
      จะหายไปจากตารางทั้งหมด ซึ่งคือใบที่ฝ่ายวางแผนต้องเห็นมากที่สุด */
   const tripJoin = f.driverId ? 'trips!inner' : 'trips'
+  /* กรองตามคนขับต้องเจอคนที่ไปด้วย ไม่ใช่เฉพาะคนที่เป็นคนหลักของเที่ยว
+     ฝังซ้ำเป็นชื่อแยก (filter_drivers) เพราะก้อนที่ใช้กรองจะเหลือเฉพาะแถวที่ตรง
+     ถ้าเอาไปใช้แสดงผลด้วย ชื่อคนอื่นในคันเดียวกันจะหายไปจากหน้าจอ
+     ทริกเกอร์ sync_primary_trip_driver การันตีว่าคนหลักมีแถวใน trip_drivers เสมอ */
+  const driverFilterJoin = f.driverId ? ', filter_drivers:trip_drivers!inner(driver_id)' : ''
   /* ต้องระบุชื่อ FK ให้ชัด — ตอนนี้ trips ชี้ไป drivers ได้สามทาง (driver_id, accepted_by
      และผ่านตาราง trip_drivers) PostgREST เลยเลือกไม่ถูกแล้วตอบ PGRST201 ทั้งคำขอ
      ซึ่งบนหน้าเว็บคือ "โหลดออเดอร์ไม่สำเร็จ" ทั้งหน้า */
   const driverJoin = 'drivers!trips_driver_id_fkey(name)'
   let q = supabase
     .from('orders')
-    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
-  if (f.driverId) q = q.eq('trips.driver_id', f.driverId)
+    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}, trip_drivers(drivers(name))${driverFilterJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
+  if (f.driverId) q = q.eq('trips.filter_drivers.driver_id', f.driverId)
   /* ค้นด้วยเลข PL ได้ด้วย — เลขที่คลัง ร้าน และคนขับใช้อ้างถึงใบจริงคือ PL
      ส่วน ORD เป็นเลขที่ระบบเราสร้างเอง ไม่มีใครนอกระบบรู้จัก */
   if (f.q) q = q.or(`order_no.ilike.%${f.q}%,tms_picking_list_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
