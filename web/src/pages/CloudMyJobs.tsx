@@ -610,8 +610,10 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
 
       <div className="pod-section">
         <div className="pod-row-head">
-          <h4>รูปหน้างาน</h4>
-          <span className="text-xs text-muted">{shots.length > 0 ? `ถ่ายแล้ว ${shots.length} รูป` : 'ไม่บังคับ'}</span>
+          <h4>รูปหน้างาน <span className="req">*</span></h4>
+          <span className="text-xs text-muted">
+            {shots.length > 0 ? `ถ่ายแล้ว ${shots.length} รูป` : 'ต้องมีอย่างน้อย 1 รูป'}
+          </span>
         </div>
 
         {/* เลือกมุมก่อนกดถ่าย — เป็นชิปเพราะคนขับต้องเห็นพร้อมกันว่าเหลือมุมไหน
