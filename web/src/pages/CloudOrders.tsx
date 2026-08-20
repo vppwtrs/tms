@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow } from '../api/orders'
+import { forceDeleteTrip } from '../api/trips'
 import { useRealtime } from '../hooks/useRealtime'
 import { PodViewModal } from '../components/PodViewModal'
 import { listAllCustomers } from '../api/customers'
@@ -103,6 +104,8 @@ function podStopLabel(store: { delivered: number; withPod: number; verified: num
 
 interface TripGroup {
   key: string
+  /** null = ใบที่ยังไม่ถูกจัดเข้าเที่ยว กลุ่มนั้นไม่มีเที่ยวให้ลบ */
+  tripId: number | null
   tripNo: string
   driver: string | null
   warehouse: string | null
@@ -143,6 +146,7 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
     const first = all[0] as OrderListRow
     return {
       key: tripKey,
+      tripId: first.trip_id,
       tripNo: first.tms_trip_no ?? first.trip_no ?? 'ยังไม่จัดเที่ยว',
       driver: first.driver_name,
       warehouse: first.warehouse_code,
@@ -180,6 +184,8 @@ export default function CloudOrders(): React.JSX.Element {
   const { push } = useToast()
   const canEdit = can('orders.write')
   const canCancel = can('orders.cancel')
+  /* เงื่อนไขเดียวกับปุ่มลบถาวรบนกระดานจัดคิว ไม่ได้เพิ่มสิทธิ์ใหม่ */
+  const canPurge = can('users.manage')
 
   const [data, setData] = useState<Paged<OrderListRow> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -195,6 +201,10 @@ export default function CloudOrders(): React.JSX.Element {
     else next.add(key)
     return next
   })
+  /* เที่ยวที่กำลังจะถูกลบถาวร — เก็บทั้งก้อนไว้เพราะกล่องยืนยันต้องบอกเลขเที่ยว
+     กับจำนวนใบที่จะหายไปด้วย ไม่ใช่แค่ id */
+  const [purging, setPurging] = useState<TripGroup | null>(null)
+  const [purgeLoading, setPurgeLoading] = useState(false)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
@@ -314,12 +324,31 @@ export default function CloudOrders(): React.JSX.Element {
     }
   }
 
+  const confirmPurge = async (): Promise<void> => {
+    if (!purging?.tripId) return
+    setPurgeLoading(true)
+    try {
+      const r = await forceDeleteTrip(purging.tripId)
+      push('success', `ลบเที่ยว ${purging.tripNo} ถาวรแล้ว — ${r.deleted_orders} ใบ, หลักฐาน ${r.deleted_pods} ใบ, รูป ${r.deleted_photos} ไฟล์`)
+      setPurging(null)
+      await load()
+    } catch (e) {
+      push('error', e instanceof Error ? e.message : 'ลบเที่ยวไม่สำเร็จ')
+    } finally {
+      setPurgeLoading(false)
+    }
+  }
+
   const confirmCancel = async (): Promise<void> => {
     if (!cancelling) return
     setCancelLoading(true)
     try {
-      await removeOrder(cancelling.id)
-      push('success', `ลบใบ ${billNo(cancelling)} แล้ว — ใบจาก TMS กลับไปสั่งงานใหม่ได้`)
+      const r = await removeOrder(cancelling.id)
+      /* บอกให้ครบว่าเกิดอะไรขึ้น — ลบใบสุดท้ายแล้วเที่ยวหายไปด้วยเป็นเรื่องที่
+         คนกดต้องรู้ตอนนั้น ไม่ใช่ไปสงสัยเอาทีหลังว่าเที่ยวหายไปไหน */
+      push('success', r.trip_removed
+        ? `ลบใบ ${billNo(cancelling)} แล้ว — เป็นใบสุดท้ายของเที่ยว ${r.trip_no ?? ''} เที่ยวเปล่าถูกลบตามไปด้วย`
+        : `ลบใบ ${billNo(cancelling)} แล้ว — ใบจาก TMS กลับไปสั่งงานใหม่ได้`)
       setCancelling(null)
       await load()
     } catch (e) {
@@ -402,6 +431,20 @@ export default function CloudOrders(): React.JSX.Element {
                 <span className="text-xs text-muted">
                   {trip.driver ?? 'ยังไม่จัดคิว'}
                 </span>
+                {/* ทางเดียวที่ลบเที่ยวได้หลังมันจบและข้ามวัน — กระดานจัดคิวโหลดเฉพาะ
+                    เที่ยวที่ยังไม่จบกับที่จบวันนี้ ปุ่มบนนั้นจึงหายไปพร้อมการ์ด
+                    ขณะที่หน้านี้เก็บประวัติทั้งหมด เงื่อนไขสิทธิ์เดียวกับกระดาน */}
+                {canPurge && trip.tripId !== null && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-danger"
+                    title="ลบเที่ยวนี้ถาวร"
+                    onClick={() => setPurging(trip)}
+                  >
+                    <IconTrash size={14} />
+                  </Button>
+                )}
               </div>
 
               {trip.stores.map((store) => {
@@ -604,6 +647,19 @@ export default function CloudOrders(): React.JSX.Element {
         danger
         loading={cancelLoading}
         onConfirm={() => void confirmCancel()}
+      />
+
+      {/* ข้อความชุดเดียวกับกระดานจัดคิว — คำเตือนที่พูดคนละอย่างสองที่
+          แปลว่าอย่างน้อยที่หนึ่งพูดไม่ครบ */}
+      <ConfirmDialog
+        open={purging !== null}
+        onClose={() => setPurging(null)}
+        title="ลบเที่ยวนี้ถาวร"
+        message={purging ? <>ลบเที่ยว <b>{purging.tripNo}</b> ออกจากระบบถาวร รวมออเดอร์ทั้ง <b>{purging.bills} ใบ</b> <b>หลักฐานการส่งมอบทั้งหมดของเที่ยวนี้</b> และ<b>ข้อมูลดิบจาก TMS ของเที่ยวนี้</b> — กู้คืนไม่ได้ ใช้กับข้อมูลทดสอบหรือข้อมูลที่เสียเท่านั้น งานจริงที่ส่งไปแล้วให้ปิดงานตามจริงแทน ถ้าต้นทางยังมีเที่ยวนี้อยู่ รอบดึงถัดไปจะพากลับมาให้ใหม่</> : ''}
+        confirmLabel="ลบถาวร"
+        danger
+        loading={purgeLoading}
+        onConfirm={() => void confirmPurge()}
       />
     </>
   )

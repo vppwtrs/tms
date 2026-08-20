@@ -204,8 +204,16 @@ export async function updateOrder(id: number, input: Partial<OrderInput>): Promi
  *
  * ใบที่เก็บหลักฐานการส่งมอบไปแล้วลบไม่ได้ — ฝั่งฐานเป็นคนกัน ไม่ใช่หน้าจอ
  */
-export async function removeOrder(id: number): Promise<{ deleted: number; order_no: string }> {
+export interface RemovedOrder {
+  deleted: number
+  order_no: string
+  /** ใบนั้นเป็นใบสุดท้ายของเที่ยว เที่ยวเปล่าจึงถูกเก็บกวาดไปด้วย */
+  trip_removed: boolean
+  trip_no: string | null
+}
+
+export async function removeOrder(id: number): Promise<RemovedOrder> {
   const { data, error } = await supabase.rpc('remove_order', { p_order_id: id })
   if (error) throw toDataError(error)
-  return data as { deleted: number; order_no: string }
+  return data as unknown as RemovedOrder
 }
