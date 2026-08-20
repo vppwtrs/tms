@@ -55,6 +55,9 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* POD เก็บเป็นชุดของ "ร้าน" ไม่ใช่ใบเดียว — ลายเซ็นหนึ่งครั้งครอบทุกใบที่ส่งร้านนั้น
      ผู้รับเซ็นครั้งเดียวตอนรับของทั้งกอง ให้เซ็นซ้ำตามจำนวนใบคือเรื่องที่หน้างานไม่ยอมทำ */
   const [podFor, setPodFor] = useState<MyJobOrder[] | null>(null)
+  /* ร้านที่ฟอร์ม POD ที่เปิดอยู่เป็นของมัน — เก็บไว้เพื่อให้ถอนการส่งจากในฟอร์มได้
+     คนที่กดปิดผิดร้านรู้ตัวตอนอ่านชื่อร้านบนหัวฟอร์ม ไม่ใช่ตอนกลับไปที่รายการ */
+  const [podStop, setPodStop] = useState<StopGroup | null>(null)
   /* ร้านที่กำลังจะถอนการปิดส่ง — ถามก่อนเสมอ การถอยผิดจุดคือกดผิดซ้ำสอง */
   const [undoing, setUndoing] = useState<StopGroup | null>(null)
   /* ใบที่กำลังเปิดดูหลักฐานย้อนหลัง — คนละอย่างกับ podFor ที่เป็นการเก็บใหม่ */
@@ -195,6 +198,7 @@ export default function CloudMyJobs(): React.JSX.Element {
       toast.push('success', `ส่ง ${stop.customer_name ?? stop.destination} เรียบร้อย`)
       if (can('myjobs.pod')) {
         const ids = new Set(stop.orders.map((o) => o.id))
+        setPodStop(stop)
         setPodFor(updated ? updated.orders.filter((o) => ids.has(o.id)) : stop.orders)
       }
     } catch (e) {
@@ -209,7 +213,12 @@ export default function CloudMyJobs(): React.JSX.Element {
   const undoDeliver = async (stop: StopGroup): Promise<void> => {
     setDelivering(stop.key)
     try {
-      for (const order of stop.orders.filter((o) => o.status === 'delivered')) {
+      /* สถานะที่ติดมากับ stop อาจเป็นของก่อนกดปิดส่ง (ฟอร์ม POD เด้งขึ้นก่อนที่
+         หน้าจะโหลดใหม่เสร็จ) — อ่านสถานะล่าสุดจาก jobs เสมอ ไม่งั้นจะไม่ถอนอะไรเลย
+         แล้วขึ้นว่าสำเร็จ ซึ่งแย่กว่าขึ้น error */
+      const ids = new Set(stop.orders.map((o) => o.id))
+      const latest = jobs.find((j) => j.id === stop.orders[0]?.trip_id)?.orders.filter((o) => ids.has(o.id))
+      for (const order of (latest ?? stop.orders).filter((o) => o.status === 'delivered')) {
         await undoDeliverOrder(order.id)
       }
       const tripId = stop.orders[0]?.trip_id
@@ -357,7 +366,10 @@ export default function CloudMyJobs(): React.JSX.Element {
                       canPod={can('myjobs.pod')}
                       onAct={(j, action) => void act(j, action)}
                       onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
-                      onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
+                      onPod={(stop) => {
+                        setPodStop(stop)
+                        setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)
+                      }}
                       onViewPod={setPodView}
                       onDeliver={(stop) => void deliver(stop)}
                       onUndoDeliver={(stop) => setUndoing(stop)}
@@ -440,12 +452,21 @@ export default function CloudMyJobs(): React.JSX.Element {
       {podFor && (
         <PodSheet
           orders={podFor}
-          onClose={() => setPodFor(null)}
+          onClose={() => { setPodFor(null); setPodStop(null) }}
           onSaved={() => {
             setPodFor(null)
+            setPodStop(null)
             toast.push('success', 'บันทึกหลักฐานการส่งมอบแล้ว')
             load(showDone)
           }}
+          /* ปิดฟอร์มก่อนแล้วค่อยถาม — กล่องยืนยันซ้อนบนแผ่นที่เปิดอยู่
+             อ่านยากบนจอมือถือ และคนกำลังจะตัดสินใจถอยของจริง */
+          onUndo={podStop && can('myjobs.progress') ? () => {
+            const stop = podStop
+            setPodFor(null)
+            setPodStop(null)
+            setUndoing(stop)
+          } : undefined}
         />
       )}
 
@@ -489,9 +510,22 @@ const podKindLabel = (kind: string): string =>
  * เซ็นรับของทั้งกองครั้งเดียวจริง ๆ ส่วนฐานยังเก็บ POD ผูกกับใบเหมือนเดิม
  * ฝ่ายบัญชีจึงยังเปิดหลักฐานรายใบได้
  */
-function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose: () => void; onSaved: () => void }): React.JSX.Element {
+function PodSheet({ orders, onClose, onSaved, onUndo }: {
+  orders: MyJobOrder[]
+  onClose: () => void
+  onSaved: () => void
+  /* กดผิดร้าน — ถอนการปิดส่งทั้งร้านแล้วออกจากฟอร์ม ไม่ส่งมา = ไม่มีสิทธิ์ถอน */
+  onUndo?: () => void
+}): React.JSX.Element {
   const toast = useToast()
   const order = orders[0] as MyJobOrder
+  /* สองหน้า ไม่ใช่ฟอร์มเดียวยาว ๆ — หน้าแรกทำด้วยมือตัวเอง (ถ่ายรูป)
+     หน้าสองต้องยื่นมือถือให้คนอื่น (เซ็น) คนละสถานการณ์ทางกายภาพ
+     ยัดไว้หน้าเดียวแปลว่าต้องเลื่อนหาของกลางฟอร์มขณะยืนถือของอยู่ */
+  const [step, setStep] = useState<'photo' | 'sign'>('photo')
+  /* path ของรูปที่อัปขึ้นถังแล้วตั้งแต่จบหน้าแรก — หน้าสองมีแค่ลายเซ็นกับปุ่มบันทึก
+     ซึ่งเร็ว ผู้รับจึงไม่ต้องยืนรอโหลดรูปทั้งกองโดยถือมือถือของคนอื่นไว้ */
+  const [photos, setPhotos] = useState<PodPhoto[] | null>(null)
   const [name, setName] = useState(order.customer_name ?? '')
   const [sig, setSig] = useState('')
   const [note, setNote] = useState('')
@@ -519,9 +553,11 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
     )
   }, [])
 
-  const submit = async (): Promise<void> => {
-    if (!sig) {
-      toast.push('warning', 'ให้ผู้รับเซ็นก่อน')
+  /* หน้าแรก: ชื่อผู้รับ + รูป → อัปรูปขึ้นถังทันทีที่กดบันทึก แล้วไปหน้าลายเซ็น
+     งานหนักทั้งหมด (อัปโหลด) จบตั้งแต่ตอนที่มือถือยังอยู่ในมือคนขับ */
+  const submitPhotos = async (): Promise<void> => {
+    if (!name.trim()) {
+      toast.push('warning', 'ใส่ชื่อผู้รับก่อน')
       return
     }
     /* รูปเป็นของบังคับ — ลายเซ็นบอกว่ามีคนเซ็น รูปบอกว่าส่งอะไรไปและสภาพเป็นยังไง
@@ -532,17 +568,39 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
     }
     setSaving(true)
     try {
-      /* อัปโหลดรูปขึ้น Storage ก่อน แล้วค่อยบันทึก POD พร้อม path
+      /* อัปโหลดรูปขึ้น Storage ก่อน แล้วค่อยบันทึก POD พร้อม path ในหน้าถัดไป
          ลำดับนี้สำคัญ: ถ้าบันทึก POD ก่อนแล้วอัปรูปพลาด จะได้หลักฐานที่อ้างถึงรูปที่ไม่มีอยู่
          กลับกัน ถ้าอัปรูปสำเร็จแต่บันทึกพลาด ก็แค่มีรูปกำพร้าค้างในถัง ซึ่งไม่ทำใครเดือดร้อน */
-      const photos: PodPhoto[] = []
+      const uploaded: PodPhoto[] = []
       for (const shot of shots) {
-        photos.push({
+        uploaded.push({
           path: await uploadPodPhoto(order.id, shot.img.blob, { ext: shot.img.ext, type: shot.img.type }),
           kind: shot.kind,
         })
       }
+      setPhotos(uploaded)
+      setStep('sign')
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
+  /* หน้าสอง: ลายเซ็น → บันทึก POD ลงทุกใบของร้าน รูปอัปไปแล้วตั้งแต่หน้าแรก
+     เหลือแต่การเขียนฐาน ซึ่งเป็นวินาทีเดียว ไม่ใช่นาทีที่ผู้รับต้องยืนถือมือถือรอ */
+  const submitSignature = async (): Promise<void> => {
+    if (!sig) {
+      toast.push('warning', 'ให้ผู้รับเซ็นก่อน')
+      return
+    }
+    if (!photos) {
+      toast.push('warning', 'รูปยังไม่ได้อัปโหลด — กลับไปหน้ารูปแล้วกดบันทึกใหม่')
+      setStep('photo')
+      return
+    }
+    setSaving(true)
+    try {
       /* ทีละใบตามลำดับ — รูปชุดเดียวถูกอ้างจากทุกใบ ไม่ต้องอัปซ้ำตามจำนวนใบ */
       for (const o of orders) {
         await savePodWithPhotos({
@@ -563,49 +621,106 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
     }
   }
 
+  /* ทับทั้งแผ่นตอนกำลังบันทึก — ปุ่มหมุน ๆ ปุ่มเดียวเล็กเกินกว่าที่คนซึ่งกำลัง
+     ยืนกลางแดดจะเห็น แล้วเขาจะกดซ้ำ ซึ่งแปลว่าอัปรูปซ้ำทั้งกอง */
+  const savingVeil = saving && (
+    <div className="pod-veil" role="status" aria-live="polite">
+      <span className="spin" aria-hidden="true">⟳</span>
+      <b>{step === 'photo' ? 'กำลังอัปโหลดรูป' : 'กำลังบันทึกหลักฐาน'}</b>
+      <span>อย่าเพิ่งปิดหน้านี้</span>
+    </div>
+  )
+
+  /* ---- หน้าที่ 2: ลายเซ็น ----
+     ยื่นมือถือให้ผู้รับตอนนี้ จอมีของอยู่อย่างเดียวคือช่องเซ็น ไม่มีปุ่มอื่นให้กดพลาด
+     และไม่มีทางถอยกลับไปแก้รูป — รูปขึ้นถังไปแล้ว การให้ถอยคือให้อัปซ้ำ */
+  if (step === 'sign') {
+    return (
+      <Modal
+        open
+        onClose={onClose}
+        size="sheet"
+        title={`ให้ผู้รับเซ็น — ${order.customer_name ?? order.destination}`}
+        footer={
+          <div className="pod-actions">
+            <Button variant="ghost" onClick={onClose} disabled={saving}>
+              ปิดไว้ก่อน
+            </Button>
+            <Button onClick={() => void submitSignature()} loading={saving} disabled={!sig}>
+              {orders.length > 1 ? `บันทึก ${orders.length} ใบ` : 'บันทึกหลักฐาน'}
+            </Button>
+          </div>
+        }
+      >
+        {savingVeil}
+        <div className="pod-steps" aria-label="ขั้นตอนที่ 2 จาก 2">
+          <span className="is-done">1 · รูป</span>
+          <span className="is-now">2 · ลายเซ็น</span>
+        </div>
+
+        <div className="pod-meta">
+          <span>อัปรูปแล้ว {photos?.length ?? 0} รูป</span>
+          {orders.length > 1 && <span>ลายเซ็นเดียวใช้กับ {orders.length} ใบของร้านนี้</span>}
+          <span>{coords ? `แนบพิกัดแล้ว · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'ไม่ได้พิกัด — บันทึกได้ตามปกติ'}</span>
+        </div>
+
+        <div className="pod-section">
+          <div className="pod-row-head">
+            <h4>ลายเซ็นผู้รับ <span className="req">*</span></h4>
+            <span className="text-xs text-muted">{name}</span>
+          </div>
+          {/* เตี้ยลงจาก 200 เหลือ 150 — ลายเซ็นบนมือถือกว้างเต็มจอแต่ไม่ได้สูงตาม
+              ความสูงที่เกินมาคือช่องว่างขาวที่ดันของอื่นตกจอไปเฉย ๆ */}
+          <SignaturePad onChange={setSig} height={150} compact />
+        </div>
+      </Modal>
+    )
+  }
+
+  /* ---- หน้าที่ 1: ชื่อผู้รับ + รูป ---- */
   return (
     <Modal
       open
       onClose={onClose}
       size="sheet"
-      title={`หลักฐานการส่งมอบ — ${order.customer_name ?? order.destination}`}
+      title={`ถ่ายรูปหน้างาน — ${order.customer_name ?? order.destination}`}
       footer={
         <div className="pod-actions">
-          <Button variant="ghost" onClick={onClose}>
-            ยกเลิก
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            ปิดไว้ก่อน
           </Button>
-          {/* ปุ่มเดียวที่หน้านี้มีอยู่เพื่อมัน — กินความกว้างที่เหลือทั้งหมด
-              และบอกจำนวนใบที่จะถูกบันทึกไปพร้อมกัน ไม่ให้เซอร์ไพรส์ทีหลัง */}
-          <Button
-            onClick={() => void submit()}
-            loading={saving}
-            disabled={!name.trim() || !sig || shots.length === 0}
-          >
-            {orders.length > 1 ? `บันทึก ${orders.length} ใบ` : 'บันทึกหลักฐาน'}
+          <Button onClick={() => void submitPhotos()} loading={saving} disabled={!name.trim() || shots.length === 0}>
+            บันทึกรูป — ไปหน้าลายเซ็น
           </Button>
         </div>
       }
     >
+      {savingVeil}
+      <div className="pod-steps" aria-label="ขั้นตอนที่ 1 จาก 2">
+        <span className="is-now">1 · รูป</span>
+        <span>2 · ลายเซ็น</span>
+      </div>
+
       <div className="pod-meta">
-        {orders.length > 1 && <span>ลายเซ็นเดียวใช้กับ {orders.length} ใบของร้านนี้</span>}
+        {orders.length > 1 && <span>ปิดพร้อมกัน {orders.length} ใบของร้านนี้</span>}
         {/* พิกัดเคยอยู่ท้ายสุดของฟอร์ม ซึ่งคือที่ที่ไม่มีใครเลื่อนไปอ่าน
             ทั้งที่เป็นของที่แนบให้อยู่แล้วโดยไม่ต้องทำอะไร */}
         <span>{coords ? `แนบพิกัดแล้ว · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'ไม่ได้พิกัด — บันทึกได้ตามปกติ'}</span>
       </div>
 
+      {/* ทางออกของคนที่เพิ่งกดปิดส่งผิดร้าน — ต้องอยู่ตรงนี้ เพราะฟอร์มนี้เด้งขึ้นเอง
+          ทันทีหลังกดปิดส่ง คนที่รู้ตัวว่ากดผิดจะรู้ตัวตอนเห็นชื่อร้านบนหัวฟอร์มนี้
+          ไม่ใช่ตอนกลับไปที่รายการ ปุ่มจาง ไม่วางคู่ปุ่มเดินหน้า */}
+      {onUndo && (
+        <button type="button" className="pod-undo" onClick={onUndo} disabled={saving}>
+          ไม่ใช่ร้านนี้ — ยกเลิกการส่ง
+        </button>
+      )}
+
       <div className="pod-section">
         <Field label="ชื่อผู้รับสินค้า" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-      </div>
-
-      <div className="pod-section">
-        <div className="pod-row-head">
-          <h4>ลายเซ็นผู้รับ <span className="req">*</span></h4>
-        </div>
-        {/* เตี้ยลงจาก 200 เหลือ 150 — ลายเซ็นบนมือถือกว้างเต็มจอแต่ไม่ได้สูงตาม
-            ความสูงที่เกินมาคือช่องว่างขาวที่ดันของอื่นตกจอไปเฉย ๆ */}
-        <SignaturePad onChange={setSig} height={150} compact />
       </div>
 
       <div className="pod-section">

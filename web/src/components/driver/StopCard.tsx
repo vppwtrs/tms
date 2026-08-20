@@ -30,7 +30,9 @@ export function StopItem({
   busy,
   canProgress,
   canPod,
+  locked = false,
   onOpen,
+  onEnter,
   onPod,
   onViewPod,
   onDeliver,
@@ -46,7 +48,12 @@ export function StopItem({
   busy: boolean
   canProgress: boolean
   canPod: boolean
+  /** จุดนี้คือจุดที่คนขับ "เข้าไป" อยู่ — ปุ่มปิดจุดขึ้นเฉพาะตอนนี้เท่านั้น */
+  locked?: boolean
   onOpen: () => void
+  /* เข้าร้านนี้ (ล็อกจอไว้ที่ร้านเดียว) — ไม่ส่งมา = เข้าไม่ได้ตอนนี้
+     (ยังไม่ออกจากคลัง อยู่ในร้านอื่นอยู่ หรือเป็นจอที่ดูอย่างเดียว) */
+  onEnter?: () => void
   onPod: (stop: StopGroup) => void
   /* เปิดดูหลักฐานที่เก็บไปแล้ว — คนขับต้องตรวจได้ว่าที่ส่งไปคือของจริง
      ไม่ส่งมา = หน้าจอที่ยังไม่มีตัวอ่าน (ฝั่ง LAN) ปุ่มจะไม่ขึ้น */
@@ -63,11 +70,14 @@ export function StopItem({
   const bills = stop.orders.length
 
   return (
-    <li className={`stop-item ${state}${open ? ' is-open' : ''}`}>
+    <li className={`stop-item ${state}${open ? ' is-open' : ''}${locked ? ' is-locked' : ''}`}>
       <button
         type="button"
         className="stop-item-head"
         onClick={onOpen}
+        /* อยู่ในร้านนี้แล้ว หัวการ์ดยุบไม่ได้ — ยุบได้คือเปิดทางให้จอว่างเปล่า
+           ทั้งที่คนขับยืนอยู่หน้าร้าน */
+        disabled={locked}
         aria-expanded={open}
         aria-label={`จุดที่ ${index} ${stop.destination}`}
       >
@@ -102,8 +112,15 @@ export function StopItem({
             </a>
           </div>
 
-          {/* ปุ่มของจุดนี้ ติดกับชื่อจุดนี้ ไม่มีทางกดผิดจุด — ปิดทีเดียวครบทุกใบ */}
-          {canProgress && stop.pending.length > 0 && (
+          {/* สองจังหวะ ไม่ใช่จังหวะเดียว — "ถึงร้านนี้แล้ว" กดตอนรถจอด (กดผิดก็แค่กลับออกมา)
+              ส่วน "ส่งร้านนี้เสร็จแล้ว" ซึ่งเป็นการกดที่ย้อนยาก ขึ้นได้เฉพาะตอนอยู่ในร้านนั้น
+              ตอนนั้นบนจอไม่มีร้านอื่นให้กดผิดอยู่แล้ว */}
+          {canProgress && stop.pending.length > 0 && !locked && onEnter && (
+            <Button size="lg" className="stop-item-cta" onClick={onEnter}>
+              ถึงร้านนี้แล้ว — เริ่มส่ง
+            </Button>
+          )}
+          {canProgress && stop.pending.length > 0 && locked && (
             <Button size="lg" className="stop-item-cta" loading={busy} onClick={() => onDeliver(stop)}>
               ส่งร้านนี้เสร็จแล้ว{bills > 1 ? ` (${stop.pending.length} ใบ)` : ''}
             </Button>

@@ -2767,6 +2767,29 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
 }
+/* ---- อยู่ในร้าน ----
+   จอเหลือร้านเดียว แถบนี้คือคำอธิบายว่าร้านอื่นหายไปไหน และคือทางออกทางเดียว
+   สีเดียวกับ .stop-item.is-locked เพื่อให้อ่านเป็นก้อนเดียวกับการ์ดที่อยู่ใต้มัน */
+.stop-lock-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--info);
+  border-radius: var(--radius-md);
+  background: var(--info-bg);
+}
+.stop-lock-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.stop-lock-text strong { font-size: var(--font-sm); color: var(--info); font-weight: 700; }
+.stop-lock-text span { font-size: var(--font-xs); color: var(--ink-2); }
+/* ปุ่มออกจากร้าน: จางไว้ก่อน แล้วเปลี่ยนเป็นสีเตือนหลังกดครั้งแรก
+   คนขับต้องเห็นว่าการกดครั้งแรก "ติด" แล้ว ไม่ใช่เดาว่าปุ่มเสีย */
+.stop-lock-bar .btn { flex: none; min-height: 40px; }
+.stop-lock-bar .btn.is-armed { color: var(--warn); background: var(--warn-bg); font-weight: 700; }
+/* การ์ดร้านที่กำลังทำ — ขอบหนาขึ้นหนึ่งขั้น กางค้าง ยุบไม่ได้ */
+.stop-item.is-locked { border-color: var(--info); box-shadow: var(--sh-1); }
+.stop-item.is-locked .stop-item-head { cursor: default; opacity: 1; }
+
 .stop-item-move { display: flex; align-items: center; gap: var(--space-2); }
 .stop-item-move-label { font-size: var(--font-sm); color: var(--faint); margin-right: auto; }
 
@@ -2986,6 +3009,65 @@
   font-size: var(--font-xs);
   color: var(--text-muted);
 }
+
+/* ตัวบอกว่าอยู่ขั้นไหนใน 2 ขั้น — ฟอร์มที่เด้งเป็นหน้าที่สองโดยไม่บอกว่ามีสองหน้า
+   ทำให้คนคิดว่าเพิ่งบันทึกพลาดแล้วโดนเด้งกลับ */
+.pod-steps {
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+  font-size: var(--font-xs);
+  font-weight: 650;
+}
+.pod-steps span {
+  flex: 1;
+  text-align: center;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--faint);
+}
+.pod-steps span.is-now { background: var(--info-bg); border-color: var(--info); color: var(--info); }
+.pod-steps span.is-done { background: var(--ok-bg, var(--surface-2)); border-color: var(--ok); color: var(--ok); }
+
+/* ทับทั้งแผ่นระหว่างบันทึก — กันกดซ้ำ ซึ่งบนหน้ารูปแปลว่าอัปทั้งกองใหม่อีกรอบ
+   และตอบคำถามเดียวที่คนถามตอนนั้น: มันค้างหรือมันกำลังทำงาน */
+.pod-veil {
+  /* fixed ไม่ใช่ absolute — เนื้อในแผ่นเป็นตัวเลื่อน ม่านที่ absolute จะเลื่อนตาม
+     แล้วเปิดปุ่มท้ายแผ่นให้กดซ้ำได้ ทั้งที่นั่นคือปุ่มเดียวที่ต้องกันไว้
+     สูงกว่า modal-overlay (200) เพราะต้องทับแผ่นทั้งใบ รวมปุ่มที่ตรึงท้ายจอ */
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  text-align: center;
+}
+.pod-veil .spin { font-size: 26px; color: var(--brand); }
+.pod-veil b { font-size: var(--font-base); font-weight: 700; color: var(--ink); }
+.pod-veil span:last-child { font-size: var(--font-sm); color: var(--muted); }
+
+/* ทางออกของคนที่กดปิดส่งผิดร้าน — จางและเต็มความกว้าง อยู่เหนือฟอร์ม
+   ไม่ใช่ปุ่มทึบข้างปุ่มเดินหน้า ซึ่งจะกลายเป็นปุ่มถัดไปที่ถูกกดผิด */
+.pod-undo {
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: var(--space-3);
+  background: none;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pod-undo:hover:not(:disabled) { color: var(--warn); border-color: var(--warn); }
+.pod-undo:disabled { opacity: .5; cursor: default; }
 
 /* หัวข้อย่อยแบบบรรทัดเดียว แทน Field ที่กินความสูงกว่าเท่าตัวด้วย label + hint */
 .pod-row-head {

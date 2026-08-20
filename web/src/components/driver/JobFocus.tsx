@@ -6,8 +6,30 @@ import { TRIP_STATUS_LABEL } from '../../utils/constants'
 import { groupStops, jobTripNo, type StopGroup } from '../../utils/stops'
 import type { MyJob, MyJobOrder } from '../../types'
 
+/* ร้านที่กำลังทำอยู่ต้องรอดจากการกลับมาจากกล้อง แอปถูกระบบเด้งทิ้ง หรือกดโหลดใหม่
+   sessionStorage พอ — ล็อกเป็นของ "รอบการใช้งานนี้" ไม่ใช่ของถาวรที่ต้องมาไล่ล้าง
+   ทุก access ห่อ try ไว้ เพราะเบราว์เซอร์บางตัวโยน error ตอนปิดที่เก็บของเว็บ */
+function lockSlot(jobId: number): string {
+  return `driver:stoplock:${jobId}`
+}
+function readLock(jobId: number): string | null {
+  try {
+    return sessionStorage.getItem(lockSlot(jobId))
+  } catch {
+    return null
+  }
+}
+function writeLock(jobId: number, key: string | null): void {
+  try {
+    if (key) sessionStorage.setItem(lockSlot(jobId), key)
+    else sessionStorage.removeItem(lockSlot(jobId))
+  } catch {
+    /* ล็อกที่จำไม่ได้ ยังล็อกได้ในหน่วยความจำ ไม่ใช่เหตุให้จอพัง */
+  }
+}
+
 /**
- * งานหนึ่งเที่ยว — รายการจุดส่งทั้งเที่ยวอยู่บนจอเสมอ
+ * งานหนึ่งเที่ยว — รายการจุดส่งทั้งเที่ยวอยู่บนจอเสมอ จนกว่าจะเข้าร้าน
  *
  * ลำดับจริงไม่เดินตามเอกสาร คนขับแวะร้าน 2 ก่อนร้าน 1 ได้ทุกวัน โครงที่โชว์
  * "จุดปัจจุบัน" จุดเดียวแล้วซ่อนที่เหลือไว้ จึงบังคับให้กดเพิ่มทุกครั้งที่สลับจุด
@@ -16,6 +38,15 @@ import type { MyJob, MyJobOrder } from '../../types'
  * โครงนี้เป็นรายการล้วน: ทุกจุดเห็นพร้อมกัน จุดที่ทำอยู่กางอยู่กับที่ในลำดับของมัน
  * แตะจุดไหนก็กางจุดนั้นแทน ปุ่มของจุด (ปิดจุด/เก็บหลักฐาน) อยู่ในจุดนั้น
  * ล่างจอสงวนไว้ให้คำสั่งของทั้งเที่ยวเท่านั้น — รับงาน เริ่มเดินทาง ปิดงาน
+ *
+ * จนถึงตอนที่รถจอดหน้าร้าน — ตรงนั้นรายการกลายเป็นความเสี่ยง ไม่ใช่ความสะดวก
+ * คนขับถือของอยู่เต็มมือ มองจอแวบเดียวแล้วกด ร้านข้างเคียงในรายการอยู่ห่างกัน
+ * ไม่กี่มิลลิเมตร กดปิดผิดร้านจึงเกิดจริงและแก้ยากเมื่อมีลายเซ็นไปแล้ว
+ *
+ * ทางแก้: กด "ถึงร้านนี้แล้ว" เพื่อ *เข้า* ร้าน จอเหลือร้านเดียวจนกว่าร้านนั้น
+ * จะปิดจุดและเก็บหลักฐานครบ แล้วจึงปลดเองกลับไปเป็นรายการ ระหว่างนั้นปุ่มปิดจุด
+ * มีอยู่ปุ่มเดียวบนจอทั้งจอ และเป็นของร้านที่คนขับยืนอยู่หน้าร้านแน่ ๆ
+ * ออกก่อนกำหนดได้ (ของไม่ครบ ร้านปิด) แต่ต้องกดสองครั้ง ไม่ใช่ปัดผ่าน
  *
  * หนึ่งจุด = หนึ่งร้าน ใบเบิกหลายใบของร้านเดียวถูกยุบเข้าด้วยกัน (ดู utils/stops)
  */
@@ -55,19 +86,44 @@ export function JobFocus({
   const stops = useMemo(() => groupStops(job.orders), [job.orders])
   const firstPending = stops.find((s) => !s.done && !s.cancelled)
   const [openKey, setOpenKey] = useState<string | null>(firstPending?.key ?? stops[0]?.key ?? null)
+  /* ร้านที่คนขับ "เข้าไปทำ" อยู่ตอนนี้ — ระหว่างล็อก จอเหลือร้านเดียว
+     กลับมาจากกล้อง/แผนที่/แอปปิดเอง ต้องอยู่ที่ร้านเดิม จึงจำไว้ที่ sessionStorage */
+  const [lockedKey, setLockedKey] = useState<string | null>(() => readLock(job.id))
+  /* ปุ่มเปลี่ยนร้านต้องกดสองครั้ง — ครั้งเดียวก็คือปุ่มออกที่กดพลาดได้เหมือนเดิม */
+  const [confirmSwitch, setConfirmSwitch] = useState(false)
 
   // สลับเที่ยวแล้วต้องกลับไปกางจุดถัดไปของเที่ยวใหม่ ไม่ใช่ค้างที่จุดของเที่ยวเก่า
   useEffect(() => {
     const list = groupStops(job.orders)
     setOpenKey(list.find((s) => !s.done && !s.cancelled)?.key ?? list[0]?.key ?? null)
+    setLockedKey(readLock(job.id))
+    setConfirmSwitch(false)
   }, [job.id])
 
-  /* ปิดจุดที่กางอยู่แล้ว ให้เด้งไปกางจุดถัดไปเอง — จังหวะที่คนขับต้องการต่อคือจุดต่อไป
-     ไม่ใช่นั่งดูจุดที่เพิ่งปิด (ยกเว้นยังไม่ได้เก็บหลักฐาน ซึ่งปุ่มยังอยู่ในจุดนั้น) */
   useEffect(() => {
+    writeLock(job.id, lockedKey)
+  }, [job.id, lockedKey])
+
+  /* ปิดจุดที่กางอยู่แล้ว ให้เด้งไปกางจุดถัดไปเอง — จังหวะที่คนขับต้องการต่อคือจุดต่อไป
+     ไม่ใช่นั่งดูจุดที่เพิ่งปิด (ยกเว้นยังไม่ได้เก็บหลักฐาน ซึ่งปุ่มยังอยู่ในจุดนั้น)
+     ระหว่างล็อกไม่เด้ง — จอต้องนิ่งอยู่ที่ร้านเดิมจนกว่าร้านนั้นจะจบจริง */
+  useEffect(() => {
+    if (lockedKey) return
     const open = stops.find((s) => s.key === openKey)
     if (open && open.done && open.needPod.length === 0 && firstPending) setOpenKey(firstPending.key)
-  }, [stops, openKey])
+  }, [stops, openKey, lockedKey])
+
+  /* ร้านที่ล็อกไว้จบแล้ว (ปิดจุด + เก็บหลักฐานครบ) หรือหายไปจากเที่ยว → ปลดเอง
+     แล้วพาไปกางร้านถัดไป คนขับไม่ต้องกดออกจากโหมดล็อกด้วยตัวเอง */
+  const lockedStop = lockedKey ? stops.find((s) => s.key === lockedKey) : undefined
+  useEffect(() => {
+    if (!lockedKey) return
+    const done = !lockedStop || lockedStop.cancelled || (lockedStop.done && lockedStop.needPod.length === 0)
+    if (!done) return
+    setLockedKey(null)
+    setConfirmSwitch(false)
+    setOpenKey(stops.find((s) => !s.done && !s.cancelled)?.key ?? lockedKey)
+  }, [stops, lockedKey, lockedStop])
 
   const delivered = stops.filter((s) => s.done).length
   const active = job.status !== 'completed' && job.status !== 'cancelled'
@@ -78,12 +134,22 @@ export function JobFocus({
   /* ปิดเที่ยวได้เฉพาะคนขับหลัก — ผู้ช่วยยังปิดจุดส่งและเก็บ POD ได้ตามปกติ
      ฐานปฏิเสธอยู่แล้ว ตรงนี้คือไม่แสดงปุ่มที่กดแล้วขึ้น error เป็นอย่างเดียว */
   const canClose = job.is_primary !== false
-  /* จัดลำดับได้เฉพาะงานที่รับแล้วและยังไม่จบ — ลำดับของงานที่จบไปแล้วคือประวัติ */
-  const canReorder = onReorder !== undefined && canProgress && active && !waiting
+  /* จัดลำดับได้เฉพาะงานที่รับแล้วและยังไม่จบ — ลำดับของงานที่จบไปแล้วคือประวัติ
+     และเฉพาะตอนไม่ได้อยู่ในร้าน: เห็นร้านเดียวแล้วสลับลำดับไม่มีความหมาย */
+  const canReorder = onReorder !== undefined && canProgress && active && !waiting && !lockedKey
   /* จุดส่งเปิดทำงานได้ต่อเมื่อรับงานแล้วและออกรถแล้ว — ก่อนหน้านั้นดูได้อย่างเดียว
      ไม่งั้นคนขับกดปิดจุดได้ทั้งที่ยังไม่ได้ออกจากคลัง */
   const stopsLive = canProgress && active && !waiting && job.status !== 'planned'
   const crew = job.driver_count ?? 1
+
+  /* เที่ยวถูกดึงกลับไปเป็นสถานะที่กดอะไรไม่ได้ (ถูกยกเลิก ปิดไปแล้ว ถอนรับงาน)
+     ล็อกที่ค้างอยู่ต้องหลุด ไม่งั้นคนขับเห็นร้านเดียวและไม่มีทางกลับไปที่รายการ */
+  useEffect(() => {
+    if (!stopsLive && lockedKey) {
+      setLockedKey(null)
+      setConfirmSwitch(false)
+    }
+  }, [stopsLive, lockedKey])
 
   /* สลับตำแหน่งทั้งร้าน ไม่ใช่ทีละใบ — ใบของร้านเดียวกันต้องติดกันเสมอ
      ไม่งั้นลำดับที่บันทึกกลับไปจะแยกร้านออกจากกันอีกรอบ */
@@ -189,29 +255,82 @@ export function JobFocus({
       )}
       {job.issue_note && <p className="job-alert is-warn">แจ้งปัญหาไว้: {job.issue_note}</p>}
 
+      {/* อยู่ในร้าน — บอกให้ชัดว่าทำไมร้านอื่นหายไปจากจอ ไม่ใช่ปล่อยให้คิดว่าแอปเจ๊ง
+          และทางออกอยู่ตรงนี้ที่เดียว กดสองครั้ง */}
+      {lockedStop && (
+        <div className="stop-lock-bar">
+          <span className="stop-lock-text">
+            <strong>กำลังส่งที่ {lockedStop.customer_name ?? lockedStop.destination}</strong>
+            <span>ร้านอื่นถูกซ่อนไว้จนกว่าร้านนี้จะเสร็จ</span>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={confirmSwitch ? 'is-armed' : ''}
+            onClick={() => {
+              if (!confirmSwitch) {
+                setConfirmSwitch(true)
+                return
+              }
+              setLockedKey(null)
+              setConfirmSwitch(false)
+            }}
+          >
+            {confirmSwitch ? 'แตะอีกครั้งเพื่อออก' : 'เปลี่ยนร้าน'}
+          </Button>
+        </div>
+      )}
+
       {stops.length === 0 ? (
         <p className="job-sub">เที่ยวนี้ยังไม่มีจุดส่ง</p>
       ) : (
-        <ol className="stop-list" aria-label="จุดส่งในเที่ยวนี้">
-          {stops.map((s, i) => (
-            <StopItem
-              key={s.key}
-              stop={s}
-              index={i + 1}
-              open={s.key === openKey}
-              busy={deliveringKey === s.key}
-              canProgress={stopsLive}
-              canPod={canPod}
-              onOpen={() => setOpenKey(s.key === openKey ? null : s.key)}
-              onPod={onPod}
-              onViewPod={onViewPod}
-              onDeliver={onDeliver}
-              onUndoDeliver={onUndoDeliver}
-              onMove={canReorder ? move : undefined}
-              canMoveUp={i > 0}
-              canMoveDown={i < stops.length - 1}
-            />
-          ))}
+        <ol className="stop-list" aria-label={lockedStop ? 'ร้านที่กำลังส่ง' : 'จุดส่งในเที่ยวนี้'}>
+          {stops.map((s, i) =>
+            /* ระหว่างล็อก ร้านอื่นไม่ได้แค่ถูกย่อ แต่ไม่อยู่บนจอเลย — ปุ่มปิดจุดที่กดผิดได้
+               ต้องไม่มีอยู่ให้กด การซ่อนแค่ทางสายตายังโดนนิ้วโป้งอยู่ดี */
+            lockedKey && s.key !== lockedKey ? null : (
+              <StopItem
+                key={s.key}
+                stop={s}
+                index={i + 1}
+                open={lockedKey ? true : s.key === openKey}
+                busy={deliveringKey === s.key}
+                canProgress={stopsLive}
+                canPod={canPod}
+                locked={lockedKey === s.key}
+                onOpen={() => {
+                  if (lockedKey) return
+                  setOpenKey(s.key === openKey ? null : s.key)
+                }}
+                onEnter={
+                  stopsLive && !lockedKey
+                    ? () => {
+                        setLockedKey(s.key)
+                        setOpenKey(s.key)
+                        setConfirmSwitch(false)
+                      }
+                    : undefined
+                }
+                onPod={onPod}
+                onViewPod={onViewPod}
+                onDeliver={onDeliver}
+                /* ถอนการส่ง = ยอมรับว่าไม่ได้อยู่ที่ร้านนี้ ปล่อยล็อกทันที
+                   ไม่งั้นคนขับที่เพิ่งถอยยังติดอยู่ในร้านที่เขาบอกเองว่ากดผิด */
+                onUndoDeliver={
+                  onUndoDeliver
+                    ? (target) => {
+                        setLockedKey(null)
+                        setConfirmSwitch(false)
+                        onUndoDeliver(target)
+                      }
+                    : undefined
+                }
+                onMove={canReorder ? move : undefined}
+                canMoveUp={i > 0}
+                canMoveDown={i < stops.length - 1}
+              />
+            ),
+          )}
         </ol>
       )}
 
