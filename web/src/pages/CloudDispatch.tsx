@@ -277,7 +277,7 @@ export default function CloudDispatch(): React.JSX.Element {
                 onStart={t.status === 'planned'
                   ? () => void act(t.id, () => startTrip(t.id), `เริ่มเที่ยว ${tripNo(t)} — สถานะออเดอร์เป็นกำลังขนส่ง`)
                   : undefined}
-                onComplete={t.status === 'in_progress'
+                onComplete={(t.status === 'in_progress' || t.status === 'returning')
                   ? () => void act(t.id, () => completeTrip(t.id), `เที่ยว ${tripNo(t)} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)
                   : undefined}
                 onCancel={() => setCancelling(t)}
@@ -518,7 +518,7 @@ function TripCard({
             <IconCheck size={14} /> เริ่มเที่ยว
           </Button>
         )}
-        {canEdit && trip.status === 'in_progress' && onComplete && (
+        {canEdit && (trip.status === 'in_progress' || trip.status === 'returning') && onComplete && (
           <Button variant="success" size="sm" onClick={onComplete} loading={busy}>
             <IconCheck size={14} /> เสร็จสิ้น
           </Button>

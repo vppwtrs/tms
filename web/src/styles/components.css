@@ -2264,7 +2264,8 @@
 }
 /* แถบสีซ้าย = สถานะเที่ยว อ่านได้จากหางตาโดยไม่ต้องอ่านป้าย */
 .job-card.status-planned { border-left-color: var(--info); }
-.job-card.status-in_progress { border-left-color: var(--warning); }
+.job-card.status-in_progress,
+.job-card.status-returning { border-left-color: var(--warning); }
 .job-card.status-completed { border-left-color: var(--success); }
 .job-card.status-cancelled { border-left-color: var(--danger); }
 
@@ -2581,7 +2582,9 @@
   gap: var(--space-4);
 }
 .job-focus.status-planned { border-left-color: var(--info); }
-.job-focus.status-in_progress { border-left-color: var(--warning); }
+/* ขากลับคลังใช้สีเดียวกับกำลังวิ่ง — งานยังไม่จบ รถยังอยู่ข้างนอก */
+.job-focus.status-in_progress,
+.job-focus.status-returning { border-left-color: var(--warning); }
 .job-focus.status-completed { border-left-color: var(--success); }
 .job-focus.status-cancelled { border-left-color: var(--danger); }
 

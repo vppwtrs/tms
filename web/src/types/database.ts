@@ -10,7 +10,7 @@ export type UserRole = 'admin' | 'dispatcher' | 'viewer' | 'driver'
 export type VehicleType = 'pickup' | 'truck6' | 'truck10' | 'reefer' | 'van'
 export type VehicleStatus = 'available' | 'on_trip' | 'maintenance' | 'inactive'
 export type DriverStatus = 'available' | 'on_trip' | 'off_duty'
-export type TripStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled'
+export type TripStatus = 'planned' | 'in_progress' | 'returning' | 'completed' | 'cancelled'
 export type OrderStatus = 'pending' | 'assigned' | 'in_transit' | 'delivered' | 'cancelled'
 export type OrderPriority = 'normal' | 'urgent'
 export type PodStatus = 'collected' | 'verified'
@@ -104,6 +104,8 @@ export type TripRow = {
   status: TripStatus
   departed_at: string | null
   arrived_at: string | null
+  /* รถกลับถึงคลังจริงเมื่อไหร่ — arrived_at คือตอนปิดงานที่ร้านสุดท้าย คนละอัน */
+  returned_at: string | null
   fuel_cost: number
   toll_cost: number
   other_cost: number
@@ -381,6 +383,7 @@ export interface Database {
     Functions: {
       start_trip: { Args: { p_trip_id: number }; Returns: void }
       deliver_order: { Args: { p_order_id: number }; Returns: void }
+      finish_return: { Args: { p_trip_id: number }; Returns: { trip_id: number; trip_no: string } }
       undo_deliver_order: {
         Args: { p_order_id: number }
         Returns: { order_id: number; order_no: string; pl_no: string | null }

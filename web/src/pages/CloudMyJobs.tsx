@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder, undoDeliverOrder,
+  listMyJobs, reloadJob, startTrip, completeTrip, finishReturn, deliverOrder, undoDeliverOrder,
   savePodWithPhotos, POD_PHOTO_KINDS, type PodPhoto,
   acceptTrip, reportIssue, saveStopOrder,
 } from '../api/myjobs'
@@ -113,7 +113,11 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* บันทึกตำแหน่งเฉพาะเที่ยวที่รับแล้วและยังไม่จบ — นอกช่วงนั้นไม่ใช่เรื่องของระบบนี้ */
   /* ตามตำแหน่งของเที่ยวที่กำลังวิ่ง ไม่ใช่การ์ดที่เผอิญกางอยู่ — คนขับหุบการ์ดแล้ว
      ตำแหน่งต้องไม่หยุดบันทึก งานยังวิ่งอยู่เหมือนเดิม */
-  const tracked = live.find((j) => j.status === 'in_progress' && (j.my_accepted_at ?? j.accepted_at)) ?? null
+  /* ขากลับคลังก็ยังต้องตามตำแหน่ง — เที่ยวยังไม่จบจนกว่ารถจะถึงคลัง
+     ถ้าหยุดตรงร้านสุดท้าย เส้นทางกลับจะหายไปจากระบบทั้งท่อนเหมือนเดิม */
+  const tracked = live.find(
+    (j) => (j.status === 'in_progress' || j.status === 'returning') && (j.my_accepted_at ?? j.accepted_at),
+  ) ?? null
   const tracking = useTripTracking(
     tracked?.id ?? null,
     /* ของ "ฉัน" ไม่ใช่ของเที่ยว — ผู้ช่วยที่ยังไม่กดรับไม่ควรถูกตามตำแหน่ง
@@ -132,7 +136,7 @@ export default function CloudMyJobs(): React.JSX.Element {
       navigator.geolocation.getCurrentPosition(() => resolve(true), () => resolve(false), { timeout: 10_000 })
     })
 
-  const act = async (job: MyJob, action: 'start' | 'complete' | 'accept'): Promise<void> => {
+  const act = async (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish'): Promise<void> => {
     if (action === 'accept' && !(await askLocation())) {
       toast.push('warning',
         'ต้องอนุญาตให้แอปเห็นตำแหน่งก่อนรับงาน — เปิดสิทธิ์ตำแหน่งในเบราว์เซอร์แล้วกดใหม่')
@@ -145,6 +149,7 @@ export default function CloudMyJobs(): React.JSX.Element {
          "เดา" ผลลัพธ์กลับมาเองคือเปิดช่องให้หน้าจอกับฐานข้อมูลไม่ตรงกัน */
       await (action === 'accept' ? acceptTrip(job.id)
         : action === 'start' ? startTrip(job.id)
+        : action === 'finish' ? finishReturn(job.id)
         : completeTrip(job.id))
       const updated = await reloadJob(job.id, showDone)
       setJobs((list) => (updated ? list.map((j) => (j.id === job.id ? updated : j)) : list.filter((j) => j.id !== job.id)))
@@ -519,6 +524,12 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
       toast.push('warning', 'ให้ผู้รับเซ็นก่อน')
       return
     }
+    /* รูปเป็นของบังคับ — ลายเซ็นบอกว่ามีคนเซ็น รูปบอกว่าส่งอะไรไปและสภาพเป็นยังไง
+       ฝั่งฐานปฏิเสธอยู่แล้ว ดักตรงนี้เพื่อไม่ให้คนขับเสียเวลาอัปโหลดแล้วเจอ error */
+    if (shots.length === 0) {
+      toast.push('warning', 'ต้องถ่ายรูปอย่างน้อยหนึ่งรูป')
+      return
+    }
     setSaving(true)
     try {
       /* อัปโหลดรูปขึ้น Storage ก่อน แล้วค่อยบันทึก POD พร้อม path
@@ -565,7 +576,11 @@ function PodSheet({ orders, onClose, onSaved }: { orders: MyJobOrder[]; onClose:
           </Button>
           {/* ปุ่มเดียวที่หน้านี้มีอยู่เพื่อมัน — กินความกว้างที่เหลือทั้งหมด
               และบอกจำนวนใบที่จะถูกบันทึกไปพร้อมกัน ไม่ให้เซอร์ไพรส์ทีหลัง */}
-          <Button onClick={() => void submit()} loading={saving} disabled={!name.trim() || !sig}>
+          <Button
+            onClick={() => void submit()}
+            loading={saving}
+            disabled={!name.trim() || !sig || shots.length === 0}
+          >
             {orders.length > 1 ? `บันทึก ${orders.length} ใบ` : 'บันทึกหลักฐาน'}
           </Button>
         </div>

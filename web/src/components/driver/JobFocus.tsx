@@ -39,7 +39,7 @@ export function JobFocus({
   deliveringKey: string
   canProgress: boolean
   canPod: boolean
-  onAct: (job: MyJob, action: 'start' | 'complete' | 'accept') => void
+  onAct: (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish') => void
   /** เปิดฟอร์มแจ้งปัญหา — แจ้งได้ ไม่ใช่ปฏิเสธงาน งานยังเป็นของคนขับ
    *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
   onReportIssue?: (job: MyJob) => void
@@ -117,6 +117,16 @@ export function JobFocus({
         </>
       )
     }
+    /* ส่งครบแล้วแต่รถยังอยู่ข้างนอก — ปุ่มสุดท้ายคือยืนยันว่ากลับถึงคลังจริง
+       ระหว่างนี้ตำแหน่งยังถูกบันทึกอยู่ และรถยังไม่ถูกนับว่าว่าง */
+    if (job.status === 'returning') {
+      if (!canClose) return <p className="job-cta-hint">กำลังกลับคลัง — รอคนขับหลักกดจบงาน</p>
+      return (
+        <Button size="lg" variant="success" loading={busy} onClick={() => onAct(job, 'finish')}>
+          กลับถึงคลังแล้ว — จบงาน
+        </Button>
+      )
+    }
     if (job.status === 'planned') {
       return (
         <Button size="lg" loading={busy} onClick={() => onAct(job, 'start')}>
@@ -133,7 +143,7 @@ export function JobFocus({
     if (canClose) {
       return (
         <Button size="lg" variant="success" loading={busy} onClick={() => onAct(job, 'complete')}>
-          ส่งครบแล้ว — ปิดงาน
+          ส่งครบแล้ว — ปิดงานที่หน้าร้าน
         </Button>
       )
     }

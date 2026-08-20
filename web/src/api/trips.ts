@@ -61,7 +61,7 @@ export async function getTripDetail(id: number): Promise<TripDetail> {
 /** กระดานจัดรถ — เที่ยวที่ยังไม่จบ แยกเป็นสองคอลัมน์เหมือนหน้าเดิม */
 export async function getTripBoard(): Promise<{ planned: TripRow[]; in_progress: TripRow[] }> {
   const rows = await unwrap(
-    supabase.from('trips').select('*').in('status', ['planned', 'in_progress']).order('id', { ascending: false }),
+    supabase.from('trips').select('*').in('status', ['planned', 'in_progress', 'returning']).order('id', { ascending: false }),
   )
   return {
     planned: rows.filter((t) => t.status === 'planned'),
@@ -118,7 +118,7 @@ export async function getTripBoardDetailed(): Promise<{
 
   const trips: TripRow[] = await unwrap(
     supabase.from('trips').select('*')
-      .or(`status.in.(planned,in_progress),and(status.eq.completed,arrived_at.gte.${from})`)
+      .or(`status.in.(planned,in_progress,returning),and(status.eq.completed,arrived_at.gte.${from})`)
       .order('id', { ascending: false }),
   )
   if (trips.length === 0) return { waiting: [], running: [], done: [] }

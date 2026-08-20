@@ -1,5 +1,5 @@
 export type OrderStatus = 'pending' | 'assigned' | 'in_transit' | 'delivered' | 'cancelled'
-export type TripStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled'
+export type TripStatus = 'planned' | 'in_progress' | 'returning' | 'completed' | 'cancelled'
 export type VehicleStatus = 'available' | 'on_trip' | 'maintenance' | 'inactive'
 export type DriverStatus = 'available' | 'on_trip' | 'off_duty'
 export type Priority = 'normal' | 'urgent'

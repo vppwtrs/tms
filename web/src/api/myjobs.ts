@@ -26,7 +26,7 @@ export async function listMyOrders(tripIds: number[]): Promise<MyOrderRow[]> {
   )
 }
 
-async function rpc(fn: 'start_trip' | 'complete_trip', args: { p_trip_id: number }): Promise<void> {
+async function rpc(fn: 'start_trip' | 'complete_trip' | 'finish_return', args: { p_trip_id: number }): Promise<void> {
   const { error } = await supabase.rpc(fn, args)
   if (error) throw toDataError(error)
 }
@@ -52,6 +52,10 @@ export const startTrip = (tripId: number) => rpc('start_trip', { p_trip_id: trip
 /** ปิดเที่ยว — ฝั่ง DB จะปฏิเสธถ้ายังส่งไม่ครบ ไม่ต้องเช็คซ้ำตรงนี้
  *  (เช็คในหน้าจอไว้เพื่อ disable ปุ่มได้ แต่นั่นเป็นเรื่อง UX ไม่ใช่การป้องกัน) */
 export const completeTrip = (tripId: number) => rpc('complete_trip', { p_trip_id: tripId })
+
+/** รถกลับถึงคลังแล้ว — จบเที่ยวจริง คืนรถกับคนขับให้ว่างตรงนี้
+ *  ไม่ใช่ตอน completeTrip ซึ่งแค่ปิดงานที่ร้านสุดท้าย */
+export const finishReturn = (tripId: number) => rpc('finish_return', { p_trip_id: tripId })
 
 /** ปิดการส่งทีละจุด แล้วเด้งเข้าฟอร์ม POD ต่อ — ตรงกับ POST /api/my-jobs/orders/:id/deliver เดิม */
 export async function deliverOrder(orderId: number): Promise<void> {

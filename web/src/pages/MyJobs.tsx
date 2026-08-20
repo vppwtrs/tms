@@ -129,8 +129,12 @@ export default function MyJobs(): React.JSX.Element {
             canProgress={can('myjobs.progress')}
             canPod={can('myjobs.pod')}
             /* สแตก LAN ไม่มีประตูรับงาน — JobFocus จึงไม่ส่ง 'accept' มาที่นี่
-               (ปุ่มรับงานขึ้นเฉพาะเมื่อมี onReportIssue ซึ่งหน้านี้ไม่ได้ส่งให้) */
-            onAct={(job, action) => { if (action !== 'accept') void act(job, action) }}
+               (ปุ่มรับงานขึ้นเฉพาะเมื่อมี onReportIssue ซึ่งหน้านี้ไม่ได้ส่งให้)
+               'finish' ก็เช่นกัน — ขั้นกลับคลังอยู่ฝั่ง Supabase เท่านั้น
+               เที่ยวฝั่งนี้ไม่มีทางเป็น returning จึงไม่มีทางกดปุ่มนั้นได้ */
+            onAct={(job, action) => {
+              if (action !== 'accept' && action !== 'finish') void act(job, action)
+            }}
             onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
             onDeliver={(stop) => void deliver(stop)}
           />

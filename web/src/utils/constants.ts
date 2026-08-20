@@ -11,6 +11,8 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 export const TRIP_STATUS_LABEL: Record<TripStatus, string> = {
   planned: 'วางแผนแล้ว',
   in_progress: 'กำลังขนส่ง',
+  /* ส่งครบแล้วแต่รถยังอยู่ข้างนอก — ยังไม่ว่าง ยังตามตำแหน่งอยู่ */
+  returning: 'กำลังกลับคลัง',
   completed: 'เสร็จสิ้น',
   cancelled: 'ยกเลิก',
 }
@@ -106,6 +108,7 @@ export const ORDER_TONE: Record<OrderStatus, string> = {
 export const TRIP_TONE: Record<TripStatus, string> = {
   planned: 'planned',
   in_progress: 'in_progress',
+  returning: 'in_progress',
   completed: 'completed',
   cancelled: 'cancelled',
 }
