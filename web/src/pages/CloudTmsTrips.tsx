@@ -88,8 +88,13 @@ function groupByStore(
  * ต้องตรงกับด่านฝั่งฐานใน import_tms_trip
  */
 function confirmedAtTms(status: string | null, statusId: number | null): boolean {
+  /* บันไดของ TMS: 2 Confirm -> 3 Handling -> 4 OnDelivery -> 5 Completed (6 = ยกเลิก)
+     ตัวเลขเป็นลำดับจริง อ่านจากมันก่อนเสมอ ข้อความมาจากระบบคนอื่นซึ่งเพิ่มคำใหม่
+     เมื่อไหร่ก็ได้ — รายชื่อเดิมตกคำว่า handling ไปคำเดียว เที่ยวที่คลังกำลังจัดของ
+     จึงขึ้นว่า "รอ TMS Confirm" ทั้งที่ยืนยันไปแล้ว */
+  if (statusId !== null) return statusId >= 2 && statusId <= 5
   const s = (status ?? '').trim().toLowerCase()
-  return statusId === 5 || ['confirm', 'confirmed', 'ondelivery', 'on delivery',
+  return ['confirm', 'confirmed', 'handling', 'ondelivery', 'on delivery',
     'delivering', 'delivered', 'complete', 'completed'].includes(s)
 }
 
