@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { trackingBoard, tripTrack, type TrackedTrip, type TrackPoint } from '../api/tracking'
@@ -38,9 +38,11 @@ export default function CloudTracking(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const holder = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
+  /* แผนที่พร้อมวาดหรือยัง — ref เปลี่ยนค่าไม่ทำให้ effect วาดหมุดรันใหม่
+     ต้องเป็น state ไม่งั้นแผนที่ที่เพิ่งเกิดจะว่างเปล่าจนกว่าข้อมูลจะเปลี่ยนรอบถัดไป */
+  const [mapReady, setMapReady] = useState(false)
 
   const load = async (): Promise<void> => {
     try {
@@ -64,19 +66,28 @@ export default function CloudTracking(): React.JSX.Element {
     tripTrack(selected).then(setTrack).catch(() => setTrack([]))
   }, [selected, trips])
 
-  // สร้างแผนที่ครั้งเดียว — สร้างใหม่ทุกครั้งที่ข้อมูลเปลี่ยนคือจอกระพริบและเสียตำแหน่งที่คนเลื่อนไว้
-  useEffect(() => {
-    if (map.current || !holder.current) return
-    map.current = L.map(holder.current).setView(HOME, 10)
+  /* สร้างแผนที่ครั้งเดียว ตอนกล่องของมันโผล่มาจริง — สร้างใหม่ทุกครั้งที่ข้อมูลเปลี่ยน
+     คือจอกระพริบและเสียตำแหน่งที่คนเลื่อนไว้
+     ต้องเป็น callback ref ไม่ใช่ useEffect([]) — ตอน mount หน้านี้ยังเป็น Skeleton อยู่
+     กล่องแผนที่ยังไม่เกิด effect จึงหลุดออกไปตั้งแต่บรรทัดแรกแล้วไม่รันอีกเลย
+     ผลคือแผนที่ไม่เคยถูกสร้าง เหลือกรอบขาว ๆ ขณะที่รายการรถข้าง ๆ ขึ้นครบ */
+  const holder = useCallback((node: HTMLDivElement | null) => {
+    if (node === null) {
+      map.current?.remove()
+      map.current = null
+      layer.current = null
+      setMapReady(false)
+      return
+    }
+    if (map.current) return
+    const m = L.map(node).setView(HOME, 10)
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© ผู้ร่วมสร้าง OpenStreetMap',
-    }).addTo(map.current)
-    layer.current = L.layerGroup().addTo(map.current)
-    return () => {
-      map.current?.remove()
-      map.current = null
-    }
+    }).addTo(m)
+    map.current = m
+    layer.current = L.layerGroup().addTo(m)
+    setMapReady(true)
   }, [])
 
   // วาดใหม่เมื่อข้อมูลเปลี่ยน — ล้างเฉพาะชั้นหมุด ไม่แตะแผนที่ข้างล่าง
@@ -141,7 +152,7 @@ export default function CloudTracking(): React.JSX.Element {
     if (seen.length > 0) {
       map.current.fitBounds(L.latLngBounds(seen).pad(0.25), { maxZoom: 14, animate: false })
     }
-  }, [trips, track, selected])
+  }, [trips, track, selected, mapReady])
 
   const withoutSignal = useMemo(() => trips.filter((t) => !t.last_seen).length, [trips])
 
