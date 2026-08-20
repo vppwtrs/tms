@@ -21,10 +21,16 @@ export function CameraCapture({
      โหมดเดิมคือ กดเปิดกล้อง → กดถ่าย → กล้องปิด ซึ่งแปลว่าถ่ายสามมุมต้องกดหกครั้ง
      ทั้งที่คนถ่ายยืนอยู่ที่เดิม ถือของอยู่ และกล้องก็ได้รับอนุญาตไปแล้ว */
   stage = false,
+  stamp,
 }: {
   onCapture: (img: CompressedImage) => void
   disabled?: boolean
   stage?: boolean
+  /* บรรทัดที่จะประทับมุมขวาล่างของรูป (ร้าน วันเวลา พิกัด) — ประทับตอนบีบ
+     รูปที่หลุดออกจากฐานไปแล้วจึงยังบอกได้เองว่าเป็นของงานไหน
+     ส่งเป็นฟังก์ชันได้ และควรส่งแบบนั้นเมื่อมีเวลาอยู่ในนั้น — ค่าที่คำนวณตอน render
+     คือเวลาที่เปิดหน้า ไม่ใช่เวลาที่กดชัตเตอร์ ซึ่งห่างกันได้ทั้งชั่วโมง */
+  stamp?: string[] | (() => string[])
 }): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -114,12 +120,15 @@ export function CameraCapture({
     }
   }
 
+  /** ข้อความประทับ ณ วินาทีที่กดชัตเตอร์ ไม่ใช่ตอนเปิดหน้า */
+  const stampNow = (): string[] | undefined => (typeof stamp === 'function' ? stamp() : stamp)
+
   const shoot = async (): Promise<void> => {
     const video = videoRef.current
     if (!video) return
     setBusy(true)
     try {
-      const img = await compressToJpeg(video, video.videoWidth, video.videoHeight)
+      const img = await compressToJpeg(video, video.videoWidth, video.videoHeight, stampNow())
       /* โหมดกล้องค้าง: สตรีมอยู่ต่อ ถ่ายมุมถัดไปได้ทันทีโดยไม่ต้องขออนุญาตใหม่
          โหมดเดิม: ปิดกล้องแล้วกลับไปเป็นปุ่ม เพราะจอนั้นรับรูปเดียว */
       if (stage) {
@@ -140,7 +149,7 @@ export function CameraCapture({
     if (!file) return
     setBusy(true)
     try {
-      onCapture(await compressFile(file))
+      onCapture(await compressFile(file, stampNow()))
     } catch (e) {
       setProblem((e as Error).message)
     } finally {

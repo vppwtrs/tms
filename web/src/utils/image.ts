@@ -34,8 +34,46 @@ export interface CompressedImage {
   bytes: number
 }
 
-/** ย่อ+บีบ canvas หรือรูปที่โหลดแล้ว ให้กลายเป็น JPEG ขนาดพอดีส่ง */
-export async function compressToJpeg(source: CanvasImageSource, srcW: number, srcH: number): Promise<CompressedImage> {
+/**
+ * ประทับข้อความมุมขวาล่างของรูป
+ *
+ * รูปหลักฐานที่หลุดออกจากฐานไปแล้ว (ส่งไลน์ให้ลูกค้า แนบอีเมล เปิดจากโฟลเดอร์สำรอง
+ * ในอีกสามปี) ไม่มีอะไรติดไปด้วยเลยว่าเป็นของร้านไหน วันไหน ถ่ายที่พิกัดไหน
+ * ข้อมูลนั้นอยู่ในแถวของฐาน ซึ่งคนที่เปิดรูปตอนมีข้อโต้แย้งมักไม่มีสิทธิ์เข้าถึง
+ *
+ * วาดทับตอนบีบ ไม่ใช่ตอนแสดงผล — สิ่งที่แปะทีหลังบนหน้าจอ ไม่ติดไปกับไฟล์
+ */
+function stampCorner(ctx: CanvasRenderingContext2D, w: number, h: number, lines: string[]): void {
+  /* ขนาดตัวอักษรผูกกับความกว้างของรูป ไม่ใช่ค่าคงที่ — รูปถูกย่อมาแล้วหลายขนาด
+     ค่าคงที่จะใหญ่เกินบนรูปเล็กและเล็กจนอ่านไม่ออกบนรูปใหญ่ */
+  const size = Math.max(11, Math.round(w * 0.026))
+  const pad = Math.round(size * 0.6)
+  const lh = Math.round(size * 1.32)
+  ctx.font = `600 ${size}px ui-sans-serif, system-ui, sans-serif`
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'alphabetic'
+
+  const boxW = Math.max(...lines.map((t) => ctx.measureText(t).width)) + pad * 2
+  const boxH = lh * lines.length + pad
+  const x = w - pad
+  const top = h - boxH - pad
+
+  /* แถบดำโปร่ง — ตัวหนังสือขาวล้วนอ่านไม่ออกบนรูปหน้าร้านกลางแดด
+     และเงาตัวอักษรอย่างเดียวยังแพ้พื้นหลังลายจัด */
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.46)'
+  ctx.fillRect(w - boxW - pad, top, boxW, boxH)
+  ctx.fillStyle = '#fff'
+  lines.forEach((text, i) => ctx.fillText(text, x, top + lh * (i + 1) - Math.round(lh * 0.25)))
+}
+
+/** ย่อ+บีบ canvas หรือรูปที่โหลดแล้ว ให้กลายเป็น JPEG ขนาดพอดีส่ง
+ *  `stamp` = บรรทัดที่จะประทับมุมขวาล่าง (ร้าน วันเวลา พิกัด) */
+export async function compressToJpeg(
+  source: CanvasImageSource,
+  srcW: number,
+  srcH: number,
+  stamp?: string[],
+): Promise<CompressedImage> {
   const scale = Math.min(1, MAX_EDGE / Math.max(srcW, srcH))
   const width = Math.round(srcW * scale)
   const height = Math.round(srcH * scale)
@@ -46,6 +84,7 @@ export async function compressToJpeg(source: CanvasImageSource, srcW: number, sr
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('เบราว์เซอร์นี้ไม่รองรับการประมวลผลรูป')
   ctx.drawImage(source, 0, 0, width, height)
+  if (stamp && stamp.length > 0) stampCorner(ctx, width, height, stamp)
 
   /* ถามด้วยการลองจริง ไม่ใช่เช็ครุ่นเบราว์เซอร์ — ตัวที่เข้ารหัส WebP ไม่ได้จะคืน
      PNG กลับมาเงียบ ๆ (ไม่ error) ซึ่งใหญ่กว่า JPEG หลายเท่า ต้องดูชนิดที่ได้จริง */
@@ -64,10 +103,10 @@ export async function compressToJpeg(source: CanvasImageSource, srcW: number, sr
 }
 
 /** สำหรับรูปที่ได้จาก <input type="file"> (ทางสำรองเมื่อกล้องในหน้าเว็บใช้ไม่ได้) */
-export async function compressFile(file: File): Promise<CompressedImage> {
+export async function compressFile(file: File, stamp?: string[]): Promise<CompressedImage> {
   const bitmap = await createImageBitmap(file)
   try {
-    return await compressToJpeg(bitmap, bitmap.width, bitmap.height)
+    return await compressToJpeg(bitmap, bitmap.width, bitmap.height, stamp)
   } finally {
     bitmap.close()
   }

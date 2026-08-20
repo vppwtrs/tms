@@ -584,6 +584,18 @@ export default function CloudMyJobs(): React.JSX.Element {
 const podKindLabel = (kind: string): string =>
   POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? kind
 
+/* สามมุมที่ต้องมีทุกครั้ง เรียงตามลำดับที่มันเกิดขึ้นจริงหน้าร้าน —
+   ยกของลง (สินค้า) ยืนถอยออกมา (หน้าร้าน) ยื่นเอกสารให้เซ็น (ใบเซ็นรับ)
+   ลำดับนี้ไม่ใช่ความชอบ มันคือทางเดินของคนถือของ การให้เลือกเองทุกครั้ง
+   แปลว่าต้องคิดเรื่องลำดับใหม่ที่ร้านที่ห้าสิบของสัปดาห์ */
+const POD_STEPS = [
+  { kind: 'goods', hint: 'ให้เห็นของทั้งกองที่ยกลงจากรถ' },
+  { kind: 'shopfront', hint: 'ให้เห็นป้ายชื่อร้านหรือหน้าอาคาร' },
+  { kind: 'document', hint: 'ให้อ่านเลขที่ใบและลายเซ็นออก' },
+] as const
+
+const podStepHint = (kind: string): string => POD_STEPS.find((s) => s.kind === kind)?.hint ?? ''
+
 /**
  * เก็บ POD จากในรถ — ลายเซ็น + ชื่อผู้รับ + รูปหน้างาน + พิกัด ครบในครั้งเดียว
  *
@@ -616,9 +628,41 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
   /* หลายมุมต่อหนึ่งใบ — ข้อโต้แย้งเรื่องการส่งของถามหลายอย่างพร้อมกัน
      ของที่ส่ง สภาพหน้าร้าน และใบเซ็นรับ รูปเดียวตอบได้ข้อเดียว */
   const [shots, setShots] = useState<{ img: CompressedImage; kind: string }[]>([])
-  const [kind, setKind] = useState<string>(POD_PHOTO_KINDS[0].kind)
+  const [kind, setKind] = useState<string>(POD_STEPS[0].kind)
+  /* ถ่ายมุมที่ขาดไม่ได้จริง ๆ (ร้านไม่มีป้าย ไม่มีใบให้เซ็น) — เปิดทางออกไว้
+     แต่ต้องกดเอง ไม่ใช่ปล่อยผ่านเงียบ ๆ ทุกครั้งที่ขี้เกียจถ่าย */
+  const [relaxed, setRelaxed] = useState(false)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const taken = new Set(shots.map((s) => s.kind))
+  const missing = POD_STEPS.filter((s) => !taken.has(s.kind)).map((s) => s.kind)
+  const stepNo = POD_STEPS.length - missing.length + 1
+
+  /* ประทับมุมขวาล่างของรูปทุกใบ — ร้าน วันเวลา พิกัด
+     เป็นฟังก์ชันเพราะเวลาต้องเป็นวินาทีที่กดชัตเตอร์ ไม่ใช่วินาทีที่เปิดฟอร์ม */
+  const stampLines = (): string[] => {
+    const lines = [order.customer_name ?? order.destination, new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })]
+    if (coords) lines.push(`${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`)
+    return lines
+  }
+
+  /* ถ่ายเสร็จแล้วเลื่อนไปมุมถัดไปที่ยังขาดเอง — คนขับถือของอยู่ ไม่ควรต้องกลับมา
+     กดชิปเปลี่ยนมุมเองทุกใบ ครบสามมุมแล้วค้างไว้ที่ "อื่น ๆ" สำหรับรูปเสริม */
+  const capture = (img: CompressedImage): void => {
+    const next = [...shots, { img, kind }]
+    setShots(next)
+    const have = new Set(next.map((s) => s.kind))
+    const left = POD_STEPS.filter((s) => !have.has(s.kind))
+    const nextKind = left[0]?.kind ?? 'other'
+    setKind(nextKind)
+    toast.push(
+      'success',
+      left.length > 0
+        ? `เก็บ${podKindLabel(kind)}แล้ว — ต่อไปถ่าย${podKindLabel(nextKind)}`
+        : 'ครบทั้งสามมุมแล้ว — บันทึกได้เลย',
+    )
+  }
 
   // ปล่อย object URL ของรูปเมื่อปิดฟอร์ม — ไม่งั้นค้างใน memory ทั้งวัน
   useEffect(() => () => { shots.forEach((s) => URL.revokeObjectURL(s.img.url)) }, [shots])
@@ -645,6 +689,10 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
        ฝั่งฐานปฏิเสธอยู่แล้ว ดักตรงนี้เพื่อไม่ให้คนขับเสียเวลาอัปโหลดแล้วเจอ error */
     if (shots.length === 0) {
       toast.push('warning', 'ต้องถ่ายรูปอย่างน้อยหนึ่งรูป')
+      return
+    }
+    if (missing.length > 0 && !relaxed) {
+      toast.push('warning', `ยังขาด ${missing.map((k) => podKindLabel(k)).join(' และ ')}`)
       return
     }
     setSaving(true)
@@ -772,8 +820,12 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
           <Button variant="ghost" onClick={onClose} disabled={saving}>
             ปิดไว้ก่อน
           </Button>
-          <Button onClick={() => void submitPhotos()} loading={saving} disabled={!name.trim() || shots.length === 0}>
-            บันทึกรูป — ไปหน้าลายเซ็น
+          <Button
+            onClick={() => void submitPhotos()}
+            loading={saving}
+            disabled={!name.trim() || shots.length === 0 || (missing.length > 0 && !relaxed)}
+          >
+            {missing.length > 0 && !relaxed ? `ยังขาด ${missing.length} มุม` : 'บันทึกรูป — ไปหน้าลายเซ็น'}
           </Button>
         </div>
       }
@@ -791,8 +843,25 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
         <span>{coords ? `แนบพิกัดแล้ว · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'ไม่ได้พิกัด — บันทึกได้ตามปกติ'}</span>
       </div>
 
+      {/* คำสั่งเดียวบนจอ ตัวใหญ่ อ่านจบในแวบเดียว — คนขับไม่ได้มาอ่านฟอร์ม
+          เขามาถ่ายรูปสามใบแล้วไปต่อ บอกไปเลยว่าตอนนี้ต้องเล็งอะไร */}
+      <div className={`pod-guide${missing.length === 0 ? ' is-done' : ''}`} role="status" aria-live="polite">
+        {missing.length === 0 ? (
+          <>
+            <b>ครบทั้งสามมุมแล้ว</b>
+            <span>ถ่ายเพิ่มได้ถ้าต้องการ หรือกดบันทึกไปหน้าลายเซ็น</span>
+          </>
+        ) : (
+          <>
+            <b>ขั้นที่ {stepNo} จาก {POD_STEPS.length} · ถ่าย{podKindLabel(kind)}</b>
+            <span>{podStepHint(kind) || 'รูปเสริมของร้านนี้'}</span>
+          </>
+        )}
+      </div>
+
       {/* มุมของรูปที่กำลังจะถ่าย — อยู่เหนือช่องมองภาพ เพราะเป็นสิ่งที่ตอบก่อนกดชัตเตอร์
-          เป็นชิปเพราะคนขับต้องเห็นพร้อมกันว่าเหลือมุมไหนยังไม่ได้ถ่าย */}
+          ปกติไม่ต้องแตะเลย ระบบเลื่อนให้เองหลังถ่ายแต่ละใบ มีไว้ให้ข้ามหรือย้อน
+          เมื่อหน้างานไม่เดินตามลำดับ เช่นเจ้าของร้านยื่นใบให้เซ็นตั้งแต่ยังไม่ยกของลง */}
       <div className="pod-kinds" role="group" aria-label="มุมของรูปที่กำลังจะถ่าย">
         {POD_PHOTO_KINDS.map((k) => {
           const n = shots.filter((sh) => sh.kind === k.kind).length
@@ -814,12 +883,12 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
 
       {/* ช่องมองภาพเปิดเองตั้งแต่เข้าหน้า และไม่ปิดหลังถ่าย — จอนี้คือกล้อง
           ไม่ใช่ฟอร์มที่มีปุ่มเปิดกล้องอยู่ข้างใน */}
-      <CameraCapture stage onCapture={(img) => setShots([...shots, { img, kind }])} disabled={saving} />
+      <CameraCapture stage onCapture={capture} disabled={saving} stamp={stampLines} />
 
       {/* ฟิล์มรูปที่ถ่ายแล้ว เรียงแนวนอนใต้กล้อง เห็นทันทีว่าถ่ายอะไรไปบ้าง ลบได้ทีละใบ */}
       <div className="pod-strip">
         {shots.length === 0 ? (
-          <p className="pod-strip-empty">ยังไม่มีรูป — ต้องมีอย่างน้อย 1 รูปถึงจะไปหน้าลายเซ็นได้</p>
+          <p className="pod-strip-empty">ยังไม่มีรูป — ต้องถ่ายให้ครบสามมุมถึงจะไปหน้าลายเซ็นได้</p>
         ) : (
           shots.map((shot, i) => (
             <div className="pod-shot" key={shot.img.url}>
@@ -839,6 +908,23 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
           ))
         )}
       </div>
+
+      {/* ร้านที่ไม่มีป้ายชื่อ หรือไม่มีใบให้เซ็นสักใบ มีจริง — บังคับแบบไม่มีทางออก
+          แปลว่าคนขับจะถ่ายพื้นถนนมาให้ครบจำนวนแทน ซึ่งแย่กว่าการรู้ว่าขาดมุมไหน
+          กดแล้วบันทึกได้ทันที และมุมที่ขาดยังขาดอยู่ในฐานตามจริง */}
+      {missing.length > 0 && shots.length > 0 && (
+        relaxed ? (
+          <p className="pod-relaxed">
+            จะบันทึกโดยไม่มี{missing.map((k) => podKindLabel(k)).join(' และ ')}
+            {' '}
+            <button type="button" onClick={() => setRelaxed(false)}>ยกเลิก</button>
+          </p>
+        ) : (
+          <button type="button" className="pod-relax" onClick={() => setRelaxed(true)} disabled={saving}>
+            ถ่าย{missing.map((k) => podKindLabel(k)).join('/')}ไม่ได้ — บันทึกเท่าที่ถ่ายได้
+          </button>
+        )
+      )}
 
       {/* ของที่พิมพ์ อยู่ใต้ของที่ถ่าย — ชื่อผู้รับเติมมาจากชื่อลูกค้าให้แล้ว
           ส่วนใหญ่ไม่ต้องแตะเลย จึงไม่ควรนั่งอยู่เหนือกล้องซึ่งเป็นงานจริงของหน้านี้ */}

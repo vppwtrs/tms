@@ -3213,6 +3213,48 @@
   text-align: center;
 }
 
+/* คำสั่งของขั้นตอนที่ทำอยู่ — ตัวใหญ่กว่าทุกอย่างในหน้า เพราะเป็นสิ่งเดียวที่ต้องอ่าน
+   ก่อนกดชัตเตอร์ และคนอ่านกำลังยืนถือของอยู่ */
+.pod-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--info);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--info-bg);
+}
+.pod-guide b { font-size: var(--font-md); font-weight: 700; color: var(--info); }
+.pod-guide span { font-size: var(--font-sm); color: var(--ink-2); }
+.pod-guide.is-done { border-color: var(--ok); background: var(--ok-bg); }
+.pod-guide.is-done b { color: var(--ok); }
+
+/* ทางออกเมื่อมุมที่บังคับถ่ายไม่ได้จริง — จาง กดเองเท่านั้น ไม่มีทางกดโดนโดยบังเอิญ */
+.pod-relax {
+  width: 100%;
+  min-height: 36px;
+  margin-top: var(--space-3);
+  background: none;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pod-relax:hover:not(:disabled) { color: var(--warn); border-color: var(--warn); }
+.pod-relaxed {
+  margin: var(--space-3) 0 0;
+  font-size: 13px;
+  color: var(--warn);
+}
+.pod-relaxed button {
+  background: none; border: 0; padding: 0 2px; font: inherit;
+  color: var(--muted); text-decoration: underline; cursor: pointer;
+}
+
 /* ===== หน้าถ่ายรูปของ POD — จอนี้คือกล้อง ไม่ใช่ฟอร์มที่มีปุ่มเปิดกล้องอยู่ข้างใน ===== */
 .cam-stage { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
 .cam-stage-view {
