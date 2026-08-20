@@ -104,10 +104,14 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* งานที่ยังไม่จบเท่านั้นที่อยู่ในแท็บงาน — งานที่ปิดแล้วเป็นประวัติ ไม่ใช่สิ่งที่ต้องทำ */
   const live = useMemo(() => jobs.filter((j) => j.status !== 'completed' && j.status !== 'cancelled'), [jobs])
   const done = useMemo(() => jobs.filter((j) => j.status === 'completed' || j.status === 'cancelled'), [jobs])
-  const defaultJob = useMemo(
-    () => live.find((j) => j.status === 'in_progress') ?? live.find((j) => j.status === 'planned') ?? live[0] ?? null,
-    [live],
-  )
+  /* การ์ดที่กางเองตอนเปิดแอป — เฉพาะงานที่ "รับแล้ว" เท่านั้น งานใหม่หุบไว้เสมอ
+     จนกว่าจะกดรับ ไม่งั้นจอแรกที่เห็นคือจุดส่งของงานที่ยังไม่ได้ตกลงรับ */
+  const defaultJob = useMemo(() => {
+    const accepted = live.filter((j) => j.my_accepted_at ?? j.accepted_at)
+    return accepted.find((j) => j.status === 'in_progress')
+      ?? accepted.find((j) => j.status === 'planned')
+      ?? accepted[0] ?? null
+  }, [live])
   /* การ์ดที่กางอยู่ — ค่าเริ่มต้นคือเที่ยวที่กำลังวิ่ง ถ้าหุบหมดจะเก็บเป็น -1
      (ไม่ใช่ null เพราะ null แปลว่า "ยังไม่เลือก" ซึ่งต้องถอยไปใช้ค่าเริ่มต้น) */
   const active = activeId === -1 ? null : live.find((j) => j.id === activeId) ?? defaultJob
@@ -156,6 +160,9 @@ export default function CloudMyJobs(): React.JSX.Element {
         : completeTrip(job.id))
       const updated = await reloadJob(job.id, showDone)
       setJobs((list) => (updated ? list.map((j) => (j.id === job.id ? updated : j)) : list.filter((j) => j.id !== job.id)))
+      /* รับแล้วกางทันที — การกดรับงานคือการบอกว่า "งานนี้แหละที่ฉันกำลังจะทำ"
+         ให้ต้องกดอีกครั้งเพื่อดูจุดส่ง คือการกดที่ไม่ตอบอะไรเลย */
+      if (action === 'accept') setActiveId(job.id)
       toast.push('success',
         action === 'accept' ? `รับงาน ${jobTripNo(job)} แล้ว`
           : action === 'start' ? `เริ่มเดินทาง ${jobTripNo(job)}`
@@ -339,24 +346,57 @@ export default function CloudMyJobs(): React.JSX.Element {
             const delivered = job.orders.filter((o) => o.status === 'delivered').length
             const mine = job.my_accepted_at ?? job.accepted_at
             return (
-              <section key={job.id} className={`job-card${open ? ' is-open' : ''}`}>
-                <button
-                  type="button"
-                  className="job-card-head"
-                  aria-expanded={open}
-                  onClick={() => setActiveId(open ? -1 : job.id)}
-                >
-                  <span className="job-card-text">
-                    <span className="job-card-no">{jobTripNo(job)}</span>
-                    <span className="job-card-meta">
-                      {job.vehicle_plate} · ส่งแล้ว {delivered}/{job.orders.length} ใบ
-                      {!mine ? ' · งานใหม่' : ''}
+              <section key={job.id} className={`job-card${open ? ' is-open' : ''}${!mine ? ' is-new' : ''}`}>
+                {/* งานที่ยังไม่ได้กดรับ กางไม่ได้ — แถวเดียว จบที่ปุ่มรับงานทางขวา
+                    รายละเอียดของงานเป็นของคนที่รับงานแล้ว และการกดรับไม่ใช่การเลือก
+                    (ไม่มีปุ่มปฏิเสธ TMS จ่ายคนมาแล้ว) การกางให้อ่านก่อนจึงไม่ได้
+                    ช่วยตัดสินใจอะไร มีแต่ทำให้จอแรกยาวเป็นสองเท่า */}
+                {!mine ? (
+                  <div className="job-card-head is-new">
+                    <span className="job-card-text">
+                      <span className="job-card-no">{jobTripNo(job)}</span>
+                      <span className="job-card-meta">
+                        {job.vehicle_plate} · {job.orders.length} ใบ · งานใหม่
+                      </span>
                     </span>
-                  </span>
-                  <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot={job.status === 'in_progress'} />
-                </button>
+                    <Button
+                      size="sm"
+                      className="job-card-accept"
+                      loading={busy === job.id}
+                      onClick={() => void act(job, 'accept')}
+                    >
+                      รับงาน
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="job-card-head"
+                    aria-expanded={open}
+                    onClick={() => setActiveId(open ? -1 : job.id)}
+                  >
+                    <span className="job-card-text">
+                      <span className="job-card-no">{jobTripNo(job)}</span>
+                      <span className="job-card-meta">
+                        {job.vehicle_plate} · ส่งแล้ว {delivered}/{job.orders.length} ใบ
+                      </span>
+                    </span>
+                    <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot={job.status === 'in_progress'} />
+                  </button>
+                )}
 
-                {open && (
+                {/* ทางเดียวที่เหลือของคนที่รับงานนี้ไม่ได้จริง ๆ (รถเสีย ไม่ใช่คันนี้)
+                    ต้องอยู่ตรงนี้ เพราะปุ่มแจ้งปัญหาเดิมอยู่ในการ์ดที่ตอนนี้กางไม่ได้แล้ว */}
+                {!mine && (
+                  <div className="job-card-newbar">
+                    <span>กดรับงานก่อน ถึงจะเห็นจุดส่งและเริ่มเดินทางได้</span>
+                    <button type="button" onClick={() => { setIssueFor(job); setIssueNote('') }}>
+                      แจ้งปัญหา
+                    </button>
+                  </div>
+                )}
+
+                {open && mine && (
                   <div className="job-card-body">
                     <JobFocus
                       job={job}
