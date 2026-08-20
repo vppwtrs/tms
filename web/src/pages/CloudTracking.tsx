@@ -26,6 +26,11 @@ const REFRESH_MS = 30_000
 /** เห็นล่าสุดนานแค่ไหนถึงเรียกว่า "ขาดการติดต่อ" — สองรอบของการส่งจุด */
 const STALE_MS = 5 * 60 * 1000
 
+/** ห่างกันเกินเท่าไหร่ถึงเรียกว่าเส้นทางขาด — สี่รอบของการส่งจุด
+ *  เผื่อไว้กว่า STALE_MS เพราะจุดตกหล่นสองสามจุดตอนเน็ตอ่อนเป็นเรื่องปกติ
+ *  ไม่ใช่ว่าคนขับพับจอ */
+const GAP_MS = 2 * 60 * 1000
+
 function minutesAgo(iso: string): number {
   return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
 }
@@ -141,12 +146,27 @@ export default function CloudTracking(): React.JSX.Element {
       }
     }
 
-    if (track.length > 1) {
-      L.polyline(track.map((p) => [p.lat, p.lng] as [number, number]), {
-        color: '#2563eb',
-        weight: 3,
-        opacity: 0.65,
+    /* วาดทีละช่วง ไม่ใช่เส้นเดียวรวด — ช่วงที่ขาดการติดต่อนานคือเส้นที่เราเดาเอง
+       ไม่ใช่ทางที่รถวิ่งจริง เคยเจอช่วงห่าง 26 นาทีลากตรง 26 กิโลพาดกลางเมือง
+       ซึ่งอ่านแล้วเข้าใจว่ารถวิ่งเส้นนั้น เส้นประบอกว่า "ตรงนี้ไม่รู้" */
+    for (let i = 1; i < track.length; i++) {
+      const a = track[i - 1]
+      const b = track[i]
+      if (!a || !b) continue
+      const gapMs = new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+      const lost = gapMs > GAP_MS
+      const line = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
+        color: lost ? '#9aa0a6' : '#2563eb',
+        weight: lost ? 2 : 3,
+        opacity: lost ? 0.55 : 0.65,
+        dashArray: lost ? '6 8' : undefined,
       }).addTo(group)
+      if (lost) {
+        line.bindTooltip(
+          `ขาดช่วง ${Math.round(gapMs / 60000)} นาที — ไม่ใช่เส้นทางจริง`,
+          { sticky: true },
+        )
+      }
     }
 
     if (seen.length > 0) {
@@ -171,7 +191,8 @@ export default function CloudTracking(): React.JSX.Element {
 
       {/* บอกข้อจำกัดไว้บนหน้า ไม่ใช่ให้คนอ่านสรุปเอาเองว่าหมุดที่เห็นคือตำแหน่งสด */}
       <p className="text-xs text-muted" style={{ marginBottom: 12 }}>
-        ตำแหน่งส่งเข้ามาเฉพาะตอนคนขับเปิดแอปค้างไว้ · เก็บย้อนหลัง 30 วันแล้วลบอัตโนมัติ
+        ตำแหน่งส่งเข้ามาเฉพาะตอนคนขับเปิดแอปค้างไว้ · เส้นประคือช่วงที่ขาดการติดต่อ
+        ไม่ใช่เส้นทางที่รถวิ่งจริง · เก็บย้อนหลัง 30 วันแล้วลบอัตโนมัติ
       </p>
 
       {loading ? (
