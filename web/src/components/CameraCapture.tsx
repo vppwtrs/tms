@@ -28,7 +28,17 @@ export function CameraCapture({
 }): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const [open, setOpen] = useState(false)
+  /** กำลังรอคำตอบจากกล่องขอสิทธิ์อยู่ — กันคำขอซ้อน */
+  const askingRef = useRef(false)
+  /* สตรีมเป็น state ไม่ใช่แค่ ref — การผูกสตรีมเข้ากับ <video> ต้องเกิด *หลัง*
+     React วาด element นั้นลงจอแล้ว ของเดิมผูกใน requestAnimationFrame ทันทีหลัง
+     getUserMedia ตอบกลับ ซึ่งเป็นการเดาว่า React commit เสร็จก่อนเฟรมถัดไป
+     ครั้งแรกของเครื่องมันไม่เสร็จ (กล่องขอสิทธิ์ของเบราว์เซอร์บังหน้าอยู่ rAF ถูก
+     พักไว้ทั้งช่วง) rAF จึงยิงตอน videoRef ยังว่าง แล้วไม่มีใครลองผูกอีกเลย
+     ได้กรอบดำค้างจนกว่าจะปิดฟอร์มแล้วเปิดใหม่ — ซึ่งคือรอบที่ element มีอยู่ก่อนแล้ว
+     เป็น state แล้ว effect ที่ผูกจึงวิ่งหลัง commit เสมอ ไม่ต้องเดาจังหวะ */
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const open = stream !== null
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
   /* ไฟแฟลชสั้น ๆ ตอนชัตเตอร์ลั่น — กล้องที่ไม่ปิดหลังถ่าย ไม่มีอะไรบอกว่าถ่ายติดแล้ว
@@ -41,10 +51,28 @@ export function CameraCapture({
   const stop = (): void => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
+    setStream(null)
   }
 
-  // ปิดกล้องเมื่อออกจากหน้า — ไฟกล้องค้างบนมือถือคือบั๊กที่ผู้ใช้รู้สึกทันที
-  useEffect(() => stop, [])
+  /* ปิดกล้องเมื่อออกจากหน้า — ไฟกล้องค้างบนมือถือคือบั๊กที่ผู้ใช้รู้สึกทันที
+     ตอน unmount ห้ามแตะ state จึงปิดจาก ref ตรง ๆ ไม่เรียก stop() */
+  useEffect(() => () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }, [])
+
+  /* ผูกสตรีมเข้า <video> — วิ่งหลัง React วาด element เสร็จแล้วเสมอ
+     play() ถูกเรียกซ้ำตอน loadedmetadata ด้วย เพราะบนมือถือครั้งแรกมัก reject
+     ด้วย AbortError ตอนแท็บยังไม่ได้อยู่หน้าสุด แล้วภาพจะค้างเป็นเฟรมดำ */
+  useEffect(() => {
+    const video = videoRef.current
+    if (!stream || !video) return
+    if (video.srcObject !== stream) video.srcObject = stream
+    const play = (): void => { void video.play().catch(() => undefined) }
+    play()
+    video.addEventListener('loadedmetadata', play)
+    return () => video.removeEventListener('loadedmetadata', play)
+  }, [stream])
 
   /* โหมดกล้องค้าง: ขอกล้องทันทีที่เข้าหน้า ไม่ต้องกดเปิดก่อน
      เบราว์เซอร์ถามสิทธิ์ครั้งเดียวในชีวิตของโดเมนนี้ การมีปุ่ม "เปิดกล้อง" คั่นไว้
@@ -60,20 +88,18 @@ export function CameraCapture({
 
   const start = async (): Promise<void> => {
     setProblem('')
+    /* ขอซ้อนกันไม่ได้ — กดปุ่มลองใหม่ระหว่างที่กล่องขอสิทธิ์ยังค้างอยู่ จะได้คำขอ
+       ที่สอง ซึ่งบางเบราว์เซอร์ปฏิเสธทันทีแล้วขึ้นว่า "ไม่ได้รับอนุญาต" ทั้งที่ยัง
+       ไม่มีใครตอบอะไรสักคำ */
+    if (askingRef.current || streamRef.current) return
+    askingRef.current = true
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const got = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } },
         audio: false,
       })
-      streamRef.current = stream
-      setOpen(true)
-      // video element เพิ่งถูก mount รอบนี้ — ผูก stream หลัง React วาดเสร็จ
-      requestAnimationFrame(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          void videoRef.current.play()
-        }
-      })
+      streamRef.current = got
+      setStream(got)
     } catch (e) {
       const name = (e as { name?: string }).name
       setProblem(
@@ -83,6 +109,8 @@ export function CameraCapture({
             ? 'ไม่พบกล้องบนอุปกรณ์นี้'
             : 'เปิดกล้องไม่สำเร็จ',
       )
+    } finally {
+      askingRef.current = false
     }
   }
 
@@ -99,7 +127,6 @@ export function CameraCapture({
         window.setTimeout(() => setFlash(false), 160)
       } else {
         stop()
-        setOpen(false)
       }
       onCapture(img)
     } catch (e) {
@@ -128,7 +155,7 @@ export function CameraCapture({
         <div className="cam-stage-view">
           {open ? (
             <>
-              <video ref={videoRef} playsInline muted className="cam-stage-video" />
+              <video ref={videoRef} playsInline muted autoPlay className="cam-stage-video" />
               {flash && <span className="cam-stage-flash" aria-hidden="true" />}
             </>
           ) : (
@@ -175,14 +202,11 @@ export function CameraCapture({
   if (open) {
     return (
       <div className="cam-live">
-        <video ref={videoRef} playsInline muted className="cam-video" />
+        <video ref={videoRef} playsInline muted autoPlay className="cam-video" />
         <div className="cam-controls">
           <Button
             variant="ghost"
-            onClick={() => {
-              stop()
-              setOpen(false)
-            }}
+            onClick={stop}
           >
             ยกเลิก
           </Button>
