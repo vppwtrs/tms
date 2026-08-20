@@ -92,3 +92,38 @@ export function groupStops(orders: MyJobOrder[]): StopGroup[] {
     }
   })
 }
+
+/** ชื่อจุดส่ง = ส่วนหน้าสุดของ destination
+ *
+ *  ตอนนำเข้า destination ถูกประกอบเป็น "ชื่อจุดส่ง · ที่อยู่ จ.จังหวัด" และช่อง
+ *  ที่อยู่ที่ TMS ส่งมาบ่อยครั้งเป็นชื่อกับเบอร์ของคนรับ ไม่ใช่ถนน ร้านเดียวที่สั่ง
+ *  สามใบโดยระบุคนรับคนละคนจึงได้ destination สามแบบ แล้วแตกเป็นสามจุดแวะ
+ *  ทั้งที่คนขับจอดครั้งเดียว */
+export function shipToName(dest: string): string {
+  const head = dest.split(' · ')[0] ?? dest
+  return head.trim() || dest
+}
+
+/** จังหวัดท้ายสตริง — กันร้านชื่อซ้ำกันคนละจังหวัดถูกยุบรวมเป็นจุดเดียว */
+export function province(dest: string): string {
+  return /จ\.([^·]+)$/.exec(dest)?.[1]?.trim() ?? ''
+}
+
+/**
+ * ตัวระบุร้านสำหรับข้อมูลฝั่งออฟฟิศ — ใช้ตัดสินว่าสองใบไปจอดที่เดียวกันหรือเปล่า
+ *
+ * ลูกค้าที่จับคู่ไว้แล้วเชื่อได้ตรง ๆ ที่เหลือเทียบชื่อจุดส่งบวกจังหวัด ซึ่งเป็นสิ่งที่
+ * บอกว่ารถจอดที่เดิมไหม ไม่ใช่ destination ทั้งสตริงที่มีชื่อคนรับปนอยู่
+ *
+ * แยกออกมาเป็นของกลางเพราะเคยมีสามหน้าจัดกลุ่มกันคนละแบบ หน้าออเดอร์ยุบร้านถูก
+ * แต่หน้าจัดคิวยังนับ destination ทั้งเส้น ร้านเดียวจึงขึ้นเป็นสามร้านบนกระดาน
+ * ขณะที่หน้าออเดอร์ข้าง ๆ กันบอกว่าร้านเดียว
+ *
+ * จอคนขับใช้ groupStops ต่อไปตามเดิม ข้อมูลชุดนั้นไม่มี customer_id มาให้ แต่มี
+ * ชื่อกับที่อยู่ลูกค้าติดมาแทน กติกาเดียวกัน คนละฟิลด์
+ */
+export function storeKey(o: { customer_id: number | null; destination: string }): string {
+  const norm = (v: string): string => v.trim().toLowerCase().replace(/\s+/g, ' ')
+  if (o.customer_id) return `c${o.customer_id}`
+  return `${norm(shipToName(o.destination))}|${norm(province(o.destination))}`
+}

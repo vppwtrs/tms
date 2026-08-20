@@ -17,6 +17,7 @@ import {
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
 import { IconBox, IconEdit, IconPlus, IconTrash } from '../components/icons'
+import { shipToName, storeKey as storeKeyOf } from '../utils/stops'
 
 /**
  * จัดการออเดอร์ ฉบับคลาวด์ — คู่ขนานกับ Orders.tsx บน LAN
@@ -120,22 +121,6 @@ interface TripGroup {
  *
  * แถวยังเป็นหนึ่งใบเหมือนเดิม เพราะปุ่มแก้ไข/ยกเลิกและ POD ผูกกับใบ ไม่ใช่ผูกกับร้าน
  */
-/** ชื่อจุดส่ง = ส่วนหน้าสุดของ destination
- *
- *  ตอนนำเข้า destination ถูกประกอบเป็น "ชื่อจุดส่ง · ที่อยู่ จ.จังหวัด" และช่อง
- *  ที่อยู่ที่ TMS ส่งมาบ่อยครั้งเป็นชื่อกับเบอร์ของคนรับ ไม่ใช่ถนน ร้านเดียวที่สั่ง
- *  สามใบโดยระบุคนรับคนละคนจึงได้ destination สามแบบ แล้วแตกเป็นสามจุดแวะ
- *  ทั้งที่คนขับจอดครั้งเดียว */
-function shipToName(dest: string): string {
-  const head = dest.split(' · ')[0] ?? dest
-  return head.trim() || dest
-}
-
-/** จังหวัดท้ายสตริง — กันร้านชื่อซ้ำกันคนละจังหวัดถูกยุบรวมเป็นจุดเดียว */
-function province(dest: string): string {
-  return /จ\.([^·]+)$/.exec(dest)?.[1]?.trim() ?? ''
-}
-
 function groupOrders(rows: OrderListRow[]): TripGroup[] {
   const norm = (v: string | null): string => (v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
   const trips = new Map<string, Map<string, OrderListRow[]>>()
@@ -145,9 +130,7 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
     const tripKey = String(o.trip_id ?? 0)
     /* ลูกค้าที่จับคู่ไว้แล้วคือตัวตนที่แน่นอนที่สุด ใช้ก่อนเสมอ ที่เหลือค่อยเดา
        จากชื่อจุดส่งกับจังหวัด — ไม่ใช่จาก destination เต็มซึ่งมีชื่อคนรับปนอยู่ */
-    const storeKey = o.customer_id
-      ? `c${o.customer_id}`
-      : `${norm(shipToName(o.destination))}|${norm(province(o.destination))}`
+    const storeKey = storeKeyOf(o)
     let stores = trips.get(tripKey)
     if (!stores) { stores = new Map(); trips.set(tripKey, stores) }
     const found = stores.get(storeKey)

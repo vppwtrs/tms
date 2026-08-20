@@ -18,6 +18,7 @@ import {
   TRIP_STATUS_LABEL, TRIP_TONE, VEHICLE_TYPE_LABEL,
 } from '../utils/constants'
 import { fmtDate, fmtDateTime, fmtMoney, fmtNum, fmtWeight } from '../utils/format'
+import { storeKey } from '../utils/stops'
 import { IconBox, IconCheck, IconPlus, IconRoute, IconTruck, IconUsers, IconX } from '../components/icons'
 
 /**
@@ -45,12 +46,17 @@ function tripNo(t: { tms_trip_no?: string | null; trip_no: string }): string {
   return t.tms_trip_no ?? t.trip_no
 }
 
-/** รวมใบที่ไปปลายทางเดียวกันเป็นจุดเดียว — หลักเดียวกับหน้าออเดอร์และจอคนขับ
- *  ข้อมูลชุดนี้ไม่มีชื่อลูกค้าติดมา (เป็นแถวดิบของตาราง orders) ปลายทางจึงเป็นตัวแทนร้าน */
-function byStore<T extends { destination: string }>(rows: T[]): { key: string; rows: T[] }[] {
+/** รวมใบของร้านเดียวกันเป็นจุดเดียว — กติกาเดียวกับหน้าออเดอร์และจอคนขับ
+ *
+ *  เคยนับ destination ทั้งสตริง ซึ่งมีชื่อคนรับปนอยู่ ร้านเดียวที่สั่งสามใบโดยระบุ
+ *  คนรับคนละคนจึงขึ้นเป็นสามร้านบนกระดาน ขณะที่หน้าออเดอร์ข้าง ๆ กันบอกว่าร้านเดียว
+ *  ตอนนี้เรียก storeKey ตัวกลางร่วมกัน จะได้ไม่แยกกันเดินอีก */
+function byStore<T extends { customer_id: number | null; destination: string }>(
+  rows: T[],
+): { key: string; rows: T[] }[] {
   const map = new Map<string, T[]>()
   for (const o of rows) {
-    const key = o.destination.trim().toLowerCase().replace(/\s+/g, ' ')
+    const key = storeKey(o)
     const found = map.get(key)
     if (found) found.push(o)
     else map.set(key, [o])
