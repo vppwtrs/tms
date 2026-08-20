@@ -30,6 +30,7 @@ export function JobFocus({
   onPod,
   onViewPod,
   onDeliver,
+  onUndoDeliver,
   onReorder,
 }: {
   job: MyJob
@@ -46,6 +47,7 @@ export function JobFocus({
   /* เปิดดูหลักฐานของใบที่เก็บไปแล้ว — ส่งต่อลงไปที่จุดส่งแต่ละจุด */
   onViewPod?: (order: MyJobOrder) => void
   onDeliver: (stop: StopGroup) => void
+  onUndoDeliver?: (stop: StopGroup) => void
   /* จัดลำดับร้านใหม่ทั้งเที่ยว — คนขับรู้เส้นทางจริงดีกว่าลำดับที่เอกสารให้มา
      ไม่ส่งมา = สแตกที่ยังไม่มีการจัดลำดับ (ฝั่ง LAN) ปุ่มขึ้น/ลงจะไม่ขึ้น */
   onReorder?: (job: MyJob, orderIds: number[]) => void
@@ -194,6 +196,7 @@ export function JobFocus({
               onPod={onPod}
               onViewPod={onViewPod}
               onDeliver={onDeliver}
+              onUndoDeliver={onUndoDeliver}
               onMove={canReorder ? move : undefined}
               canMoveUp={i > 0}
               canMoveDown={i < stops.length - 1}

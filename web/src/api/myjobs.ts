@@ -59,6 +59,13 @@ export async function deliverOrder(orderId: number): Promise<void> {
   if (error) throw toDataError(error)
 }
 
+/** ถอนการปิดส่งที่กดผิดร้าน — ฝั่ง DB ปฏิเสธเองถ้าเก็บหลักฐานไปแล้ว
+ *  หรือเที่ยวปิดไปแล้ว ไม่ต้องเช็คซ้ำตรงนี้ */
+export async function undoDeliverOrder(orderId: number): Promise<void> {
+  const { error } = await supabase.rpc('undo_deliver_order', { p_order_id: orderId })
+  if (error) throw toDataError(error)
+}
+
 /* ---------- ประกอบเป็นรูปที่หน้าจอเดิมใช้อยู่ ----------
  *
  * ระบบเดิมส่ง "เที่ยวพร้อมออเดอร์ข้างใน" มาเป็นก้อนเดียว (MyJob) ส่วน Supabase

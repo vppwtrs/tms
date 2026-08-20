@@ -381,6 +381,10 @@ export interface Database {
     Functions: {
       start_trip: { Args: { p_trip_id: number }; Returns: void }
       deliver_order: { Args: { p_order_id: number }; Returns: void }
+      undo_deliver_order: {
+        Args: { p_order_id: number }
+        Returns: { order_id: number; order_no: string; pl_no: string | null }
+      }
       complete_trip: { Args: { p_trip_id: number }; Returns: void }
       save_pod: {
         Args: {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder,
+  listMyJobs, reloadJob, startTrip, completeTrip, deliverOrder, undoDeliverOrder,
   savePodWithPhotos, POD_PHOTO_KINDS, type PodPhoto,
   acceptTrip, reportIssue, saveStopOrder,
 } from '../api/myjobs'
@@ -16,7 +16,7 @@ import { jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtDateTime, fmtLongToday } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
 import { PodViewModal } from '../components/PodViewModal'
 import { CameraCapture } from '../components/CameraCapture'
@@ -55,6 +55,8 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* POD เก็บเป็นชุดของ "ร้าน" ไม่ใช่ใบเดียว — ลายเซ็นหนึ่งครั้งครอบทุกใบที่ส่งร้านนั้น
      ผู้รับเซ็นครั้งเดียวตอนรับของทั้งกอง ให้เซ็นซ้ำตามจำนวนใบคือเรื่องที่หน้างานไม่ยอมทำ */
   const [podFor, setPodFor] = useState<MyJobOrder[] | null>(null)
+  /* ร้านที่กำลังจะถอนการปิดส่ง — ถามก่อนเสมอ การถอยผิดจุดคือกดผิดซ้ำสอง */
+  const [undoing, setUndoing] = useState<StopGroup | null>(null)
   /* ใบที่กำลังเปิดดูหลักฐานย้อนหลัง — คนละอย่างกับ podFor ที่เป็นการเก็บใหม่ */
   const [podView, setPodView] = useState<MyJobOrder | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
@@ -197,6 +199,26 @@ export default function CloudMyJobs(): React.JSX.Element {
     }
   }
 
+  /* ถอนการปิดส่งทั้งร้าน — ปิดทีเดียวทั้งร้าน ก็ต้องถอยทีเดียวทั้งร้าน
+     ถอยทีละใบจะเหลือร้านที่ส่งไปครึ่งเดียวโดยไม่มีใครตั้งใจให้เป็นแบบนั้น */
+  const undoDeliver = async (stop: StopGroup): Promise<void> => {
+    setDelivering(stop.key)
+    try {
+      for (const order of stop.orders.filter((o) => o.status === 'delivered')) {
+        await undoDeliverOrder(order.id)
+      }
+      const tripId = stop.orders[0]?.trip_id
+      const updated = tripId ? await reloadJob(tripId, showDone) : null
+      if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
+      toast.push('success', `ยกเลิกการส่ง ${stop.customer_name ?? stop.destination} แล้ว`)
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setDelivering('')
+      setUndoing(null)
+    }
+  }
+
   /* จัดลำดับแล้วเห็นผลทันทีบนจอ ไม่รอเซิร์ฟเวอร์ตอบ — คนขับกดขึ้น/ลงรัว ๆ ได้
      ถ้าบันทึกไม่ผ่าน ค่อยโหลดของจริงกลับมาแล้วบอกว่าไม่สำเร็จ */
   const reorder = async (job: MyJob, orderIds: number[]): Promise<void> => {
@@ -333,6 +355,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                       onPod={(stop) => setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)}
                       onViewPod={setPodView}
                       onDeliver={(stop) => void deliver(stop)}
+                      onUndoDeliver={(stop) => setUndoing(stop)}
                       onReorder={(j, ids) => void reorder(j, ids)}
                     />
 
@@ -391,6 +414,23 @@ export default function CloudMyJobs(): React.JSX.Element {
           onClose={() => setPodView(null)}
         />
       )}
+
+      {/* ถามชื่อร้านกลับไปให้เห็นเต็ม ๆ — คนที่กดผิดร้านหนึ่งครั้งแล้ว กำลังจะ
+          กดถอยจากรายการเดียวกันนั้น ต้องอ่านชื่อก่อนว่าถอยถูกใบ */}
+      <ConfirmDialog
+        open={undoing !== null}
+        title="ยกเลิกการส่งร้านนี้"
+        message={undoing ? (
+          <>ยกเลิกการปิดส่ง <b>{undoing.customer_name ?? undoing.destination}</b>{' '}
+            ({undoing.orders.length} ใบ) ใช่หรือไม่? ใบจะกลับไปเป็นยังไม่ส่ง
+            และร้านนี้จะขึ้นในรายการที่ต้องแวะอีกครั้ง</>
+        ) : ''}
+        confirmLabel="ยกเลิกการส่ง"
+        danger
+        loading={undoing !== null && delivering === undoing.key}
+        onConfirm={() => { if (undoing) void undoDeliver(undoing) }}
+        onClose={() => setUndoing(null)}
+      />
 
       {podFor && (
         <PodSheet

@@ -2707,6 +2707,15 @@
   color: var(--faint);
 }
 .stop-item-cta { width: 100%; min-height: var(--driver-tap); }
+/* ปุ่มถอย — ตั้งใจให้เล็กและจางกว่าปุ่มเดินหน้าอย่างชัดเจน แต่ยังกดติดด้วยนิ้วโป้ง
+   ในรถที่สั่น จึงยังคุมความสูงขั้นต่ำไว้ ไม่ปล่อยให้เป็นลิงก์บาง ๆ */
+.stop-item-undo {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
 .stop-item-facts { margin: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--font-sm); }
 .stop-item-facts > div { display: flex; gap: var(--space-2); }
 .stop-item-facts dt { flex: none; width: 62px; color: var(--faint); }

@@ -34,6 +34,7 @@ export function StopItem({
   onPod,
   onViewPod,
   onDeliver,
+  onUndoDeliver,
   onMove,
   canMoveUp,
   canMoveDown,
@@ -51,6 +52,8 @@ export function StopItem({
      ไม่ส่งมา = หน้าจอที่ยังไม่มีตัวอ่าน (ฝั่ง LAN) ปุ่มจะไม่ขึ้น */
   onViewPod?: (order: MyJobOrder) => void
   onDeliver: (stop: StopGroup) => void
+  /* ถอนการปิดส่งที่กดผิด — ไม่ส่งมา = ปุ่มไม่ขึ้น (จอฝั่ง LAN ที่ยังไม่มีตัวเรียก) */
+  onUndoDeliver?: (stop: StopGroup) => void
   /* ลำดับการแวะเป็นของคนขับ ปุ่มขึ้น/ลงแทนการลาก — ลากในรถที่สั่นแล้วพลาดง่าย */
   onMove?: (stop: StopGroup, dir: -1 | 1) => void
   canMoveUp?: boolean
@@ -108,6 +111,22 @@ export function StopItem({
           {canPod && stop.done && stop.needPod.length > 0 && (
             <Button size="lg" className="stop-item-cta" onClick={() => onPod(stop)}>
               เก็บหลักฐานการส่งมอบ
+            </Button>
+          )}
+
+          {/* กางการ์ดผิดร้านแล้วกดปิดส่งเป็นเรื่องที่เกิดขึ้นจริง เคยมีใบที่ขึ้นว่า
+              ส่งแล้วทั้งที่รถยังไม่ไปถึงร้านนั้นด้วยซ้ำ
+              ปุ่มเล็กและจาง ไม่วางคู่กับปุ่มปิดส่ง — ปุ่มถอยที่เด่นเท่าปุ่มเดินหน้า
+              คือปุ่มที่จะถูกกดผิดเป็นอันดับต่อไป
+              ขึ้นเฉพาะจุดที่ยังไม่มีหลักฐาน จุดที่เซ็นแล้วต้องให้ออฟฟิศแก้ */}
+          {canProgress && onUndoDeliver && stop.done && stop.needPod.length === stop.orders.length && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="stop-item-undo"
+              onClick={() => onUndoDeliver(stop)}
+            >
+              กดผิดร้าน — ยกเลิกการส่ง
             </Button>
           )}
 
