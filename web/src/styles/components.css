@@ -2566,11 +2566,26 @@
 /* แถวของงานใหม่ — ไม่ใช่ปุ่มกางทั้งแถวแล้ว จึงไม่ต้องมีตัวชี้ว่ากดได้
    ปุ่มเดียวที่กดได้ในแถวนี้คือปุ่มรับงานทางขวา */
 .job-card-head.is-new { cursor: default; }
-/* ปุ่มคู่ทางขวา: อ่าน (จาง) กับ รับงาน (ทึบ) — คนละน้ำหนักชัดเจน
-   ปุ่มอ่านที่เด่นเท่าปุ่มรับงานคือปุ่มที่จะถูกกดผิดเป็นอันดับต่อไป */
-.job-card-newactions { flex: none; display: flex; align-items: center; gap: 6px; }
-.job-card-peek { min-height: 40px; font-size: var(--font-xs); color: var(--muted); }
-.job-card-accept { flex: none; min-height: 40px; padding-inline: var(--space-4); font-weight: 700; }
+/* ปุ่มรับงาน — ปุ่มเดียวในแถวบน ไม่มีอะไรให้กดสลับ สูงเท่าเป้านิ้วโป้งเต็ม */
+.job-card-accept {
+  flex: none;
+  min-height: var(--driver-tap);
+  padding-inline: var(--space-5);
+  font-weight: 700;
+}
+/* ปุ่มอ่าน — คนละแถว มีขอบของตัวเอง อ่านออกกลางแดด แต่ไม่ทึบเท่าปุ่มรับงาน
+   น้ำหนักต่างกันที่ "โปร่ง vs ทึบ" ไม่ใช่ที่ "จาง vs เข้ม" ซึ่งหายไปตอนแดดจ้า */
+.job-card-peek {
+  min-height: 38px;
+  font-size: var(--font-sm);
+  font-weight: 650;
+  /* ขอบมาตรฐานของ btn-outline คือดำ 14% ซึ่งหายไปเลยบนจอกลางแดด
+     ปุ่มนี้ยืมสีเดียวกับขอบการ์ดงานใหม่ — เห็นชัด และอ่านออกว่าเป็นพวกเดียวกัน */
+  color: var(--info);
+  border-color: var(--info);
+  background: var(--info-bg);
+}
+.job-card-peek:hover:not(:disabled) { color: var(--info); border-color: var(--info); }
 
 /* พรีวิวจุดส่งของงานที่ยังไม่รับ — รายการอ่านอย่างเดียว ไม่มีปุ่มสั่งงานสักปุ่ม
    แถวเตี้ยกว่าจุดส่งจริงเพราะไม่ได้มีไว้ให้กด มีไว้ให้กวาดตาว่า "ไปแถวไหน" */
@@ -2601,17 +2616,16 @@
 .job-preview-meta { flex: none; font-size: var(--font-xs); color: var(--faint); }
 /* งานใหม่เด่นกว่างานที่รับไปแล้ว — คำถามแรกตอนเปิดแอปคือ "มีอะไรรอฉันอยู่ไหม" */
 .job-card.is-new { border-color: var(--info); }
-/* บรรทัดล่างของงานใหม่: บอกว่าทำไมกางไม่ได้ + ทางออกของคนที่รับไม่ได้จริง ๆ */
+/* แถวล่างของงานใหม่ — ของที่ "อ่าน" กับของที่ "แจ้ง" อยู่ตรงนี้ทั้งคู่
+   คนละแถวกับปุ่มรับงาน เพราะปุ่มสองอันที่ไม่ควรกดสลับกัน ต้องห่างกันจริง ๆ */
 .job-card-newbar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: 0 var(--space-4) var(--space-3);
-  font-size: var(--font-xs);
-  color: var(--faint);
 }
-.job-card-newbar span { flex: 1; min-width: 0; }
-.job-card-newbar button {
+.job-card-newbar .job-card-peek { flex: 1; }
+.job-card-issue {
   flex: none;
   min-height: 34px;
   padding: 0 8px;
@@ -2623,7 +2637,7 @@
   text-decoration: underline;
   cursor: pointer;
 }
-.job-card-newbar button:hover { color: var(--warn); }
+.job-card-issue:hover { color: var(--warn); }
 .job-card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .job-card-no { font-family: var(--font-mono); font-size: var(--font-md); font-weight: 700; color: var(--ink); }
 .job-card-meta { font-size: var(--font-sm); color: var(--faint); }

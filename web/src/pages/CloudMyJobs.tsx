@@ -371,27 +371,15 @@ export default function CloudMyJobs(): React.JSX.Element {
                         {firstStop ? ` · นัดแรก ${fmtTime(firstStop.scheduled_at)}` : ''}
                       </span>
                     </span>
-                    <span className="job-card-newactions">
-                      {/* ดูรายชื่อร้านก่อนได้ แต่เป็นการ "อ่าน" ไม่ใช่ประตูอีกบานที่ต้องผ่าน
-                          ก่อนรับงาน ปุ่มรับงานจึงอยู่ที่เดิมเสมอ ไม่ว่าพรีวิวจะกางหรือหุบ */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="job-card-peek"
-                        aria-expanded={preview}
-                        onClick={() => setPreviewId(preview ? null : job.id)}
-                      >
-                        {preview ? 'ซ่อนจุดส่ง' : 'ดูจุดส่ง'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="job-card-accept"
-                        loading={busy === job.id}
-                        onClick={() => void act(job, 'accept')}
-                      >
-                        รับงาน
-                      </Button>
-                    </span>
+                    {/* ปุ่มเดียวในแถวนี้ — ปุ่มอ่านอยู่คนละแถวข้างล่าง ไม่ใช่ชิดกันแค่ 6px
+                        ปุ่มที่ไม่ควรกดสลับกัน ต้องห่างกันจริง ไม่ใช่ห่างกันพอเป็นพิธี */}
+                    <Button
+                      className="job-card-accept"
+                      loading={busy === job.id}
+                      onClick={() => void act(job, 'accept')}
+                    >
+                      รับงาน
+                    </Button>
                   </div>
                 ) : (
                   <button
@@ -432,8 +420,18 @@ export default function CloudMyJobs(): React.JSX.Element {
 
                 {!mine && (
                   <div className="job-card-newbar">
-                    <span>กดรับงานก่อน ถึงจะเห็นจุดส่งและเริ่มเดินทางได้</span>
-                    <button type="button" onClick={() => { setIssueFor(job); setIssueNote('') }}>
+                    {/* ปุ่มอ่าน อยู่คนละแถวกับปุ่มรับงาน และมีขอบของตัวเอง
+                        แบบ ghost จาง ๆ อ่านไม่ออกกลางแดด ซึ่งเป็นที่ที่จอนี้ถูกใช้จริง */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="job-card-peek"
+                      aria-expanded={preview}
+                      onClick={() => setPreviewId(preview ? null : job.id)}
+                    >
+                      {preview ? 'ซ่อนจุดส่ง' : `ดูจุดส่ง ${newStops.length} ร้าน`}
+                    </Button>
+                    <button type="button" className="job-card-issue" onClick={() => { setIssueFor(job); setIssueNote('') }}>
                       แจ้งปัญหา
                     </button>
                   </div>
