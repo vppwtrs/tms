@@ -12,9 +12,9 @@ import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
-import { jobTripNo, type StopGroup } from '../utils/stops'
+import { groupStops, jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
-import { fmtDateTime, fmtLongToday } from '../utils/format'
+import { fmtDateTime, fmtLongToday, fmtTime } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
@@ -63,6 +63,9 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* ใบที่กำลังเปิดดูหลักฐานย้อนหลัง — คนละอย่างกับ podFor ที่เป็นการเก็บใหม่ */
   const [podView, setPodView] = useState<MyJobOrder | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
+  /* เที่ยวใหม่ที่กางพรีวิวอยู่ — อ่านอย่างเดียว ไม่มีปุ่มสั่งงานสักปุ่ม
+     คนละอย่างกับ activeId ซึ่งเป็นการ์ดของงานที่รับแล้วและกดสั่งงานได้ */
+  const [previewId, setPreviewId] = useState<number | null>(null)
   const [issueFor, setIssueFor] = useState<MyJob | null>(null)
   const [issueNote, setIssueNote] = useState('')
   const [sendingIssue, setSendingIssue] = useState(false)
@@ -345,6 +348,11 @@ export default function CloudMyJobs(): React.JSX.Element {
             const open = job.id === active?.id
             const delivered = job.orders.filter((o) => o.status === 'delivered').length
             const mine = job.my_accepted_at ?? job.accepted_at
+            /* ยุบเป็นร้านเหมือนหน้าคนขับ — คนขับคิดเป็น "กี่ร้าน" ไม่ใช่ "กี่ใบ"
+               คำนวณเฉพาะงานใหม่ งานที่รับแล้ว JobFocus ยุบให้อยู่แล้ว */
+            const newStops = mine ? [] : groupStops(job.orders)
+            const firstStop = newStops[0]
+            const preview = !mine && previewId === job.id
             return (
               <section key={job.id} className={`job-card${open ? ' is-open' : ''}${!mine ? ' is-new' : ''}`}>
                 {/* งานที่ยังไม่ได้กดรับ กางไม่ได้ — แถวเดียว จบที่ปุ่มรับงานทางขวา
@@ -355,18 +363,35 @@ export default function CloudMyJobs(): React.JSX.Element {
                   <div className="job-card-head is-new">
                     <span className="job-card-text">
                       <span className="job-card-no">{jobTripNo(job)}</span>
+                      {/* เลขเที่ยวอย่างเดียวตอบไม่ได้ว่างานนี้คืออะไร — กี่ร้าน ออกจากคลังไหน
+                          นัดแรกกี่โมง คือสามอย่างที่คนขับถามก่อนเสมอ และสั้นพอจะอยู่ในบรรทัดเดียว */}
                       <span className="job-card-meta">
-                        {job.vehicle_plate} · {job.orders.length} ใบ · งานใหม่
+                        {job.vehicle_plate} · {newStops.length} ร้าน · {job.orders.length} ใบ
+                        {job.warehouse_code ? ` · คลัง ${job.warehouse_code}` : ''}
+                        {firstStop ? ` · นัดแรก ${fmtTime(firstStop.scheduled_at)}` : ''}
                       </span>
                     </span>
-                    <Button
-                      size="sm"
-                      className="job-card-accept"
-                      loading={busy === job.id}
-                      onClick={() => void act(job, 'accept')}
-                    >
-                      รับงาน
-                    </Button>
+                    <span className="job-card-newactions">
+                      {/* ดูรายชื่อร้านก่อนได้ แต่เป็นการ "อ่าน" ไม่ใช่ประตูอีกบานที่ต้องผ่าน
+                          ก่อนรับงาน ปุ่มรับงานจึงอยู่ที่เดิมเสมอ ไม่ว่าพรีวิวจะกางหรือหุบ */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="job-card-peek"
+                        aria-expanded={preview}
+                        onClick={() => setPreviewId(preview ? null : job.id)}
+                      >
+                        {preview ? 'ซ่อนจุดส่ง' : 'ดูจุดส่ง'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="job-card-accept"
+                        loading={busy === job.id}
+                        onClick={() => void act(job, 'accept')}
+                      >
+                        รับงาน
+                      </Button>
+                    </span>
                   </div>
                 ) : (
                   <button
@@ -387,6 +412,24 @@ export default function CloudMyJobs(): React.JSX.Element {
 
                 {/* ทางเดียวที่เหลือของคนที่รับงานนี้ไม่ได้จริง ๆ (รถเสีย ไม่ใช่คันนี้)
                     ต้องอยู่ตรงนี้ เพราะปุ่มแจ้งปัญหาเดิมอยู่ในการ์ดที่ตอนนี้กางไม่ได้แล้ว */}
+                {/* พรีวิวเป็นรายการอ่านอย่างเดียว — ชื่อร้าน เวลานัด จำนวนใบ ไม่มีปุ่มปิดจุด
+                    ไม่มีปุ่มเก็บหลักฐาน ไม่มีปุ่มจัดลำดับ ของพวกนั้นเป็นของคนที่รับงานแล้ว
+                    ปิดด้วยการกด "ซ่อนจุดส่ง" ปุ่มเดิม ไม่มีปุ่มออกแยกให้ต้องหา */}
+                {preview && (
+                  <ol className="job-preview" aria-label={`จุดส่งของ ${jobTripNo(job)}`}>
+                    {newStops.map((s, i) => (
+                      <li key={s.key}>
+                        <span className="job-preview-seq">{i + 1}</span>
+                        <span className="job-preview-name">{s.customer_name ?? s.destination}</span>
+                        <span className="job-preview-meta">
+                          {fmtTime(s.scheduled_at)}
+                          {s.orders.length > 1 ? ` · ${s.orders.length} ใบ` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+
                 {!mine && (
                   <div className="job-card-newbar">
                     <span>กดรับงานก่อน ถึงจะเห็นจุดส่งและเริ่มเดินทางได้</span>
