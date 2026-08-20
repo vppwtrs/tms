@@ -6,6 +6,7 @@ import {
 } from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
 import { useTripTracking } from '../hooks/useTripTracking'
+import { useScreenWakeLock } from '../hooks/useScreenWakeLock'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { uploadPodPhoto } from '../api/storage'
 import { useCloudAuth } from '../context/CloudAuthContext'
@@ -117,6 +118,9 @@ export default function CloudMyJobs(): React.JSX.Element {
        เขายังไม่ได้ยืนยันว่ารับงานนี้ด้วยซ้ำ */
     tracked !== null,
   )
+  /* กันจอดับเองระหว่างวิ่ง — ตำแหน่งหยุดส่งทันทีที่จอดับ และช่องว่างที่เคยเห็น
+     บนแผนที่คือจอดับเองเพราะคนขับไม่ได้แตะมือถือ ไม่ใช่เขาตั้งใจปิดแอป */
+  const screenAwake = useScreenWakeLock(tracked !== null)
 
   /* ขอสิทธิ์ตำแหน่งก่อนรับงาน ไม่ใช่หลังจากนั้น — งานที่รับแล้วแต่ตามไม่ได้
      ทำให้คนวางแผนตอบลูกค้าไม่ได้ทั้งวัน ปฏิเสธได้ แต่ต้องรู้ตัวว่ากำลังปฏิเสธอะไร */
@@ -337,7 +341,11 @@ export default function CloudMyJobs(): React.JSX.Element {
                     {mine && (
                       <p className={`track-note${tracking === 'denied' ? ' is-off' : ''}`}>
                         {tracking === 'on'
-                          ? 'กำลังบันทึกตำแหน่งของเที่ยวนี้ — เปิดหน้านี้ค้างไว้ระหว่างขับ'
+                          ? screenAwake
+                            /* จอไม่ดับเองแล้ว แต่กดปุ่มปิดจอเองยังหลุดอยู่ดี บอกให้ครบ
+                               และเตือนเรื่องแบตด้วย เพราะเราเป็นคนทำให้จอค้างเอง */
+                            ? 'กำลังบันทึกตำแหน่ง — จอจะไม่ดับเอง เสียบสายชาร์จไว้ระหว่างขับ'
+                            : 'กำลังบันทึกตำแหน่งของเที่ยวนี้ — เปิดหน้านี้ค้างไว้ระหว่างขับ'
                           : tracking === 'denied'
                             ? 'ไม่ได้รับสิทธิ์ตำแหน่ง — ฝ่ายวางแผนจะไม่เห็นว่ารถอยู่ไหน'
                             : tracking === 'unsupported'
