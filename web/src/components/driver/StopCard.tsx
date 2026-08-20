@@ -117,7 +117,7 @@ export function StopItem({
               ตอนนั้นบนจอไม่มีร้านอื่นให้กดผิดอยู่แล้ว */}
           {canProgress && stop.pending.length > 0 && !locked && onEnter && (
             <Button size="lg" className="stop-item-cta" onClick={onEnter}>
-              ถึงร้านนี้แล้ว — เริ่มส่ง
+              รับงานร้านนี้
             </Button>
           )}
           {canProgress && stop.pending.length > 0 && locked && (

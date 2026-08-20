@@ -750,9 +750,11 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
             <h4>ลายเซ็นผู้รับ <span className="req">*</span></h4>
             <span className="text-xs text-muted">{name}</span>
           </div>
-          {/* เตี้ยลงจาก 200 เหลือ 150 — ลายเซ็นบนมือถือกว้างเต็มจอแต่ไม่ได้สูงตาม
-              ความสูงที่เกินมาคือช่องว่างขาวที่ดันของอื่นตกจอไปเฉย ๆ */}
-          <SignaturePad onChange={setSig} height={150} compact />
+          {/* หน้านี้มีของอยู่อย่างเดียว จึงยกช่องเซ็นให้เต็มที่เท่าที่จอมี
+              150px เตี้ยเกินกว่าจะเซ็นชื่อจริงด้วยนิ้ว — ลายเซ็นที่บีบจนไม่เหมือนของตัวเอง
+              คือลายเซ็นที่คนเซ็นไม่ยอมรับตอนมีข้อโต้แย้ง
+              min() ทำให้พอดีทั้งจอเตี้ยและจอสูง โดยไม่ดันปุ่มบันทึกตกจอ */}
+          <SignaturePad onChange={setSig} height="min(52vh, 460px)" compact />
         </div>
       </Modal>
     )
@@ -789,75 +791,61 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
         <span>{coords ? `แนบพิกัดแล้ว · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'ไม่ได้พิกัด — บันทึกได้ตามปกติ'}</span>
       </div>
 
-      {/* ทางออกของคนที่เพิ่งกดปิดส่งผิดร้าน — ต้องอยู่ตรงนี้ เพราะฟอร์มนี้เด้งขึ้นเอง
-          ทันทีหลังกดปิดส่ง คนที่รู้ตัวว่ากดผิดจะรู้ตัวตอนเห็นชื่อร้านบนหัวฟอร์มนี้
-          ไม่ใช่ตอนกลับไปที่รายการ ปุ่มจาง ไม่วางคู่ปุ่มเดินหน้า */}
-      {onUndo && (
-        <button type="button" className="pod-undo" onClick={onUndo} disabled={saving}>
-          ไม่ใช่ร้านนี้ — ยกเลิกการส่ง
-        </button>
-      )}
+      {/* มุมของรูปที่กำลังจะถ่าย — อยู่เหนือช่องมองภาพ เพราะเป็นสิ่งที่ตอบก่อนกดชัตเตอร์
+          เป็นชิปเพราะคนขับต้องเห็นพร้อมกันว่าเหลือมุมไหนยังไม่ได้ถ่าย */}
+      <div className="pod-kinds" role="group" aria-label="มุมของรูปที่กำลังจะถ่าย">
+        {POD_PHOTO_KINDS.map((k) => {
+          const n = shots.filter((sh) => sh.kind === k.kind).length
+          return (
+            <button
+              key={k.kind}
+              type="button"
+              className="pod-kind"
+              aria-pressed={kind === k.kind}
+              onClick={() => setKind(k.kind)}
+              disabled={saving}
+            >
+              {k.label}
+              {n > 0 && <b aria-label={`ถ่ายแล้ว ${n} รูป`}>{n}</b>}
+            </button>
+          )
+        })}
+      </div>
 
+      {/* ช่องมองภาพเปิดเองตั้งแต่เข้าหน้า และไม่ปิดหลังถ่าย — จอนี้คือกล้อง
+          ไม่ใช่ฟอร์มที่มีปุ่มเปิดกล้องอยู่ข้างใน */}
+      <CameraCapture stage onCapture={(img) => setShots([...shots, { img, kind }])} disabled={saving} />
+
+      {/* ฟิล์มรูปที่ถ่ายแล้ว เรียงแนวนอนใต้กล้อง เห็นทันทีว่าถ่ายอะไรไปบ้าง ลบได้ทีละใบ */}
+      <div className="pod-strip">
+        {shots.length === 0 ? (
+          <p className="pod-strip-empty">ยังไม่มีรูป — ต้องมีอย่างน้อย 1 รูปถึงจะไปหน้าลายเซ็นได้</p>
+        ) : (
+          shots.map((shot, i) => (
+            <div className="pod-shot" key={shot.img.url}>
+              <img src={shot.img.url} alt={`รูป${podKindLabel(shot.kind)}ที่ถ่ายไว้`} />
+              <button
+                type="button"
+                aria-label={`ลบรูป${podKindLabel(shot.kind)}`}
+                onClick={() => {
+                  URL.revokeObjectURL(shot.img.url)
+                  setShots(shots.filter((_, x) => x !== i))
+                }}
+              >
+                ✕
+              </button>
+              <span className="pod-shot-kind">{podKindLabel(shot.kind)}</span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ของที่พิมพ์ อยู่ใต้ของที่ถ่าย — ชื่อผู้รับเติมมาจากชื่อลูกค้าให้แล้ว
+          ส่วนใหญ่ไม่ต้องแตะเลย จึงไม่ควรนั่งอยู่เหนือกล้องซึ่งเป็นงานจริงของหน้านี้ */}
       <div className="pod-section">
         <Field label="ชื่อผู้รับสินค้า" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-      </div>
-
-      <div className="pod-section">
-        <div className="pod-row-head">
-          <h4>รูปหน้างาน <span className="req">*</span></h4>
-          <span className="text-xs text-muted">
-            {shots.length > 0 ? `ถ่ายแล้ว ${shots.length} รูป` : 'ต้องมีอย่างน้อย 1 รูป'}
-          </span>
-        </div>
-
-        {/* เลือกมุมก่อนกดถ่าย — เป็นชิปเพราะคนขับต้องเห็นพร้อมกันว่าเหลือมุมไหน
-            ยังไม่ได้ถ่าย dropdown ตอบคำถามนั้นไม่ได้จนกว่าจะกางออกมา */}
-        <div className="pod-kinds" role="group" aria-label="มุมของรูปที่กำลังจะถ่าย">
-          {POD_PHOTO_KINDS.map((k) => {
-            const n = shots.filter((sh) => sh.kind === k.kind).length
-            return (
-              <button
-                key={k.kind}
-                type="button"
-                className="pod-kind"
-                aria-pressed={kind === k.kind}
-                onClick={() => setKind(k.kind)}
-                disabled={saving}
-              >
-                {k.label}
-                {n > 0 && <b aria-label={`ถ่ายแล้ว ${n} รูป`}>{n}</b>}
-              </button>
-            )
-          })}
-        </div>
-
-        {shots.length > 0 && (
-          <div className="pod-shots">
-            {shots.map((shot, i) => (
-              <div className="pod-shot" key={shot.img.url}>
-                <img src={shot.img.url} alt={`รูป${podKindLabel(shot.kind)}ที่ถ่ายไว้`} />
-                <button
-                  type="button"
-                  aria-label={`ลบรูป${podKindLabel(shot.kind)}`}
-                  onClick={() => {
-                    URL.revokeObjectURL(shot.img.url)
-                    setShots(shots.filter((_, x) => x !== i))
-                  }}
-                >
-                  ✕
-                </button>
-                <span className="pod-shot-kind">{podKindLabel(shot.kind)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <CameraCapture
-          onCapture={(img) => setShots([...shots, { img, kind }])}
-          disabled={saving}
-        />
       </div>
 
       <div className="pod-section">
@@ -871,6 +859,15 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
           </button>
         )}
       </div>
+
+      {/* ทางออกของคนที่เพิ่งกดปิดส่งผิดร้าน — ล่างสุด ไม่แย่งที่กับกล้อง
+          แต่ยังอยู่ในหน้านี้ เพราะฟอร์มเด้งขึ้นเองทันทีหลังกดปิดส่ง คนที่กดผิด
+          รู้ตัวตอนอ่านชื่อร้านบนหัวฟอร์ม ไม่ใช่ตอนกลับไปที่รายการ */}
+      {onUndo && (
+        <button type="button" className="pod-undo" onClick={onUndo} disabled={saving}>
+          ไม่ใช่ร้านนี้ — ยกเลิกการส่ง
+        </button>
+      )}
     </Modal>
   )
 }

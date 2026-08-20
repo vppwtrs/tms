@@ -32,7 +32,10 @@ export function SignaturePad({
   compact = false,
 }: {
   onChange: (dataUrl: string) => void
-  height?: number
+  /* ตัวเลข = พิกเซล ส่วนสตริงคือค่า CSS ตรง ๆ เช่น 'min(52vh, 420px)'
+     จอมือถือสูงไม่เท่ากันตั้งแต่ 667 ถึง 950 พิกเซล ความสูงตายตัวจึงพอดีอยู่รุ่นเดียว
+     ResizeObserver ปรับพื้นที่วาดตามขนาดจริงอยู่แล้ว ค่ายืดหยุ่นจึงไม่ทำให้หมึกเพี้ยน */
+  height?: number | string
   compact?: boolean
 }): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)

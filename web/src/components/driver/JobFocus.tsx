@@ -264,9 +264,8 @@ export function JobFocus({
             <span>ร้านอื่นถูกซ่อนไว้จนกว่าร้านนี้จะเสร็จ</span>
           </span>
           <Button
-            variant="ghost"
-            size="sm"
-            className={confirmSwitch ? 'is-armed' : ''}
+            variant="outline"
+            className={`stop-lock-exit${confirmSwitch ? ' is-armed' : ''}`}
             onClick={() => {
               if (!confirmSwitch) {
                 setConfirmSwitch(true)
