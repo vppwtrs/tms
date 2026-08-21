@@ -36,6 +36,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          # ไม่ตั้งค่านี้ = แผนที่ตกไปใช้ OpenStreetMap เหมือนเดิม ไม่พัง
+          VITE_LONGDO_KEY: ${{ vars.LONGDO_KEY }}
           # โปรเจ็คที่ deploy ที่ <user>.github.io/<repo>/ ต้องมี base path ต่อท้าย
           VITE_BASE: /${{ github.event.repository.name }}/
         # build:cloud ไม่ใช่ build — ตัวหลังคือระบบเดิมที่คุยกับ Express บน LAN
