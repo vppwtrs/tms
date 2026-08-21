@@ -25,6 +25,38 @@ import './styles/animations.css'
  */
 const CLOUD = import.meta.env.MODE === 'cloud'
 
+/* ผิวจอคนขับแบบแอป — ติดคลาสที่ <html> แล้วไฟล์ ios-*.css ค่อยทับสีและระยะให้
+   ไม่แตะ JSX สักบรรทัด ลำดับล็อกอินและเส้นทางของงานเหมือนเดิมทั้งหมด
+
+   ตอนนี้เปิดให้เห็นด้วย ?native=1 เท่านั้น (เลิกดูด้วย ?native=0) และในแอปจริง
+   คนที่เปิดเว็บตามปกติ — ออฟฟิศและคนขับที่ยังใช้อยู่ทุกวัน — ไม่เห็นอะไรเปลี่ยนเลย
+   วันไหนพร้อมเปิดให้คนขับทั้งหมด ค่อยเพิ่มเงื่อนไข display-mode: standalone ตรงนี้ที่เดียว
+
+   ไม่ใช้ top-level await — เป้าหมายของ build เป็น es2019 ผิวที่มาช้าหนึ่งเฟรมยอมได้
+   จอขาวเพราะสคริปต์พังทั้งก้อนยอมไม่ได้ */
+async function applyNativeSkin(): Promise<void> {
+  /* จำไว้ในเครื่อง เพราะ ?native=1 หลุดทันทีที่ router เปลี่ยนหน้า */
+  const flag = new URLSearchParams(window.location.search).get('native')
+  if (flag === '1') localStorage.setItem('preview-native', '1')
+  if (flag === '0') localStorage.removeItem('preview-native')
+  const forced = localStorage.getItem('preview-native') === '1'
+  const { Capacitor } = await import('@capacitor/core')
+  if (!forced && !Capacitor.isNativePlatform()) return
+  document.documentElement.classList.add('is-native-app')
+  /* หน้าตาที่เลือกได้ — route คือตัวตั้งต้น: จอเลือกร้านเป็นเส้นทางหมุด
+     จอตอนอยู่ในร้านจบในจอเดียวโดยไม่ต้องปัด */
+  const skinFlag = new URLSearchParams(window.location.search).get('skin')
+  const skins = ['route', 'focus', 'sheet', 'timeline']
+  if (skinFlag && skins.includes(skinFlag)) localStorage.setItem('preview-skin', skinFlag)
+  document.documentElement.dataset.skin = localStorage.getItem('preview-skin') ?? 'route'
+  await import('./styles/ios-app.css')
+  await import('./styles/ios-motion.css')
+  await import('./styles/ios-skins.css')
+  await import('./styles/ios-premium.css')
+}
+
+if (CLOUD) void applyNativeSkin()
+
 /* GitHub Pages เสิร์ฟที่ <user>.github.io/<repo>/ ไม่ใช่ราก
    ทั้ง router และ service worker ต้องรู้ base เดียวกัน ไม่งั้นเปิดแล้วจอขาว
    BASE_URL ลงท้ายด้วย / เสมอ ส่วน basename ของ router ต้องไม่มี — ตัดทิ้งตรงนี้ที่เดียว */

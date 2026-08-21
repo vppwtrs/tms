@@ -1,0 +1,576 @@
+/**
+ * ผิวและการวางจอของสกิน route — ธีมสว่าง อ่านชัด และจอทำงานต้องจบในจอเดียว
+ *
+ * โจทย์จริงของคนขับ: มือข้างหนึ่งถือของ อีกข้างถือโทรศัพท์ ยืนอยู่หน้าร้าน
+ * จอที่ต้องปัดหาปุ่มคือจอที่ทำให้เขาต้องวางของลงก่อน นั่นคือความผิดของจอ ไม่ใช่ของเขา
+ *
+ * กติกาที่ยึดในไฟล์นี้:
+ *   1. จอตอนอยู่ในร้าน สูงไม่เกินหน้าจอเดียว — หัวเรื่องกับปุ่มตรึงไว้
+ *      ส่วนที่ยาวได้มีที่เดียวคือรายการใบเบิก และมันเลื่อนอยู่ในกล่องของตัวเอง
+ *   2. ปุ่มที่ต้องกดอยู่ล่างสุดเสมอ ในระยะนิ้วโป้ง ไม่เคยเลื่อนหนี
+ *   3. ธีมสว่าง ตัวหนังสือดำเข้มบนขาว — อ่านกลางแดดผ่านกระจกหน้ารถได้
+ *      สีเทาจาง ๆ ถูกตัดออกจากทุกที่ที่เป็นข้อมูลจริง เหลือไว้เฉพาะป้ายกำกับ
+ *   4. ของที่ไม่ได้ใช้ตอนยืนอยู่หน้าร้าน ถูกพับหายไประหว่างนั้น แล้วกลับมาเมื่อออกจากร้าน
+ *
+ * ทับเฉพาะ [data-skin='route'] — ไม่แตะ JSX ไม่แตะ workflow ไม่แตะเงื่อนไขปุ่มใด ๆ
+ * ทุกอย่างที่ "หาย" ในไฟล์นี้คือ display:none ชั่วคราว ไม่ใช่การถอดออกจากระบบ
+ */
+
+.is-native-app[data-skin='route'] {
+  --paper: #eef0f3;
+  --paper-deep: #e2e5ea;
+  --surface: #ffffff;
+  --surface-2: #f6f7f9;
+  --line: #ccd1d9;
+  --line-soft: #e3e6eb;
+
+  /* ดำเกือบสนิทบนขาว = 18:1 อ่านได้ทุกสภาพแสง */
+  --ink: #0e1116;
+  --ink-2: #1b2027;
+  --muted: #4a525d;        /* 8.4:1 */
+  --faint: #5d6672;        /* 6.4:1 — จางที่สุดที่ยอมให้มีในจอนี้ */
+
+  /* ส้มเข้มพอสำหรับตัวหนังสือบนขาว (4.7:1) ไม่ใช่ส้มสดที่อ่านไม่ออก */
+  --brand: #b23c06;
+  --brand-strong: #8f2f04;
+  --brand-soft: #fdeee5;
+  --brand-line: #f0bfa3;
+
+  --blue-600: #b23c06;
+  --blue-500: #8f2f04;
+  --info: #b23c06;
+  --info-bg: #fdeee5;
+
+  --ok: #17603f;
+  --ok-bg: #e3f2ea;
+  --warn: #7a4a08;
+  --warn-bg: #fdf0dc;
+  --danger: #a51e17;
+  --danger-bg: #fbe6e4;
+  --neutral: #4a525d;
+  --neutral-bg: #e8eaee;
+
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 22px;
+
+  --btn-primary-bg: var(--brand);
+  --btn-primary-color: #ffffff;
+  --btn-primary-hover: var(--brand-strong);
+  --btn-accent-bg: var(--brand);
+  --btn-accent-color: #ffffff;
+  --btn-accent-hover: var(--brand-strong);
+
+  color-scheme: light;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.is-native-app[data-skin='route'] body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ===== หัวจอ ===== */
+.is-native-app[data-skin='route'] .driver-head {
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.is-native-app[data-skin='route'] .driver-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+/* ===== การ์ด ===== */
+.is-native-app[data-skin='route'] .job-card,
+.is-native-app[data-skin='route'] .job-focus,
+.is-native-app[data-skin='route'] .driver-me-card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  box-shadow: 0 1px 2px rgb(14 17 22 / 5%);
+}
+
+.is-native-app[data-skin='route'] .job-card-no,
+.is-native-app[data-skin='route'] .job-bar-no {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.is-native-app[data-skin='route'] .job-card-meta,
+.is-native-app[data-skin='route'] .job-bar-meta,
+.is-native-app[data-skin='route'] .job-sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.is-native-app[data-skin='route'] .job-card-head,
+.is-native-app[data-skin='route'] .job-bar {
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: var(--space-3);
+}
+
+.is-native-app[data-skin='route'] .badge,
+.is-native-app[data-skin='route'] .job-card-status {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 5px;
+  padding: 4px 8px;
+}
+
+/* ===== เส้นคืบหน้า — ทำแล้วทึบ ที่เหลือเป็นเส้นประ ===== */
+.is-native-app[data-skin='route'] .job-meter-track {
+  height: 4px;
+  background: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--line) 0 5px,
+    transparent 5px 10px
+  );
+}
+
+.is-native-app[data-skin='route'] .job-meter-fill {
+  background: var(--brand);
+  border-radius: 2px;
+}
+
+.is-native-app[data-skin='route'] .job-meter-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== แถวร้าน — สูง 60pt กดพลาดยาก และเห็นได้ 5-6 ร้านโดยไม่ต้องปัด ===== */
+.is-native-app[data-skin='route'] .stop-item > button {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  min-height: 60px;
+}
+
+.is-native-app[data-skin='route'] .stop-item-dest {
+  font-size: 16.5px;
+  font-weight: 650;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+
+/* เวลานัดเป็นชิป — กวาดตาเจอโดยไม่ต้องอ่านทั้งบรรทัด */
+.is-native-app[data-skin='route'] .stop-item-sub {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--paper-deep);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done > button {
+  background: transparent;
+  border-color: transparent;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done .stop-item-dest {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked > button {
+  background: var(--surface);
+  border: 1.5px solid var(--brand-line);
+}
+
+/* ===== หมุด ===== */
+.is-native-app[data-skin='route'] .stop-list::before {
+  background: none;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--line) 0 5px,
+    transparent 5px 10px
+  );
+}
+
+.is-native-app[data-skin='route'] .stop-item::before {
+  background: var(--paper-deep);
+  border-color: var(--line);
+  border-radius: 3px;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done::before {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked::before {
+  background: var(--brand);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.is-native-app[data-skin='route'] .stop-list::after {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ===== ปุ่ม ===== */
+.is-native-app[data-skin='route'] .btn {
+  border-radius: var(--r-sm);
+}
+
+.is-native-app[data-skin='route'] .btn-outline {
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.is-native-app[data-skin='route'] .stop-item-cta {
+  background: var(--brand);
+  color: #ffffff;
+  border-radius: var(--r-md);
+}
+
+/* ===== ป้ายกำกับ / ค่า ===== */
+.is-native-app[data-skin='route'] .stop-item-facts dt,
+.is-native-app[data-skin='route'] .stop-item-move-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.is-native-app[data-skin='route'] .stop-item-facts dd,
+.is-native-app[data-skin='route'] .stop-bill {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.is-native-app[data-skin='route'] .stop-bill-no {
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.is-native-app[data-skin='route'] .job-alert {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.is-native-app[data-skin='route'] .job-alert.is-warn {
+  background: var(--warn-bg);
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+  color: var(--warn);
+}
+
+.is-native-app[data-skin='route'] .track-note {
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--ok-bg);
+  color: var(--ok);
+  border-radius: var(--r-sm);
+}
+
+.is-native-app[data-skin='route'] .track-note.is-off {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* ===== แถบล่าง ===== */
+.is-native-app[data-skin='route'] .driver-tabs {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-top: 1px solid var(--line);
+}
+
+.is-native-app[data-skin='route'] .driver-tab {
+  color: var(--faint);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.is-native-app[data-skin='route'] .driver-tab > svg {
+  padding: 6px;
+  border-radius: 10px;
+  box-sizing: content-box;
+  transition: background-color 180ms ease-out, color 180ms ease-out;
+}
+
+.is-native-app[data-skin='route'] .driver-tab.is-active > svg,
+.is-native-app[data-skin='route'] .driver-tab[aria-current='page'] > svg {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.is-native-app[data-skin='route'] .driver-tab.is-active,
+.is-native-app[data-skin='route'] .driver-tab[aria-current='page'] {
+  color: var(--brand);
+}
+
+/* ===================================================================
+   จอตอนอยู่ในร้าน — ต้องจบในหน้าจอเดียว
+   ทำเป็นสามชั้น: หัวตรึงบน / เนื้อหาเลื่อนตรงกลาง / ปุ่มตรึงล่าง
+   =================================================================== */
+
+/* ระหว่างอยู่ในร้าน ของพวกนี้ไม่ได้ใช้ — พับไว้ก่อน แล้วกลับมาเมื่อออกจากร้าน
+   (แถบคืบหน้าของเที่ยว, ทีมที่ไปด้วย, ปุ่มเรียงลำดับการแวะ, ปุ่มแจ้งปัญหาของเที่ยว)
+   ทุกอันยังอยู่ในหน้า แค่ไม่แสดง — logic ไม่รู้เรื่องด้วยซ้ำ */
+.is-native-app[data-skin='route'] .job-focus:has(.stop-item.is-locked) .job-secondary,
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-move {
+  display: none;
+}
+
+/* หัว: แถบบอกว่าอยู่ร้านไหน ตรึงไว้บนสุดของการ์ด */
+.is-native-app[data-skin='route'] .stop-lock-bar {
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--r-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.is-native-app[data-skin='route'] .stop-lock-text strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-strong);
+}
+
+.is-native-app[data-skin='route'] .stop-lock-text span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ชื่อร้าน: ใหญ่ที่สุดในจอ อ่านจากระยะแขนตอนถือของอีกมือ */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-dest {
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked > button {
+  min-height: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+/* ปุ่มโทร/นำทาง: แถวเดียว สูง 48pt ไม่ต้องใหญ่กว่านี้ เพราะไม่ใช่ปุ่มหลัก */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-actions .btn {
+  min-height: 48px;
+  font-size: 15px;
+}
+
+/* ที่อยู่/ใบเบิก: ส่วนเดียวที่ยาวได้ และมันเลื่อนอยู่ในกล่องของตัวเอง
+   หน้าทั้งหน้าจึงไม่ต้องเลื่อน ปุ่มข้างล่างไม่เคยหนีไปไหน
+   40vh คือที่ที่เหลือจริงหลังหักหัวจอ ชื่อร้าน ปุ่มติดต่อ ปุ่มหลัก และแถบล่าง */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-bills {
+  max-height: 34vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-facts {
+  margin-bottom: var(--space-2);
+}
+
+/* ปุ่มหลัก: ตรึงล่างสุด สูง 56pt เต็มความกว้าง อยู่ในระยะนิ้วโป้งเสมอ */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-cta {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) + var(--space-2));
+  z-index: 20;
+  width: 100%;
+  min-height: 56px;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: 0 8px 22px rgb(178 60 6 / 22%);
+}
+
+/* ตัดของที่ไม่ได้ใช้ตอนยืนอยู่หน้าร้านออกอีกสามอย่าง เพื่อให้จบในจอเดียวจริง ๆ
+   วัดแล้วสามอันนี้กินรวมกัน ~110px ซึ่งคือส่วนที่ทำให้ต้องปัดพอดี */
+
+/* 1. แถบเลขเที่ยว — แถบสีส้มข้างบนบอกอยู่แล้วว่ากำลังส่งร้านไหน
+      เลขเที่ยวกลับมาทันทีที่ออกจากร้าน */
+.is-native-app[data-skin='route'] .job-focus:has(.stop-item.is-locked) .job-bar {
+  display: none;
+}
+
+/* 2. ข้อความบอกสถานะของเที่ยวท้ายการ์ด (เช่น "เหลืออีก 1 จุด")
+      ซ่อนเฉพาะตอนที่ในแถบนั้นไม่มีปุ่ม — ถ้ามีปุ่มจบงานอยู่ ห้ามซ่อนเด็ดขาด */
+.is-native-app[data-skin='route'] .job-focus:has(.stop-item.is-locked) .job-cta-bar:not(:has(.btn)) {
+  display: none;
+}
+
+/* 3. บรรทัดอธิบายใต้ชื่อร้านในแถบล็อก — คนขับอ่านครั้งเดียวก็รู้แล้ว
+      ปุ่มออกจากร้านยังอยู่ในแถบเดิม ไม่ได้หายไปไหน */
+.is-native-app[data-skin='route'] .stop-lock-bar .stop-lock-text span {
+  display: none;
+}
+
+/* ===== ทำให้ "จบในจอเดียว" เป็นจริงไม่ว่าใบเบิกจะมีกี่ใบ =====
+   ตัดความสูงด้วยตัวเลขคงที่ไม่พอ — ร้านที่มี 15 ใบก็ดันจอยาวอยู่ดี
+   จึงให้การ์ดสูงเท่าที่จอเหลือ แล้วให้ "รายการใบเบิก" เป็นส่วนเดียวที่ยืดหด
+   ปุ่มหลักถูกดันไปอยู่ท้ายสุดของกล่องเสมอ ไม่ว่าจะมีของอยู่ข้างบนเท่าไหร่
+
+   ลำดับที่ตาเห็นถูกจัดใหม่ด้วย order ส่วนลำดับของโฟกัสยังเป็นลำดับใน DOM เหมือนเดิม
+   ปุ่มยังเป็นปุ่มเดิม เงื่อนไขเดิม กดแล้วเกิดอะไรเหมือนเดิมทุกอย่าง */
+/* ไล่ความสูงลงมาเป็นชั้น ๆ แทนการเดาตัวเลข:
+   พื้นที่เนื้อหา = จอ ลบหัวจอกับแถบล่าง แล้วส่งความสูงนั้นต่อลงไปจนถึงรายการใบเบิก
+   ส่วนเกินทั้งหมดไปลงที่กล่องใบเบิกกล่องเดียว ที่เหลือจึงไม่มีอะไรให้ปัด */
+.is-native-app[data-skin='route'] .driver-scope:has(.stop-item.is-locked) {
+  display: flex;
+  flex-direction: column;
+  /* หัวจอกับแถบล่างเป็นลูกของกล่องนี้อยู่แล้ว จึงไม่ต้องหักออกอีก
+     กินเต็มจอไปเลย ระยะขอบด้านในจัดการเองข้างใน */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.is-native-app[data-skin='route'] .driver-scope:has(.stop-item.is-locked) .job-list,
+.is-native-app[data-skin='route'] .job-card:has(.stop-item.is-locked),
+.is-native-app[data-skin='route'] .job-card:has(.stop-item.is-locked) .job-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.is-native-app[data-skin='route'] .job-focus:has(.stop-item.is-locked) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.is-native-app[data-skin='route'] .job-focus:has(.stop-item.is-locked) .stop-list,
+.is-native-app[data-skin='route'] .stop-item.is-locked {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-actions { order: 1; }
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-facts   { order: 2; }
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-note    { order: 3; }
+
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-bills {
+  order: 4;
+  /* กินที่ที่เหลือทั้งหมด แต่ต้องไม่ต่ำกว่าสามบรรทัด — ใบเบิกที่เหลือช่องเดียว
+     ไม่ได้ช่วยใครเลย ต่อให้จอไม่ต้องปัดก็ตาม */
+  flex: 1 1 auto;
+  min-height: 96px;
+  max-height: none;
+  overflow-y: auto;
+}
+
+/* ปุ่มหลักท้ายสุดเสมอ ไม่ต้อง sticky แล้วเพราะกล่องไม่เลื่อนทั้งกล่อง */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-cta {
+  order: 5;
+  position: static;
+  margin-top: var(--space-3);
+}
+
+/* กันหน้าเลื่อนให้ขาด — ตัวหน้าเองก็ต้องสูงเท่าจอ ไม่ใช่แค่กล่องข้างใน
+   เหลือ 0 พิกเซลให้ปัด ปุ่มจึงอยู่ที่เดิมเสมอไม่ว่านิ้วจะไปโดนตรงไหน */
+.is-native-app[data-skin='route'] .driver-content:has(.stop-item.is-locked) {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ===== เลือกร้านให้ง่ายขึ้น =====
+   ปัญหาจากหน้างาน: แถวร้านทุกแถวหน้าตาเท่ากันหมด คนขับต้องเพ่งว่าอันไหนกดได้
+   อันไหนทำไปแล้ว และร้านต่อไปคือร้านไหน สามอย่างนี้ต้องแยกออกจากกันด้วยสายตา */
+
+/* ร้านที่ยังไม่ได้ส่ง = การ์ดขาวมีขอบชัด ตัวหนังสือเข้ม และมีลูกศรบอกว่ากดเข้าไปได้ */
+.is-native-app[data-skin='route'] .stop-item.is-todo > button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  min-height: 64px;
+  position: relative;
+  padding-right: 34px;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-todo > button::after {
+  content: '';
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid var(--faint);
+  border-right: 2px solid var(--faint);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* ร้านที่กางอยู่ ลูกศรหมุนลง — บอกว่าอันนี้คืออันที่เปิดอยู่ ไม่ใช่อันที่กดค้างไว้ */
+.is-native-app[data-skin='route'] .stop-item.is-open > button::after {
+  transform: translateY(-50%) rotate(135deg);
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-todo .stop-item-dest {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* เวลานัดของร้านที่ยังไม่ส่ง อ่านชัดกว่าของร้านที่ส่งแล้ว */
+.is-native-app[data-skin='route'] .stop-item.is-todo .stop-item-sub {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+
+/* ร้านที่ส่งแล้ว: ตัวเล็กลง ไม่มีขอบ ไม่มีลูกศร — จบไปแล้วไม่ต้องชวนให้กด
+   แต่ยังกดดูหลักฐานได้เหมือนเดิม ไม่ได้ปิดปุ่มอะไรทั้งนั้น */
+.is-native-app[data-skin='route'] .stop-item.is-done > button {
+  min-height: 52px;
+  opacity: 0.72;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done .stop-item-dest {
+  font-size: 15px;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done .stop-item-sub {
+  background: transparent;
+  padding-left: 0;
+  color: var(--faint);
+  font-weight: 500;
+}
+
+/* ร้านต่อไปที่ควรแวะ = ร้านที่ยังไม่ส่งร้านแรกในลิสต์
+   ทำเส้นซ้ายสีส้มไว้ให้เห็นจากหางตา — ยังกดร้านอื่นได้ตามเดิม นี่เป็นแค่คำแนะนำ ไม่ใช่การบังคับ */
+.is-native-app[data-skin='route'] .stop-item.is-done + .stop-item.is-todo > button,
+.is-native-app[data-skin='route'] .stop-list > .stop-item.is-todo:first-child > button {
+  border-left: 4px solid var(--brand);
+}

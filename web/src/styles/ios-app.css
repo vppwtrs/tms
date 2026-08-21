@@ -1,0 +1,317 @@
+/**
+ * ผิวของแอป iOS — ทับเฉพาะตอนรันในแอป ไม่แตะเว็บ
+ *
+ * ทุกกฎในไฟล์นี้อยู่ใต้ `.is-native-app` ซึ่งติดที่ <html> เฉพาะเมื่อ Capacitor
+ * บอกว่ากำลังรันเป็นแอปจริง (หรือเปิดด้วย ?native=1 เพื่อดูตัวอย่าง)
+ * เว็บที่ออฟฟิศกับคนขับใช้อยู่ทุกวันจึงไม่ขยับสักพิกเซล
+ *
+ * ไม่มีการแตะโครงสร้าง JSX เลยแม้แต่บรรทัดเดียว — ลำดับการล็อกอิน ปุ่มที่กด
+ * และเส้นทางของงานเหมือนเดิมทั้งหมด สิ่งที่เปลี่ยนคือสิ่งที่ตาเห็น
+ *
+ * ทิศทาง: เรียบแบบสวิส + สำนวนของ iOS เอง
+ *   - ตัวหนังสือใช้ฟอนต์ระบบ (SF) แอปที่ใช้ฟอนต์ระบบอ่านง่ายที่สุดบนเครื่องนั้น
+ *     และได้ Dynamic Type ของผู้ใช้มาฟรี
+ *   - พาเลตต์เปลี่ยนจากพาสเทลม่วง-ชมพู เป็นเทาเข้ม + น้ำเงินเดียว
+ *     คนขับอ่านจอกลางแดดผ่านกระจกหน้ารถ พาสเทลบนขาวคือสิ่งแรกที่หายไปในแดด
+ *   - สีเดียวที่เด่นคือสีของปุ่มหลัก หนึ่งจอมีปุ่มหลักได้ปุ่มเดียว
+ */
+
+.is-native-app {
+  /* ฟอนต์ระบบก่อน แล้วค่อยถอยไปหาฟอนต์ไทยที่เว็บใช้อยู่ */
+  --font-app: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif;
+
+  /* กลาง ๆ ไม่อมสี — พื้นที่อ่านกลางแดดต้องไม่มีสีมาแย่งความคมของตัวหนังสือ */
+  --paper: #f2f2f7;        /* พื้นแบบ grouped list ของ iOS */
+  --paper-deep: #e5e5ea;
+  --surface: #ffffff;
+  --surface-2: #f9f9fb;
+  --line: #d8d8de;
+  --line-soft: #e8e8ed;
+
+  --ink: #000000;
+  --ink-2: #1c1c1e;
+  --muted: #4b4b52;        /* 8.1:1 บนขาว — อ่านออกกลางแดด */
+  --faint: #56565c;
+
+  /* สีเน้นเดียวของทั้งแอป */
+  --blue-600: #0a5bd3;
+  --blue-500: #0a6cf1;
+  --info: #0a5bd3;
+  --info-bg: #e3edfd;
+
+  --ok: #14684b;
+  --ok-bg: #dff3ea;
+  --warn: #7a4a08;
+  --warn-bg: #fdf0dc;
+  --danger: #b3261e;
+  --danger-bg: #fce8e6;
+  --neutral: #4b4b52;
+  --neutral-bg: #eaeaef;
+
+  /* iOS ใช้มุมใหญ่กว่าเว็บทั่วไป และใช้เส้นน้อยกว่า */
+  --r-sm: 12px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 24px;
+
+  /* ไล่เฉดหายไปทั้งหมด — มันสวยบนจอออฟฟิศ และกลืนหายกลางแดด */
+  --grad-brand: none;
+  --grad-soft: none;
+
+  font-family: var(--font-app);
+  /* ผู้ใช้ที่ตั้งตัวหนังสือใหญ่ต้องได้ตัวใหญ่จริง ไม่ใช่ตัวเดิมกับจอที่ล้น */
+  -webkit-text-size-adjust: 100%;
+}
+
+.is-native-app[data-theme='dark'] {
+  --paper: #000000;        /* ดำสนิทตามแบบ iOS — ประหยัดแบตบนจอ OLED ด้วย */
+  --paper-deep: #0b0b0d;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --line: #38383a;
+  --line-soft: #2c2c2e;
+
+  --ink: #ffffff;
+  --ink-2: #f2f2f7;
+  --muted: #b4b4bb;
+  --faint: #a1a1a8;
+
+  --blue-600: #4c9bff;
+  --blue-500: #62a8ff;
+  --info: #4c9bff;
+  --info-bg: #10233d;
+
+  --ok: #4fd39a;
+  --ok-bg: #0e2a20;
+  --warn: #f2b657;
+  --warn-bg: #2e2110;
+  --danger: #ff6b60;
+  --danger-bg: #331512;
+  --neutral: #b4b4bb;
+  --neutral-bg: #2c2c2e;
+}
+
+.is-native-app body {
+  font-family: var(--font-app);
+  background: var(--paper);
+  /* iOS ยืดหน้าตอนสุดขอบแล้วเด้งกลับ ปล่อยให้เด้งได้ตามระบบ อย่าไปห้าม */
+  overscroll-behavior-y: auto;
+}
+
+/* ===== พื้นที่ปลอดภัย =====
+   ทั้งหมดของหน้านี้ต้องหลบรอยบาก แถบสถานะ และแถบลากขึ้นด้านล่าง
+   ของที่กดได้ซึ่งไปนอนอยู่ใต้แถบลากขึ้น คือปุ่มที่กดแล้วออกจากแอป */
+.is-native-app .driver-head {
+  padding-top: calc(env(safe-area-inset-top) + var(--space-3));
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  /* วัสดุโปร่งแบบ iOS — เนื้อหาเลื่อนลอดข้างหลังแล้วยังอ่านหัวออก */
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.is-native-app .driver-title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.is-native-app .driver-tabs {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2));
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--line);
+}
+
+.is-native-app .driver-tab {
+  /* ต่ำกว่านี้แล้วนิ้วโป้งพลาด และ 44pt คือขั้นต่ำที่ Apple กำหนด */
+  min-height: 48px;
+  /* 11px คือขนาดป้ายแท็บของ iOS เอง แต่บนพื้นโปร่งแสง สีน้ำเงินที่ 11px
+     วัดคอนทราสต์ได้ 3.4:1 ซึ่งไม่ผ่าน AA — ขยับเป็น 12px แล้วเข้มสีขึ้น */
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  gap: 3px;
+}
+
+.is-native-app .driver-tab.is-active,
+.is-native-app .driver-tab[aria-current='page'] {
+  color: #0a49b0;
+}
+
+/* บนพื้นดำ น้ำเงินเข้มตัวเดียวกันนี้จมหายไปเลย ต้องสว่างกว่าพื้น ไม่ใช่เข้มกว่า */
+.is-native-app[data-theme='dark'] .driver-tab.is-active,
+.is-native-app[data-theme='dark'] .driver-tab[aria-current='page'] {
+  color: #6cb0ff;
+}
+
+/* ===== การ์ดงาน =====
+   iOS ไม่ค่อยใช้เงา ใช้พื้นขาวลอยบนพื้นเทาแทน — คมกว่าและไม่เลอะกลางแดด */
+.is-native-app .job-card,
+.is-native-app .job-focus,
+.is-native-app .driver-me-card {
+  border: none;
+  border-radius: var(--r-lg);
+  box-shadow: none;
+  background: var(--surface);
+}
+
+.is-native-app .job-card-no,
+.is-native-app .job-bar-no {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  /* เลขเที่ยวเป็นตัวเลขล้วน ใช้ตัวเลขความกว้างเท่ากันแล้วแถวไม่กระตุก */
+  font-variant-numeric: tabular-nums;
+}
+
+.is-native-app .job-card-meta,
+.is-native-app .job-sub,
+.is-native-app .job-bar-meta {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* ===== ปุ่ม =====
+   สูงขึ้น เต็มความกว้างมากขึ้น และตอบสนองด้วยการยุบตัวเล็กน้อย
+   คนขับกดด้วยนิ้วโป้งมือเดียว บางทีใส่ถุงมือ */
+.is-native-app .btn {
+  min-height: 48px;
+  border-radius: var(--r-sm);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: transform 120ms ease-out, background-color 150ms ease-out, opacity 150ms ease-out;
+}
+
+.is-native-app .btn-lg {
+  min-height: 54px;
+  font-size: 18px;
+}
+
+.is-native-app .btn:active:not(:disabled) {
+  /* ยุบตัวแทนการเปลี่ยนสี — เห็นชัดกว่าบนจอกลางแดด และไม่ดันของรอบข้าง */
+  transform: scale(0.97);
+}
+
+.is-native-app .btn:disabled {
+  opacity: 0.4;
+}
+
+/* ปุ่มหลักหนึ่งเดียวของจอ — น้ำเงินตามสำนวนของ iOS
+   ระบบเดิมใช้ดำสนิทเป็นปุ่มหลัก ซึ่งบนแอปอ่านเหมือนปุ่มที่กดไม่ได้ */
+.is-native-app {
+  --btn-primary-bg: var(--blue-600);
+  --btn-primary-color: #ffffff;
+  --btn-primary-hover: var(--blue-500);
+  --btn-accent-bg: var(--blue-600);
+  --btn-accent-color: #ffffff;
+  --btn-accent-hover: var(--blue-500);
+}
+
+.is-native-app .stop-item-cta {
+  background: var(--blue-600);
+  color: #fff;
+  border: none;
+}
+
+/* ปุ่มรองเป็นพื้นเทาอ่อน ไม่ใช่กรอบเส้น — เส้นบาง ๆ หายไปในแดด */
+.is-native-app .btn-outline {
+  background: var(--paper-deep);
+  border-color: transparent;
+  color: var(--ink-2);
+}
+
+/* ปุ่มอันตรายต้องแยกออกจากปุ่มปกติด้วยสี ไม่ใช่ด้วยตำแหน่งอย่างเดียว */
+.is-native-app .btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* ===== รายการจุดจอด =====
+   แถวแบบ grouped list ของ iOS: เส้นคั่นบาง ๆ เริ่มเยื้องจากขอบซ้าย
+   ไม่ใช่กล่องซ้อนกล่อง ซึ่งกินพื้นที่จอและทำให้แถวเตี้ยลง */
+.is-native-app .stop-item {
+  border: none;
+  border-radius: 0;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.is-native-app .stop-item + .stop-item {
+  border-top: 1px solid var(--line-soft);
+}
+
+.is-native-app .stop-item > button {
+  min-height: 60px;
+  padding: var(--space-4);
+}
+
+.is-native-app .stop-item.is-locked {
+  background: var(--info-bg);
+}
+
+.is-native-app .stop-bill {
+  font-size: 15px;
+}
+
+/* ===== แถบสถานะการบันทึกตำแหน่ง =====
+   ข้อความนี้คือสิ่งที่บอกคนขับว่ากำลังถูกตามอยู่หรือไม่ ต้องอ่านออกเสมอ
+   ไม่ใช่ตัวเทาจาง ๆ ท้ายการ์ด */
+.is-native-app .track-note {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-radius: var(--r-sm);
+  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.is-native-app .track-note.is-off {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* ===== ฟอร์มและช่องกรอก =====
+   ต่ำกว่า 16px เมื่อไหร่ Safari จะซูมหน้าเข้าเองตอนโฟกัส แล้วเลย์เอาต์พัง */
+.is-native-app input,
+.is-native-app textarea,
+.is-native-app select {
+  font-size: 17px;
+  min-height: 48px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-app);
+}
+
+/* ===== กล้องและลายเซ็น =====
+   จอเก็บหลักฐานต้องกินเต็มความกว้าง ไม่มีขอบมนใหญ่มาเบียดภาพ */
+.is-native-app .cam-stage {
+  border-radius: var(--r-md);
+}
+
+.is-native-app .cam-shutter {
+  /* นิ้วโป้งกดขณะยืนถือของอีกมือ ใหญ่กว่านี้ดีกว่าเล็กกว่า */
+  width: 78px;
+  height: 78px;
+}
+
+/* ===== การเคลื่อนไหว =====
+   iOS ใช้จังหวะสปริง ไม่ใช่เส้นตรง แต่ต้องเคารพคนที่ปิดเอฟเฟกต์ */
+.is-native-app .job-card,
+.is-native-app .stop-item {
+  transition: background-color 180ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-native-app * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
