@@ -3300,6 +3300,27 @@
 }
 .cam-stage-off p { margin: 0; font-size: var(--font-sm); color: #e7e5ee; }
 
+/* ปุ่มเต็มช่องมองภาพ ตอนได้สตรีมแล้วแต่ภาพไม่เดิน (โหมดประหยัดพลังงานของ iOS)
+   เต็มช่องเพราะคนที่เจอกรอบดำจะแตะที่กรอบนั้นอยู่แล้ว ไม่ใช่มองหาปุ่มเล็ก ๆ */
+.cam-stage-wake {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  text-align: center;
+  border: 0;
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.cam-stage-wake b { font-size: 18px; }
+.cam-stage-wake span { font-size: 13px; line-height: 1.5; color: #e7e5ee; max-width: 30ch; }
+
 /* ชัตเตอร์ — วงกลมซ้อนวงกลม แบบเดียวกับแอปกล้องทุกตัวที่คนขับเคยใช้
    ใหญ่กว่าเป้านิ้วโป้งมาตรฐาน เพราะกดตอนถือของอยู่ในมืออีกข้าง */
 .cam-shutter {

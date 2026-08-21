@@ -47,6 +47,12 @@ export function CameraCapture({
   const open = stream !== null
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState('')
+  /* ภาพสดไม่เดิน ทั้งที่ได้สตรีมมาแล้ว
+     บน iPhone ที่เปิดโหมดประหยัดพลังงาน iOS หยุดการเล่นวิดีโออัตโนมัติทั้งหมด
+     รวมถึงภาพสดจากกล้องที่ปิดเสียงและเล่นในหน้า สิทธิ์กล้องผ่านแล้ว สตรีมมาแล้ว
+     แต่เฟรมแรกไม่เคยขึ้น คนใช้เห็นกรอบดำและไม่มีอะไรบอกว่าทำไม
+     ทางออกเดียวที่ iOS ยอมคือให้คนแตะเอง — play() ที่มาจากนิ้วคนไม่ถูกบล็อก */
+  const [stalled, setStalled] = useState(false)
   /* ไฟแฟลชสั้น ๆ ตอนชัตเตอร์ลั่น — กล้องที่ไม่ปิดหลังถ่าย ไม่มีอะไรบอกว่าถ่ายติดแล้ว
      ภาพในช่องมองก็ยังขยับเหมือนเดิม คนจะกดซ้ำจนได้รูปเดียวกันห้าใบ */
   const [flash, setFlash] = useState(false)
@@ -77,7 +83,18 @@ export function CameraCapture({
     const play = (): void => { void video.play().catch(() => undefined) }
     play()
     video.addEventListener('loadedmetadata', play)
-    return () => video.removeEventListener('loadedmetadata', play)
+    const playing = (): void => setStalled(false)
+    video.addEventListener('playing', playing)
+    /* ให้เวลาเครื่องช้าได้ตั้งตัวก่อนค่อยสรุปว่าไม่เดิน — เฟรมแรกของกล้องหลัง
+       บนเครื่องรุ่นเก่าใช้เวลาเกินหนึ่งวินาทีเป็นเรื่องปกติ */
+    const timer = window.setTimeout(() => {
+      setStalled(video.paused || video.videoWidth === 0)
+    }, 2500)
+    return () => {
+      window.clearTimeout(timer)
+      video.removeEventListener('loadedmetadata', play)
+      video.removeEventListener('playing', playing)
+    }
   }, [stream])
 
   /* โหมดกล้องค้าง: ขอกล้องทันทีที่เข้าหน้า ไม่ต้องกดเปิดก่อน
@@ -166,6 +183,21 @@ export function CameraCapture({
             <>
               <video ref={videoRef} playsInline muted autoPlay className="cam-stage-video" />
               {flash && <span className="cam-stage-flash" aria-hidden="true" />}
+              {stalled && (
+                <button
+                  type="button"
+                  className="cam-stage-wake"
+                  onClick={() => {
+                    const video = videoRef.current
+                    if (!video) return
+                    void video.play().then(() => setStalled(false)).catch(() => undefined)
+                  }}
+                >
+                  <b>แตะเพื่อเริ่มภาพ</b>
+                  <span>กล้องพร้อมแล้วแต่ภาพยังไม่เดิน — โหมดประหยัดพลังงานของ iPhone
+                    หยุดภาพสดไว้ ปิดโหมดนั้นแล้วจะไม่ต้องแตะอีก</span>
+                </button>
+              )}
             </>
           ) : (
             /* กล้องยังไม่ติด — ช่องมองภาพกลายเป็นที่บอกเหตุและปุ่มลองใหม่
