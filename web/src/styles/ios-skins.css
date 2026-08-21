@@ -301,3 +301,39 @@
   font-size: 18px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
 }
+
+/* ---------- อยู่ในร้าน = จอนั้นมีร้านนั้นร้านเดียว ----------
+   ระหว่างส่งของอยู่หน้าร้าน จอต้องไม่มีเที่ยวอื่นและไม่มีเลขเที่ยวซ้ำสองที่
+   คนขับเงยหน้าจากของที่ถืออยู่แล้วต้องอ่านเจอทันทีว่า "ร้านนี้ ทำอะไรต่อ"
+   ไม่ใช่ต้องแยกว่าเลข TRIP ข้างบนกับข้างล่างคืออันเดียวกันหรือคนละอัน
+
+   ซ่อนด้วย CSS ล้วน ไม่ได้ถอดออกจากหน้า — กดออกจากร้านเมื่อไหร่ทุกอย่างกลับมาครบ
+   และ logic ไม่รู้เลยว่ามีอะไรถูกซ่อน */
+
+/* เที่ยวอื่นที่ยังไม่จบ — พับหายไปจนกว่าจะออกจากร้านนี้ */
+.is-native-app[data-skin='route'] .job-list:has(.stop-item.is-locked) > .job-card:not(:has(.stop-item.is-locked)) {
+  display: none;
+}
+
+/* หัวสรุปของเที่ยวที่กำลังเปิดอยู่ — ซ้ำกับแถบเลขเที่ยวข้างในการ์ด เก็บอันเดียวพอ */
+.is-native-app[data-skin='route'] .job-card:has(.stop-item.is-locked) > :not(.job-card-body) {
+  display: none;
+}
+
+.is-native-app[data-skin='route'] .job-card:has(.stop-item.is-locked) {
+  background: transparent;
+}
+
+/* แถบเลขเที่ยวกับแถบคืบหน้าย่อลง — ตอนนี้พระเอกคือชื่อร้าน ไม่ใช่เลขเที่ยว */
+.is-native-app[data-skin='route'] .job-focus:has(.stop-item.is-locked) .job-bar-no {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.is-native-app[data-skin='route'] .job-focus:has(.stop-item.is-locked) .job-meter {
+  display: none;
+}
+
+/* เบราว์เซอร์รุ่นที่ยังไม่รู้จัก :has() จะข้ามกฎข้างบนทั้งชุด
+   ผลคือได้จอแบบเดิมที่ยังใช้งานได้ครบ ไม่ใช่จอพัง — WebView ของ iOS 15.4
+   ขึ้นไปรองรับแล้ว ซึ่งครอบคลุมเครื่องที่ใช้งานจริงทั้งหมด */
