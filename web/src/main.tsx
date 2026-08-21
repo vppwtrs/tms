@@ -30,9 +30,31 @@ const CLOUD = import.meta.env.MODE === 'cloud' || import.meta.env.MODE === 'demo
 /* กรอบพรีวิวใน editor กดอนุญาตตำแหน่งไม่ได้ และจอคนขับไม่ให้กดรับงานถ้าไม่มีตำแหน่ง
    โหมดสาธิตจึงใส่ตัวปลอมทับก่อนแอปขึ้น import แบบมีเงื่อนไข build ปกติจึงไม่มีไฟล์นี้ */
 if (import.meta.env.MODE === 'demo') {
-  const { installDemoGeolocation } = await import('./demo/geo')
-  installDemoGeolocation()
+  void import('./demo/geo').then(({ installDemoGeolocation }) => installDemoGeolocation())
 }
+
+/* ผิวของแอป iOS — ติดคลาสที่ <html> แล้ว ios-app.css ค่อยทับสีและระยะให้
+   ไม่แตะ JSX สักบรรทัด ลำดับล็อกอินและเส้นทางของงานจึงเหมือนเดิมทั้งหมด
+
+   ?native=1 มีไว้ดูตัวอย่างผิวนี้บนเดสก์ท็อป — ของจริงมาจาก Capacitor
+   ซึ่งตอบ true เฉพาะตอนรันอยู่ในแอปเท่านั้น */
+/* ไม่ใช้ top-level await ตรงนี้ — เป้าหมายของ build เป็น es2019 และ WebView
+   ของ iOS รุ่นเก่ายังไม่รองรับ ผิวที่มาช้าไปหนึ่งเฟรมยอมรับได้ จอขาวเพราะ
+   สคริปต์พังทั้งก้อนยอมไม่ได้ */
+async function applyNativeSkin(): Promise<void> {
+  /* จำไว้ในเครื่อง เพราะ ?native=1 หลุดทันทีที่ router เปลี่ยนหน้า
+     แล้วผิวจะหายไปกลางทาง ทำให้ดูตัวอย่างไม่ได้จริง (?native=0 เพื่อเลิกดู) */
+  const flag = new URLSearchParams(window.location.search).get('native')
+  if (flag === '1') localStorage.setItem('preview-native', '1')
+  if (flag === '0') localStorage.removeItem('preview-native')
+  const forced = localStorage.getItem('preview-native') === '1'
+  const { Capacitor } = await import('@capacitor/core')
+  if (!forced && !Capacitor.isNativePlatform()) return
+  document.documentElement.classList.add('is-native-app')
+  await import('./styles/ios-app.css')
+}
+
+if (CLOUD) void applyNativeSkin()
 
 /* GitHub Pages เสิร์ฟที่ <user>.github.io/<repo>/ ไม่ใช่ราก
    ทั้ง router และ service worker ต้องรู้ base เดียวกัน ไม่งั้นเปิดแล้วจอขาว
