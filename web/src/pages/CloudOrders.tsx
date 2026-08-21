@@ -12,7 +12,7 @@ import type { CustomerRow, DriverRow, OrderPriority, OrderStatus } from '../type
 import {
   ORDER_STATUS_LABEL, ORDER_STATUS_ORDER, ORDER_TONE,
 } from '../utils/constants'
-import { dateInputToIso, fmtDate, fmtMoney, fmtRoute, isoToDateInput } from '../utils/format'
+import { dateInputToIso, daysAgoIso, fmtDate, fmtMoney, fmtRoute, isoToDateInput, todayIso } from '../utils/format'
 import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
@@ -208,8 +208,8 @@ export default function CloudOrders(): React.JSX.Element {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
+  const [from, setFrom] = useState(todayIso())
+  const [to, setTo] = useState(todayIso())
   const [driverId, setDriverId] = useState('')
 
   const [customers, setCustomers] = useState<CustomerRow[]>([])
@@ -358,9 +358,23 @@ export default function CloudOrders(): React.JSX.Element {
     }
   }
 
-  const resetFilters = (): void => {
-    setQ(''); setStatus(''); setPriority(''); setFrom(''); setTo(''); setDriverId(''); setPage(1)
+  const setRange = (nextFrom: string, nextTo: string): void => {
+    setFrom(nextFrom); setTo(nextTo); setPage(1)
   }
+
+  const today = todayIso()
+  const tomorrow = daysAgoIso(-1)
+  const rangeIsToday = from === today && to === today
+  const rangeIsTomorrow = from === tomorrow && to === tomorrow
+  const rangeIsWeek = from === today && to === daysAgoIso(-6)
+  const rangeIsAll = !from && !to
+
+  const resetFilters = (): void => {
+    setQ(''); setStatus(''); setPriority(''); setDriverId('')
+    setRange(today, today)
+  }
+
+  const filtersDirty = Boolean(q || status || priority || driverId) || !rangeIsToday
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1
 
@@ -368,7 +382,7 @@ export default function CloudOrders(): React.JSX.Element {
     <>
       <PageHeader
         title="จัดการออเดอร์"
-        subtitle="ออเดอร์ขนส่งทั้งหมด — ค้นหา กรอง ดูสถานะ และจัดการ"
+        subtitle={rangeIsToday ? 'กำหนดส่งวันนี้ — เปลี่ยนช่วงวันได้ที่แถบตัวกรอง' : rangeIsAll ? 'ออเดอร์ขนส่งทั้งหมด — ค้นหา กรอง ดูสถานะ และจัดการ' : `กำหนดส่ง ${from || 'ไม่จำกัด'} ถึง ${to || 'ไม่จำกัด'}`}
         actions={canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>สร้างออเดอร์</Button>}
       />
 
@@ -385,6 +399,12 @@ export default function CloudOrders(): React.JSX.Element {
           <option value="normal">ปกติ</option>
           <option value="urgent">ด่วน</option>
         </Select>
+        <div className="range-quick" role="group" aria-label="ช่วงกำหนดส่ง">
+          <Button variant={rangeIsToday ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(today, today)}>วันนี้</Button>
+          <Button variant={rangeIsTomorrow ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(tomorrow, tomorrow)}>พรุ่งนี้</Button>
+          <Button variant={rangeIsWeek ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(today, daysAgoIso(-6))}>7 วัน</Button>
+          <Button variant={rangeIsAll ? 'accent' : 'ghost'} size="sm" onClick={() => setRange('', '')}>ทั้งหมด</Button>
+        </div>
         <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1) }} style={{ width: 150 }} title="กำหนดส่ง ตั้งแต่" />
         <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1) }} style={{ width: 150 }} title="ถึง" />
         <Select value={driverId} onChange={(e) => { setDriverId(e.target.value); setPage(1) }} style={{ width: 170 }} title="คนขับที่รับผิดชอบ">
@@ -394,8 +414,8 @@ export default function CloudOrders(): React.JSX.Element {
           ))}
         </Select>
         <div className="spacer" />
-        {(q || status || priority || from || to || driverId) && (
-          <Button variant="ghost" size="sm" onClick={resetFilters}>ล้างตัวกรอง</Button>
+        {filtersDirty && (
+          <Button variant="ghost" size="sm" onClick={resetFilters}>กลับเป็นวันนี้</Button>
         )}
       </div>
 

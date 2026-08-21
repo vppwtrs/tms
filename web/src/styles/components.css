@@ -1400,6 +1400,17 @@
 .toolbar .spacer {
   flex: 1;
 }
+.range-quick {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2, transparent);
+}
+.range-quick > button {
+  white-space: nowrap;
+}
 .search-box {
   position: relative;
   min-width: 230px;
