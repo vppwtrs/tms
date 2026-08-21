@@ -60,6 +60,9 @@ export default function CloudMyJobs(): React.JSX.Element {
   const [podStop, setPodStop] = useState<StopGroup | null>(null)
   /* ร้านที่กำลังจะถอนการปิดส่ง — ถามก่อนเสมอ การถอยผิดจุดคือกดผิดซ้ำสอง */
   const [undoing, setUndoing] = useState<StopGroup | null>(null)
+  /* จบงานคือขั้นที่ย้อนไม่ได้จากฝั่งคนขับ — รถถูกนับว่าว่างทันที และเที่ยวหลุดจากจอไปเลย
+     ถามยืนยันก่อนหนึ่งครั้ง ไม่ใช่หน่วงเวลา เพราะคนที่กลับถึงคลังจริงไม่ควรต้องรอ */
+  const [finishing, setFinishing] = useState<MyJob | null>(null)
   /* ใบที่กำลังเปิดดูหลักฐานย้อนหลัง — คนละอย่างกับ podFor ที่เป็นการเก็บใหม่ */
   const [podView, setPodView] = useState<MyJobOrder | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
@@ -120,6 +123,16 @@ export default function CloudMyJobs(): React.JSX.Element {
   const active = activeId === -1 ? null : live.find((j) => j.id === activeId) ?? defaultJob
   /* งานใหม่ที่ยังไม่ได้กดรับ — ตัวเลขบนแท็บมีไว้ตอบว่า "มีอะไรรอฉันอยู่ไหม" โดยไม่ต้องเปิดดู */
   const unread = live.filter((j) => !(j.my_accepted_at ?? j.accepted_at)).length
+  /* เที่ยวอื่นที่ยังไม่จบ — รถกลับเข้าคลังครั้งเดียว ไม่ใช่ครั้งละเที่ยว
+     นับงานที่ยังไม่ได้กดรับด้วย เพราะคนวางแผนจ่ายมาแล้ว มันคืองานของวันนี้ที่ยังไม่ได้วิ่ง
+     ไม่ใช่ข้อเสนอที่ปฏิเสธได้ — กดจบงานทั้งที่ยังมีของบนรถคือรถถูกนับว่าว่างผิด
+     ไม่นับเที่ยวที่ถึงขั้น "กำลังกลับคลัง" แล้ว เพราะนั่นคือขากลับเดียวกันของรถคันเดียวกัน */
+  const unfinishedOthers = (job: MyJob): number =>
+    live.filter((j) =>
+      j.id !== job.id
+      && j.status !== 'completed'
+      && j.status !== 'cancelled'
+      && j.status !== 'returning').length
   /* บันทึกตำแหน่งเฉพาะเที่ยวที่รับแล้วและยังไม่จบ — นอกช่วงนั้นไม่ใช่เรื่องของระบบนี้ */
   /* ตามตำแหน่งของเที่ยวที่กำลังวิ่ง ไม่ใช่การ์ดที่เผอิญกางอยู่ — คนขับหุบการ์ดแล้ว
      ตำแหน่งต้องไม่หยุดบันทึก งานยังวิ่งอยู่เหมือนเดิม */
@@ -147,6 +160,10 @@ export default function CloudMyJobs(): React.JSX.Element {
     })
 
   const act = async (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish'): Promise<void> => {
+    if (action === 'finish' && finishing?.id !== job.id) {
+      setFinishing(job)
+      return
+    }
     if (action === 'accept' && !(await askLocation())) {
       toast.push('warning',
         'ต้องอนุญาตให้แอปเห็นตำแหน่งก่อนรับงาน — เปิดสิทธิ์ตำแหน่งในเบราว์เซอร์แล้วกดใหม่')
@@ -174,6 +191,7 @@ export default function CloudMyJobs(): React.JSX.Element {
       toast.push('error', (e as Error).message)
     } finally {
       setBusy(0)
+      setFinishing(null)
     }
   }
 
@@ -445,6 +463,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                       deliveringKey={delivering}
                       canProgress={can('myjobs.progress')}
                       canPod={can('myjobs.pod')}
+                      unfinishedOthers={unfinishedOthers(job)}
                       onAct={(j, action) => void act(j, action)}
                       onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
                       onPod={(stop) => {
@@ -515,6 +534,21 @@ export default function CloudMyJobs(): React.JSX.Element {
 
       {/* ถามชื่อร้านกลับไปให้เห็นเต็ม ๆ — คนที่กดผิดร้านหนึ่งครั้งแล้ว กำลังจะ
           กดถอยจากรายการเดียวกันนั้น ต้องอ่านชื่อก่อนว่าถอยถูกใบ */}
+      {/* จบงานคือขั้นสุดท้ายของวัน กดพลาดแล้วรถถูกนับว่าว่างทั้งที่ยังอยู่บนถนน
+          และเที่ยวหลุดจากจอไปอยู่ในประวัติ ถามหนึ่งครั้งก่อนพอ */}
+      <ConfirmDialog
+        open={finishing !== null}
+        title="จบงานเที่ยวนี้"
+        message={finishing ? (
+          <>ยืนยันว่ารถกลับถึงคลังแล้วใช่หรือไม่? เที่ยว <b>{jobTripNo(finishing)}</b>{' '}
+            จะถูกปิด รถกับคนขับจะถูกนับว่าว่าง และการบันทึกตำแหน่งจะหยุดทันที</>
+        ) : ''}
+        confirmLabel="กลับถึงคลังแล้ว"
+        loading={finishing !== null && busy === finishing.id}
+        onConfirm={() => { if (finishing) void act(finishing, 'finish') }}
+        onClose={() => setFinishing(null)}
+      />
+
       <ConfirmDialog
         open={undoing !== null}
         title="ยกเลิกการส่งร้านนี้"
