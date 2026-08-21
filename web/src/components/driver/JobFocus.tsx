@@ -56,6 +56,7 @@ export function JobFocus({
   deliveringKey,
   canProgress,
   canPod,
+  unfinishedOthers = 0,
   onAct,
   onReportIssue,
   onPod,
@@ -70,6 +71,9 @@ export function JobFocus({
   deliveringKey: string
   canProgress: boolean
   canPod: boolean
+  /** จำนวนเที่ยวอื่นของคนขับคนนี้ที่ยังไม่จบ — รถกลับคลังได้ครั้งเดียวต่อวัน
+   *  ปุ่มจบงานจึงขึ้นได้ก็ต่อเมื่อไม่มีเที่ยวอื่นค้างอยู่แล้ว */
+  unfinishedOthers?: number
   onAct: (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish') => void
   /** เปิดฟอร์มแจ้งปัญหา — แจ้งได้ ไม่ใช่ปฏิเสธงาน งานยังเป็นของคนขับ
    *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
@@ -187,6 +191,17 @@ export function JobFocus({
        ระหว่างนี้ตำแหน่งยังถูกบันทึกอยู่ และรถยังไม่ถูกนับว่าว่าง */
     if (job.status === 'returning') {
       if (!canClose) return <p className="job-cta-hint">กำลังกลับคลัง — รอคนขับหลักกดจบงาน</p>
+      /* รถกลับเข้าคลังครั้งเดียว ไม่ใช่ครั้งละเที่ยว คนขับที่ถือสามเที่ยวแล้วเห็นปุ่มนี้
+         ตั้งแต่เที่ยวแรกจบ จะกดตอนยังวิ่งเที่ยวที่สองอยู่ แล้วรถถูกนับว่าว่างทั้งที่
+         ยังอยู่บนถนน คนวางแผนก็จ่ายงานใหม่ทับ */
+      if (unfinishedOthers > 0) {
+        return (
+          <p className="job-cta-hint">
+            ส่งครบเที่ยวนี้แล้ว — ยังเหลืออีก {unfinishedOthers} เที่ยวที่ยังไม่จบ
+            ปุ่มจบงานจะขึ้นเมื่อปิดครบทุกเที่ยว
+          </p>
+        )
+      }
       return (
         <Button size="lg" variant="success" loading={busy} onClick={() => onAct(job, 'finish')}>
           กลับถึงคลังแล้ว — จบงาน
