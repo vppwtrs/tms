@@ -129,6 +129,13 @@ export default function CloudMyJobs(): React.JSX.Element {
      ไม่นับเที่ยวที่ถึงขั้น "กำลังกลับคลัง" แล้ว เพราะนั่นคือขากลับเดียวกันของรถคันเดียวกัน */
   /* ทุกเที่ยวที่รออยู่บนขากลับคันเดียวกัน — ปุ่มจบงานปิดทั้งชุดนี้พร้อมกัน */
   const returningJobs = live.filter((j) => j.status === 'returning')
+  /* ใบที่ปิดส่งไปแล้วแต่ยังไม่มีหลักฐาน — ฝั่งฐานกันไว้ตอนปิดงานที่ร้านสุดท้ายแล้ว
+     แต่ระหว่างที่รถวิ่งกลับ ออฟฟิศถอนตรวจหรือลบรูปได้ และคนวางแผนเพิ่มใบเข้าเที่ยวได้
+     เที่ยวที่ผ่านด่านนั้นมาแล้วจึงกลับมาขาดหลักฐานได้อีก ตรวจซ้ำตอนจบงาน */
+  const podGaps = returningJobs.flatMap((j) =>
+    j.orders
+      .filter((o) => o.status === 'delivered' && !o.has_pod)
+      .map((o) => o.customer_name ?? o.destination))
   const unfinishedOthers = (job: MyJob): number =>
     live.filter((j) =>
       j.id !== job.id
@@ -162,6 +169,13 @@ export default function CloudMyJobs(): React.JSX.Element {
     })
 
   const act = async (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish'): Promise<void> => {
+    if (action === 'finish' && podGaps.length > 0) {
+      /* บอกว่าร้านไหน ไม่ใช่แค่ว่าไม่ครบ — คนขับต้องรู้ว่าต้องกลับไปเก็บของใคร */
+      toast.push('warning',
+        `ยังเก็บหลักฐานไม่ครบ ${podGaps.length} ร้าน (${podGaps.slice(0, 3).join(', ')}${podGaps.length > 3 ? ' และอื่น ๆ' : ''}) — เก็บให้ครบก่อนจบงาน`)
+      setFinishing(null)
+      return
+    }
     if (action === 'finish' && finishing?.id !== job.id) {
       setFinishing(job)
       return
@@ -483,6 +497,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                       canPod={can('myjobs.pod')}
                       unfinishedOthers={unfinishedOthers(job)}
                       returningCount={returningJobs.length}
+                      podMissing={podGaps.length}
                       onAct={(j, action) => void act(j, action)}
                       onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
                       onPod={(stop) => {
