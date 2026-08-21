@@ -28,8 +28,10 @@ const DEMO_PROFILE: Profile = {
   role: 'driver',
   mustChangePassword: false,
   authSource: 'local',
-  /* คนขับตัวจริงมีสิทธิ์ชุดเล็ก ๆ ชุดนี้เลียนแบบไว้เท่าที่จอคนขับใช้ */
-  permissions: new Set(['myjobs.view', 'pod.create']),
+  /* ต้องตรงกับคีย์จริงใน utils/permissions.ts ไม่ใช่ชื่อที่เดาเอง
+     ครั้งแรกใส่ 'pod.create' ซึ่งไม่มีอยู่จริง ปุ่มรับงานรายร้านจึงไม่ขึ้นเลย
+     เพราะจอเช็ค can('myjobs.progress') */
+  permissions: new Set(['myjobs.view', 'myjobs.progress', 'myjobs.pod']),
 }
 
 export class PendingApprovalError extends Error {
