@@ -3300,6 +3300,19 @@
 }
 .cam-stage-off p { margin: 0; font-size: var(--font-sm); color: #e7e5ee; }
 
+/* บรรทัดสารภาพของกล้อง — พับไว้ ไม่ใช่โชว์ตลอด คนขับไม่ต้องอ่านศัพท์พวกนี้
+   จะกางก็ต่อเมื่อมีคนขอให้ถ่ายจอส่งมาให้ดู */
+.cam-why { margin-top: var(--space-2); color: #b9b6c4; font-size: var(--font-xs); }
+.cam-why summary { cursor: pointer; }
+.cam-why code {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  word-break: break-word;
+  color: #d8d5e2;
+}
+
 /* ปุ่มเต็มช่องมองภาพ ตอนได้สตรีมแล้วแต่ภาพไม่เดิน (โหมดประหยัดพลังงานของ iOS)
    เต็มช่องเพราะคนที่เจอกรอบดำจะแตะที่กรอบนั้นอยู่แล้ว ไม่ใช่มองหาปุ่มเล็ก ๆ */
 .cam-stage-wake {
