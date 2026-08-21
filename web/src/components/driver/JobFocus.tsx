@@ -57,6 +57,7 @@ export function JobFocus({
   canProgress,
   canPod,
   unfinishedOthers = 0,
+  returningCount = 1,
   onAct,
   onReportIssue,
   onPod,
@@ -74,6 +75,8 @@ export function JobFocus({
   /** จำนวนเที่ยวอื่นของคนขับคนนี้ที่ยังไม่จบ — รถกลับคลังได้ครั้งเดียวต่อวัน
    *  ปุ่มจบงานจึงขึ้นได้ก็ต่อเมื่อไม่มีเที่ยวอื่นค้างอยู่แล้ว */
   unfinishedOthers?: number
+  /** เที่ยวที่รออยู่บนขากลับคันเดียวกัน รวมเที่ยวนี้ด้วย — ปุ่มปิดทั้งชุดในครั้งเดียว */
+  returningCount?: number
   onAct: (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish') => void
   /** เปิดฟอร์มแจ้งปัญหา — แจ้งได้ ไม่ใช่ปฏิเสธงาน งานยังเป็นของคนขับ
    *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
@@ -204,7 +207,9 @@ export function JobFocus({
       }
       return (
         <Button size="lg" variant="success" loading={busy} onClick={() => onAct(job, 'finish')}>
-          กลับถึงคลังแล้ว — จบงาน
+          {returningCount > 1
+            ? `กลับถึงคลังแล้ว — จบงานทั้ง ${returningCount} เที่ยว`
+            : 'กลับถึงคลังแล้ว — จบงาน'}
         </Button>
       )
     }
