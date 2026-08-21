@@ -127,6 +127,8 @@ export default function CloudMyJobs(): React.JSX.Element {
      นับงานที่ยังไม่ได้กดรับด้วย เพราะคนวางแผนจ่ายมาแล้ว มันคืองานของวันนี้ที่ยังไม่ได้วิ่ง
      ไม่ใช่ข้อเสนอที่ปฏิเสธได้ — กดจบงานทั้งที่ยังมีของบนรถคือรถถูกนับว่าว่างผิด
      ไม่นับเที่ยวที่ถึงขั้น "กำลังกลับคลัง" แล้ว เพราะนั่นคือขากลับเดียวกันของรถคันเดียวกัน */
+  /* ทุกเที่ยวที่รออยู่บนขากลับคันเดียวกัน — ปุ่มจบงานปิดทั้งชุดนี้พร้อมกัน */
+  const returningJobs = live.filter((j) => j.status === 'returning')
   const unfinishedOthers = (job: MyJob): number =>
     live.filter((j) =>
       j.id !== job.id
@@ -174,19 +176,35 @@ export default function CloudMyJobs(): React.JSX.Element {
       /* ฟังก์ชันฝั่ง DB คืน void ไม่ใช่เที่ยวที่อัปเดตแล้ว — ต้องโหลดกลับมาเอง
          ตั้งใจให้เป็นแบบนั้น: สถานะจริงถูกคำนวณจากออเดอร์ในเที่ยว การให้ฟังก์ชัน
          "เดา" ผลลัพธ์กลับมาเองคือเปิดช่องให้หน้าจอกับฐานข้อมูลไม่ตรงกัน */
+      /* รถกลับเข้าคลังครั้งเดียว การกดหนึ่งครั้งจึงต้องปิดทุกเที่ยวที่รออยู่บนขากลับ
+         ไม่ใช่ให้คนขับกดปุ่มเดียวกันซ้ำทีละเที่ยว ซึ่งเป็นการถามคำถามเดิมซ้ำ ๆ
+         ในเรื่องที่เกิดขึ้นครั้งเดียว */
+      const closing = action === 'finish' ? returningJobs : [job]
       await (action === 'accept' ? acceptTrip(job.id)
         : action === 'start' ? startTrip(job.id)
-        : action === 'finish' ? finishReturn(job.id)
+        /* ทีละเที่ยวตามลำดับ ไม่ใช่ยิงพร้อมกัน — ฝั่งฐานคิดสถานะรถจากเที่ยวที่ค้างอยู่
+           การยิงขนานกันทำให้สองคำสั่งอ่านสถานะเดียวกันก่อนอีกตัวเขียนเสร็จ */
+        : action === 'finish' ? (async () => { for (const j of closing) await finishReturn(j.id) })()
         : completeTrip(job.id))
-      const updated = await reloadJob(job.id, showDone)
-      setJobs((list) => (updated ? list.map((j) => (j.id === job.id ? updated : j)) : list.filter((j) => j.id !== job.id)))
+      if (action === 'finish') {
+        const ids = new Set(closing.map((j) => j.id))
+        const fresh = await listMyJobs(showDone)
+        setJobs(fresh)
+        /* เที่ยวที่เพิ่งปิดไม่มีอะไรให้กางอีกแล้ว ปล่อยให้จอเลือกงานถัดไปเอง */
+        if (activeId !== null && activeId !== -1 && ids.has(activeId)) setActiveId(-1)
+      } else {
+        const updated = await reloadJob(job.id, showDone)
+        setJobs((list) => (updated ? list.map((j) => (j.id === job.id ? updated : j)) : list.filter((j) => j.id !== job.id)))
+      }
       /* รับแล้วกางทันที — การกดรับงานคือการบอกว่า "งานนี้แหละที่ฉันกำลังจะทำ"
          ให้ต้องกดอีกครั้งเพื่อดูจุดส่ง คือการกดที่ไม่ตอบอะไรเลย */
       if (action === 'accept') setActiveId(job.id)
       toast.push('success',
         action === 'accept' ? `รับงาน ${jobTripNo(job)} แล้ว`
           : action === 'start' ? `เริ่มเดินทาง ${jobTripNo(job)}`
-          : `ปิดงาน ${jobTripNo(job)} เรียบร้อย`)
+          : action === 'finish'
+            ? (closing.length > 1 ? `จบงานแล้ว ${closing.length} เที่ยว` : `จบงาน ${jobTripNo(job)} เรียบร้อย`)
+            : `ปิดงาน ${jobTripNo(job)} เรียบร้อย`)
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
@@ -464,6 +482,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                       canProgress={can('myjobs.progress')}
                       canPod={can('myjobs.pod')}
                       unfinishedOthers={unfinishedOthers(job)}
+                      returningCount={returningJobs.length}
                       onAct={(j, action) => void act(j, action)}
                       onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
                       onPod={(stop) => {
@@ -540,8 +559,11 @@ export default function CloudMyJobs(): React.JSX.Element {
         open={finishing !== null}
         title="จบงานเที่ยวนี้"
         message={finishing ? (
-          <>ยืนยันว่ารถกลับถึงคลังแล้วใช่หรือไม่? เที่ยว <b>{jobTripNo(finishing)}</b>{' '}
-            จะถูกปิด รถกับคนขับจะถูกนับว่าว่าง และการบันทึกตำแหน่งจะหยุดทันที</>
+          <>ยืนยันว่ารถกลับถึงคลังแล้วใช่หรือไม่?{' '}
+            {returningJobs.length > 1
+              ? <>ทั้ง <b>{returningJobs.length} เที่ยว</b> ที่รออยู่ ({returningJobs.map(jobTripNo).join(', ')}) จะถูกปิดพร้อมกัน</>
+              : <>เที่ยว <b>{jobTripNo(finishing)}</b> จะถูกปิด</>}{' '}
+            รถกับคนขับจะถูกนับว่าว่าง และการบันทึกตำแหน่งจะหยุดทันที</>
         ) : ''}
         confirmLabel="กลับถึงคลังแล้ว"
         loading={finishing !== null && busy === finishing.id}
