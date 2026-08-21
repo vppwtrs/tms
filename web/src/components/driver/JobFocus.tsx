@@ -58,6 +58,7 @@ export function JobFocus({
   canPod,
   unfinishedOthers = 0,
   returningCount = 1,
+  podMissing = 0,
   onAct,
   onReportIssue,
   onPod,
@@ -77,6 +78,8 @@ export function JobFocus({
   unfinishedOthers?: number
   /** เที่ยวที่รออยู่บนขากลับคันเดียวกัน รวมเที่ยวนี้ด้วย — ปุ่มปิดทั้งชุดในครั้งเดียว */
   returningCount?: number
+  /** ร้านที่ปิดส่งแล้วแต่ยังไม่มีหลักฐาน นับรวมทุกเที่ยวที่กำลังจะถูกปิดพร้อมกัน */
+  podMissing?: number
   onAct: (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish') => void
   /** เปิดฟอร์มแจ้งปัญหา — แจ้งได้ ไม่ใช่ปฏิเสธงาน งานยังเป็นของคนขับ
    *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
@@ -202,6 +205,15 @@ export function JobFocus({
           <p className="job-cta-hint">
             ส่งครบเที่ยวนี้แล้ว — ยังเหลืออีก {unfinishedOthers} เที่ยวที่ยังไม่จบ
             ปุ่มจบงานจะขึ้นเมื่อปิดครบทุกเที่ยว
+          </p>
+        )
+      }
+      /* จบงานคือประตูสุดท้ายที่หลักฐานจะถูกทวงได้ หลังจากนี้เที่ยวไปอยู่ในประวัติ
+         และคนที่ต้องตามเก็บคือออฟฟิศ ซึ่งตามจากโต๊ะไม่ได้ */
+      if (podMissing > 0) {
+        return (
+          <p className="job-cta-hint">
+            ยังขาดหลักฐาน {podMissing} ร้าน — เก็บให้ครบก่อนจบงาน
           </p>
         )
       }
