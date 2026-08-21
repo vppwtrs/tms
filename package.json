@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "description": "Transport Management System web application",
-  "workspaces": ["web"],
+  "workspaces": ["web", "ios-driver"],
   "scripts": {
     "dev": "npm run dev -w web",
     "build": "npm run build:cloud -w web",
     "test": "npm run test -w web",
-    "typecheck": "npm run typecheck -w web"
+    "typecheck": "npm run typecheck -w web",
+    "ios:sync": "npm run build:cloud -w web && npm run sync -w ios-driver",
+    "ios:add": "npm run add:ios -w ios-driver"
   },
   "devDependencies": {
     "supabase": "2.114.0"

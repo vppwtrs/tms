@@ -1,0 +1,71 @@
+# สร้างแอปคนขับสำหรับ iOS
+#
+# ต้อง build บน macOS เพราะ Xcode ไม่มีบนระบบอื่น เครื่องที่พัฒนาเป็น Windows
+# จึงยืม macOS runner ของ GitHub มาทำหน้าที่นี้แทนการซื้อ Mac
+#
+# ผลลัพธ์เป็น .ipa ที่ยังไม่เซ็น (CODE_SIGNING_ALLOWED=NO) — ลงเครื่องที่ปลด
+# ล็อกแล้วได้เลย ส่วนเครื่องปกติต้องเซ็นด้วยบัญชี Apple Developer ก่อน ซึ่ง
+# ยังไม่มี ตอนนี้จึงหยุดไว้แค่ไฟล์ที่ยังไม่เซ็น
+name: ios-driver
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/ios-driver-app]
+    paths:
+      - 'ios-driver/**'
+      - 'web/**'
+      - '.github/workflows/ios-driver.yml'
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build the web bundle
+        run: npm run build:cloud -w web
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+
+      - name: Copy the bundle into the Capacitor shell
+        run: npm run sync -w ios-driver
+
+      - name: Archive without signing
+        working-directory: ios-driver/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      # .ipa คือ zip ที่มีโฟลเดอร์ Payload อยู่ข้างใน ไม่มีอะไรมากกว่านั้น
+      # xcodebuild -exportArchive ทำให้ไม่ได้เพราะมันขอ provisioning profile
+      - name: Wrap the app bundle as an ipa
+        working-directory: ios-driver/ios/App
+        run: |
+          mkdir -p out/Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app out/Payload/
+          cd out && zip -qry tms-driver-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tms-driver-unsigned-ipa
+          path: ios-driver/ios/App/out/tms-driver-unsigned.ipa
+          retention-days: 14
