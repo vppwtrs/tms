@@ -1,0 +1,167 @@
+/**
+ * สามหน้าตาที่ใช้งานได้จริงกับ logic คนขับของเรา
+ *
+ * เลือกด้วย ?skin=focus | sheet | timeline (จำไว้ในเครื่อง) ค่าตั้งต้นคือ focus
+ * ทุกกฎอยู่ใต้ `.is-native-app[data-skin='…']` — เว็บและ logic ไม่ขยับ
+ * ไม่มีสกินไหนแตะลำดับงาน: รับงาน → เริ่มเดินทาง → เข้าร้าน → ส่ง → เก็บหลักฐาน → กลับคลัง
+ *
+ * ทำไมมีแค่สามแบบ: หน้าคนขับของเราคือ "ลิสต์ที่วางไว้แล้ว ทำทีละร้าน"
+ * แบบที่แผนที่เป็นตัวหลัก (Uber/Grab) ใช้ไม่ได้ เพราะเราไม่มีแผนที่ในจอนี้
+ * และงานไม่ได้วิ่งเข้ามาให้กดรับทีละใบ
+ */
+
+/* ===================================================================
+   1) focus — แบบ Curri: กลุ่มรายการของ iOS ร้านที่กำลังทำเด่นที่สุด
+   เหมาะกับเที่ยวที่มีหลายร้านและคนขับต้องเห็นภาพรวมทั้งเที่ยว
+   =================================================================== */
+
+.is-native-app[data-skin='focus'] .job-focus {
+  padding: var(--space-4) 0;
+  overflow: hidden;
+}
+
+/* หัวการ์ดกับเนื้อในเยื้องเข้ามา ส่วนรายการร้านกินเต็มความกว้าง
+   นี่คือสำนวน grouped list ของ iOS: เส้นคั่นเยื้อง กล่องไม่ซ้อนกล่อง */
+.is-native-app[data-skin='focus'] .job-bar,
+.is-native-app[data-skin='focus'] .job-meter,
+.is-native-app[data-skin='focus'] .job-alert,
+.is-native-app[data-skin='focus'] .job-secondary,
+.is-native-app[data-skin='focus'] .job-cta-bar {
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.is-native-app[data-skin='focus'] .stop-item + .stop-item {
+  margin-left: var(--space-4);
+}
+
+/* ร้านที่ล็อกอยู่ = สิ่งเดียวที่ต้องมองเห็นก่อน ใช้แถบสีซ้ายแทนพื้นทั้งแถว
+   พื้นทั้งแถวสีฟ้าอ่านตัวหนังสือยากกลางแดด */
+.is-native-app[data-skin='focus'] .stop-item.is-locked {
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--blue-600);
+}
+
+.is-native-app[data-skin='focus'] .stop-item.is-locked .stop-item-dest {
+  font-weight: 700;
+}
+
+/* ===================================================================
+   2) sheet — ปุ่มหลักลอยติดขอบล่างตลอด อยู่ในระยะนิ้วโป้ง
+   เหมาะกับคนขับที่ถือของมืออีกข้าง กดด้วยมือเดียว
+   =================================================================== */
+
+.is-native-app[data-skin='sheet'] .job-cta-bar {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) + var(--space-3));
+  z-index: 20;
+  margin: var(--space-4) var(--space-3) 0;
+  padding: var(--space-3);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--line-soft);
+  /* เงาเดียวของทั้งแอป — บอกว่าแถบนี้ลอยอยู่เหนือเนื้อหา ไม่ใช่ส่วนของมัน */
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+
+.is-native-app[data-skin='sheet'] .job-cta-bar > .btn {
+  width: 100%;
+  min-height: 54px;
+}
+
+/* ข้อความบอกเหตุผลที่ยังกดไม่ได้อยู่ในแถบเดียวกับปุ่ม — มันลอยตามมาเอง
+   ที่นี่ทำแค่ให้เต็มความกว้างของแถบ ไม่ใช่ก้อนเล็ก ๆ ลอยกลางกล่องขาว */
+.is-native-app[data-skin='sheet'] .job-cta-hint {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-sm);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-weight: 500;
+  text-align: center;
+}
+
+/* หัวเที่ยวหดตัวลง เพราะพื้นที่ต้องไปอยู่กับรายการร้าน */
+.is-native-app[data-skin='sheet'] .job-bar {
+  padding-bottom: var(--space-2);
+}
+
+.is-native-app[data-skin='sheet'] .stop-item > button {
+  min-height: 64px;
+}
+
+/* ===================================================================
+   3) timeline — เส้นทางเป็นเส้นเดียวจากบนลงล่าง มีหมุดทุกร้าน
+   เหมาะกับเที่ยวที่ลำดับการแวะสำคัญ คนขับเห็นว่าเหลืออีกกี่หมุดกว่าจะกลับ
+   =================================================================== */
+
+.is-native-app[data-skin='timeline'] .stop-list {
+  position: relative;
+  padding-left: 34px;
+}
+
+/* เส้นเดินทาง — วาดครั้งเดียวทั้งรายการ ไม่ใช่ต่อแถว
+   ต่อแถวเมื่อไหร่จะเห็นรอยต่อทุกครั้งที่แถวกางออก */
+.is-native-app[data-skin='timeline'] .stop-list::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 22px;
+  bottom: 22px;
+  width: 2px;
+  background: var(--line);
+}
+
+.is-native-app[data-skin='timeline'] .stop-item {
+  border-top: none !important;
+  background: transparent;
+}
+
+.is-native-app[data-skin='timeline'] .stop-item > button {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  margin-bottom: var(--space-2);
+}
+
+/* หมุดของแต่ละร้าน วางทับเส้น */
+.is-native-app[data-skin='timeline'] .stop-item::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 26px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  /* หมุดของร้านที่ยังไม่ถึง — ทึบพอให้เห็นบนพื้นขาว ไม่งั้นเหลือแต่เส้นเปล่า */
+  background: var(--paper-deep);
+  border: 2px solid var(--line);
+  z-index: 1;
+}
+
+.is-native-app[data-skin='timeline'] .stop-item {
+  position: relative;
+  /* แถวเดิมตัดของที่ล้นออกนอกกล่อง หมุดอยู่นอกกล่องจึงหายไปทั้งอัน
+     มุมมนของแถวมาจากปุ่มข้างในอยู่แล้ว ปล่อยให้ล้นได้ไม่เสียรูป */
+  overflow: visible;
+}
+
+.is-native-app[data-skin='timeline'] .stop-item.is-locked::before {
+  background: var(--blue-600);
+  border-color: var(--blue-600);
+  /* วงแหวนรอบหมุดที่กำลังทำ — ตำแหน่งปัจจุบันต้องหาเจอโดยไม่ต้องอ่าน */
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue-600) 22%, transparent);
+}
+
+.is-native-app[data-skin='timeline'] .stop-item.is-done::before {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+/* เลขลำดับซ้ำกับหมุดแล้ว เอาออกจากแถวเพื่อคืนความกว้างให้ชื่อร้าน */
+.is-native-app[data-skin='timeline'] .stop-item-seq {
+  display: none;
+}

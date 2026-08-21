@@ -1,0 +1,128 @@
+/**
+ * จังหวะการเคลื่อนไหวของแอป iOS — ใช้ร่วมกันทุกสกิน
+ *
+ * ทุกกฎอยู่ใต้ `.is-native-app` เหมือนไฟล์ผิว เว็บที่ใช้อยู่ทุกวันไม่ขยับ
+ *
+ * หลักที่ยึด:
+ *   - ขยับได้เฉพาะ transform กับ opacity สองอย่างนี้การ์ดจอทำให้เอง
+ *     ขยับ width/height/top เมื่อไหร่ เครื่องต้องคำนวณเลย์เอาต์ใหม่ทุกเฟรม
+ *     บน SE2 นั่นคือภาพกระตุกที่คนขับเห็นตอนรถวิ่ง
+ *   - เข้าเร็ว ออกเร็วกว่า ของที่หายไปไม่ควรให้รอ
+ *   - ทุกอย่างเคารพ prefers-reduced-motion — มีคนเมารถจากภาพเลื่อนจริง ๆ
+ */
+
+.is-native-app {
+  /* เส้นโค้งของ iOS เอง ไม่ใช่ ease ของเบราว์เซอร์ — ออกตัวไว ลงจอดนุ่ม */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --dur-in: 260ms;
+  --dur-out: 160ms;   /* ~60% ของขาเข้า */
+  --dur-tap: 110ms;
+}
+
+/* ===== ของที่โผล่เข้ามาในจอ ===== */
+@keyframes ios-rise {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ios-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ios-pop {
+  0%   { transform: scale(0.94); opacity: 0; }
+  60%  { transform: scale(1.01); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.is-native-app .job-focus,
+.is-native-app .job-card,
+.is-native-app .driver-me-card {
+  animation: ios-rise var(--dur-in) var(--ease-ios) both;
+}
+
+/* แถวจุดส่งไล่กันเข้ามาทีละแถว 40ms — ตาไล่ตามทัน และรู้ว่ามีกี่แถว
+   หยุดหน่วงที่แถวที่แปด ไม่งั้นเที่ยวยาว ๆ ต้องรอครึ่งวินาทีกว่าจะครบจอ */
+.is-native-app .stop-item {
+  animation: ios-rise var(--dur-in) var(--ease-ios) both;
+}
+.is-native-app .stop-item:nth-child(1) { animation-delay: 0ms; }
+.is-native-app .stop-item:nth-child(2) { animation-delay: 40ms; }
+.is-native-app .stop-item:nth-child(3) { animation-delay: 80ms; }
+.is-native-app .stop-item:nth-child(4) { animation-delay: 120ms; }
+.is-native-app .stop-item:nth-child(5) { animation-delay: 160ms; }
+.is-native-app .stop-item:nth-child(6) { animation-delay: 200ms; }
+.is-native-app .stop-item:nth-child(7) { animation-delay: 240ms; }
+.is-native-app .stop-item:nth-child(n + 8) { animation-delay: 280ms; }
+
+/* รายละเอียดในแถวที่กางออก — จางเข้าอย่างเดียว
+   ถ้าเลื่อนขึ้นมาด้วยจะชนกับความสูงที่กำลังเปลี่ยน แล้วเห็นเป็นสะดุด */
+.is-native-app .stop-item-body {
+  animation: ios-fade var(--dur-in) var(--ease-out) both;
+}
+
+/* ข้อความเตือนและแถบล็อกร้าน — สองอันนี้โผล่มากลางจอระหว่างทำงาน
+   ต้องเห็นว่ามันเพิ่งโผล่ ไม่ใช่คิดว่าอ่านข้ามไปตั้งแต่แรก */
+.is-native-app .job-alert,
+.is-native-app .stop-lock-bar,
+.is-native-app .job-cta-hint {
+  animation: ios-rise var(--dur-out) var(--ease-out) both;
+}
+
+/* ===== แถบคืบหน้า =====
+   ยืดด้วย transform ไม่ใช่ width — width ทำให้เครื่องคิดเลย์เอาต์ใหม่ทุกเฟรม
+   ตัวเลขความกว้างยังมาจาก inline style เดิม ไม่ได้แตะ JSX */
+.is-native-app .job-meter-fill {
+  transition: width 420ms var(--ease-ios);
+  will-change: width;
+}
+
+/* ===== การกด =====
+   ตอบสนองภายใน 110ms ด้วยการยุบตัว ไม่ดันของรอบข้าง
+   บนจอกลางแดด การยุบตัวเห็นชัดกว่าการเปลี่ยนสี */
+.is-native-app .stop-item-head,
+.is-native-app .job-card,
+.is-native-app .stop-bill-pod {
+  transition: transform var(--dur-tap) var(--ease-out), background-color 180ms var(--ease-ios);
+}
+
+.is-native-app .stop-item-head:active,
+.is-native-app .stop-bill-pod:active {
+  transform: scale(0.985);
+}
+
+/* ปิดหน่วงสัมผัส 300ms ของ Safari — ปุ่มที่ตอบช้าหนึ่งในสามวินาที
+   คนขับจะกดซ้ำ แล้วเรารับสองครั้ง */
+.is-native-app .btn,
+.is-native-app .stop-item-head,
+.is-native-app .driver-tab {
+  touch-action: manipulation;
+}
+
+/* ===== ปุ่มจบงาน =====
+   ปุ่มเดียวที่ปิดงานทั้งวัน ต้องเห็นตอนมันเพิ่งพร้อมให้กด ไม่ใช่โผล่เงียบ ๆ */
+.is-native-app .job-cta-bar > .btn {
+  animation: ios-pop 320ms var(--ease-ios) both;
+}
+
+/* ===== แท็บล่าง ===== */
+.is-native-app .driver-tab {
+  transition: color 160ms var(--ease-out), transform var(--dur-tap) var(--ease-out);
+}
+.is-native-app .driver-tab:active {
+  transform: scale(0.94);
+}
+
+/* ===== คนที่ปิดเอฟเฟกต์ =====
+   ปิดจริง ไม่ใช่ทำให้เร็วขึ้น — ของต้องอยู่ตรงที่มันควรอยู่ตั้งแต่เฟรมแรก */
+@media (prefers-reduced-motion: reduce) {
+  .is-native-app *,
+  .is-native-app *::before,
+  .is-native-app *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
