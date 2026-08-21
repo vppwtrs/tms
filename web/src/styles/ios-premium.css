@@ -1,0 +1,285 @@
+/**
+ * ผิว "เครื่องมือ" ของสกิน route — โทนกราไฟต์
+ *
+ * โจทย์: ให้ดูเป็นอุปกรณ์ทำงานที่มีราคา ไม่ใช่เว็บแอปพื้นขาวการ์ดมนที่ใครก็ทำได้
+ * วิธีที่ของแพงใช้จริง ไม่ใช่การใส่เงากับไล่เฉดเพิ่ม แต่คือ:
+ *   - พื้นเข้มเนื้อเดียว ของสำคัญลอยขึ้นมาด้วยความสว่าง ไม่ใช่ด้วยกรอบ
+ *   - เส้นคั่นบางจริง ๆ 1px ที่คอนทราสต์ต่ำ เห็นแต่ไม่ดัง
+ *   - ตัวอักษรมีลำดับชัด: ป้ายเล็กตัวใหญ่พิมพ์เล็กจัดระยะห่าง / ของจริงตัวหนาใหญ่
+ *   - ตัวเลขทุกตัวความกว้างเท่ากัน แถวจึงไม่ขยับตอนค่าเปลี่ยน
+ *   - สีเน้นมีสีเดียวและใช้น้อยมาก ที่เหลือเป็นเทา
+ *
+ * ทับเฉพาะ [data-skin='route'] สกินอื่นไม่ขยับ และ logic ไม่รู้เรื่องด้วย
+ */
+
+.is-native-app[data-skin='route'] {
+  /* กราไฟต์ ไม่ใช่ดำสนิท — ดำสนิทกับขอบจอ OLED กลืนกันจนไม่เห็นขอบการ์ด */
+  --paper: #0b0c0e;
+  --paper-deep: #131519;
+  --surface: #16181c;
+  --surface-2: #1c1f24;
+  --line: #262a31;
+  --line-soft: #1f2329;
+
+  --ink: #f6f7f8;
+  --ink-2: #e7e9ec;
+  --muted: #a2a9b4;      /* 7.4:1 บนพื้นการ์ด */
+  --faint: #7d848f;
+
+  /* น้ำเงินเหล็ก ไม่ใช่น้ำเงินระบบ — ใช้ที่เดียวคือสิ่งที่ต้องกดต่อ */
+  --blue-600: #2f6df0;
+  --blue-500: #4a83f7;
+  --info: #7aa7ff;
+  --info-bg: #16233c;
+
+  --ok: #45c48a;
+  --ok-bg: #10261d;
+  --warn: #e0a44a;
+  --warn-bg: #2a2011;
+  --danger: #f0685c;
+  --danger-bg: #2e1614;
+  --neutral: #a2a9b4;
+  --neutral-bg: #1f2329;
+
+  --r-sm: 10px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+
+  color-scheme: dark;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.is-native-app[data-skin='route'] body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ===== หัวจอ =====
+   ชื่อหน้าไม่ใช่พระเอก งานคือพระเอก — ย่อหัวลงแล้วคืนพื้นที่ให้รายการ */
+.is-native-app[data-skin='route'] .driver-head {
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.is-native-app[data-skin='route'] .driver-title {
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* ===== การ์ดเที่ยว =====
+   ไม่มีเงา ใช้เส้นขอบบางกับพื้นที่สว่างกว่าพื้นหลังหนึ่งขั้น */
+.is-native-app[data-skin='route'] .job-card,
+.is-native-app[data-skin='route'] .job-focus,
+.is-native-app[data-skin='route'] .driver-me-card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+}
+
+/* เลขเที่ยวคือรหัส ไม่ใช่ประโยค — ตัวเลขความกว้างเท่ากันและจัดระยะห่างตัวอักษร
+   อ่านทีละหลักได้ตอนต้องพูดเลขนี้ทางโทรศัพท์กับออฟฟิศ */
+.is-native-app[data-skin='route'] .job-card-no,
+.is-native-app[data-skin='route'] .job-bar-no {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.is-native-app[data-skin='route'] .job-card-meta,
+.is-native-app[data-skin='route'] .job-bar-meta,
+.is-native-app[data-skin='route'] .job-sub {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== ป้ายสถานะ =====
+   ตัวเล็ก จัดระยะห่างกว้าง ไม่มีพื้นหลังสีหวาน — จุดสีหนึ่งจุดพอบอกสถานะแล้ว */
+.is-native-app[data-skin='route'] .badge,
+.is-native-app[data-skin='route'] .job-card-status {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+/* ===== แถบคืบหน้า ===== */
+.is-native-app[data-skin='route'] .job-meter-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.is-native-app[data-skin='route'] .job-meter-fill {
+  border-radius: 2px;
+  background: var(--ok);
+}
+
+.is-native-app[data-skin='route'] .job-meter-text {
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== แถวร้าน =====
+   ชื่อร้านคือของจริง เวลาและจำนวนใบเป็นข้อมูลประกอบ ให้ต่างกันให้ชัด */
+.is-native-app[data-skin='route'] .stop-item > button {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+}
+
+.is-native-app[data-skin='route'] .stop-item-dest {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+.is-native-app[data-skin='route'] .stop-item-sub {
+  font-size: 12.5px;
+  color: var(--faint);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ร้านที่ส่งแล้วถอยไปอยู่ข้างหลัง แต่ยังอ่านออก — ของที่ทำเสร็จแล้วไม่ควรแย่งสายตา */
+.is-native-app[data-skin='route'] .stop-item.is-done > button {
+  background: transparent;
+  border-color: transparent;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done .stop-item-dest {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ร้านที่กำลังทำ — สว่างกว่าเพื่อนหนึ่งขั้นและมีเส้นขอบสีเดียวของจอ */
+.is-native-app[data-skin='route'] .stop-item.is-locked > button {
+  background: var(--surface-2);
+  border-color: color-mix(in srgb, var(--blue-500) 45%, transparent);
+}
+
+/* ===== หมุดบนเส้นทาง ===== */
+.is-native-app[data-skin='route'] .stop-list::before {
+  background: var(--line);
+}
+
+.is-native-app[data-skin='route'] .stop-item::before {
+  background: var(--paper);
+  border-color: var(--line);
+}
+
+.is-native-app[data-skin='route'] .stop-list::after {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ===== ปุ่ม =====
+   ปุ่มหลักทึบสีเดียว ปุ่มรองเป็นพื้นเทาเข้มมีเส้นขอบ — ไม่มีปุ่มไหนไล่เฉด */
+.is-native-app[data-skin='route'] .btn {
+  border-radius: var(--r-sm);
+  letter-spacing: 0.01em;
+}
+
+.is-native-app[data-skin='route'] .btn-outline {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+.is-native-app[data-skin='route'] .stop-item-cta {
+  background: var(--blue-600);
+  border-radius: var(--r-md);
+  /* ปุ่มเดียวที่มีเงาในทั้งแอป เพราะมันลอยอยู่เหนือเนื้อหาจริง ๆ */
+  box-shadow: 0 10px 30px rgb(0 0 0 / 45%);
+}
+
+/* ===== ป้ายกำกับเล็ก ๆ =====
+   ที่อยู่ / ใบเบิก / ลำดับการแวะ — ป้ายพวกนี้ทำให้จอดูเป็นเครื่องมือ
+   เมื่อมันเล็ก จาง และจัดระยะห่างเท่ากันทั้งจอ */
+.is-native-app[data-skin='route'] .stop-item-facts dt,
+.is-native-app[data-skin='route'] .stop-item-move-label,
+.is-native-app[data-skin='route'] .stop-bills::before {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.is-native-app[data-skin='route'] .stop-item-facts dd,
+.is-native-app[data-skin='route'] .stop-bill {
+  font-size: 14px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.is-native-app[data-skin='route'] .stop-bill-no {
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* ===== แถบสถานะตำแหน่ง ===== */
+.is-native-app[data-skin='route'] .track-note {
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+  color: var(--ok);
+}
+
+.is-native-app[data-skin='route'] .track-note.is-off {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  color: var(--danger);
+}
+
+/* ===== แถบล่าง ===== */
+.is-native-app[data-skin='route'] .driver-tabs {
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  border-top: 1px solid var(--line-soft);
+}
+
+.is-native-app[data-skin='route'] .driver-tab {
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.is-native-app[data-skin='route'] .driver-tab.is-active,
+.is-native-app[data-skin='route'] .driver-tab[aria-current='page'] {
+  color: #8fb4ff;
+}
+
+/* ===== จอในร้าน =====
+   ชื่อร้านเป็นของชิ้นเดียวที่ใหญ่ในจอ ที่เหลือถอยไปเป็นข้อมูลประกอบทั้งหมด */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-dest {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+}
+
+.is-native-app[data-skin='route'] .stop-lock-bar {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.is-native-app[data-skin='route'] .stop-lock-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.is-native-app[data-skin='route'] .stop-lock-text span {
+  font-size: 12px;
+  color: var(--faint);
+}

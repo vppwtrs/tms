@@ -61,6 +61,7 @@ async function applyNativeSkin(): Promise<void> {
   await import('./styles/ios-app.css')
   await import('./styles/ios-motion.css')
   await import('./styles/ios-skins.css')
+  await import('./styles/ios-premium.css')
 }
 
 if (CLOUD) void applyNativeSkin()
