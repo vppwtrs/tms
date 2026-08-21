@@ -16,6 +16,7 @@
     "dev:demo": "vite --mode demo"
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
     "@capacitor/core": "^7.6.8",
     "@capacitor/ios": "^7.6.8",
     "@supabase/supabase-js": "^2.112.3",

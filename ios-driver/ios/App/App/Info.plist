@@ -28,6 +28,8 @@
 	<string>บันทึกสำเนารูปหลักฐานการส่งมอบไว้ในเครื่อง</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>บันทึกพิกัดตอนถ่ายรูปหลักฐาน และแสดงตำแหน่งรถให้ออฟฟิศเห็นระหว่างวิ่งงาน</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>บันทึกเส้นทางต่อเนื่องระหว่างที่รับงานอยู่ แม้ล็อกจอ — หยุดเองเมื่อปิดเที่ยว</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>บันทึกเส้นทางต่อเนื่องระหว่างที่รับงานอยู่ แม้ล็อกจอ — หยุดเองเมื่อปิดเที่ยว</string>
 	<key>UIBackgroundModes</key>

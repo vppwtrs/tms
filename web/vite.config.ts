@@ -10,7 +10,7 @@ const demoModule = (name: string): string =>
 
 /* regex ต้องกินทั้งเส้น เพราะ replacement ของ alias ทับเฉพาะส่วนที่ match
    จับแค่ท้ายเส้นจะได้ '..' ค้างอยู่หน้าพาธเต็มแล้วหาไฟล์ไม่เจอ */
-const demoAliases = ['myjobs', 'auth', 'tmsAuth', 'storage', 'tracking', 'pod'].map((name) => ({
+const demoAliases = ['myjobs', 'auth', 'tmsAuth', 'storage', 'tracking', 'pod', 'supabase'].map((name) => ({
   find: new RegExp(String.raw`^\.\./api/${name}(\.js)?$`),
   replacement: demoModule(name),
 }))
