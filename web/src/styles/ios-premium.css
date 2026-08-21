@@ -507,3 +507,70 @@
   height: 100dvh;
   overflow: hidden;
 }
+
+/* ===== เลือกร้านให้ง่ายขึ้น =====
+   ปัญหาจากหน้างาน: แถวร้านทุกแถวหน้าตาเท่ากันหมด คนขับต้องเพ่งว่าอันไหนกดได้
+   อันไหนทำไปแล้ว และร้านต่อไปคือร้านไหน สามอย่างนี้ต้องแยกออกจากกันด้วยสายตา */
+
+/* ร้านที่ยังไม่ได้ส่ง = การ์ดขาวมีขอบชัด ตัวหนังสือเข้ม และมีลูกศรบอกว่ากดเข้าไปได้ */
+.is-native-app[data-skin='route'] .stop-item.is-todo > button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  min-height: 64px;
+  position: relative;
+  padding-right: 34px;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-todo > button::after {
+  content: '';
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-top: 2px solid var(--faint);
+  border-right: 2px solid var(--faint);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+/* ร้านที่กางอยู่ ลูกศรหมุนลง — บอกว่าอันนี้คืออันที่เปิดอยู่ ไม่ใช่อันที่กดค้างไว้ */
+.is-native-app[data-skin='route'] .stop-item.is-open > button::after {
+  transform: translateY(-50%) rotate(135deg);
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-todo .stop-item-dest {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* เวลานัดของร้านที่ยังไม่ส่ง อ่านชัดกว่าของร้านที่ส่งแล้ว */
+.is-native-app[data-skin='route'] .stop-item.is-todo .stop-item-sub {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+
+/* ร้านที่ส่งแล้ว: ตัวเล็กลง ไม่มีขอบ ไม่มีลูกศร — จบไปแล้วไม่ต้องชวนให้กด
+   แต่ยังกดดูหลักฐานได้เหมือนเดิม ไม่ได้ปิดปุ่มอะไรทั้งนั้น */
+.is-native-app[data-skin='route'] .stop-item.is-done > button {
+  min-height: 52px;
+  opacity: 0.72;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done .stop-item-dest {
+  font-size: 15px;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done .stop-item-sub {
+  background: transparent;
+  padding-left: 0;
+  color: var(--faint);
+  font-weight: 500;
+}
+
+/* ร้านต่อไปที่ควรแวะ = ร้านที่ยังไม่ส่งร้านแรกในลิสต์
+   ทำเส้นซ้ายสีส้มไว้ให้เห็นจากหางตา — ยังกดร้านอื่นได้ตามเดิม นี่เป็นแค่คำแนะนำ ไม่ใช่การบังคับ */
+.is-native-app[data-skin='route'] .stop-item.is-done + .stop-item.is-todo > button,
+.is-native-app[data-skin='route'] .stop-list > .stop-item.is-todo:first-child > button {
+  border-left: 4px solid var(--brand);
+}
