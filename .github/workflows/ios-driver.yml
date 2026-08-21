@@ -37,6 +37,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          # ไม่ตั้งค่านี้ = แผนที่ตกไปใช้ OpenStreetMap เหมือนเดิม ไม่พัง
+          VITE_LONGDO_KEY: ${{ vars.LONGDO_KEY }}
 
       - name: Copy the bundle into the Capacitor shell
         run: npm run sync -w ios-driver
