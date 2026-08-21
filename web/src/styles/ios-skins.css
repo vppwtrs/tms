@@ -165,3 +165,139 @@
 .is-native-app[data-skin='timeline'] .stop-item-seq {
   display: none;
 }
+
+/* ===================================================================
+   4) route — สองจอคนละหน้าที่ รวมอยู่ในสกินเดียว
+      จอเลือกร้าน = เส้นทางหมุด (คนขับเลือกร้านเอง และสลับลำดับได้เหมือนเดิม)
+      จอในร้าน    = การ์ดใหญ่ใบเดียว + ปุ่มลอยล่าง (ตอนนั้นระบบล็อกร้านอยู่แล้ว
+                    จอมีงานเดียวจริง ๆ จึงไม่ได้แย่งสิทธิ์เลือกของใคร)
+   =================================================================== */
+
+/* ---------- จอเลือกร้าน: เส้นทางหมุด ---------- */
+.is-native-app[data-skin='route'] .stop-list {
+  position: relative;
+  padding-left: 34px;
+}
+
+.is-native-app[data-skin='route'] .stop-list::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 22px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--line);
+}
+
+/* ปลายทางของทั้งเที่ยว — คลัง คนขับเห็นตั้งแต่ต้นว่าเส้นนี้จบตรงไหน
+   เป็นข้อความประดับ ไม่ใช่ปุ่ม ปุ่มจบงานยังอยู่ที่เดิมและยังขึ้นตามเงื่อนไขเดิม */
+.is-native-app[data-skin='route'] .stop-list::after {
+  content: 'กลับถึงคลัง — จบเที่ยว';
+  display: block;
+  position: relative;
+  padding: var(--space-3) 0 0;
+  font-size: 14px;
+  color: var(--faint);
+}
+
+.is-native-app[data-skin='route'] .stop-item {
+  position: relative;
+  overflow: visible;
+  border-top: none !important;
+  background: transparent;
+}
+
+.is-native-app[data-skin='route'] .stop-item > button {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  margin-bottom: var(--space-2);
+}
+
+.is-native-app[data-skin='route'] .stop-item::before,
+.is-native-app[data-skin='route'] .stop-list::after {
+  --dot: 12px;
+}
+
+.is-native-app[data-skin='route'] .stop-item::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 26px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--paper-deep);
+  border: 2px solid var(--line);
+  z-index: 1;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-done::before {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked::before {
+  background: var(--blue-600);
+  border-color: var(--blue-600);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue-600) 22%, transparent);
+}
+
+/* เลขลำดับซ้ำกับหมุด — คืนความกว้างให้ชื่อร้าน */
+.is-native-app[data-skin='route'] .stop-item-seq {
+  display: none;
+}
+
+/* ---------- จอในร้าน: การ์ดใหญ่ใบเดียว ----------
+   ตอนล็อกร้าน ระบบซ่อนร้านอื่นอยู่แล้ว เส้นทางจึงไม่มีอะไรให้ลาก เก็บเส้นทิ้ง */
+.is-native-app[data-skin='route'] .stop-list:has(.is-locked)::before,
+.is-native-app[data-skin='route'] .stop-list:has(.is-locked)::after {
+  display: none;
+}
+
+.is-native-app[data-skin='route'] .stop-list:has(.is-locked) {
+  padding-left: 0;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked::before {
+  display: none;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked > button {
+  padding: var(--space-5) var(--space-4) var(--space-3);
+}
+
+/* ชื่อร้านคือสิ่งเดียวที่ต้องอ่านจากระยะแขน ตอนถือของอีกมือ */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-dest {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-sub {
+  font-size: 15px;
+  margin-top: var(--space-2);
+}
+
+/* แถบบอกว่ากำลังอยู่ในร้านไหน ค้างบนสุด — เลื่อนดูใบเบิกยาว ๆ แล้วยังรู้ว่าอยู่ร้านไหน
+   และทางออกอยู่ในแถบนี้ที่เดียวเหมือนเดิม */
+.is-native-app[data-skin='route'] .stop-lock-bar {
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 56px);
+  z-index: 15;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--info-bg) 94%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* ปุ่มของร้านนี้ลอยติดขอบล่าง อยู่ในระยะนิ้วโป้ง — ปุ่มเดิม เงื่อนไขเดิม แค่ย้ายที่ */
+.is-native-app[data-skin='route'] .stop-item.is-locked .stop-item-cta {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) + var(--space-2));
+  z-index: 20;
+  width: 100%;
+  min-height: 56px;
+  font-size: 18px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
