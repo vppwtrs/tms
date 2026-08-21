@@ -23,7 +23,9 @@ import './styles/animations.css'
  * ถ้าไม่มี env ของ Supabase — ถ้า import ตรง ๆ build ฝั่ง LAN จะพังทันที
  * ทั้งที่ไม่ได้ใช้ Supabase เลย
  */
-const CLOUD = import.meta.env.MODE === 'cloud'
+/* โหมด demo คือระบบใหม่ที่สลับชั้น api ไปหาข้อมูลปลอม — ต้องขึ้นจอเดียวกับ cloud
+   ไม่ใช่จอของระบบเดิมบน LAN ซึ่งไม่มีอะไรเกี่ยวข้องกัน */
+const CLOUD = import.meta.env.MODE === 'cloud' || import.meta.env.MODE === 'demo'
 
 /* GitHub Pages เสิร์ฟที่ <user>.github.io/<repo>/ ไม่ใช่ราก
    ทั้ง router และ service worker ต้องรู้ base เดียวกัน ไม่งั้นเปิดแล้วจอขาว

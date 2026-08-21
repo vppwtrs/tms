@@ -12,7 +12,8 @@
     "test:a11y": "vitest run src/a11y",
     "typecheck": "tsc --noEmit",
     "dev:cloud": "vite --mode cloud",
-    "build:cloud": "tsc --noEmit && vite build --mode cloud"
+    "build:cloud": "tsc --noEmit && vite build --mode cloud",
+    "dev:demo": "vite --mode demo"
   },
   "dependencies": {
     "@capacitor/core": "^7.6.8",

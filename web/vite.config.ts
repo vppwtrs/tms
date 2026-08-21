@@ -1,5 +1,19 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+/* โหมดสาธิต — สลับชั้น api ทั้งชั้นไปหาไฟล์ใน src/demo ที่ไม่ยิงออกเน็ตเลย
+   ทำที่ alias แทนการใส่ if ลงในไฟล์ api จริง เพราะโค้ดที่ขึ้น production
+   ไม่ควรมีทางแยกสำหรับข้อมูลปลอมอยู่ข้างในตั้งแต่แรก */
+const demoModule = (name: string): string =>
+  fileURLToPath(new URL(`./src/demo/${name}.ts`, import.meta.url))
+
+/* regex ต้องกินทั้งเส้น เพราะ replacement ของ alias ทับเฉพาะส่วนที่ match
+   จับแค่ท้ายเส้นจะได้ '..' ค้างอยู่หน้าพาธเต็มแล้วหาไฟล์ไม่เจอ */
+const demoAliases = ['myjobs', 'auth', 'tmsAuth', 'storage', 'tracking', 'pod'].map((name) => ({
+  find: new RegExp(String.raw`^\.\./api/${name}(\.js)?$`),
+  replacement: demoModule(name),
+}))
 
 const apiPort = process.env.PORT ?? 3100
 
@@ -7,8 +21,11 @@ const apiPort = process.env.PORT ?? 3100
    ตั้งผ่าน VITE_BASE ใน workflow — เว้นว่างตอน dev และตอน build ลง server ของตัวเอง */
 const base = process.env.VITE_BASE ?? '/'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base,
+  resolve: {
+    alias: mode === 'demo' ? demoAliases : [],
+  },
   plugins: [react()],
   server: {
     port: 5173,
@@ -35,4 +52,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))
