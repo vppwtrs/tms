@@ -27,6 +27,13 @@ import './styles/animations.css'
    ไม่ใช่จอของระบบเดิมบน LAN ซึ่งไม่มีอะไรเกี่ยวข้องกัน */
 const CLOUD = import.meta.env.MODE === 'cloud' || import.meta.env.MODE === 'demo'
 
+/* กรอบพรีวิวใน editor กดอนุญาตตำแหน่งไม่ได้ และจอคนขับไม่ให้กดรับงานถ้าไม่มีตำแหน่ง
+   โหมดสาธิตจึงใส่ตัวปลอมทับก่อนแอปขึ้น import แบบมีเงื่อนไข build ปกติจึงไม่มีไฟล์นี้ */
+if (import.meta.env.MODE === 'demo') {
+  const { installDemoGeolocation } = await import('./demo/geo')
+  installDemoGeolocation()
+}
+
 /* GitHub Pages เสิร์ฟที่ <user>.github.io/<repo>/ ไม่ใช่ราก
    ทั้ง router และ service worker ต้องรู้ base เดียวกัน ไม่งั้นเปิดแล้วจอขาว
    BASE_URL ลงท้ายด้วย / เสมอ ส่วน basename ของ router ต้องไม่มี — ตัดทิ้งตรงนี้ที่เดียว */
