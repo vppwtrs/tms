@@ -10,8 +10,8 @@ import { fmtDateTime } from '../utils/format'
 /**
  * หน้าติดตามรถ
  *
- * แผนที่จริงจาก OpenStreetMap ผ่าน Leaflet — ไม่มีค่ารายเดือน ไม่ต้องผูกบัตร
- * และไม่ต้องมีคีย์ที่จะหมดอายุตอนไม่มีใครดูแล
+ * แผนที่จริงผ่าน Leaflet — ค่าตั้งต้นเป็น OpenStreetMap ที่ไม่ต้องมีคีย์
+ * และย้ายไป Longdo ได้ด้วยการใส่คีย์ในไฟล์ .env ดูรายละเอียดที่ตัวแปร tiles ข้างล่าง
  *
  * สิ่งที่หน้านี้บอกได้จริง: จุดล่าสุดที่รถส่งเข้ามา และหมุด POD ทุกใบที่เก็บไปแล้ว
  * สิ่งที่บอกไม่ได้: ตำแหน่งตอนที่คนขับพับหน้าจอ เพราะเบราว์เซอร์หยุดให้ตำแหน่ง
@@ -34,6 +34,30 @@ const GAP_MS = 2 * 60 * 1000
 function minutesAgo(iso: string): number {
   return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
 }
+
+/**
+ * แผ่นแผนที่ที่ใช้เป็นพื้นหลัง
+ *
+ * ค่าตั้งต้นคือ OpenStreetMap ซึ่งฟรีจริงแต่มีนโยบายห้ามใช้กับงานปริมาณมาก
+ * เราจึงเปิดทางให้ย้ายไป Longdo ได้ด้วยการใส่คีย์ในไฟล์ .env ไม่ต้องแก้โค้ด
+ *
+ * ทำไมถึงเป็น Longdo: งานเราคือส่งของในไทย คนวางแผนต้องอ่านชื่อซอยกับชื่อร้านออก
+ * แผนที่ไทยที่ทำโดยคนไทยละเอียดกว่าในเรื่องนั้น และเขารองรับ Leaflet อย่างเป็นทางการ
+ * (ของ Google ห้ามเอา tile มาเสียบ Leaflet ต้องใช้ SDK ของเขาเท่านั้น)
+ *
+ * ไม่มีคีย์ = ใช้ OSM ต่อไปเหมือนเดิม ไม่มีอะไรพัง
+ */
+const LONGDO_KEY = import.meta.env.VITE_LONGDO_KEY as string | undefined
+
+const tiles = LONGDO_KEY
+  ? {
+      url: `https://ms.longdo.com/mmmap/tile.php?zoom={z}&x={x}&y={y}&key=${LONGDO_KEY}&proj=epsg3857&HD=1`,
+      credit: '© Longdo Map',
+    }
+  : {
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      credit: '© ผู้ร่วมสร้าง OpenStreetMap',
+    }
 
 export default function CloudTracking(): React.JSX.Element {
   const { can } = useCloudAuth()
@@ -86,10 +110,7 @@ export default function CloudTracking(): React.JSX.Element {
     }
     if (map.current) return
     const m = L.map(node).setView(HOME, 10)
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© ผู้ร่วมสร้าง OpenStreetMap',
-    }).addTo(m)
+    L.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.credit }).addTo(m)
     map.current = m
     layer.current = L.layerGroup().addTo(m)
     setMapReady(true)
