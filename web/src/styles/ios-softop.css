@@ -1,0 +1,319 @@
+/**
+ * Design C "Soft Operator" — ผิวใหม่ของแอปคนขับ (Grab/LINE MAN school)
+ * เวอร์ชันครบทุกจอ — class names ตรงกับ JSX จริงของโปรเจ็ค
+ *
+ * โหลดท้ายสุดใน main.tsx (หลัง ios-premium.css) จึงชนะทุกกฎเดิม
+ * ไม่แตะ JSX แม้บรรทัดเดียว — logic/workflow/ปุ่มเดิมทุกอย่าง
+ */
+
+.is-native-app {
+  /* ============ tokens ============ */
+  --paper: #f3f5f4;
+  --paper-deep: #e9edeb;
+  --surface: #ffffff;
+  --surface-2: #eff3f1;
+  --line: #dfe5e2;
+  --line-soft: #eef1ef;
+
+  --ink: #12211b;
+  --ink-2: #1c2d25;
+  --muted: #5b6b63;
+  --faint: #6e7f77;
+
+  --fleet: #0e7c4a;
+  --fleet-deep: #0e3b2c;
+  --fleet-mid: #155c43;
+  --fleet-bright: #3ee08f;
+  --fleet-tint: #ddf3e7;
+  --fleet-ink: #0b6b3f;
+
+  --ok: #0e7c4a;
+  --ok-bg: #ddf3e7;
+  --warn: #8a5a12;
+  --warn-bg: #fdf0dc;
+  --danger: #c03a2b;
+  --danger-bg: #fceae7;
+  --info: #0e7c4a;
+  --info-bg: #ddf3e7;
+  --neutral: #5b6b63;
+  --neutral-bg: #eff3f1;
+
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 20px;
+  --r-xl: 24px;
+
+  --shadow-card: 0 1px 2px rgba(18, 33, 27, 0.05), 0 6px 18px rgba(18, 33, 27, 0.06);
+  --shadow-float: 0 10px 24px rgba(14, 124, 74, 0.32);
+
+  --grad-hero: linear-gradient(135deg, #0e3b2c, #155c43);
+}
+
+/* ============ base ============ */
+.is-native-app body { background: var(--paper); }
+
+.is-native-app .driver-head {
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: none;
+}
+
+.is-native-app .driver-title { font-weight: 800; letter-spacing: -0.03em; }
+
+/* ============ buttons ============ */
+.is-native-app .btn-primary,
+.is-native-app .job-card-accept,
+.is-native-app .job-cta-bar .btn-primary,
+.is-native-app .stop-item-cta .btn-primary,
+.is-native-app .pod-actions .btn-primary,
+.is-native-app .login-card button[type='submit'] {
+  background: var(--fleet);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-weight: 800;
+  min-height: 52px;
+  box-shadow: var(--shadow-float);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+}
+
+.is-native-app .btn-primary:active,
+.is-native-app .job-card-accept:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(14, 124, 74, 0.25); }
+
+.is-native-app .btn-outline {
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  font-weight: 700;
+  min-height: 48px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.is-native-app .btn-danger { background: var(--danger); box-shadow: 0 10px 24px rgba(192, 58, 43, 0.32); }
+
+/* ============ cards (shared) ============ */
+.is-native-app .job-card,
+.is-native-app .job-focus,
+.is-native-app .driver-me-card,
+.is-native-app .stop-item > button,
+.is-native-app .login-card,
+.is-native-app .stop-bills,
+.is-native-app .job-alert {
+  background: var(--surface);
+  border: none;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.is-native-app .job-card.is-new { border: 1.5px solid color-mix(in srgb, var(--fleet) 40%, transparent); }
+
+.is-native-app .job-card-no { font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.is-native-app .job-card-meta,
+.is-native-app .job-sub,
+.is-native-app .stop-item-sub { color: var(--muted); }
+
+/* ============ hero / job-bar / progress ============ */
+.is-native-app .job-bar {
+  background: var(--grad-hero);
+  color: #fff;
+  border-radius: var(--r-xl);
+  padding: 18px;
+  margin: 12px 14px 0;
+  position: relative;
+}
+.is-native-app .job-bar::after {
+  content: ""; position: absolute; right: -38px; top: -38px;
+  width: 150px; height: 150px; border-radius: 50%;
+  background: rgba(255,255,255,0.06); pointer-events: none;
+}
+.is-native-app .job-bar-no { font-size: 12px; font-weight: 600; color: #9fd4bc; letter-spacing: 0.06em; }
+.is-native-app .job-bar-meta { color: #bfe5d4; }
+
+.is-native-app .job-meter-track {
+  height: 8px; border-radius: 999px; background: rgba(255,255,255,0.18);
+}
+.is-native-app .job-meter-fill {
+  border-radius: 999px; background: var(--fleet-bright); transition: width 0.4s ease;
+}
+.is-native-app .job-meter-text { color: #bfe5d4; font-weight: 600; }
+
+/* ============ stop list (my-jobs) ============ */
+.is-native-app .job-list { gap: 12px; }
+
+.is-native-app .job-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 16px;
+  background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-card);
+}
+.is-native-app .job-card-text { flex: 1; min-width: 0; }
+.is-native-app .job-card-meta { font-size: 13px; line-height: 1.5; }
+.is-native-app .job-card-accept { height: 48px; min-width: 100px; font-size: 14px; padding: 0 20px; }
+
+.is-native-app .job-card.is-open .job-card-head { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.is-native-app .job-card .stop-list { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+
+/* stop-item inside expanded job card */
+.is-native-app .stop-item { margin-bottom: 10px; }
+.is-native-app .stop-item > button { padding: 15px 16px; text-align: left; width: 100%; }
+.is-native-app .stop-item-seq {
+  background: var(--surface-2); color: var(--faint); border-radius: 13px; font-weight: 800;
+  width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto;
+}
+.is-native-app .stop-item.is-now .stop-item-seq { background: var(--fleet); color: #fff; }
+.is-native-app .stop-item.is-done .stop-item-seq { background: var(--fleet-tint); color: var(--fleet); }
+.is-native-app .stop-item-dest { font-weight: 700; letter-spacing: -0.01em; }
+.is-native-app .stop-item.is-now > button { outline: 2.5px solid var(--fleet); outline-offset: -2.5px; }
+.is-native-app .stop-item.is-done > button { opacity: 0.75; }
+
+/* ============ tabs ============ */
+.is-native-app .driver-tabs {
+  background: var(--surface);
+  border-top: none; border-radius: 22px 22px 0 0;
+  box-shadow: 0 -6px 24px rgba(18, 33, 27, 0.08); padding-top: var(--space-2);
+}
+.is-native-app .driver-tab { color: #93a39b; font-weight: 700; transition: color 0.2s ease; }
+.is-native-app .driver-tab.is-active,
+.is-native-app .driver-tab[aria-current='page'] { color: var(--fleet); }
+.is-native-app[data-theme='dark'] .driver-tab.is-active,
+.is-native-app[data-theme='dark'] .driver-tab[aria-current='page'] { color: var(--fleet-bright); }
+.is-native-app .driver-tab-badge {
+  background: #e24a3b; color: #fff; box-shadow: 0 0 0 2px var(--surface);
+  font-weight: 800; font-size: 10px; min-width: 17px; height: 17px; border-radius: 99px;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
+  position: absolute; top: -7px; left: calc(50% + 8px);
+}
+
+/* ============ login ============ */
+.is-native-app .login-page { background: var(--paper); }
+.is-native-app .login-card { animation: softop-card-up 0.65s cubic-bezier(0.22,1,0.36,1) both; }
+@keyframes softop-card-up { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+.is-native-app .logo-big {
+  width: 86px !important; height: 86px !important; border-radius: 50%; overflow: hidden;
+  box-shadow: 0 14px 34px rgba(14,124,74,0.3), 0 0 0 4px #fff, 0 0 0 5.5px rgba(14,124,74,0.22);
+  animation: softop-logo-pop 0.8s cubic-bezier(0.34,1.56,0.64,1) both 0.1s;
+}
+@keyframes softop-logo-pop { from { opacity: 0; transform: scale(0.55) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+.is-native-app .logo-big img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.is-native-app .login-card h1 { font-weight: 800; letter-spacing: -0.03em; }
+.is-native-app .login-card input {
+  height: 49px; border-radius: 15px; border: 1.5px solid var(--line); background: var(--surface);
+  transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
+}
+.is-native-app .login-card input:focus { border-color: var(--fleet); box-shadow: 0 0 0 3.5px rgba(14,124,74,0.15); transform: translateY(-1px); outline: none; }
+.is-native-app .login-card button[type='submit'] { height: 51px; border-radius: 999px; font-weight: 800; box-shadow: var(--shadow-float); }
+.is-native-app .login-hint { background: var(--surface); border-radius: var(--r-md); box-shadow: 0 1px 2px rgba(18,33,27,0.04); }
+
+/* ============ shop screen = JobFocus (จอร้าน) — ปุ่มหลักเต็มแถวท้ายจอ ============ */
+.is-native-app .job-cta-bar { padding: 10px 16px 12px; }
+.is-native-app .job-cta-bar .btn-primary { width: 100%; height: 52px; }
+/* ใบเบิกของร้าน (StopCard) — การ์ดแถวเลข PL ตามจอร้านใน mockup */
+.is-native-app .stop-bills { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.is-native-app .stop-bill {
+  display: flex; align-items: baseline; gap: 10px;
+  background: var(--surface-2); border-radius: var(--r-md); padding: 10px 13px;
+}
+.is-native-app .stop-bill.is-done { opacity: 0.6; }
+.is-native-app .stop-bill-no { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.is-native-app .stop-bill-goods { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); }
+.is-native-app .stop-bill-qty { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.is-native-app .stop-bill-pod {
+  margin-left: auto; align-self: center; border: none; cursor: pointer;
+  background: var(--fleet-tint); color: var(--fleet-ink);
+  font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 5px 11px;
+}
+
+/* ============ POD Camera (PodSheet step=photo) ============ */
+.is-native-app .pod-steps { display: flex; gap: 6px; justify-content: center; margin: 9px 0 3px; }
+.is-native-app .pod-steps > span {
+  font-size: 11px; font-weight: 700; padding: 5px 14px; border-radius: 999px;
+  background: var(--surface-2); color: var(--faint);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+.is-native-app .pod-steps > span.is-now { background: var(--fleet-tint); color: var(--fleet-ink); }
+.is-native-app .pod-steps > span.is-done { color: var(--fleet); }
+
+/* กล้องโหมด stage (CameraCapture) — ช่องมองภาพเข้มมน ชัตเตอร์ขาวกลม */
+.is-native-app .cam-stage-view {
+  border-radius: var(--r-xl); overflow: hidden; position: relative;
+  aspect-ratio: 3 / 4; max-height: 50vh; width: 100%;
+  background: linear-gradient(150deg, #39443f, #202824 60%);
+}
+.is-native-app .cam-stage-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.is-native-app .cam-stage-off {
+  position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 10px;
+  color: #cfd8d3; font-size: 12.5px; font-weight: 600; text-align: center; padding: 0 26px;
+}
+.is-native-app .cam-stage-wake {
+  position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 6px;
+  background: rgba(24, 29, 27, 0.88); border: none; color: #e8ece9; cursor: pointer;
+}
+.is-native-app .cam-stage-wake b { font-size: 15px; }
+.is-native-app .cam-stage-wake span { font-size: 11.5px; color: #b9c3bd; max-width: 230px; line-height: 1.55; }
+.is-native-app .cam-shutter {
+  display: block; margin: 14px auto 2px; width: 64px; height: 64px; border-radius: 50%;
+  background: #fff; border: 5px solid #dce2df; box-shadow: 0 4px 14px rgba(18, 33, 27, 0.18);
+  cursor: pointer; padding: 0;
+}
+.is-native-app .cam-shutter:disabled { opacity: 0.45; }
+.is-native-app .cam-shutter > span {
+  display: block; width: 100%; height: 100%; border-radius: 50%;
+  background: var(--fleet); transform: scale(0.72); transition: transform 0.12s ease;
+}
+.is-native-app .cam-shutter:active > span { transform: scale(0.6); }
+
+/* ============ Signature (PodSheet step=sign) ============ */
+.is-native-app .pod-section canvas { border-radius: 10px; }
+.is-native-app .pod-row-head h4 { font-size: 14px; font-weight: 800; }
+.is-native-app .pod-actions { margin: 0 16px 24px; }
+.is-native-app .pod-actions .btn-primary { width: 100%; height: 56px; font-size: 16.5px; }
+
+.is-native-app .pod-kind[aria-pressed='true'] { background: var(--fleet-tint); color: var(--fleet-ink); border-color: transparent; }
+
+/* ============ History — แถวเที่ยวที่ปิดแล้ว ============ */
+.is-native-app .trip-switch-list { list-style: none; display: flex; flex-direction: column; gap: 9px; padding: 12px 0 16px; }
+.is-native-app .trip-switch {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-card);
+  padding: 14px 15px;
+}
+.is-native-app .trip-switch-no { font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
+.is-native-app .trip-switch-meta { flex: 1; min-width: 0; font-size: 12px; color: var(--faint); line-height: 1.5; }
+
+/* ============ Me / Profile — hero เขียว + แถวการ์ด ============ */
+.is-native-app .driver-me { display: flex; flex-direction: column; gap: 9px; padding: 12px 0 16px; }
+.is-native-app .driver-me-card {
+  border-radius: var(--r-xl); padding: 19px; background: var(--grad-hero); color: #fff;
+  position: relative; overflow: hidden; display: flex; flex-direction: column;
+}
+.is-native-app .driver-me-card::after {
+  content: ""; position: absolute; right: -38px; bottom: -48px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07); pointer-events: none;
+}
+.is-native-app .driver-me-name { font-size: 18.5px; font-weight: 800; letter-spacing: -0.02em; }
+.is-native-app .driver-me-sub { font-size: 11.5px; color: #bfe5d4; margin-top: 3px; }
+.is-native-app .driver-me-action {
+  display: flex; align-items: center; min-height: 48px; width: 100%;
+  background: var(--surface); border: none; border-radius: 16px; padding: 13px 14px;
+  box-shadow: var(--shadow-card); font-size: 14px; font-weight: 700; color: var(--ink);
+}
+.is-native-app .driver-me-action.btn-outline { border: none; }
+.is-native-app button.driver-me-action:last-of-type { color: var(--danger); }
+
+/* ============ dark theme ============ */
+.is-native-app[data-theme='dark'] {
+  --paper: #0c110e; --paper-deep: #101613; --surface: #18201c; --surface-2: #202a25;
+  --line: #2a352f; --line-soft: #202a25;
+  --ink: #f0f4f2; --ink-2: #e2e9e6; --muted: #a8b8b0; --faint: #93a39b;
+  --fleet: #2ea36c; --fleet-tint: #12301f; --fleet-ink: #7fd4ab;
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 6px 18px rgba(0,0,0,0.25);
+  --shadow-float: 0 10px 24px rgba(0,0,0,0.4);
+}
+
+/* ============ reduced motion ============ */
+@media (prefers-reduced-motion: reduce) {
+  .is-native-app .login-card, .is-native-app .logo-big { animation: none; }
+  .is-native-app .btn-primary, .is-native-app .job-card-accept, .is-native-app .login-card input { transition: none; }
+  .is-native-app .job-meter-fill, .is-native-app .pod-steps > span { transition: none; }
+}

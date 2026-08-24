@@ -101,12 +101,8 @@ export default function CloudLogin(): React.JSX.Element {
     <div className="login-page">
       <form className="login-card" onSubmit={submit}>
         <div className="logo-big">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h11v10H3z" />
-            <path d="M14 10h4l3 3v3h-7z" />
-            <circle cx="7" cy="17.5" r="1.8" />
-            <circle cx="17" cy="17.5" r="1.8" />
-          </svg>
+          {/* โลโก้จริงของแอป — รถบรรทุกขนส่ง (วงกลม ขอบขาวทำใน CSS) */}
+          <img src={`${import.meta.env.BASE_URL}login-logo.png`} alt="" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
         <h1>ระบบบริหารจัดการขนส่ง</h1>
         <p className="login-sub">Transport Management System</p>

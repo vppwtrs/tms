@@ -62,6 +62,8 @@ async function applyNativeSkin(): Promise<void> {
   await import('./styles/ios-motion.css')
   await import('./styles/ios-skins.css')
   await import('./styles/ios-premium.css')
+  /* Design C "Soft Operator" — โหลดท้ายสุด ทับโทนของผิวเดิมทั้งหมด */
+  await import('./styles/ios-softop.css')
 }
 
 if (CLOUD) void applyNativeSkin()
