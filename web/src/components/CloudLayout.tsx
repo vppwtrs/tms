@@ -4,7 +4,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { ROLE_LABEL } from '../utils/constants'
 import { fmtDate, fmtLongToday, initials } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { IconBox, IconBuilding, IconRoute, IconKey, IconLogout, IconMenu, IconMoon, IconPanelLeft, IconPin, IconChart, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
+import { IconBox, IconBuilding, IconRoute, IconKey, IconLogout, IconMenu, IconMoon, IconPanelLeft, IconPin, IconChart, IconDashboard, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
 import { ChangePasswordModal } from './ChangePasswordModal'
 import { OpsSearch } from './ops/OpsSearch'
 
@@ -26,8 +26,12 @@ interface NavItem {
   label: string
   icon: React.ComponentType<{ size?: number }>
   /** ต้องมีสิทธิ์นี้ถึงจะเห็น — ซ่อนเมนูเป็นแค่การไม่ชี้ทางไปหน้าที่กดแล้วว่างเปล่า
-   *  ตัวกันจริงคือ RLS ในฐานข้อมูล ไม่ใช่บรรทัดนี้ */
-  perm: string
+   *  ตัวกันจริงคือ RLS ในฐานข้อมูล ไม่ใช่บรรทัดนี้
+   *
+   *  ไม่ใส่ = เห็นได้ทุกคนที่เข้าถึงเมนูนี้ ใช้กับหน้าแรกซึ่งเลือกเนื้อหาตามสิทธิ์
+   *  ด้วยตัวเองอยู่แล้ว (ดู Home ใน AppCloud.tsx) จะผูกกับสิทธิ์ตัวไหนตัวหนึ่ง
+   *  ก็ผิดทั้งคู่ — คนที่ไม่มีสิทธิ์นั้นก็ยังต้องมีทางกลับหน้าแรก */
+  perm?: string
 }
 
 interface NavGroup {
@@ -42,6 +46,9 @@ const NAV: NavGroup[] = [
   {
     label: 'ปฏิบัติการ',
     items: [
+      /* หน้าแรกต้องมีบรรทัดของตัวเองในเมนู — ตอนที่มันเป็นแค่แผงลิงก์ การไม่มีทางกลับ
+         ยังพอทน เพราะกลับไปก็ไม่มีอะไร ตอนนี้มันคือสรุปของทั้งวัน ทางกลับจึงต้องมี */
+      { to: '/', label: 'ภาพรวมวันนี้', icon: IconDashboard },
       { to: '/my-jobs', label: 'งานของฉัน', icon: IconTruckBig, perm: 'myjobs.view' },
       /* หน้าเดียวจบ — รอบดึงข้อมูลเดินอยู่บนหน้านี้เอง แยกเป็นสองหน้าแล้วรอบดึงจะหยุด
          ทันทีที่คนสลับมาดูเที่ยว ซึ่งเป็นสิ่งที่เกิดตลอดวัน */
@@ -99,7 +106,7 @@ export function CloudLayout(): React.JSX.Element {
 
   /* กลุ่มที่ไม่เหลือรายการเลยต้องหายไปทั้งกลุ่ม ไม่ใช่เหลือหัวข้อลอย ๆ */
   const groups = NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => can(i.perm)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.perm || can(i.perm)) }))
     .filter((g) => g.items.length > 0)
 
   /* คนขับได้จอเปล่า ไม่มีแถบบน ไม่มีเมนูข้าง — หน้าเขามีเมนูล่างจอของตัวเองแล้ว
@@ -141,6 +148,9 @@ export function CloudLayout(): React.JSX.Element {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  /* "/" ตรงกับทุกเส้นทางถ้าไม่ใส่ end — ไม่งั้นหน้าแรกจะขึ้นเป็นเมนู
+                     ที่เลือกอยู่ตลอดเวลา พร้อมกับหน้าที่เปิดอยู่จริง */
+                  end={item.to === '/'}
                   className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
                   onClick={() => setMenuOpen(false)}
                 >
