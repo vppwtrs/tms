@@ -51,13 +51,12 @@ async function applyNativeSkin(): Promise<void> {
   const { Capacitor } = await import('@capacitor/core')
   if (!forced && !Capacitor.isNativePlatform()) return
   document.documentElement.classList.add('is-native-app')
-  /* หน้าตาที่ใช้ได้จริง — เลือกด้วย ?skin=route|focus|sheet|timeline แล้วจำไว้
-     route คือตัวตั้งต้น: จอเลือกร้านเป็นเส้นทางหมุด จอในร้านเป็นการ์ดใหญ่ปุ่มลอยล่าง
-     เหมือน ?native=1 คือหลุดทันทีที่เปลี่ยนหน้า ถ้าไม่จำไว้ในเครื่อง */
+  /* ผิว Design C ต้องเป็นตัวตั้งต้น เพราะเป็น layout ที่ใช้ในแอปจริง
+     สกินรุ่นเก่ายังเปิดตรวจย้อนหลังได้ด้วย query เดิม */
   const skinFlag = new URLSearchParams(window.location.search).get('skin')
-  const skins = ['route', 'focus', 'sheet', 'timeline']
+  const skins = ['softop', 'route', 'focus', 'sheet', 'timeline']
   if (skinFlag && skins.includes(skinFlag)) localStorage.setItem('preview-skin', skinFlag)
-  document.documentElement.dataset.skin = localStorage.getItem('preview-skin') ?? 'route'
+  document.documentElement.dataset.skin = localStorage.getItem('preview-skin') ?? 'softop'
   await import('./styles/ios-app.css')
   await import('./styles/ios-motion.css')
   await import('./styles/ios-skins.css')

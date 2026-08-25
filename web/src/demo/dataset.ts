@@ -16,6 +16,14 @@ function todayAt(hour: number, minute = 0): string {
   return d.toISOString()
 }
 
+/** เวลาของวันก่อนหน้า — ประวัติงานจัดกลุ่มตามวัน ชุดสาธิตจึงต้องมีมากกว่าหนึ่งวัน */
+function daysAgoAt(days: number, hour: number, minute = 0): string {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  d.setHours(hour, minute, 0, 0)
+  return d.toISOString()
+}
+
 let nextOrderId = 100
 
 function order(o: Partial<MyJobOrder> & { destination: string; customer_name: string }): MyJobOrder {
@@ -159,6 +167,115 @@ export function buildDemoJobs(): MyJob[] {
           seq: 2,
           scheduled_at: todayAt(10),
           customer_phone: '02-000-0005',
+        }),
+      ],
+      total_weight: 0,
+    },
+    /* สองเที่ยวที่ปิดแล้ว — แท็บประวัติจัดกลุ่มตามวัน ถ้าไม่มีของสองวันจะเห็นแค่จอว่าง
+       และตรวจไม่ได้ว่าหัวกลุ่มวันที่ทำงานถูก */
+    {
+      id: 3,
+      trip_no: 'TRIP-DEMO-03',
+      status: 'completed',
+      departed_at: todayAt(5, 30),
+      arrived_at: todayAt(7, 10),
+      notes: null,
+      vehicle_plate: '3คค 3333 สมมติ',
+      vehicle_type: 'pickup',
+      accepted_at: todayAt(5, 15),
+      my_accepted_at: todayAt(5, 15),
+      is_primary: true,
+      driver_count: 1,
+      accepted_count: 1,
+      issue_note: null,
+      warehouse_code: 'WH-DEMO',
+      area: 'กรุงเทพฯ ตะวันออก',
+      orders: [
+        order({
+          destination: 'ร้านตัวอย่าง หก · ถนนสมมติ 5 อ่อนนุช',
+          customer_name: 'ร้านตัวอย่าง หก',
+          goods_desc: 'น้ำดื่ม 6 ลัง',
+          weight_kg: 72,
+          distance_km: 9,
+          status: 'delivered',
+          delivered_at: todayAt(6, 20),
+          has_pod: 1,
+          seq: 1,
+          scheduled_at: todayAt(6),
+          customer_phone: '02-000-0006',
+        }),
+        order({
+          destination: 'ร้านตัวอย่าง เจ็ด · ถนนสมมติ 7 พระโขนง',
+          customer_name: 'ร้านตัวอย่าง เจ็ด',
+          goods_desc: 'ของใช้ 4 ลัง',
+          weight_kg: 48,
+          distance_km: 5,
+          status: 'delivered',
+          delivered_at: todayAt(6, 55),
+          has_pod: 1,
+          seq: 2,
+          scheduled_at: todayAt(6, 45),
+          customer_phone: '02-000-0007',
+        }),
+      ],
+      total_weight: 0,
+    },
+    {
+      id: 4,
+      trip_no: 'TRIP-DEMO-04',
+      status: 'completed',
+      departed_at: daysAgoAt(1, 8),
+      arrived_at: daysAgoAt(1, 16, 20),
+      notes: null,
+      vehicle_plate: '1กก 1111 สมมติ',
+      vehicle_type: 'truck6',
+      accepted_at: daysAgoAt(1, 7, 40),
+      my_accepted_at: daysAgoAt(1, 7, 40),
+      is_primary: true,
+      driver_count: 1,
+      accepted_count: 1,
+      issue_note: 'รถติดหนักช่วงบ่าย ส่งช้ากว่านัด 40 นาที',
+      warehouse_code: 'WH-DEMO',
+      area: 'สมุทรปราการ',
+      orders: [
+        order({
+          destination: 'ร้านตัวอย่าง แปด · ถนนสมมติ 11 บางพลี',
+          customer_name: 'ร้านตัวอย่าง แปด',
+          goods_desc: 'อะไหล่ 3 กล่อง',
+          weight_kg: 27,
+          distance_km: 14,
+          status: 'delivered',
+          delivered_at: daysAgoAt(1, 10, 15),
+          has_pod: 1,
+          seq: 1,
+          scheduled_at: daysAgoAt(1, 10),
+          customer_phone: '02-000-0008',
+        }),
+        order({
+          destination: 'ร้านตัวอย่าง เก้า · ถนนสมมติ 19 เทพารักษ์',
+          customer_name: 'ร้านตัวอย่าง เก้า',
+          goods_desc: 'กระดาษ 10 รีม',
+          weight_kg: 25,
+          distance_km: 8,
+          status: 'delivered',
+          delivered_at: daysAgoAt(1, 15, 40),
+          has_pod: 1,
+          seq: 2,
+          scheduled_at: daysAgoAt(1, 15),
+          customer_phone: '02-000-0009',
+        }),
+        order({
+          destination: 'ร้านตัวอย่าง สิบ · ถนนสมมติ 23 บางเสาธง',
+          customer_name: 'ร้านตัวอย่าง สิบ',
+          goods_desc: 'ของใช้ 6 ลัง',
+          weight_kg: 72,
+          distance_km: 12,
+          status: 'delivered',
+          delivered_at: daysAgoAt(1, 16, 5),
+          has_pod: 1,
+          seq: 3,
+          scheduled_at: daysAgoAt(1, 16),
+          customer_phone: '02-000-0010',
         }),
       ],
       total_weight: 0,

@@ -14,7 +14,7 @@ import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { groupStops, jobTripNo, type StopGroup } from '../utils/stops'
 import { TRIP_STATUS_LABEL } from '../utils/constants'
-import { fmtDateTime, fmtLongToday, fmtTime } from '../utils/format'
+import { daysAgoIso, fmtDate, fmtDateTime, fmtLongToday, fmtTime, todayIso } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
 import { SignaturePad } from '../components/SignaturePad'
@@ -22,7 +22,9 @@ import { PodViewModal } from '../components/PodViewModal'
 import { CameraCapture } from '../components/CameraCapture'
 import { JobFocus } from '../components/driver/JobFocus'
 import type { CompressedImage } from '../utils/image'
-import { IconCheck, IconTruck, IconUsers } from '../components/icons'
+import {
+  IconAlert, IconCheck, IconChevronRight, IconKey, IconLogout, IconMoon, IconSun, IconTruck, IconUsers,
+} from '../components/icons'
 import { ChangePasswordModal } from '../components/ChangePasswordModal'
 
 /**
@@ -110,6 +112,31 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* งานที่ยังไม่จบเท่านั้นที่อยู่ในแท็บงาน — งานที่ปิดแล้วเป็นประวัติ ไม่ใช่สิ่งที่ต้องทำ */
   const live = useMemo(() => jobs.filter((j) => j.status !== 'completed' && j.status !== 'cancelled'), [jobs])
   const done = useMemo(() => jobs.filter((j) => j.status === 'completed' || j.status === 'cancelled'), [jobs])
+  /* ประวัติจัดกลุ่มตามวันที่ปิดงาน ใหม่สุดอยู่บน — คนขับมาหา "เมื่อวานวิ่งอะไรบ้าง"
+     เที่ยวที่ไม่มีเวลาปิดงาน (ยกเลิกกลางทาง) ตกลงกลุ่มท้ายสุดของตัวเอง ไม่ถูกกลืนหาย */
+  const historyGroups = useMemo(() => {
+    const byDay = new Map<string, MyJob[]>()
+    const sorted = [...done].sort((a, b) => (b.arrived_at ?? '').localeCompare(a.arrived_at ?? ''))
+    for (const j of sorted) {
+      const key = j.arrived_at ? j.arrived_at.slice(0, 10) : 'unknown'
+      const bucket = byDay.get(key)
+      if (bucket) bucket.push(j)
+      else byDay.set(key, [j])
+    }
+    const today = todayIso()
+    const yesterday = daysAgoIso(1)
+    return [...byDay.entries()].map(([key, list]) => {
+      const day = fmtDate(list[0]?.arrived_at)
+      return {
+        key,
+        label: key === 'unknown' ? 'ไม่ระบุวันปิดงาน'
+          : key === today ? `วันนี้ · ${day}`
+          : key === yesterday ? `เมื่อวาน · ${day}`
+          : day,
+        jobs: list,
+      }
+    })
+  }, [done])
   /* การ์ดที่กางเองตอนเปิดแอป — เฉพาะงานที่ "รับแล้ว" เท่านั้น งานใหม่หุบไว้เสมอ
      จนกว่าจะกดรับ ไม่งั้นจอแรกที่เห็นคือจุดส่งของงานที่ยังไม่ได้ตกลงรับ */
   const defaultJob = useMemo(() => {
@@ -339,43 +366,65 @@ export default function CloudMyJobs(): React.JSX.Element {
       {tab === 'history' && (
         /* ประวัติเป็นรายการอ่านอย่างเดียว — ปิดงานแล้วไม่มีปุ่มอะไรให้กดอีก
            สิ่งที่คนขับมาหาที่นี่คือ "เมื่อวานฉันวิ่งกี่เที่ยว ร้านไหนบ้าง" */
-        <ul className="trip-switch-list">
+        <div className="hist-list">
           {done.length === 0 && (
             <EmptyState icon={<IconTruck size={28} />} title="ยังไม่มีงานที่ปิดแล้ว" desc="งานที่ปิดงานเรียบร้อยจะมาอยู่ที่นี่" />
           )}
-          {done.map((j) => (
-            <li key={j.id}>
-              <div className="trip-switch">
-                <span className="trip-switch-no">{jobTripNo(j)}</span>
-                <span className="trip-switch-meta">
-                  {j.vehicle_plate} · {j.orders.length} ใบ
-                  {j.arrived_at ? ` · ปิดงาน ${fmtDateTime(j.arrived_at)}` : ''}
-                </span>
-                <Badge label={TRIP_STATUS_LABEL[j.status]} tone={j.status} />
-              </div>
-            </li>
+          {historyGroups.map((group) => (
+            <section key={group.key} className="hist-group">
+              <h2 className="hist-date">{group.label}</h2>
+              <ul className="hist-rows">
+                {group.jobs.map((j) => (
+                  <li key={j.id}>
+                    <div className="hist-row">
+                      <span className={`hist-ic${j.issue_note ? ' is-flag' : ''}`} aria-hidden>
+                        {j.issue_note ? <IconAlert size={17} /> : <IconCheck size={17} />}
+                      </span>
+                      <span className="hist-text">
+                        <span className="hist-no">{jobTripNo(j)}</span>
+                        <span className="hist-meta">
+                          {j.vehicle_plate} · {groupStops(j.orders).length} จุดส่ง · {j.orders.length} ใบ
+                          {j.arrived_at ? ` · ปิดงาน ${fmtTime(j.arrived_at)}` : ''}
+                        </span>
+                      </span>
+                      <Badge label={TRIP_STATUS_LABEL[j.status]} tone={j.status} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       {tab === 'me' && (
         <div className="driver-me">
           <div className="driver-me-card">
+            {/* iOS2: avatar กล่องมนแก้วโปร่ง — ใช้อักษรแรกของชื่อ */}
+            <span className="driver-me-avatar" aria-hidden>
+              {(user?.name ?? '?').trim().charAt(0)}
+            </span>
             <span className="driver-me-name">{user?.name}</span>
             <span className="driver-me-sub">{user?.username} · พนักงานขับรถ · {fmtLongToday()}</span>
           </div>
           {/* ปุ่มธีมเคยอยู่บนแถบบนที่ถูกถอดออกไป — กลางแดดกับตอนกลางคืนคนละเรื่องกัน
               คนขับต้องสลับเองได้ */}
           <Button variant="outline" className="driver-me-action"
+            aria-pressed={theme === 'dark'}
             onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(next); applyTheme(next) }}>
-            {theme === 'dark' ? 'เปลี่ยนเป็นโหมดสว่าง' : 'เปลี่ยนเป็นโหมดมืด'}
+            <span className="driver-me-ic" aria-hidden>{theme === 'dark' ? <IconMoon size={16} /> : <IconSun size={16} />}</span>
+            <span className="driver-me-label">{theme === 'dark' ? 'โหมดมืด' : 'โหมดสว่าง'}</span>
+            <span className="driver-me-switch" aria-hidden />
           </Button>
           {/* สองอย่างที่คนขับต้องทำเองได้จริงจากในรถ ไม่ต้องโทรหาออฟฟิศ */}
           <Button variant="outline" className="driver-me-action" onClick={() => setPwOpen(true)}>
-            เปลี่ยนรหัสผ่าน
+            <span className="driver-me-ic" aria-hidden><IconKey size={16} /></span>
+            <span className="driver-me-label">เปลี่ยนรหัสผ่าน</span>
+            <span className="driver-me-chev" aria-hidden><IconChevronRight size={16} /></span>
           </Button>
-          <Button variant="ghost" className="driver-me-action" onClick={() => void logout()}>
-            ออกจากระบบ
+          <Button variant="ghost" className="driver-me-action is-danger" onClick={() => void logout()}>
+            <span className="driver-me-ic" aria-hidden><IconLogout size={16} /></span>
+            <span className="driver-me-label">ออกจากระบบ</span>
           </Button>
           <p className="text-xs text-muted">
             เปิดหน้านี้ค้างไว้ระหว่างขับ ระบบถึงจะบันทึกตำแหน่งของเที่ยวให้ฝ่ายวางแผนเห็น
@@ -891,6 +940,8 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
       open
       onClose={onClose}
       size="sheet"
+      /* บอร์ด Design C จอ 4: ขั้นถ่ายรูปเป็นพื้นเข้มทั้งจอ ภาพในช่องมองจึงเด่นที่สุด */
+      className="is-pod-photo"
       title={`ถ่ายรูปหน้างาน — ${order.customer_name ?? order.destination}`}
       footer={
         <div className="pod-actions">

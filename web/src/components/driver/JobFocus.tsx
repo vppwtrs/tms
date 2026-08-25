@@ -251,6 +251,11 @@ export function JobFocus({
 
   return (
     <article className={`job-focus status-${job.status}`}>
+      {/* บอร์ด Design C วางเลขเที่ยว แถบคืบหน้า และ chip ไว้ในกล่องเขียวใบเดียว
+          ก่อนหน้านี้สามชิ้นนี้เป็นพี่น้องกัน กล่องเขียวจึงจบก่อนแล้วแถบคืบหน้า
+          ไปนั่งบนพื้นขาว กว้างกว่ากล่องด้วย — ห่อรวมเป็นกล่องเดียวตามบอร์ด
+          ตัวห่อไม่มีตรรกะ แค่ขอบเขตของภาพ */}
+      <div className="job-hero">
       {/* บรรทัดเดียวจบ: เที่ยวไหน รถคันไหน สถานะอะไร */}
       <header className="job-bar">
         <span className="job-bar-no">{jobTripNo(job)}</span>
@@ -279,6 +284,20 @@ export function JobFocus({
         <span className="job-meter-text">
           ส่งแล้ว {delivered}/{stops.length} ร้าน
         </span>
+      </div>
+
+      {/* iOS2: chip ตำแหน่งในเที่ยว — ✓ เสร็จ / ▶ กำลังแวะ / เลข = รอคิว
+          มอง hero แวบเดียวรู้ว่าเที่ยวเดินไปถึงไหน ไม่ต้องไล่นับการ์ด */}
+      {stops.length > 0 && (
+        <div className="job-chips" aria-label={`ลำดับจุดส่ง ${stops.length} ร้าน`}>
+          {stops.map((s, i) => (
+            <span key={s.key} className={`job-chip${s.key === firstPending?.key ? ' is-now' : ''}`}>
+              {s.done ? '✓' : s.key === firstPending?.key ? '▶' : i + 1}
+              {' '}{(s.customer_name ?? s.destination ?? '').replace(/^ร้าน/, '').slice(0, 10)}
+            </span>
+          ))}
+        </div>
+      )}
       </div>
 
       {waiting && <p className="job-alert">งานใหม่ — กดรับงานก่อนถึงจะเริ่มเดินทางได้</p>}

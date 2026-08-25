@@ -182,6 +182,12 @@ export function CameraCapture({
           {open ? (
             <>
               <video ref={videoRef} playsInline muted autoPlay className="cam-stage-video" />
+              {/* กรอบเล็งสี่มุม — บอกว่ากรอบไหนคือรูปที่จะได้จริง ไม่ได้กันอะไร
+                  ตกแต่งล้วน จึงซ่อนจากตัวอ่านหน้าจอทั้งก้อน */}
+              <span className="cam-aim" aria-hidden="true">
+                <i className="cam-aim-tl" /><i className="cam-aim-tr" />
+                <i className="cam-aim-bl" /><i className="cam-aim-br" />
+              </span>
               {flash && <span className="cam-stage-flash" aria-hidden="true" />}
               {stalled && (
                 <button

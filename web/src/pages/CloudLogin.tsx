@@ -99,6 +99,8 @@ export default function CloudLogin(): React.JSX.Element {
 
   return (
     <div className="login-page">
+      {/* แสงเขียวหลังโลโก้ — ตกแต่งล้วน อยู่หลังการ์ดและไม่รับการกด */}
+      <span className="login-orb" aria-hidden="true" />
       <form className="login-card" onSubmit={submit}>
         <div className="logo-big">
           {/* โลโก้จริงของแอป — รถบรรทุกขนส่ง (วงกลม ขอบขาวทำใน CSS) */}

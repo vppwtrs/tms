@@ -1,9 +1,12 @@
 /**
- * Design C "Soft Operator" — ผิวใหม่ของแอปคนขับ (Grab/LINE MAN school)
- * เวอร์ชันครบทุกจอ — class names ตรงกับ JSX จริงของโปรเจ็ค
+ * iOS2 Design System — v2 ของ Design C "Soft Operator"
+ * โยงตรงกับบอร์ด design/driver-design-ios2-all-screens.html ทุก token
+ *   สี accent/600=#0e7c4a · hero gradient #0e3b2c→#155c43 · surface #f3f5f4
+ *   รัศมี: hero 22 / card 18 / row 16 / idx 12 / pill 999
+ *   ปุ่มหลักสูง 54px · card shadow 0 1px 2px + 0 6px 16px @ 6%
  *
  * โหลดท้ายสุดใน main.tsx (หลัง ios-premium.css) จึงชนะทุกกฎเดิม
- * ไม่แตะ JSX แม้บรรทัดเดียว — logic/workflow/ปุ่มเดิมทุกอย่าง
+ * JSX ถูกแตะน้อยที่สุด — เฉพาาะชิ้นที่ CSS สร้างเองไม่ได้ (job chips, me avatar)
  */
 
 .is-native-app {
@@ -20,17 +23,17 @@
   --muted: #5b6b63;
   --faint: #6e7f77;
 
-  --fleet: #0e7c4a;
-  --fleet-deep: #0e3b2c;
-  --fleet-mid: #155c43;
-  --fleet-bright: #3ee08f;
-  --fleet-tint: #ddf3e7;
+  --fleet: #0e7c4a;        /* accent/600 */
+  --fleet-deep: #0e3b2c;   /* hero/900 ต้น */
+  --fleet-mid: #155c43;    /* hero/900 ปลาย */
+  --fleet-bright: #3ee08f; /* accent/400 */
+  --fleet-tint: #ddf3e7;   /* accent/100 */
   --fleet-ink: #0b6b3f;
 
   --ok: #0e7c4a;
   --ok-bg: #ddf3e7;
-  --warn: #8a5a12;
-  --warn-bg: #fdf0dc;
+  --warn: #9a6a1b;
+  --warn-bg: #fff4e0;
   --danger: #c03a2b;
   --danger-bg: #fceae7;
   --info: #0e7c4a;
@@ -38,13 +41,14 @@
   --neutral: #5b6b63;
   --neutral-bg: #eff3f1;
 
+  /* รัศมีตามบอร์ด Shape: hero 22 / card 18 / row 16 / idx 12 */
   --r-sm: 12px;
   --r-md: 16px;
-  --r-lg: 20px;
-  --r-xl: 24px;
+  --r-lg: 18px;
+  --r-xl: 22px;
 
-  --shadow-card: 0 1px 2px rgba(18, 33, 27, 0.05), 0 6px 18px rgba(18, 33, 27, 0.06);
-  --shadow-float: 0 10px 24px rgba(14, 124, 74, 0.32);
+  --shadow-card: 0 1px 2px rgba(18, 33, 27, 0.05), 0 6px 16px rgba(18, 33, 27, 0.06);
+  --shadow-float: 0 9px 22px rgba(14, 124, 74, 0.32);
 
   --grad-hero: linear-gradient(135deg, #0e3b2c, #155c43);
 }
@@ -73,7 +77,7 @@
   border: none;
   border-radius: 999px;
   font-weight: 800;
-  min-height: 52px;
+  min-height: 54px; /* iOS2: ปุ่มหลัก ≥54px — กดได้แม้มือเปียก/สวมถุงมือ */
   box-shadow: var(--shadow-float);
   transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
 }
@@ -117,7 +121,7 @@
 .is-native-app .job-bar {
   background: var(--grad-hero);
   color: #fff;
-  border-radius: var(--r-xl);
+  border-radius: var(--r-xl); /* iOS2: hero 22px */
   padding: 18px;
   margin: 12px 14px 0;
   position: relative;
@@ -127,11 +131,21 @@
   width: 150px; height: 150px; border-radius: 50%;
   background: rgba(255,255,255,0.06); pointer-events: none;
 }
-.is-native-app .job-bar-no { font-size: 12px; font-weight: 600; color: #9fd4bc; letter-spacing: 0.06em; }
+.is-native-app .job-bar-no { font-size: 11px; font-weight: 600; color: #9fd4bc; letter-spacing: 0.06em; }
 .is-native-app .job-bar-meta { color: #bfe5d4; }
 
+/* step chips — iOS2 signature ใน hero: ✓ เสร็จ / ▶ กำลังทำ / เลข = รอคิว */
+.is-native-app .job-chips { display: flex; gap: 5px; margin-top: 11px; flex-wrap: wrap; }
+.is-native-app .job-chip {
+  height: 22px; padding: 0 10px; border-radius: 999px;
+  font-size: 10px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.12); color: #bfe5d4; white-space: nowrap;
+}
+.is-native-app .job-chip.is-now { background: var(--fleet-bright); color: var(--fleet-deep); }
+
 .is-native-app .job-meter-track {
-  height: 8px; border-radius: 999px; background: rgba(255,255,255,0.18);
+  height: 7px; /* iOS2: progress 7px */ border-radius: 999px; background: rgba(255,255,255,0.18);
 }
 .is-native-app .job-meter-fill {
   border-radius: 999px; background: var(--fleet-bright); transition: width 0.4s ease;
@@ -160,10 +174,12 @@
   background: var(--surface-2); color: var(--faint); border-radius: 13px; font-weight: 800;
   width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto;
 }
-.is-native-app .stop-item.is-now .stop-item-seq { background: var(--fleet); color: #fff; }
+.is-native-app .stop-item.is-now .stop-item-seq,
+.is-native-app .stop-item.is-locked .stop-item-seq { background: var(--fleet); color: #fff; }
 .is-native-app .stop-item.is-done .stop-item-seq { background: var(--fleet-tint); color: var(--fleet); }
 .is-native-app .stop-item-dest { font-weight: 700; letter-spacing: -0.01em; }
-.is-native-app .stop-item.is-now > button { outline: 2.5px solid var(--fleet); outline-offset: -2.5px; }
+.is-native-app .stop-item.is-now > button,
+.is-native-app .stop-item.is-locked > button { outline: 2.5px solid var(--fleet); outline-offset: -2.5px; }
 .is-native-app .stop-item.is-done > button { opacity: 0.75; }
 
 /* ============ tabs ============ */
@@ -225,13 +241,17 @@
 
 /* ============ POD Camera (PodSheet step=photo) ============ */
 .is-native-app .pod-steps { display: flex; gap: 6px; justify-content: center; margin: 9px 0 3px; }
+/* ขั้นตอนย่อเป็นขีดสั้นตามบอร์ด Design C (.steps-dots/.sd)
+   ชื่อขั้นยังอยู่ในสายอักษรของกล่อง ซึ่งถือ aria-label "ขั้นตอนที่ n จาก 2" อยู่แล้ว */
 .is-native-app .pod-steps > span {
-  font-size: 11px; font-weight: 700; padding: 5px 14px; border-radius: 999px;
-  background: var(--surface-2); color: var(--faint);
-  transition: background 0.3s ease, color 0.3s ease;
+  flex: 0 0 24px; height: 5px; padding: 0; min-width: 0;
+  border: none; border-radius: 999px;
+  background: var(--line); color: transparent;
+  font-size: 0; line-height: 0; overflow: hidden;
+  transition: flex-basis 0.3s ease, background-color 0.3s ease;
 }
-.is-native-app .pod-steps > span.is-now { background: var(--fleet-tint); color: var(--fleet-ink); }
-.is-native-app .pod-steps > span.is-done { color: var(--fleet); }
+.is-native-app .pod-steps > span.is-now { flex-basis: 34px; background: var(--fleet); }
+.is-native-app .pod-steps > span.is-done { background: var(--fleet-tint); }
 
 /* กล้องโหมด stage (CameraCapture) — ช่องมองภาพเข้มมน ชัตเตอร์ขาวกลม */
 .is-native-app .cam-stage-view {
@@ -280,7 +300,7 @@
 .is-native-app .trip-switch-no { font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
 .is-native-app .trip-switch-meta { flex: 1; min-width: 0; font-size: 12px; color: var(--faint); line-height: 1.5; }
 
-/* ============ Me / Profile — hero เขียว + แถวการ์ด ============ */
+/* ============ Me / Profile — hero เขียว + avatar + แถวการ์ด ============ */
 .is-native-app .driver-me { display: flex; flex-direction: column; gap: 9px; padding: 12px 0 16px; }
 .is-native-app .driver-me-card {
   border-radius: var(--r-xl); padding: 19px; background: var(--grad-hero); color: #fff;
@@ -291,7 +311,14 @@
   width: 160px; height: 160px; border-radius: 50%;
   background: rgba(255, 255, 255, 0.07); pointer-events: none;
 }
-.is-native-app .driver-me-name { font-size: 18.5px; font-weight: 800; letter-spacing: -0.02em; }
+/* avatar — iOS2: กล่องมนแก้วโปร่งเหนือชื่อ */
+.is-native-app .driver-me-avatar {
+  width: 48px; height: 48px; border-radius: 16px;
+  background: rgba(255,255,255,0.16); color: #fff;
+  display: grid; place-items: center;
+  font-size: 19px; font-weight: 800;
+}
+.is-native-app .driver-me-name { font-size: 18.5px; font-weight: 800; letter-spacing: -0.02em; margin-top: 10px; }
 .is-native-app .driver-me-sub { font-size: 11.5px; color: #bfe5d4; margin-top: 3px; }
 .is-native-app .driver-me-action {
   display: flex; align-items: center; min-height: 48px; width: 100%;
@@ -317,3 +344,250 @@
   .is-native-app .btn-primary, .is-native-app .job-card-accept, .is-native-app .login-card input { transition: none; }
   .is-native-app .job-meter-fill, .is-native-app .pod-steps > span { transition: none; }
 }
+
+/* ============================================================
+   iOS2 additions — ชิ้นที่บอร์ดมีแล้วแอปยังไม่มี
+   ============================================================ */
+
+/* track note → GPS pill (จอทุกจอที่มีการบันทึกตำแหน่ง)
+   ปกติ = pill เขียวอ่อน + จุดเต้น · GPS หลุด/ถูกปฏิเสธ = pill แดงพร้อมคำสั่งแก้
+   (state จริงตามบอร์ด Components — States: "ไม่ปล่อยให้เงียบ ๆ") */
+.is-native-app .track-note {
+  display: inline-flex; align-items: center; gap: 6px;
+  align-self: flex-start;
+  font-size: 11px; font-weight: 700;
+  color: var(--fleet-ink); background: var(--fleet-tint);
+  border-radius: 999px; padding: 5px 12px;
+}
+.is-native-app .track-note::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--fleet); animation: softop-pulse 1.6s infinite;
+}
+.is-native-app .track-note.is-off { color: var(--danger); background: var(--danger-bg); }
+.is-native-app .track-note.is-off::before { background: var(--danger); animation: none; }
+@keyframes softop-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* tab active indicator — iOS2: ขีดเขียวเหนือแท็บที่เปิด */
+.is-native-app .driver-tab { position: relative; }
+.is-native-app .driver-tab.is-active::after,
+.is-native-app .driver-tab[aria-current='page']::after {
+  content: ""; position: absolute; top: calc(-1 * var(--space-2, 8px));
+  width: 18px; height: 3px; border-radius: 999px; background: var(--fleet);
+}
+
+/* ============================================================
+   Design C board — ชิ้นที่บอร์ด driver-design-C-all-screens.html มี
+   แต่แอปยังไม่มี ทุกอันเป็นชั้นภาพล้วน ไม่มีอันไหนแตะลำดับงาน
+   ============================================================ */
+
+/* ---- login: แสงเขียวหลังโลโก้ (บอร์ดจอ 1 · .login-bg-orb) ---- */
+.is-native-app .login-page { position: relative; overflow-x: hidden; }
+.is-native-app .login-orb {
+  position: absolute; z-index: 0; pointer-events: none;
+  width: 280px; height: 280px; border-radius: 50%;
+  top: -90px; left: 50%; margin-left: -140px;
+  background: radial-gradient(circle at 35% 30%,
+    rgba(62, 224, 143, 0.28), rgba(62, 224, 143, 0) 68%);
+  animation: softop-orb 9s ease-in-out infinite;
+}
+.is-native-app .login-card { position: relative; z-index: 1; }
+@keyframes softop-orb {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(16px) scale(1.06); }
+}
+
+/* ---- กล้อง: กรอบเล็งสี่มุม (บอร์ดจอ 4 · .cam-corner) ---- */
+.is-native-app .cam-stage-view { position: relative; }
+.is-native-app .cam-aim { position: absolute; inset: 0; pointer-events: none; }
+.is-native-app .cam-aim > i {
+  position: absolute; width: 30px; height: 30px;
+  border: 3px solid rgba(62, 224, 143, 0.85);
+}
+.is-native-app .cam-aim-tl { top: 14px; left: 14px; border-right: none; border-bottom: none; border-radius: 9px 0 0 0; }
+.is-native-app .cam-aim-tr { top: 14px; right: 14px; border-left: none; border-bottom: none; border-radius: 0 9px 0 0; }
+.is-native-app .cam-aim-bl { bottom: 14px; left: 14px; border-right: none; border-top: none; border-radius: 0 0 0 9px; }
+.is-native-app .cam-aim-br { bottom: 14px; right: 14px; border-left: none; border-top: none; border-radius: 0 0 9px 0; }
+
+/* ---- ประวัติ: จัดกลุ่มตามวัน (บอร์ดจอ 6 · .hist-group/.hdate/.h-ic) ---- */
+.is-native-app .hist-list { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 16px; }
+.is-native-app .hist-date {
+  /* บอร์ดใช้เทาอ่อนกว่านี้ ซึ่งวัดได้ 3.x:1 บนพื้นกระดาษ — ไม่ผ่าน AA ที่ 11px
+     ขยับมาที่ --muted แล้วผ่าน 4.5:1 ทั้งสองธีม โทนยังเป็นหัวข้อจาง ๆ เหมือนเดิม */
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  letter-spacing: 0.08em; margin: 10px 4px 8px;
+}
+.is-native-app .hist-rows { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.is-native-app .hist-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border-radius: var(--r-lg);
+  padding: 14px 15px; box-shadow: var(--shadow-card);
+}
+.is-native-app .hist-ic {
+  width: 37px; height: 37px; flex: 0 0 auto; border-radius: 12px;
+  display: grid; place-items: center;
+  background: var(--fleet-tint); color: var(--fleet);
+}
+.is-native-app .hist-ic.is-flag { background: var(--danger-bg); color: var(--danger); }
+.is-native-app .hist-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.is-native-app .hist-no { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+.is-native-app .hist-meta { font-size: 11.5px; color: var(--faint); line-height: 1.45; }
+
+/* ---- ฉัน: แถวการ์ดแบบมีไอคอน + ท้ายแถว (บอร์ดจอ 7 · .mact) ---- */
+.is-native-app .driver-me-action { gap: 12px; text-align: left; justify-content: flex-start; }
+.is-native-app .driver-me-ic {
+  width: 35px; height: 35px; flex: 0 0 auto; border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--surface-2); color: var(--muted);
+}
+.is-native-app .driver-me-label { flex: 1; min-width: 0; }
+.is-native-app .driver-me-chev { color: #b9c3bd; display: inline-flex; }
+.is-native-app .driver-me-switch {
+  width: 46px; height: 27px; flex: 0 0 auto; border-radius: 999px;
+  /* ขอบบาง ๆ ไว้ให้สถานะปิดยังเห็นเป็นสวิตช์ในธีมมืด ซึ่งพื้นกับเส้นใกล้กันมาก */
+  background: var(--surface-2); border: 1px solid var(--line);
+  position: relative; transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.is-native-app .driver-me-switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 21px; height: 21px; border-radius: 50%; background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+.is-native-app .driver-me-action[aria-pressed='true'] .driver-me-switch { background: var(--fleet); border-color: var(--fleet); }
+/* ธีมมืด: พื้นสวิตช์กับพื้นการ์ดใกล้กันเกินกว่าจะเห็นขอบ ยกเส้นให้สว่างพอวัดได้ 3:1 กับการ์ด */
+.is-native-app[data-theme='dark'] .driver-me-switch { border-color: #46554d; }
+.is-native-app .driver-me-action[aria-pressed='true'] .driver-me-switch::after { transform: translateX(19px); }
+.is-native-app .driver-me-action.is-danger { color: var(--danger); }
+.is-native-app .driver-me-action.is-danger .driver-me-ic { background: var(--danger-bg); color: var(--danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-native-app .login-orb { animation: none; }
+  .is-native-app .driver-me-switch,
+  .is-native-app .driver-me-switch::after { transition: none; }
+}
+
+/* ============================================================
+   ไล่ทีละจอให้ตรงบอร์ด driver-design-C-all-screens.html
+   ค่าที่เขียนไว้ตรงนี้คือค่าที่วัดจากบอร์ด ไม่ใช่ค่าที่เดาให้ดูดี
+   ============================================================ */
+
+/* ---- จอ 1 ล็อกอิน ---- */
+.is-native-app .login-card h1 { font-size: 20.5px; line-height: 1.3; }
+.is-native-app .login-sub { font-size: 12px; font-weight: 600; color: var(--faint); letter-spacing: 0.02em; }
+.is-native-app .login-card label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.is-native-app .login-card input { border-width: 1.5px; }
+.is-native-app .login-hint { border-radius: 15px; padding: 11px 14px; font-size: 11px; line-height: 1.65; }
+/* บอร์ดวาดช่องกรอกที่ 14px ซึ่งบนของจริงทำให้ Safari ซูมเข้าเองตอนโฟกัส
+   แล้วทั้งจอเลื่อนหนีนิ้ว — คงไว้ที่ 16px ซึ่งเป็นเส้นที่ Safari หยุดซูม */
+.is-native-app .login-card input { font-size: 16px; }
+
+/* ---- ปุ่มหลัก: บอร์ด Design C สูง 52 (ios2 เคยใช้ 54) ---- */
+/* min-height ต้องเขียนคู่ height เสมอ — ขนาดปุ่มของชั้นเดิมตั้งเป็น min-height
+   (btn-lg 54, --driver-tap 56) ซึ่งชนะ height ที่ตั้งไว้เฉย ๆ */
+.is-native-app .btn-primary,
+.is-native-app .job-cta-bar .btn,
+.is-native-app .login-card button[type='submit'] { height: 52px; min-height: 52px; font-size: 15px; }
+/* ปุ่มรับงานในการ์ดเตี้ยกว่าปุ่มหลักหนึ่งขั้นตามบอร์ด — มันไม่ใช่ปุ่มหลักของจอ */
+.is-native-app .job-card-accept { height: 48px; min-height: 48px; font-size: 14px; }
+
+/* ---- จอ 2 หัวจอ + การ์ดงาน ---- */
+.is-native-app .driver-title { font-size: 18px; }
+.is-native-app .job-bar { padding: 17px; margin: 10px 14px 0; }
+.is-native-app .job-card-no,
+.is-native-app .trip-switch-no { font-size: 16.5px; }
+.is-native-app .job-card-meta,
+.is-native-app .job-sub,
+.is-native-app .stop-item-sub { font-size: 11.5px; line-height: 1.45; }
+.is-native-app .stop-item-dest { font-size: 15px; font-weight: 700; }
+.is-native-app .stop-item-seq { border-radius: 12px; font-size: 14px; }
+/* แถบปุ่มท้ายจอเป็นสีกระดาษเดียวกับพื้น ไม่ใช่แผ่นขาวลอย (บอร์ด .cta-zone) */
+.is-native-app .job-cta-bar { background: var(--paper); }
+
+/* ---- แท็บล่าง ---- */
+.is-native-app .driver-tabs { padding-top: 10px; }
+.is-native-app .driver-tab svg { width: 21px; height: 21px; }
+.is-native-app .driver-tab { font-size: 10.5px; }
+
+/* ---- จอ 3 ใบของร้าน — บอร์ดเป็นการ์ดขาวมีเงา ไม่ใช่แถบเทา (.card.pl-item) ---- */
+.is-native-app .stop-bill {
+  background: var(--surface); border-radius: var(--r-lg);
+  padding: 14px 15px; box-shadow: var(--shadow-card);
+}
+.is-native-app .stop-bill-no { font-size: 14px; }
+.is-native-app .stop-bill-pod {
+  width: 26px; height: 26px; border-radius: 9px;
+  background: var(--fleet-tint); color: var(--fleet);
+}
+
+/* ---- จอ 4 ขั้นถ่ายรูป: ทั้งแผ่นเป็นพื้นเข้ม ----
+   ใช้ค่าโทนชุดเดียวกับธีมมืดของแอป ซึ่งวัดคอนทราสต์มาแล้ว
+   แทนที่จะตั้งสีใหม่เฉพาะจอนี้แล้วต้องไล่วัดใหม่ทั้งชุด */
+.is-native-app .modal-panel.is-pod-photo {
+  --paper: #0c110e; --paper-deep: #101613; --surface: #18201c; --surface-2: #202a25;
+  --line: #2a352f; --line-soft: #202a25;
+  --ink: #f0f4f2; --ink-2: #e2e9e6; --muted: #a8b8b0; --faint: #93a39b;
+  --fleet: #2ea36c; --fleet-tint: #12301f; --fleet-ink: #7fd4ab;
+  /* โทนความหมายต้องย้ายมาด้วย ไม่งั้นกล่องบอกขั้นตอนยังเป็นเขียวอ่อนพื้นสว่าง
+     แล้วตัวหนังสือสีอ่อนบนนั้นอ่านไม่ออก */
+  --info: #2ea36c; --info-bg: #12301f;
+  --ok: #2ea36c; --ok-bg: #12301f;
+  --danger: #ff6b60; --danger-bg: #3a1c19;
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 6px 18px rgba(0,0,0,0.25);
+  background: var(--paper); color: var(--ink);
+}
+.is-native-app .modal-panel.is-pod-photo .modal-header,
+.is-native-app .modal-panel.is-pod-photo .modal-footer {
+  background: var(--paper); border-color: var(--line);
+}
+.is-native-app .modal-panel.is-pod-photo .modal-title { color: var(--ink); }
+.is-native-app .modal-panel.is-pod-photo .input {
+  background: var(--surface); color: var(--ink); border-color: var(--line);
+}
+.is-native-app .modal-panel.is-pod-photo .pod-guide { border-radius: 15px; margin: 0 16px; }
+.is-native-app .modal-panel.is-pod-photo .pod-kind { background: var(--surface); color: var(--muted); border-color: var(--line); }
+/* ชัตเตอร์ตามบอร์ด: ขาวกลม 60 ขอบ 5 */
+.is-native-app .cam-shutter { width: 60px; height: 60px; border-width: 5px; }
+
+/* ---- จอ 5 ลายเซ็น — การ์ดขาวมีเงา กรอบเซ็นเป็นเส้นประในกรอบ (.sig-area/.sig-canvas) ---- */
+.is-native-app .pod-section .sigpad {
+  background: var(--surface); border-radius: 20px; padding: 15px;
+  box-shadow: var(--shadow-card);
+}
+.is-native-app .pod-section .sigpad-frame {
+  border-radius: 12px !important;
+  border-color: #cbd5cf !important;
+}
+
+/* ---- จอ 2: hero ใบเดียว (บอร์ด .hero) ----
+   กล่องเขียวถือทั้งเลขเที่ยว แถบคืบหน้า และ chip — ไม่ใช่กล่องเขียวใบเล็ก
+   แล้วปล่อยแถบคืบหน้าไปอยู่บนพื้นขาวข้างนอกซึ่งกว้างกว่ากล่อง */
+/* ระยะซ้ายขวาปล่อยให้กล่องแม่จัดการ — บอร์ดวาง hero กับการ์ดจุดส่งไว้ที่ระยะขอบ
+   เดียวกัน ถ้าใส่ margin ข้างซ้ำตรงนี้ hero จะแคบกว่าการ์ดที่อยู่ใต้มัน */
+.is-native-app .job-hero {
+  margin: 0 0 2px; padding: 17px; border-radius: var(--r-xl);
+  background: var(--grad-hero); color: #fff;
+  position: relative; overflow: hidden;
+}
+.is-native-app .job-hero::after {
+  content: ""; position: absolute; right: -38px; top: -38px;
+  width: 150px; height: 150px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06); pointer-events: none;
+}
+/* ตัวในไม่ต้องมีพื้นของตัวเองอีก กล่องนอกถือไว้หมดแล้ว */
+.is-native-app .job-hero .job-bar {
+  margin: 0; padding: 0; border-radius: 0;
+  background: none; overflow: visible; position: relative; z-index: 1;
+}
+.is-native-app .job-hero .job-bar::after { content: none; }
+.is-native-app .job-hero .job-meter,
+.is-native-app .job-hero .job-chips { position: relative; z-index: 1; padding: 0; }
+.is-native-app .job-hero .job-meter { margin-top: 13px; }
+
+/* แถบล็อกร้าน — ข้อความกับปุ่มเบียดกันจนอ่านยากบนจอ 375
+   ให้ข้อความได้บรรทัดเต็ม แล้วปุ่มลงไปอยู่ใต้ข้อความเมื่อที่ไม่พอ */
+.is-native-app .stop-lock-bar {
+  flex-wrap: wrap; gap: 10px; align-items: center;
+  border-radius: var(--r-lg); padding: 13px 14px; margin: 0 0 10px;
+}
+.is-native-app .stop-lock-text { flex: 1 1 190px; min-width: 0; }
+.is-native-app .stop-lock-exit { flex: 0 0 auto; min-height: 40px; }

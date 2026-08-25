@@ -176,8 +176,9 @@ export function SignaturePad({
   }
 
   return (
-    <div>
+    <div className="sigpad">
       <div
+        className="sigpad-frame"
         style={{
           border: '1.5px dashed var(--line-strong)',
           borderRadius: 10,
