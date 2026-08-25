@@ -43,7 +43,8 @@ function minutesAgo(iso: string): number {
  * ถ้าไม่อ่านออกมาก่อน หมุดจะกลายเป็นสีดำทั้งหมด เดิมทีจึงเขียนเลขฐานสิบหกไว้ในไฟล์นี้
  * แล้วกลายเป็นจานสีที่สองของระบบที่ไม่มีใครรู้ว่ามีอยู่ และไม่เคยตามธีมเลย
  *
- * แผนที่เข้มเสมอ ค่าพวกนี้จึงไม่ต้องอ่านใหม่ตอนสลับธีม อ่านครั้งเดียวพอ
+ * หมุดใช้เฉดเดียวทั้งสองธีม เพราะมันวางบน tile ชุดเดียวกัน ไม่ได้วางบนพื้นของเรา
+ * ค่าพวกนี้จึงไม่ต้องอ่านใหม่ตอนสลับธีม อ่านครั้งเดียวพอ
  */
 const mapColor = (() => {
   let cache: Record<string, string> | null = null
@@ -53,7 +54,7 @@ const mapColor = (() => {
     if (hit) return hit
     const v = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim()
     /* ค่าที่หายไปต้องไม่กลายเป็นสตริงว่าง — Leaflet จะวาดเป็นสีดำบนพื้นเข้มแล้วหมุดหาย */
-    const value = v || '#8d99ee'
+    const value = v || '#3c4ba8'
     cache[name] = value
     return value
   }
@@ -278,12 +279,12 @@ export default function CloudTracking(): React.JSX.Element {
           desc="เมื่อฝ่ายวางแผนสั่งงานและคนขับกดรับ รถจะขึ้นบนแผนที่นี้"
         />
       ) : (
-        <div className="ops-map-wrap ops-dark">
+        <div className="ops-map-wrap">
           <div ref={holder} className="ops-map" />
 
           {/* รายการรถลอยทับมุมซ้าย — แผนที่ได้พื้นที่ทั้งกรอบ
               บนจอแคบ ops.css ดันแผงนี้ลงไปอยู่ใต้แผนที่แทน */}
-          <div className="ops-map-panel">
+          <div className="ops-map-panel ops-dark">
             {detailTrip ? (
               /* รายละเอียดอยู่ในแผงนี้ ไม่ใช่แผงที่เลื่อนมาจากขวา — ของที่ต้องดูคู่กับ
                  ไทม์ไลน์คือแผนที่ แผงขวาบังครึ่งขวาของแผนที่ไปทั้งแถบ */
@@ -301,14 +302,20 @@ export default function CloudTracking(): React.JSX.Element {
                   <dl className="ops-kv" style={{ marginBottom: 16 }}>
                     <dt>ส่งแล้ว</dt>
                     <dd>{detailTrip.stops_done}/{detailTrip.stops_total} จุด</dd>
-                    <dt>เห็นล่าสุด</dt>
-                    <dd>
-                      {detailTrip.last_seen
-                        ? `${minutesAgo(detailTrip.last_seen.recorded_at)} นาทีที่แล้ว`
-                        : 'ยังไม่ส่งตำแหน่งเข้ามา'}
-                    </dd>
+                    {/* เที่ยวที่จบแล้วไม่ต้องนับนาทีตั้งแต่เห็นล่าสุด — คนขับปิดแอปไปแล้ว
+                        ตัวเลขจะโตขึ้นทั้งคืนแล้วอ่านเหมือนรถหาย ทั้งที่งานจบไปตั้งนานแล้ว */}
+                    {detailTrip.status !== 'completed' && (
+                      <>
+                        <dt>เห็นล่าสุด</dt>
+                        <dd>
+                          {detailTrip.last_seen
+                            ? `${minutesAgo(detailTrip.last_seen.recorded_at)} นาทีที่แล้ว`
+                            : 'ยังไม่ส่งตำแหน่งเข้ามา'}
+                        </dd>
+                      </>
+                    )}
                     <dt>จุดที่บันทึกไว้</dt>
-                    <dd>{detailId === selected ? `${track.length} จุด` : '—'}</dd>
+                    <dd>{track.length} จุด</dd>
                   </dl>
                   <Timeline steps={timelineOf(detailTrip)} />
                 </div>
@@ -349,7 +356,9 @@ export default function CloudTracking(): React.JSX.Element {
                 <button
                   type="button"
                   className="ops-track-more"
-                  onClick={() => setDetailId(t.trip_id)}
+                  /* เลือกคันนี้บนแผนที่ไปด้วย — เส้นทางที่กำลังอ่านอยู่ควรอยู่ตรงหน้า
+                     ไม่ใช่ต้องกลับไปกดอีกทีเพื่อให้มันขึ้น */
+                  onClick={() => { setDetailId(t.trip_id); setSelected(t.trip_id) }}
                   aria-label={`ไทม์ไลน์ของ ${t.plate_no}`}
                   title="ดูไทม์ไลน์ของเที่ยวนี้"
                 >

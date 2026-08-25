@@ -437,43 +437,14 @@
   inset: 0;
 }
 
-/* ทำให้ tile ของ OSM เข้ากับพื้นเข้มโดยไม่ต้องซื้อชุด tile กลางคืน
-   invert+hue-rotate เป็นสูตรมาตรฐานของ Leaflet: ถนนกลายเป็นเส้นสว่าง
-   บนพื้นเข้ม ตัวหนังสือบนแผนที่ยังอ่านได้ */
-.ops-map-wrap .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(185deg) brightness(0.92) contrast(0.9) saturate(0.7);
-}
-
-/* หมุดและเส้นทางไม่ควรโดน filter ด้วย ไม่งั้นสีที่ตั้งใจเลือกมาจะกลับด้าน
-   Leaflet วางของพวกนี้คนละ pane กับ tile จึงยกเว้นได้ตรง ๆ */
-.ops-map-wrap .leaflet-overlay-pane,
-.ops-map-wrap .leaflet-marker-pane,
-.ops-map-wrap .leaflet-tooltip-pane,
-.ops-map-wrap .leaflet-popup-pane {
-  filter: none;
-}
-
+/* แผนที่ใช้ tile ตามปกติ ไม่กลับสี
+   เคยลองพลิกเป็นพื้นเข้มให้เข้ากับแผงข้อมูล แล้วอ่านไม่ออกจริง ๆ บนหน้างาน:
+   ชื่อซอยกับชื่อร้านคือสิ่งที่คนวางแผนต้องอ่านจากแผนที่ และ invert ทำให้
+   ตัวหนังสือของ tile จางลงทั้งแผ่น แลกมากับความสวยซึ่งไม่ใช่หน้าที่ของหน้านี้
+   เหลือพื้นเข้มไว้เฉพาะแผงที่ลอยทับ ซึ่งตัดกับแผนที่สว่างได้ชัดกว่าเดิมด้วยซ้ำ */
 .ops-map-wrap .leaflet-container {
-  background: var(--ops-dark);
+  background: var(--bg-deep);
   font-family: var(--font-sans);
-}
-
-.ops-map-wrap .leaflet-control-layers,
-.ops-map-wrap .leaflet-bar a {
-  background: var(--ops-dark-2);
-  color: var(--ops-dark-ink);
-  border-color: var(--ops-dark-line);
-}
-.ops-map-wrap .leaflet-bar a:hover {
-  background: var(--ops-dark-3);
-  color: var(--ops-dark-ink);
-}
-.ops-map-wrap .leaflet-control-attribution {
-  background: rgba(23, 19, 49, 0.75);
-  color: var(--ops-dark-muted);
-}
-.ops-map-wrap .leaflet-control-attribution a {
-  color: var(--violet-300);
 }
 
 /* รายการรถลอยทับมุมแผนที่ — แผนที่ได้พื้นที่เต็ม รายการยังกดได้ */
