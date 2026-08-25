@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   listMyJobs, reloadJob, startTrip, completeTrip, finishReturn, deliverOrder, undoDeliverOrder,
   savePodWithPhotos, POD_PHOTO_KINDS, type PodPhoto,
@@ -97,6 +97,10 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* เลขไมล์ที่กรอกในกล่องจบงาน — คนละช่องกับ odoValue ของกล่องเดี่ยว
      เพราะสองกล่องเปิดพร้อมกันได้ และค่าที่ค้างจากกล่องหนึ่งต้องไม่ไหลไปอีกกล่อง */
   const [finishOdo, setFinishOdo] = useState('')
+  /* งานที่ถูกกล่องเลขไมล์ขวางไว้ — กรอกเสร็จแล้วต้องเดินต่อให้เอง
+     ไม่ใช่ให้คนขับกดปุ่มเดิมซ้ำ ซึ่งอ่านได้ว่าปุ่มไม่ทำงาน */
+  const [odoThen, setOdoThen] = useState<{ job: MyJob; action: 'accept' | 'start' } | null>(null)
+  const odoAsked = useRef(false)
   /* ค่าทางด่วนของวัน — ถามตอนกดจบงาน จังหวะเดียวที่ใบเสร็จยังอยู่ในมือ
      null = ยังไม่ตอบ ต่างจาก false ที่แปลว่าตอบแล้วว่าไม่มี */
   const [tollHas, setTollHas] = useState<boolean | null>(null)
@@ -195,6 +199,17 @@ export default function CloudMyJobs(): React.JSX.Element {
         if (!alive) return
         setOdo(st)
         setOdoVehicle(dutyVehicle)
+        /* เด้งตอนเปิดแอปเฉพาะคนที่ "เริ่มงานไปแล้ว" — รับงานไว้หรือรถกำลังวิ่ง
+           คนกลุ่มนี้อยู่ที่รถแน่นอน ส่วนคนที่ยังไม่รับงานเจอด่านตอนกดรับงานอยู่แล้ว
+           เด้งครั้งเดียวต่อการเปิดแอปหนึ่งครั้ง ไม่งั้นทุกครั้งที่รายการรีเฟรช
+           กล่องจะเด้งทับสิ่งที่คนขับกำลังกดค้างอยู่ */
+        const started = live.some((j) => j.vehicle_id === dutyVehicle.id
+          && (j.my_accepted_at ?? j.accepted_at) && j.status !== 'completed')
+        if (!st.logged_today && started && !odoAsked.current) {
+          odoAsked.current = true
+          setOdoValue('')
+          setOdoOpen(true)
+        }
       })
       /* อ่านสถานะไม่ได้ไม่ใช่เรื่องที่ต้องขึ้น error ทั้งจอ — งานส่งของยังทำต่อได้
          เงียบไว้แล้วไม่ถาม ดีกว่าบังคับให้คนขับปิดกล่อง error ก่อนเริ่มงาน */
@@ -208,11 +223,20 @@ export default function CloudMyJobs(): React.JSX.Element {
     if (!Number.isFinite(km) || km <= 0) { toast.push('warning', 'กรอกเลขไมล์เป็นตัวเลข'); return }
     setOdoBusy(true)
     try {
-      await logOdometer(odoVehicle.id, km)
-      setOdo({ logged_today: true, reading_km: km, last_km: odo?.last_km ?? null })
+      await logOdometer(odoVehicle.id, km, 'start')
+      setOdo({
+        logged_today: true,
+        start_km: km,
+        end_km: odo?.end_km ?? null,
+        reading_km: km,
+        last_km: odo?.last_km ?? null,
+      })
       setOdoOpen(false)
       setOdoValue('')
-      toast.push('success', `บันทึกเลขไมล์ ${km.toLocaleString('th-TH')} กม. แล้ว`)
+      toast.push('success', `บันทึกเลขไมล์ออกรถ ${km.toLocaleString('th-TH')} กม. แล้ว`)
+      /* งานที่ค้างอยู่เดินต่อทันที การกรอกเลขไมล์ไม่ใช่เป้าหมายของคนขับ
+         มันคือด่านที่ขวางสิ่งที่เขาตั้งใจกด */
+      if (odoThen) { const next = odoThen; setOdoThen(null); void act(next.job, next.action, { odoDone: true }) }
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
@@ -269,7 +293,13 @@ export default function CloudMyJobs(): React.JSX.Element {
       navigator.geolocation.getCurrentPosition(() => resolve(true), () => resolve(false), { timeout: 10_000 })
     })
 
-  const act = async (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish'): Promise<void> => {
+  /* odoDone: มาจากการกรอกเลขไมล์ที่เพิ่งเสร็จ ต้องข้ามด่านเลขไมล์ ไม่งั้นวนกลับ
+     เข้ากล่องเดิม — ค่า odo ใน closure ของกล่องยังเป็นของก่อนบันทึกเสมอ */
+  const act = async (
+    job: MyJob,
+    action: 'start' | 'complete' | 'accept' | 'finish',
+    opts?: { odoDone?: boolean },
+  ): Promise<void> => {
     if (action === 'finish' && podGaps.length > 0) {
       /* บอกว่าร้านไหน ไม่ใช่แค่ว่าไม่ครบ — คนขับต้องรู้ว่าต้องกลับไปเก็บของใคร */
       toast.push('warning',
@@ -283,6 +313,24 @@ export default function CloudMyJobs(): React.JSX.Element {
       setTollAmount('')
       setFinishOdo('')
       return
+    }
+    /* เลขไมล์ต้นวันเป็นด่านของการ "เริ่มทำงาน" ไม่ใช่ของการเปิดแอป
+       ขวางตรงรับงานกับเริ่มเดินทาง เพราะสองปุ่มนี้กดตอนอยู่หน้ารถแล้วเท่านั้น
+       ขวางตั้งแต่เปิดแอปคือขวางคนที่นั่งดูงานพรุ่งนี้อยู่ที่บ้าน ซึ่งอ่านหน้าปัดไม่ได้ */
+    if ((action === 'accept' || action === 'start') && !opts?.odoDone) {
+      /* ถามสถานะของ "รถคันที่กำลังจะขับ" ไม่ใช่คันที่จอกำลังโชว์อยู่ — คนขับ
+         ถือหลายเที่ยวคนละคันได้ กดรับงานคันที่สองแล้วเจอด่านของคันแรกคือด่านที่ผิดคัน */
+      const st = odoVehicle?.id === job.vehicle_id ? odo
+        : await odometerStatus(job.vehicle_id).catch(() => null)
+      if (st && !st.logged_today) {
+        setOdo(st)
+        setOdoVehicle({ id: job.vehicle_id, plate: job.vehicle_plate })
+        setOdoThen({ job, action })
+        setOdoValue('')
+        setOdoOpen(true)
+        toast.push('warning', 'กรอกเลขไมล์ตอนออกรถก่อน แล้วระบบจะทำงานที่กดค้างไว้ให้ต่อ')
+        return
+      }
     }
     if (action === 'accept' && !(await askLocation())) {
       toast.push('warning',
@@ -306,7 +354,7 @@ export default function CloudMyJobs(): React.JSX.Element {
          ค่อยรู้ว่าเลขผิด เที่ยวจะปิดไปโดยไม่มีเลขไมล์ และแก้ทีหลังจากจอคนขับไม่ได้แล้ว */
       if (action === 'finish') {
         const km = Number(finishOdo.replace(/[^0-9]/g, ''))
-        if (km > 0) await logOdometer(job.vehicle_id, km)
+        if (km > 0) await logOdometer(job.vehicle_id, km, 'end')
       }
       await (action === 'accept' ? acceptTrip(job.id)
         : action === 'start' ? startTrip(job.id)
@@ -560,7 +608,7 @@ export default function CloudMyJobs(): React.JSX.Element {
           เพราะเรื่องนี้ต้องค้างอยู่จนกว่าจะทำ ไม่ใช่แค่แจ้งให้รู้ */}
       {tab === 'jobs' && odo && !odo.logged_today && odoVehicle && (
         <button type="button" className="odo-bar" onClick={() => { setOdoValue(''); setOdoOpen(true) }}>
-          <span className="odo-bar-text">ยังไม่ได้กรอกเลขไมล์ของ {odoVehicle.plate} วันนี้</span>
+          <span className="odo-bar-text">ยังไม่ได้กรอกเลขไมล์ตอนออกรถของ {odoVehicle.plate}</span>
           <span className="odo-bar-cta">กรอกเลย</span>
         </button>
       )}
@@ -802,7 +850,7 @@ export default function CloudMyJobs(): React.JSX.Element {
             </p>
             {/* เลขไมล์อยู่ก่อนค่าทางด่วน — อ่านหน้าปัดคือสิ่งที่ต้องทำตอนยังอยู่ในรถ
                 ส่วนใบเสร็จทางด่วนหยิบจากกระเป๋าได้ทีหลัง */}
-            <Field label={`เลขไมล์ตอนนี้ของ ${finishing.vehicle_plate} (กม.)`} required>
+            <Field label={`เลขไมล์ตอนกลับถึงคลัง ${finishing.vehicle_plate} (กม.)`} required>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -812,8 +860,14 @@ export default function CloudMyJobs(): React.JSX.Element {
                 onChange={(e) => setFinishOdo(e.target.value)}
               />
             </Field>
-            {odo?.last_km != null && odoVehicle?.id === finishing.vehicle_id && (
-              <p className="odo-last">ครั้งก่อน {odo.last_km.toLocaleString('th-TH')} กม.</p>
+            {/* เลขตอนออกรถของวันนี้มีค่ามากกว่าเลขของเมื่อวาน เพราะคนขับกำลังจะ
+                กรอกเลขที่ต้องมากกว่ามัน และผลต่างคือระยะของวันที่เขาเพิ่งวิ่งจบ */}
+            {odoVehicle?.id === finishing.vehicle_id && odo?.start_km != null && (
+              <p className="odo-last">
+                ตอนออกรถ {odo.start_km.toLocaleString('th-TH')} กม.
+                {Number(finishOdo.replace(/[^0-9]/g, '')) > odo.start_km
+                  && ` · วันนี้วิ่ง ${(Number(finishOdo.replace(/[^0-9]/g, '')) - odo.start_km).toLocaleString('th-TH')} กม.`}
+              </p>
             )}
             <p className="finish-toll-q">วันนี้มีค่าทางด่วนไหม</p>
             <div className="finish-toll-pick">
@@ -859,11 +913,11 @@ export default function CloudMyJobs(): React.JSX.Element {
           ปิดแล้วยังมีแถบเตือนค้างอยู่บนจอจนกว่าจะกรอก */}
       <Modal
         open={odoOpen}
-        title="เลขไมล์วันนี้"
-        onClose={() => setOdoOpen(false)}
+        title="เลขไมล์ตอนออกรถ"
+        onClose={() => { setOdoOpen(false); setOdoThen(null) }}
         footer={
           <div className="pod-actions">
-            <Button variant="ghost" onClick={() => setOdoOpen(false)}>ยังไม่ได้อยู่ที่รถ</Button>
+            <Button variant="ghost" onClick={() => { setOdoOpen(false); setOdoThen(null) }}>ยังไม่ได้อยู่ที่รถ</Button>
             <Button
               loading={odoBusy}
               disabled={!(Number(odoValue.replace(/[^0-9]/g, '')) > 0)}
@@ -877,6 +931,7 @@ export default function CloudMyJobs(): React.JSX.Element {
         <div className="odo-box">
           <p className="odo-lead">
             อ่านเลขบนหน้าปัดรถ <b>{odoVehicle?.plate ?? ''}</b> แล้วกรอกตามที่เห็น
+            {odoThen && <> — {odoThen.action === 'accept' ? 'รับงาน' : 'เริ่มเดินทาง'}ได้หลังกรอกเลขนี้</>}
           </p>
           <Field label="เลขไมล์ (กม.)" required>
             <Input

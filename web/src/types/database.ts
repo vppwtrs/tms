@@ -134,6 +134,8 @@ export type VehicleOdometerRow = {
   reading_km: number
   /* วันตามเวลาไทย ไม่ใช่ UTC — กะเช้าออกรถก่อนเที่ยงคืน UTC ของวันเดียวกัน */
   reading_date: string
+  /* start = ตอนขึ้นรถก่อนออกงาน, end = ตอนกลับถึงคลัง ระยะของวันคือผลต่าง */
+  kind: 'start' | 'end'
   taken_at: string
   trip_id: number | null
   created_at: string
@@ -383,7 +385,7 @@ export interface Database {
       customers: Table<CustomerRow, Insertable<CustomerRow, 'id' | 'created_at' | 'segment'>>
       vehicles: Table<VehicleRow, Insertable<VehicleRow, 'id' | 'created_at' | 'status' | 'capacity_kg' | 'vehicle_type'>>
       drivers: Table<DriverRow, Insertable<DriverRow, 'id' | 'created_at' | 'status'>>
-      vehicle_odometer: Table<VehicleOdometerRow, Insertable<VehicleOdometerRow, 'id' | 'created_at' | 'taken_at' | 'reading_date' | 'trip_id'>>
+      vehicle_odometer: Table<VehicleOdometerRow, Insertable<VehicleOdometerRow, 'id' | 'created_at' | 'taken_at' | 'reading_date' | 'trip_id' | 'kind'>>
       /* trip_no / order_no / quote_no เป็น optional เพราะ trigger ใน 0007 เติมให้ตอน insert
          ส่งมาเองก็ได้ แต่ปกติปล่อยว่างแล้วให้ DB ตั้งเลขต่อจากใบล่าสุดของปีนี้ */
       trips: Table<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'status' | 'trip_no' | 'fuel_cost' | 'toll_cost' | 'other_cost' | 'freight_cost' | 'freight_actual_cost'>>
@@ -408,8 +410,8 @@ export interface Database {
       start_trip: { Args: { p_trip_id: number }; Returns: void }
       deliver_order: { Args: { p_order_id: number }; Returns: void }
       finish_return: { Args: { p_trip_id: number; p_toll_cost: number | null }; Returns: { trip_id: number; trip_no: string } }
-      log_odometer: { Args: { p_vehicle_id: number; p_reading_km: number }; Returns: { vehicle_id: number; reading_km: number; date: string } }
-      odometer_status: { Args: { p_vehicle_id: number }; Returns: { logged_today: boolean; reading_km: number | null; last_km: number | null } }
+      log_odometer: { Args: { p_vehicle_id: number; p_reading_km: number; p_kind: 'start' | 'end' }; Returns: { vehicle_id: number; reading_km: number; kind: string; date: string } }
+      odometer_status: { Args: { p_vehicle_id: number }; Returns: { logged_today: boolean; start_km: number | null; end_km: number | null; reading_km: number | null; last_km: number | null } }
       undo_deliver_order: {
         Args: { p_order_id: number }
         Returns: { order_id: number; order_no: string; pl_no: string | null }

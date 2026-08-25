@@ -67,9 +67,11 @@ export async function finishReturn(tripId: number, tollCost?: number | null): Pr
 
 /** เลขไมล์ประจำวัน — บันทึกได้เฉพาะรถที่คนขับมีงานอยู่ และเลขต้องไม่ถอยหลัง
  *  ทั้งสองด่านอยู่ฝั่งฐาน หน้าจอแค่ถามให้ถูกจังหวะ */
-export async function logOdometer(vehicleId: number, readingKm: number): Promise<void> {
+export async function logOdometer(
+  vehicleId: number, readingKm: number, kind: 'start' | 'end' = 'start',
+): Promise<void> {
   const { error } = await supabase.rpc('log_odometer',
-    { p_vehicle_id: vehicleId, p_reading_km: readingKm })
+    { p_vehicle_id: vehicleId, p_reading_km: readingKm, p_kind: kind })
   if (error) throw toDataError(error)
 }
 

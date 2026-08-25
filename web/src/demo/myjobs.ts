@@ -86,28 +86,49 @@ function todayKey(): string {
   return new Date().toLocaleDateString('sv-SE')
 }
 
-export async function logOdometer(vehicleId: number, readingKm: number): Promise<void> {
-  /* ของจริงปฏิเสธเลขที่ถอยหลัง โหมดสาธิตต้องปฏิเสธเหมือนกัน ไม่งั้นคนลอง
-     จะไม่เห็นด่านนี้จนกว่าจะเจอของจริงหน้างาน */
+/* คีย์เดียวกับ unique ของตารางจริง: รถ + วัน + ต้น/ปลายวัน */
+function dayKey(vehicleId: number, kind: 'start' | 'end'): string {
+  return `${vehicleId}|${todayKey()}|${kind}`
+}
+
+/* เลขล่าสุดของวันก่อน ๆ — โหมดสาธิตเริ่มจากว่างทุกครั้งที่รีเฟรช จึงมักเป็น null */
+function lastBefore(vehicleId: number): number | null {
   let last: number | null = null
   for (const [k, v] of demoOdometer) {
-    if (k.startsWith(`${vehicleId}|`) && !k.endsWith(todayKey())) last = Math.max(last ?? 0, v)
+    if (k.startsWith(`${vehicleId}|`) && !k.includes(todayKey())) last = Math.max(last ?? 0, v)
   }
-  if (last != null && readingKm < last) {
-    throw new Error(`เลขไมล์น้อยกว่าครั้งก่อน (${last.toLocaleString('th-TH')}) — อ่านเลขบนหน้าปัดอีกครั้ง`)
+  return last
+}
+
+export async function logOdometer(
+  vehicleId: number, readingKm: number, kind: 'start' | 'end' = 'start',
+): Promise<void> {
+  /* ของจริงปฏิเสธเลขที่ถอยหลัง โหมดสาธิตต้องปฏิเสธเหมือนกัน ไม่งั้นคนลอง
+     จะไม่เห็นด่านนี้จนกว่าจะเจอของจริงหน้างาน */
+  const prev = lastBefore(vehicleId)
+  if (prev != null && readingKm < prev) {
+    throw new Error(`เลขไมล์น้อยกว่าครั้งก่อน (${prev.toLocaleString('th-TH')}) — อ่านเลขบนหน้าปัดอีกครั้ง`)
   }
-  demoOdometer.set(`${vehicleId}|${todayKey()}`, readingKm)
+  const start = demoOdometer.get(dayKey(vehicleId, 'start'))
+  if (kind === 'end' && start != null && readingKm < start) {
+    throw new Error(`เลขไมล์ตอนกลับ (${readingKm.toLocaleString('th-TH')}) น้อยกว่าตอนออกรถ (${start.toLocaleString('th-TH')}) — อ่านเลขอีกครั้ง`)
+  }
+  demoOdometer.set(dayKey(vehicleId, kind), readingKm)
   await delay(null)
 }
 
 export async function odometerStatus(vehicleId: number): Promise<OdometerStatus> {
-  const now = demoOdometer.get(`${vehicleId}|${todayKey()}`) ?? null
-  let last: number | null = null
-  for (const [k, v] of demoOdometer) {
-    if (k.startsWith(`${vehicleId}|`) && !k.endsWith(todayKey())) last = Math.max(last ?? 0, v)
-  }
-  return delay({ logged_today: now != null, reading_km: now, last_km: last })
+  const start = demoOdometer.get(dayKey(vehicleId, 'start')) ?? null
+  const end = demoOdometer.get(dayKey(vehicleId, 'end')) ?? null
+  return delay({
+    logged_today: start != null,
+    start_km: start,
+    end_km: end,
+    reading_km: end ?? start,
+    last_km: lastBefore(vehicleId),
+  })
 }
+
 
 function eachOrder(fn: (o: MyJob['orders'][number]) => void, orderId: number): void {
   for (const j of allJobs()) for (const o of j.orders) if (o.id === orderId) fn(o)

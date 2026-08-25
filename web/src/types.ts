@@ -93,7 +93,10 @@ export interface MyJob {
 
 /* สถานะเลขไมล์ของรถคันหนึ่งสำหรับคนขับที่เปิดแอปอยู่ */
 export interface OdometerStatus {
+  /* กรอกเลขต้นวันแล้วหรือยัง — ตัวที่ขวางปุ่มรับงานกับเริ่มเดินทาง */
   logged_today: boolean
+  start_km: number | null
+  end_km: number | null
   reading_km: number | null
   last_km: number | null
 }
