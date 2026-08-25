@@ -1156,9 +1156,13 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
 }): React.JSX.Element {
   const toast = useToast()
   const order = orders[0] as MyJobOrder
-  /* สองหน้า ไม่ใช่ฟอร์มเดียวยาว ๆ — หน้าแรกทำด้วยมือตัวเอง (ถ่ายรูป)
-     หน้าสองต้องยื่นมือถือให้คนอื่น (เซ็น) คนละสถานการณ์ทางกายภาพ
-     ยัดไว้หน้าเดียวแปลว่าต้องเลื่อนหาของกลางฟอร์มขณะยืนถือของอยู่ */
+  /* สองหน้า ไม่ใช่ฟอร์มเดียวยาว ๆ — หน้าหนึ่งทำด้วยมือตัวเอง (ถ่ายรูป)
+     อีกหน้าต้องยื่นมือถือให้คนอื่น (เซ็น) คนละสถานการณ์ทางกายภาพ
+     ยัดไว้หน้าเดียวแปลว่าต้องเลื่อนหาของกลางฟอร์มขณะยืนถือของอยู่
+
+     ลำดับสลับได้ — หน้างานจริงไม่ได้เดินทางเดียว บางร้านเจ้าของยืนรออยู่แล้ว
+     ยื่นมือให้เซ็นทันทีตั้งแต่ยังไม่ยกของลง บางร้านต้องยกของเข้าไปในร้านก่อน
+     กว่าจะหาคนเซ็นเจอ บังคับลำดับเดียวคือบังคับให้คนขับยืนรอในจังหวะที่ไม่ต้องรอ */
   const [step, setStep] = useState<'photo' | 'sign'>('photo')
   /* path ของรูปที่อัปขึ้นถังแล้วตั้งแต่จบหน้าแรก — หน้าสองมีแค่ลายเซ็นกับปุ่มบันทึก
      ซึ่งเร็ว ผู้รับจึงไม่ต้องยืนรอโหลดรูปทั้งกองโดยถือมือถือของคนอื่นไว้ */
@@ -1252,7 +1256,10 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
         })
       }
       setPhotos(uploaded)
-      setStep('sign')
+      /* เซ็นมาก่อนแล้ว = ครบทั้งคู่ บันทึกจบตรงนี้เลย ไม่ต้องพาไปหน้าเซ็นซ้ำ
+         ซึ่งจะกลายเป็นการขอลายเซ็นคนที่เดินกลับเข้าร้านไปแล้ว */
+      if (sig) await savePod(uploaded, sig)
+      else setStep('sign')
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
@@ -1260,33 +1267,38 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
     }
   }
 
-  /* หน้าสอง: ลายเซ็น → บันทึก POD ลงทุกใบของร้าน รูปอัปไปแล้วตั้งแต่หน้าแรก
-     เหลือแต่การเขียนฐาน ซึ่งเป็นวินาทีเดียว ไม่ใช่นาทีที่ผู้รับต้องยืนถือมือถือรอ */
+  /* เขียนฐานจริง — เรียกจากหน้าไหนก็ได้ที่ทำให้ครบทั้งรูปและลายเซ็น
+     ทีละใบตามลำดับ รูปชุดเดียวถูกอ้างจากทุกใบ ไม่ต้องอัปซ้ำตามจำนวนใบ */
+  const savePod = async (uploaded: PodPhoto[], signature: string): Promise<void> => {
+    for (const o of orders) {
+      await savePodWithPhotos({
+        orderId: o.id,
+        recipientName: name,
+        signatureData: signature,
+        photos: uploaded,
+        notes: note || null,
+        lat: coords?.lat ?? null,
+        lng: coords?.lng ?? null,
+      })
+    }
+    onSaved()
+  }
+
+  /* หน้าลายเซ็น — ถ้ารูปอัปไว้แล้วคือจบงาน ถ้ายังคือเพิ่งเซ็นเป็นอย่างแรก
+     แล้วไปถ่ายรูปต่อ ลายเซ็นเก็บไว้ในหน่วยความจำ ยังไม่แตะฐานจนกว่าจะครบทั้งคู่ */
   const submitSignature = async (): Promise<void> => {
     if (!sig) {
       toast.push('warning', 'ให้ผู้รับเซ็นก่อน')
       return
     }
     if (!photos) {
-      toast.push('warning', 'รูปยังไม่ได้อัปโหลด — กลับไปหน้ารูปแล้วกดบันทึกใหม่')
       setStep('photo')
+      toast.push('success', 'เก็บลายเซ็นไว้แล้ว — ถ่ายรูปให้ครบแล้วกดบันทึก')
       return
     }
     setSaving(true)
     try {
-      /* ทีละใบตามลำดับ — รูปชุดเดียวถูกอ้างจากทุกใบ ไม่ต้องอัปซ้ำตามจำนวนใบ */
-      for (const o of orders) {
-        await savePodWithPhotos({
-          orderId: o.id,
-          recipientName: name,
-          signatureData: sig,
-          photos,
-          notes: note || null,
-          lat: coords?.lat ?? null,
-          lng: coords?.lng ?? null,
-        })
-      }
-      onSaved()
+      await savePod(photos, sig)
     } catch (e) {
       toast.push('error', (e as Error).message)
     } finally {
@@ -1316,23 +1328,29 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
         title={`ให้ผู้รับเซ็น — ${order.customer_name ?? order.destination}`}
         footer={
           <div className="pod-actions">
-            <Button variant="ghost" onClick={onClose} disabled={saving}>
-              ปิดไว้ก่อน
+            <Button
+              variant="ghost"
+              onClick={() => (photos ? onClose() : setStep('photo'))}
+              disabled={saving}
+            >
+              {photos ? 'ปิดไว้ก่อน' : 'ไปถ่ายรูป'}
             </Button>
             <Button onClick={() => void submitSignature()} loading={saving} disabled={!sig}>
-              {orders.length > 1 ? `บันทึก ${orders.length} ใบ` : 'บันทึกหลักฐาน'}
+              {!photos ? 'เก็บลายเซ็น — ไปถ่ายรูป'
+                : orders.length > 1 ? `บันทึก ${orders.length} ใบ` : 'บันทึกหลักฐาน'}
             </Button>
           </div>
         }
       >
         {savingVeil}
-        <div className="pod-steps" aria-label="ขั้นตอนที่ 2 จาก 2">
-          <span className="is-done">1 · รูป</span>
-          <span className="is-now">2 · ลายเซ็น</span>
+        {/* ป้ายขั้นตอนเดินตามลำดับที่คนขับเลือกจริง ไม่ใช่ลำดับที่เราคิดไว้ก่อน */}
+        <div className="pod-steps" aria-label={photos ? 'ขั้นตอนที่ 2 จาก 2' : 'ขั้นตอนที่ 1 จาก 2'}>
+          <span className={photos ? 'is-done' : 'is-now'}>{photos ? '1 · รูป' : '1 · ลายเซ็น'}</span>
+          <span className={photos ? 'is-now' : ''}>{photos ? '2 · ลายเซ็น' : '2 · รูป'}</span>
         </div>
 
         <div className="pod-meta">
-          <span>อัปรูปแล้ว {photos?.length ?? 0} รูป</span>
+          <span>{photos ? `อัปรูปแล้ว ${photos.length} รูป` : 'ยังไม่ได้ถ่ายรูป — เซ็นก่อนได้ แล้วค่อยไปถ่าย'}</span>
           {orders.length > 1 && <span>ลายเซ็นเดียวใช้กับ {orders.length} ใบของร้านนี้</span>}
           <span>{coords ? `แนบพิกัดแล้ว · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'ไม่ได้พิกัด — บันทึกได้ตามปกติ'}</span>
         </div>
@@ -1371,19 +1389,25 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
             loading={saving}
             disabled={!name.trim() || shots.length === 0 || (missing.length > 0 && !relaxed)}
           >
-            {missing.length > 0 && !relaxed ? `ยังขาด ${missing.length} มุม` : 'บันทึกรูป — ไปหน้าลายเซ็น'}
+            {missing.length > 0 && !relaxed ? `ยังขาด ${missing.length} มุม`
+              : sig ? 'บันทึกหลักฐาน' : 'บันทึกรูป — ไปหน้าลายเซ็น'}
           </Button>
         </div>
       }
     >
       {savingVeil}
-      <div className="pod-steps" aria-label="ขั้นตอนที่ 1 จาก 2">
-        <span className="is-now">1 · รูป</span>
-        <span>2 · ลายเซ็น</span>
+      <div className="pod-steps" aria-label={sig ? 'ขั้นตอนที่ 2 จาก 2' : 'ขั้นตอนที่ 1 จาก 2'}>
+        <span className={sig ? 'is-done' : 'is-now'}>{sig ? '1 · ลายเซ็น' : '1 · รูป'}</span>
+        <span className={sig ? 'is-now' : ''}>{sig ? '2 · รูป' : '2 · ลายเซ็น'}</span>
       </div>
 
       <div className="pod-meta">
         {orders.length > 1 && <span>ปิดพร้อมกัน {orders.length} ใบของร้านนี้</span>}
+        {/* ทางเข้าหน้าเซ็นตั้งแต่ยังไม่ถ่ายรูป — เจ้าของร้านที่ยืนรออยู่ตรงหน้า
+            คือคนที่เดินหายไปได้ทุกเมื่อ ส่วนรูปถ่ายเมื่อไหร่ก็ได้ ของยังอยู่ที่เดิม */}
+        <button type="button" className="pod-swap" onClick={() => setStep('sign')} disabled={saving}>
+          {sig ? 'เซ็นไว้แล้ว — แก้ลายเซ็น' : 'ให้ผู้รับเซ็นก่อน'}
+        </button>
         {/* พิกัดเคยอยู่ท้ายสุดของฟอร์ม ซึ่งคือที่ที่ไม่มีใครเลื่อนไปอ่าน
             ทั้งที่เป็นของที่แนบให้อยู่แล้วโดยไม่ต้องทำอะไร */}
         <span>{coords ? `แนบพิกัดแล้ว · ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'ไม่ได้พิกัด — บันทึกได้ตามปกติ'}</span>
@@ -1395,7 +1419,7 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
         {missing.length === 0 ? (
           <>
             <b>ครบทั้งสามมุมแล้ว</b>
-            <span>ถ่ายเพิ่มได้ถ้าต้องการ หรือกดบันทึกไปหน้าลายเซ็น</span>
+            <span>ถ่ายเพิ่มได้ถ้าต้องการ หรือกดบันทึกที่ปุ่มข้างล่าง</span>
           </>
         ) : (
           <>
@@ -1434,7 +1458,7 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
       {/* ฟิล์มรูปที่ถ่ายแล้ว เรียงแนวนอนใต้กล้อง เห็นทันทีว่าถ่ายอะไรไปบ้าง ลบได้ทีละใบ */}
       <div className="pod-strip">
         {shots.length === 0 ? (
-          <p className="pod-strip-empty">ยังไม่มีรูป — ต้องถ่ายให้ครบสามมุมถึงจะไปหน้าลายเซ็นได้</p>
+          <p className="pod-strip-empty">ยังไม่มีรูป — ต้องถ่ายให้ครบสามมุมถึงจะบันทึกได้</p>
         ) : (
           shots.map((shot, i) => (
             <div className="pod-shot" key={shot.img.url}>

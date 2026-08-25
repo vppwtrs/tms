@@ -3541,3 +3541,14 @@
   font: inherit; font-size: var(--font-sm); text-align: left; cursor: pointer;
 }
 .odo-bar-cta { font-weight: 700; color: var(--warn); white-space: nowrap; }
+
+/* ทางลัดไปหน้าเซ็นตั้งแต่ยังไม่ถ่ายรูป — เป็นลิงก์ ไม่ใช่ปุ่มใหญ่
+   เพราะเส้นทางหลักยังเป็นถ่ายรูปก่อน อันนี้คือทางเลือกของหน้างานที่ไม่ปกติ */
+.pod-swap {
+  align-self: flex-start;
+  min-height: 44px; padding: 0;
+  background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: var(--font-sm); font-weight: 600;
+  color: var(--brand); text-decoration: underline; text-underline-offset: 3px;
+}
+.is-pod-photo .pod-swap { color: #7fe0a8; }
