@@ -277,143 +277,57 @@
 }
 
 /* ============================================================
-   Drawer — แผงรายละเอียดที่เลื่อนมาจากขวา
-   ใช้แทน modal เฉพาะกรณี "ดูรายละเอียดของแถวที่กด" เพราะยังต้องเห็น
-   รายการที่ค้างอยู่ข้างหลัง modal เดิมทุกตัวที่เป็นฟอร์มยังเป็น modal
+   แผงรายละเอียดในแผงที่ลอยอยู่บนแผนที่
+
+   เคยเป็นแผงที่เลื่อนมาจากขอบขวา แล้วมันบังแผนที่ครึ่งขวาทั้งแถบ
+   ซึ่งเป็นของที่ต้องดูคู่กับไทม์ไลน์ — ย้ายมาอยู่ในแผงที่มีอยู่แล้วทางซ้าย
    ============================================================ */
-.ops-drawer-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(24, 18, 46, 0.42);
-  backdrop-filter: blur(2px);
-  z-index: 60;
-  animation: opsFade var(--motion-base) var(--ease-out);
-}
-
-.ops-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(520px, 100vw);
-  background: var(--surface);
-  border-left: 1px solid var(--line);
-  box-shadow: var(--sh-3);
-  z-index: 61;
-  display: flex;
-  flex-direction: column;
-  animation: opsSlideIn var(--motion-enter) var(--ease-emphasized);
-}
-
-@keyframes opsFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes opsSlideIn {
-  from { transform: translateX(24px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ops-drawer,
-  .ops-drawer-scrim {
-    animation: none;
-  }
-}
-
-/* หัว drawer พื้นเข้ม — แยกชั้นให้ชัดว่านี่ทับอยู่บนหน้าเดิม ไม่ใช่ส่วนหนึ่งของมัน */
-.ops-drawer-head {
-  background: var(--ops-dark);
-  color: var(--ops-dark-ink);
-  padding: 16px 20px;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  flex-shrink: 0;
-}
-
-.ops-drawer-title {
-  font-family: var(--font-display);
-  font-size: var(--font-lg);
-  font-weight: 800;
-  margin: 0;
-  color: var(--ops-dark-ink);
-  min-width: 0;
-}
-
-.ops-drawer-sub {
+.ops-map-sub {
   font-size: var(--font-xs);
   color: var(--ops-dark-muted);
-  margin-top: 3px;
 }
 
-.ops-drawer-close {
-  margin-left: auto;
+.ops-map-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid var(--ops-dark-line);
   color: var(--ops-dark-ink);
   border-radius: var(--r-sm);
+  padding: 4px 10px 4px 6px;
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+.ops-map-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* แถวรถหนึ่งคัน = สองปุ่มที่เป็นพี่น้องกัน ไม่ใช่ปุ่มซ้อนปุ่ม
+   กดที่แถว = ดูเส้นทางบนแผนที่ กดลูกศร = กางไทม์ไลน์ */
+.ops-track-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.ops-track-more {
+  flex-shrink: 0;
   width: 34px;
-  height: 34px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  flex-shrink: 0;
-  transition: background var(--motion-fast) var(--ease);
 }
-.ops-drawer-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.ops-drawer-body {
-  padding: 20px;
-  overflow-y: auto;
-  flex: 1;
-  overscroll-behavior: contain;
-}
-
-.ops-drawer-foot {
-  padding: 14px 20px;
-  border-top: 1px solid var(--line);
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-  background: var(--surface-2);
-}
-
-.ops-drawer-section {
-  margin-bottom: var(--space-5);
-}
-.ops-drawer-section:last-child {
-  margin-bottom: 0;
-}
-.ops-drawer-section h3 {
-  font-size: var(--font-xs);
-  font-weight: 800;
-  color: var(--muted);
-  margin: 0 0 10px;
-}
-
-/* คู่ ป้ายกำกับ/ค่า ใน drawer */
-.ops-kv {
-  display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  gap: 6px var(--space-3);
-  font-size: var(--font-sm);
-}
-.ops-kv dt {
-  color: var(--muted);
-}
-.ops-kv dd {
-  margin: 0;
+.ops-track-more:hover {
+  background: var(--paper-deep);
   color: var(--ink);
-  font-weight: 600;
-  min-width: 0;
-  overflow-wrap: anywhere;
 }
 
 /* ============================================================
@@ -857,8 +771,5 @@
 @media (max-width: 560px) {
   .ops-kpis {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .ops-drawer {
-    width: 100vw;
   }
 }

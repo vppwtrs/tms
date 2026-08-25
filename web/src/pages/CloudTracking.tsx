@@ -4,8 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import { trackingBoard, tripTrack, type TrackedTrip, type TrackPoint } from '../api/tracking'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { Badge, Button, EmptyState, ErrorBox, PageHeader, Skeleton } from '../components/ui'
-import { IconTruck } from '../components/icons'
-import { Drawer } from '../components/ops/Drawer'
+import { IconChevronLeft, IconChevronRight, IconTruck } from '../components/icons'
 import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { fmtDateTime } from '../utils/format'
 
@@ -101,10 +100,10 @@ export default function CloudTracking(): React.JSX.Element {
   const [selected, setSelected] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  /* แผงรายละเอียดแยกจากการเลือกบนแผนที่ — เลือกคันหนึ่งเพื่อดูเส้นทางบนแผนที่
-     เป็นคนละความตั้งใจกับการเปิดอ่านไทม์ไลน์ ผูกรวมกันแล้วแผงจะเด้งมาบังแผนที่
-     ทุกครั้งที่คนแค่อยากเห็นเส้นทาง */
-  const [detailOpen, setDetailOpen] = useState(false)
+  /* เที่ยวที่กางไทม์ไลน์อยู่ แยกจากคันที่เลือกไว้บนแผนที่ — สองอย่างนี้คนละความตั้งใจ
+     เลือกคันหนึ่งคือ "ขอดูเส้นทางบนแผนที่" กางไทม์ไลน์คือ "ขอดูว่าเกิดอะไรขึ้นบ้าง"
+     ผูกรวมกันแล้วแค่กดดูเส้นทางก็โดนแผงรายละเอียดเด้งมาบังทุกครั้ง */
+  const [detailId, setDetailId] = useState<number | null>(null)
 
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -249,7 +248,7 @@ export default function CloudTracking(): React.JSX.Element {
   }, [trips, track, selected, mapReady])
 
   const withoutSignal = useMemo(() => trips.filter((t) => !t.last_seen).length, [trips])
-  const selectedTrip = trips.find((t) => t.trip_id === selected) ?? null
+  const detailTrip = trips.find((t) => t.trip_id === detailId) ?? null
 
   if (!can('dispatch.view') && !can('myjobs.view')) {
     return <ErrorBox message="ไม่มีสิทธิ์ดูหน้าติดตามรถ" />
@@ -285,12 +284,43 @@ export default function CloudTracking(): React.JSX.Element {
           {/* รายการรถลอยทับมุมซ้าย — แผนที่ได้พื้นที่ทั้งกรอบ
               บนจอแคบ ops.css ดันแผงนี้ลงไปอยู่ใต้แผนที่แทน */}
           <div className="ops-map-panel">
+            {detailTrip ? (
+              /* รายละเอียดอยู่ในแผงนี้ ไม่ใช่แผงที่เลื่อนมาจากขวา — ของที่ต้องดูคู่กับ
+                 ไทม์ไลน์คือแผนที่ แผงขวาบังครึ่งขวาของแผนที่ไปทั้งแถบ */
+              <>
+                <div className="ops-map-panel-head">
+                  <button type="button" className="ops-map-back" onClick={() => setDetailId(null)}>
+                    <IconChevronLeft size={15} /> กลับ
+                  </button>
+                  {detailTrip.plate_no}
+                </div>
+                <div className="ops-map-list">
+                  <div className="ops-map-sub" style={{ marginBottom: 12 }}>
+                    {detailTrip.trip_no} · {detailTrip.drivers ?? 'ไม่ระบุคนขับ'}
+                  </div>
+                  <dl className="ops-kv" style={{ marginBottom: 16 }}>
+                    <dt>ส่งแล้ว</dt>
+                    <dd>{detailTrip.stops_done}/{detailTrip.stops_total} จุด</dd>
+                    <dt>เห็นล่าสุด</dt>
+                    <dd>
+                      {detailTrip.last_seen
+                        ? `${minutesAgo(detailTrip.last_seen.recorded_at)} นาทีที่แล้ว`
+                        : 'ยังไม่ส่งตำแหน่งเข้ามา'}
+                    </dd>
+                    <dt>จุดที่บันทึกไว้</dt>
+                    <dd>{detailId === selected ? `${track.length} จุด` : '—'}</dd>
+                  </dl>
+                  <Timeline steps={timelineOf(detailTrip)} />
+                </div>
+              </>
+            ) : (
+            <>
             <div className="ops-map-panel-head">
-              <IconTruck size={15} /> รถที่กำลังวิ่ง {trips.length} คัน
+              <IconTruck size={15} /> เที่ยววันนี้ {trips.length} คัน
             </div>
             <ul className="track-list ops-map-list">
             {trips.map((t) => (
-              <li key={t.trip_id}>
+              <li key={t.trip_id} className="ops-track-row">
                 <button
                   type="button"
                   className={`track-item${t.trip_id === selected ? ' is-active' : ''}`}
@@ -301,7 +331,11 @@ export default function CloudTracking(): React.JSX.Element {
                   <span className="track-item-meta">
                     ส่งแล้ว {t.stops_done}/{t.stops_total} จุด
                   </span>
-                  {t.last_seen ? (
+                  {/* เที่ยวที่จบแล้วไม่มี "เห็นล่าสุด" ที่มีความหมาย — คนขับปิดแอปไปแล้ว
+                      เลขนาทีที่โตขึ้นเรื่อย ๆ อ่านเหมือนรถขาดการติดต่อ ทั้งที่งานจบเรียบร้อย */}
+                  {t.status === 'completed' ? (
+                    <Badge label="จบแล้ว" tone="delivered" />
+                  ) : t.last_seen ? (
                     <Badge
                       label={`เห็นล่าสุด ${minutesAgo(t.last_seen.recorded_at)} นาที`}
                       tone={minutesAgo(t.last_seen.recorded_at) * 60000 > STALE_MS ? 'warning' : 'success'}
@@ -310,9 +344,22 @@ export default function CloudTracking(): React.JSX.Element {
                     <Badge label="ยังไม่ส่งตำแหน่ง" tone="neutral" />
                   )}
                 </button>
+                {/* ปุ่มพี่น้อง ไม่ใช่ปุ่มซ้อนในปุ่ม — เที่ยวที่จบแล้วก็กดดูไทม์ไลน์ได้
+                    ซึ่งเป็นตอนที่คนอยากดูมากที่สุด */}
+                <button
+                  type="button"
+                  className="ops-track-more"
+                  onClick={() => setDetailId(t.trip_id)}
+                  aria-label={`ไทม์ไลน์ของ ${t.plate_no}`}
+                  title="ดูไทม์ไลน์ของเที่ยวนี้"
+                >
+                  <IconChevronRight size={16} />
+                </button>
               </li>
             ))}
             </ul>
+            </>
+            )}
           </div>
         </div>
       )}
@@ -329,52 +376,9 @@ export default function CloudTracking(): React.JSX.Element {
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        <Button variant="ghost" onClick={() => void load()}>
-          โหลดตำแหน่งใหม่
-        </Button>
-        {/* ปุ่มแยกต่างหาก ไม่ใช่ปุ่มซ้อนในรายการรถ — รายการนั้นเป็นปุ่มอยู่แล้วทั้งแถว
-            ใส่ปุ่มไว้ข้างในเป็นปุ่มซ้อนปุ่ม ซึ่ง HTML ไม่ยอมรับตั้งแต่แรก */}
-        {selectedTrip && (
-          <Button variant="outline" onClick={() => setDetailOpen(true)}>
-            ไทม์ไลน์ของ {selectedTrip.plate_no}
-          </Button>
-        )}
-      </div>
-
-      <Drawer
-        open={detailOpen && selectedTrip != null}
-        onClose={() => setDetailOpen(false)}
-        title={selectedTrip?.plate_no ?? ''}
-        subtitle={`${selectedTrip?.trip_no ?? ''} · ${selectedTrip?.drivers ?? 'ไม่ระบุคนขับ'}`}
-      >
-        {selectedTrip && (
-          <>
-            <div className="ops-drawer-section">
-              <h3>สรุป</h3>
-              <dl className="ops-kv">
-                <dt>ส่งแล้ว</dt>
-                <dd>{selectedTrip.stops_done}/{selectedTrip.stops_total} จุด</dd>
-                <dt>ออกรถ</dt>
-                <dd>{selectedTrip.departed_at ? fmtDateTime(selectedTrip.departed_at) : 'ยังไม่ออก'}</dd>
-                <dt>เห็นล่าสุด</dt>
-                <dd>
-                  {selectedTrip.last_seen
-                    ? `${minutesAgo(selectedTrip.last_seen.recorded_at)} นาทีที่แล้ว`
-                    : 'ยังไม่ส่งตำแหน่งเข้ามา'}
-                </dd>
-                <dt>จุดที่บันทึกไว้</dt>
-                <dd>{track.length} จุด</dd>
-              </dl>
-            </div>
-
-            <div className="ops-drawer-section">
-              <h3>ลำดับเหตุการณ์</h3>
-              <Timeline steps={timelineOf(selectedTrip)} />
-            </div>
-          </>
-        )}
-      </Drawer>
+      <Button variant="ghost" onClick={() => void load()} style={{ marginTop: 12 }}>
+        โหลดตำแหน่งใหม่
+      </Button>
     </>
   )
 }
@@ -426,8 +430,13 @@ function timelineOf(t: TrackedTrip): TimelineStep[] {
       : { key: 'back', title: 'ส่งครบทุกจุดแล้ว', state: t.status === 'completed' ? 'done' : 'current' },
   )
 
-  if (t.status === 'completed') {
-    steps.push({ key: 'done', title: 'ปิดเที่ยวแล้ว', state: 'done' })
+  /* ปิดงานที่ร้านสุดท้าย กับกลับถึงคลัง เป็นคนละเวลา และช่วงระหว่างสองอันนี้คือ
+     เวลาขากลับ ซึ่งเป็นตัวเลขที่ใช้ตอบเรื่องค่าเที่ยวและเวลาทำงานล่วงเวลา */
+  if (t.arrived_at) {
+    steps.push({ key: 'arrived', title: 'ปิดงานที่ร้านสุดท้าย', time: fmtDateTime(t.arrived_at), state: 'done' })
+  }
+  if (t.returned_at) {
+    steps.push({ key: 'returned', title: 'กลับถึงคลัง', time: fmtDateTime(t.returned_at), state: 'done' })
   }
 
   return steps
