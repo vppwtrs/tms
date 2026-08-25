@@ -49,20 +49,14 @@ async function applyNativeSkin(): Promise<void> {
   if (flag === '0') localStorage.removeItem('preview-native')
   const forced = localStorage.getItem('preview-native') === '1'
   const { Capacitor } = await import('@capacitor/core')
+  /* ในแอปจริงหรือตอนบังคับดูตัวอย่าง ผิวติดทั้งเว็บตั้งแต่บูต เพราะทุกหน้าที่
+     เปิดในแอปคือหน้าของคนขับอยู่แล้ว นอกจากนั้นปล่อยให้ useDriverSkin
+     เปิดปิดตามหน้า ไม่งั้นหน้าออฟฟิศโดนผิวของจอคนขับทับ */
   if (!forced && !Capacitor.isNativePlatform()) return
-  document.documentElement.classList.add('is-native-app')
-  /* ผิว Design C ต้องเป็นตัวตั้งต้น เพราะเป็น layout ที่ใช้ในแอปจริง
-     สกินรุ่นเก่ายังเปิดตรวจย้อนหลังได้ด้วย query เดิม */
-  const skinFlag = new URLSearchParams(window.location.search).get('skin')
-  const skins = ['softop', 'route', 'focus', 'sheet', 'timeline']
-  if (skinFlag && skins.includes(skinFlag)) localStorage.setItem('preview-skin', skinFlag)
-  document.documentElement.dataset.skin = localStorage.getItem('preview-skin') ?? 'softop'
-  await import('./styles/ios-app.css')
-  await import('./styles/ios-motion.css')
-  await import('./styles/ios-skins.css')
-  await import('./styles/ios-premium.css')
-  /* Design C "Soft Operator" — โหลดท้ายสุด ทับโทนของผิวเดิมทั้งหมด */
-  await import('./styles/ios-softop.css')
+  /* ธงให้ useDriverSkin รู้ว่าผิวถูกบังคับไว้แล้ว จะได้ไม่ถอดออกตอนเปลี่ยนหน้า */
+  document.documentElement.dataset.nativeShell = '1'
+  const { setDriverSkin } = await import('./styles/driverSkin')
+  await setDriverSkin(true)
 }
 
 if (CLOUD) void applyNativeSkin()

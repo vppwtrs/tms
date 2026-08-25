@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useCloudAuth } from './context/CloudAuthContext'
+import { useDriverSkin } from './hooks/useDriverSkin'
 import { CloudLayout } from './components/CloudLayout'
 import { ChangePasswordModal } from './components/ChangePasswordModal'
 
@@ -105,6 +106,9 @@ export function RequirePermission({ permission, children }: { permission: string
 }
 
 export default function AppCloud(): React.JSX.Element {
+  /* จอคนขับได้ผิว Design C ทุกครั้งที่เข้าไป ไม่ต้องมี ?native=1 อีกแล้ว
+     หน้าอื่นถอดผิวออกตอนออกจากจอ */
+  useDriverSkin()
   return (
     <Suspense fallback={<Splash />}>
       <Routes>
