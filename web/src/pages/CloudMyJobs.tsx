@@ -100,7 +100,10 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* งานที่ถูกกล่องเลขไมล์ขวางไว้ — กรอกเสร็จแล้วต้องเดินต่อให้เอง
      ไม่ใช่ให้คนขับกดปุ่มเดิมซ้ำ ซึ่งอ่านได้ว่าปุ่มไม่ทำงาน */
   const [odoThen, setOdoThen] = useState<{ job: MyJob; action: 'accept' | 'start' } | null>(null)
-  const odoAsked = useRef(false)
+  /* วันที่เด้งกล่องไปแล้ว — เก็บเป็นวัน ไม่ใช่ boolean เพราะแอปเปิดค้างข้ามวันได้ */
+  const odoAsked = useRef<string | null>(null)
+  /* วันของค่า odo ที่ถืออยู่ — ต่างจากวันนี้เมื่อไหร่แปลว่าค่านั้นหมดอายุแล้ว */
+  const [odoDay, setOdoDay] = useState<string | null>(null)
   /* ค่าทางด่วนของวัน — ถามตอนกดจบงาน จังหวะเดียวที่ใบเสร็จยังอยู่ในมือ
      null = ยังไม่ตอบ ต่างจาก false ที่แปลว่าตอบแล้วว่าไม่มี */
   const [tollHas, setTollHas] = useState<boolean | null>(null)
@@ -191,31 +194,60 @@ export default function CloudMyJobs(): React.JSX.Element {
     return j ? { id: j.vehicle_id, plate: j.vehicle_plate } : null
   }, [live])
 
-  useEffect(() => {
-    if (!dutyVehicle) { setOdo(null); setOdoVehicle(null); return }
-    let alive = true
-    odometerStatus(dutyVehicle.id)
-      .then((st) => {
-        if (!alive) return
-        setOdo(st)
-        setOdoVehicle(dutyVehicle)
-        /* เด้งตอนเปิดแอปเฉพาะคนที่ "เริ่มงานไปแล้ว" — รับงานไว้หรือรถกำลังวิ่ง
-           คนกลุ่มนี้อยู่ที่รถแน่นอน ส่วนคนที่ยังไม่รับงานเจอด่านตอนกดรับงานอยู่แล้ว
-           เด้งครั้งเดียวต่อการเปิดแอปหนึ่งครั้ง ไม่งั้นทุกครั้งที่รายการรีเฟรช
-           กล่องจะเด้งทับสิ่งที่คนขับกำลังกดค้างอยู่ */
-        const started = live.some((j) => j.vehicle_id === dutyVehicle.id
-          && (j.my_accepted_at ?? j.accepted_at) && j.status !== 'completed')
-        if (!st.logged_today && started && !odoAsked.current) {
-          odoAsked.current = true
-          setOdoValue('')
-          setOdoOpen(true)
-        }
-      })
+  /* วันของเครื่อง ไม่ใช่ของ UTC — ฐานตัดวันตามเวลาไทย จอต้องตัดตรงกัน
+     ไม่งั้นระหว่าง 00:00–07:00 จอจะเชื่อว่าเป็นวันใหม่ก่อนฐานหนึ่งวัน */
+  const today = (): string => new Date().toLocaleDateString('sv-SE')
+
+  const refreshOdo = async (vehicle: { id: number; plate: string }, pop: boolean): Promise<void> => {
+    try {
+      const st = await odometerStatus(vehicle.id)
+      setOdo(st)
+      setOdoVehicle(vehicle)
+      setOdoDay(today())
+      /* เด้งเฉพาะคนที่ "เริ่มงานไปแล้ว" — รับงานไว้หรือรถกำลังวิ่ง คนกลุ่มนี้อยู่ที่รถแน่นอน
+         ส่วนคนที่ยังไม่รับงานเจอด่านตอนกดรับงานอยู่แล้ว
+         ครั้งเดียวต่อวัน ไม่ใช่ต่อการรีเฟรชหนึ่งครั้ง ไม่งั้นกล่องเด้งทับสิ่งที่กำลังกดอยู่ */
+      const started = live.some((j) => j.vehicle_id === vehicle.id
+        && (j.my_accepted_at ?? j.accepted_at) && j.status !== 'completed')
+      if (pop && !st.logged_today && started && odoAsked.current !== today()) {
+        odoAsked.current = today()
+        setOdoValue('')
+        setOdoOpen(true)
+      }
+    } catch {
       /* อ่านสถานะไม่ได้ไม่ใช่เรื่องที่ต้องขึ้น error ทั้งจอ — งานส่งของยังทำต่อได้
-         เงียบไว้แล้วไม่ถาม ดีกว่าบังคับให้คนขับปิดกล่อง error ก่อนเริ่มงาน */
-      .catch(() => { if (alive) setOdo(null) })
-    return () => { alive = false }
+         แต่ต้องล้างของเก่าทิ้ง ค่าที่ค้างอยู่คือคำตอบของวันอื่น */
+      setOdo(null)
+      setOdoDay(null)
+    }
+  }
+
+  useEffect(() => {
+    if (!dutyVehicle) { setOdo(null); setOdoVehicle(null); setOdoDay(null); return }
+    void refreshOdo(dutyVehicle, true)
   }, [dutyVehicle?.id])
+
+  /* แอปที่ติดตั้งบนมือถืออยู่ในหน่วยความจำได้เป็นวัน ๆ คนขับไม่ได้ปิดเปิดใหม่ทุกเช้า
+     ถ้าไม่ถามใหม่ตอนกลับมาที่หน้าจอ ค่า logged_today ของเมื่อวานจะค้างอยู่
+     แล้วทั้งแถบเตือนและด่านหน้าปุ่มรับงานจะปล่อยผ่านทั้งวัน */
+  useEffect(() => {
+    const recheck = (): void => {
+      if (document.visibilityState !== 'visible') return
+      if (!dutyVehicle) return
+      if (odoDay === today()) return
+      void refreshOdo(dutyVehicle, true)
+    }
+    document.addEventListener('visibilitychange', recheck)
+    window.addEventListener('focus', recheck)
+    /* เผื่อกรณีที่จอเปิดค้างข้ามเที่ยงคืนโดยไม่มีใครสลับแอป — รถจอดอยู่ที่คลัง
+       แล้วคนขับวางมือถือไว้บนแท่น เหตุการณ์ข้างบนจะไม่เกิดสักตัว */
+    const timer = window.setInterval(recheck, 5 * 60 * 1000)
+    return () => {
+      document.removeEventListener('visibilitychange', recheck)
+      window.removeEventListener('focus', recheck)
+      window.clearInterval(timer)
+    }
+  }, [dutyVehicle?.id, odoDay])
 
   const saveOdometer = async (): Promise<void> => {
     if (!odoVehicle) return
@@ -231,6 +263,7 @@ export default function CloudMyJobs(): React.JSX.Element {
         reading_km: km,
         last_km: odo?.last_km ?? null,
       })
+      setOdoDay(today())
       setOdoOpen(false)
       setOdoValue('')
       toast.push('success', `บันทึกเลขไมล์ออกรถ ${km.toLocaleString('th-TH')} กม. แล้ว`)
@@ -320,8 +353,8 @@ export default function CloudMyJobs(): React.JSX.Element {
     if ((action === 'accept' || action === 'start') && !opts?.odoDone) {
       /* ถามสถานะของ "รถคันที่กำลังจะขับ" ไม่ใช่คันที่จอกำลังโชว์อยู่ — คนขับ
          ถือหลายเที่ยวคนละคันได้ กดรับงานคันที่สองแล้วเจอด่านของคันแรกคือด่านที่ผิดคัน */
-      const st = odoVehicle?.id === job.vehicle_id ? odo
-        : await odometerStatus(job.vehicle_id).catch(() => null)
+      const fresh = odoVehicle?.id === job.vehicle_id && odoDay === today()
+      const st = fresh ? odo : await odometerStatus(job.vehicle_id).catch(() => null)
       if (st && !st.logged_today) {
         setOdo(st)
         setOdoVehicle({ id: job.vehicle_id, plate: job.vehicle_plate })
