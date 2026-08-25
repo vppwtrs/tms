@@ -400,7 +400,7 @@ export default function CloudUsers(): React.JSX.Element {
             คนเหล่านี้ยืนยันตัวกับ TMS ผ่านแล้ว แต่ยังไม่เห็นข้อมูลอะไรในระบบเราเลยจนกว่าจะอนุมัติ
           </p>
           <div className="table-wrap">
-            <table className="table">
+            <table className="table ops-table">
               <thead>
                 <tr>
                   <th>ชื่อ</th>
@@ -444,7 +444,7 @@ export default function CloudUsers(): React.JSX.Element {
           <EmptyState title="ยังไม่มีผู้ใช้" desc="พนักงานจะปรากฏที่นี่หลังล็อกอินด้วยบัญชี TMS ครั้งแรก" />
         ) : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table ops-table">
               <thead>
                 <tr>
                   <th>ชื่อ</th>
@@ -520,7 +520,7 @@ export default function CloudUsers(): React.JSX.Element {
             </p>
           </div>
           <div className="table-wrap">
-            <table className="table">
+            <table className="table ops-table">
               <thead><tr><th>ชื่อ</th><th>ชื่อผู้ใช้</th><th>เหตุผล</th></tr></thead>
               <tbody>
                 {archived.map((u) => (

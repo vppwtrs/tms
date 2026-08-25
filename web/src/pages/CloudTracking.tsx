@@ -5,6 +5,8 @@ import { trackingBoard, tripTrack, type TrackedTrip, type TrackPoint } from '../
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { Badge, Button, EmptyState, ErrorBox, PageHeader, Skeleton } from '../components/ui'
 import { IconTruck } from '../components/icons'
+import { Drawer } from '../components/ops/Drawer'
+import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { fmtDateTime } from '../utils/format'
 
 /**
@@ -34,6 +36,29 @@ const GAP_MS = 2 * 60 * 1000
 function minutesAgo(iso: string): number {
   return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
 }
+
+/**
+ * สีของสิ่งที่วาดบนแผนที่ — อ่านออกมาจาก token ตอนใช้งาน
+ *
+ * Leaflet ส่งค่าสีลงไปที่แอตทริบิวต์ของ SVG ตรง ๆ ซึ่งไม่รู้จัก `var(--x)`
+ * ถ้าไม่อ่านออกมาก่อน หมุดจะกลายเป็นสีดำทั้งหมด เดิมทีจึงเขียนเลขฐานสิบหกไว้ในไฟล์นี้
+ * แล้วกลายเป็นจานสีที่สองของระบบที่ไม่มีใครรู้ว่ามีอยู่ และไม่เคยตามธีมเลย
+ *
+ * แผนที่เข้มเสมอ ค่าพวกนี้จึงไม่ต้องอ่านใหม่ตอนสลับธีม อ่านครั้งเดียวพอ
+ */
+const mapColor = (() => {
+  let cache: Record<string, string> | null = null
+  return (name: string): string => {
+    cache ??= {}
+    const hit = cache[name]
+    if (hit) return hit
+    const v = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim()
+    /* ค่าที่หายไปต้องไม่กลายเป็นสตริงว่าง — Leaflet จะวาดเป็นสีดำบนพื้นเข้มแล้วหมุดหาย */
+    const value = v || '#8d99ee'
+    cache[name] = value
+    return value
+  }
+})()
 
 /**
  * แผ่นแผนที่ที่ใช้เป็นพื้นหลัง
@@ -76,6 +101,10 @@ export default function CloudTracking(): React.JSX.Element {
   const [selected, setSelected] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  /* แผงรายละเอียดแยกจากการเลือกบนแผนที่ — เลือกคันหนึ่งเพื่อดูเส้นทางบนแผนที่
+     เป็นคนละความตั้งใจกับการเปิดอ่านไทม์ไลน์ ผูกรวมกันแล้วแผงจะเด้งมาบังแผนที่
+     ทุกครั้งที่คนแค่อยากเห็นเส้นทาง */
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -156,8 +185,8 @@ export default function CloudTracking(): React.JSX.Element {
 
       L.circleMarker(at, {
         radius: t.trip_id === selected ? 11 : 8,
-        color: stale ? '#9aa0a6' : '#2563eb',
-        fillColor: stale ? '#c8cdd3' : '#3b82f6',
+        color: stale ? mapColor('map-stale') : mapColor('map-live'),
+        fillColor: stale ? mapColor('map-stale-fill') : mapColor('map-live-fill'),
         fillOpacity: 0.9,
         weight: 2,
       })
@@ -172,7 +201,7 @@ export default function CloudTracking(): React.JSX.Element {
       if (t.last_seen.accuracy_m && t.last_seen.accuracy_m > 100) {
         L.circle(at, {
           radius: t.last_seen.accuracy_m,
-          color: '#93a3b8',
+          color: mapColor('map-accuracy'),
           fillOpacity: 0.06,
           weight: 1,
         }).addTo(group)
@@ -181,8 +210,8 @@ export default function CloudTracking(): React.JSX.Element {
       for (const p of t.pod_points) {
         L.circleMarker([p.lat, p.lng], {
           radius: 5,
-          color: '#15803d',
-          fillColor: '#22c55e',
+          color: mapColor('map-pod-fill'),
+          fillColor: mapColor('map-pod'),
           fillOpacity: 1,
           weight: 1,
         })
@@ -201,7 +230,7 @@ export default function CloudTracking(): React.JSX.Element {
       const gapMs = new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
       const lost = gapMs > GAP_MS
       const line = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
-        color: lost ? '#9aa0a6' : '#2563eb',
+        color: lost ? mapColor('map-stale') : mapColor('map-track'),
         weight: lost ? 2 : 3,
         opacity: lost ? 0.55 : 0.65,
         dashArray: lost ? '6 8' : undefined,
@@ -220,6 +249,7 @@ export default function CloudTracking(): React.JSX.Element {
   }, [trips, track, selected, mapReady])
 
   const withoutSignal = useMemo(() => trips.filter((t) => !t.last_seen).length, [trips])
+  const selectedTrip = trips.find((t) => t.trip_id === selected) ?? null
 
   if (!can('dispatch.view') && !can('myjobs.view')) {
     return <ErrorBox message="ไม่มีสิทธิ์ดูหน้าติดตามรถ" />
@@ -249,10 +279,16 @@ export default function CloudTracking(): React.JSX.Element {
           desc="เมื่อฝ่ายวางแผนสั่งงานและคนขับกดรับ รถจะขึ้นบนแผนที่นี้"
         />
       ) : (
-        <div className="track-wrap">
-          <div ref={holder} className="track-map" />
+        <div className="ops-map-wrap ops-dark">
+          <div ref={holder} className="ops-map" />
 
-          <ul className="track-list">
+          {/* รายการรถลอยทับมุมซ้าย — แผนที่ได้พื้นที่ทั้งกรอบ
+              บนจอแคบ ops.css ดันแผงนี้ลงไปอยู่ใต้แผนที่แทน */}
+          <div className="ops-map-panel">
+            <div className="ops-map-panel-head">
+              <IconTruck size={15} /> รถที่กำลังวิ่ง {trips.length} คัน
+            </div>
+            <ul className="track-list ops-map-list">
             {trips.map((t) => (
               <li key={t.trip_id}>
                 <button
@@ -276,7 +312,8 @@ export default function CloudTracking(): React.JSX.Element {
                 </button>
               </li>
             ))}
-          </ul>
+            </ul>
+          </div>
         </div>
       )}
 
@@ -292,9 +329,106 @@ export default function CloudTracking(): React.JSX.Element {
         </p>
       )}
 
-      <Button variant="ghost" onClick={() => void load()} style={{ marginTop: 12 }}>
-        โหลดตำแหน่งใหม่
-      </Button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <Button variant="ghost" onClick={() => void load()}>
+          โหลดตำแหน่งใหม่
+        </Button>
+        {/* ปุ่มแยกต่างหาก ไม่ใช่ปุ่มซ้อนในรายการรถ — รายการนั้นเป็นปุ่มอยู่แล้วทั้งแถว
+            ใส่ปุ่มไว้ข้างในเป็นปุ่มซ้อนปุ่ม ซึ่ง HTML ไม่ยอมรับตั้งแต่แรก */}
+        {selectedTrip && (
+          <Button variant="outline" onClick={() => setDetailOpen(true)}>
+            ไทม์ไลน์ของ {selectedTrip.plate_no}
+          </Button>
+        )}
+      </div>
+
+      <Drawer
+        open={detailOpen && selectedTrip != null}
+        onClose={() => setDetailOpen(false)}
+        title={selectedTrip?.plate_no ?? ''}
+        subtitle={`${selectedTrip?.trip_no ?? ''} · ${selectedTrip?.drivers ?? 'ไม่ระบุคนขับ'}`}
+      >
+        {selectedTrip && (
+          <>
+            <div className="ops-drawer-section">
+              <h3>สรุป</h3>
+              <dl className="ops-kv">
+                <dt>ส่งแล้ว</dt>
+                <dd>{selectedTrip.stops_done}/{selectedTrip.stops_total} จุด</dd>
+                <dt>ออกรถ</dt>
+                <dd>{selectedTrip.departed_at ? fmtDateTime(selectedTrip.departed_at) : 'ยังไม่ออก'}</dd>
+                <dt>เห็นล่าสุด</dt>
+                <dd>
+                  {selectedTrip.last_seen
+                    ? `${minutesAgo(selectedTrip.last_seen.recorded_at)} นาทีที่แล้ว`
+                    : 'ยังไม่ส่งตำแหน่งเข้ามา'}
+                </dd>
+                <dt>จุดที่บันทึกไว้</dt>
+                <dd>{track.length} จุด</dd>
+              </dl>
+            </div>
+
+            <div className="ops-drawer-section">
+              <h3>ลำดับเหตุการณ์</h3>
+              <Timeline steps={timelineOf(selectedTrip)} />
+            </div>
+          </>
+        )}
+      </Drawer>
     </>
   )
+}
+
+/** แปลงเที่ยวหนึ่งใบเป็นลำดับเหตุการณ์
+ *
+ *  ใช้เฉพาะเวลาที่เกิดขึ้นจริง ไม่เติมเวลาที่คาดว่าจะถึงเข้าไปปน — เวลาจริงกับเวลาที่เดา
+ *  วางอยู่ในคอลัมน์เดียวกันแล้วคนอ่านแยกไม่ออกว่าอันไหนเกิดแล้ว
+ */
+function timelineOf(t: TrackedTrip): TimelineStep[] {
+  const steps: TimelineStep[] = [
+    {
+      key: 'depart',
+      title: 'ออกจากคลัง',
+      time: t.departed_at ? fmtDateTime(t.departed_at) : null,
+      state: t.departed_at ? 'done' : 'pending',
+    },
+  ]
+
+  /* หมุดหลักฐานเรียงตามเวลาที่เก็บ ไม่ใช่ตามลำดับใบในเที่ยว — ลำดับที่คนขับวิ่งจริง
+     ต่างจากลำดับที่วางแผนไว้เกือบทุกวัน และอันที่ต้องตอบลูกค้าคือลำดับที่วิ่งจริง */
+  const pods = [...t.pod_points].sort(
+    (a, b) => new Date(a.collected_at).getTime() - new Date(b.collected_at).getTime(),
+  )
+  pods.forEach((p, i) => {
+    steps.push({
+      key: `pod${p.order_id}`,
+      title: `จุดที่ ${i + 1} — เก็บหลักฐานแล้ว`,
+      time: fmtDateTime(p.collected_at),
+      state: 'done',
+    })
+  })
+
+  /* จุดที่คนขับกดว่าส่งแล้วแต่ยังไม่มีหลักฐานขึ้นระบบ — ต่างกันจริง ไม่ใช่เรื่องเดียวกัน */
+  const missing = t.stops_done - pods.length
+  if (missing > 0) {
+    steps.push({
+      key: 'missing',
+      title: `${missing} จุดส่งแล้วแต่ยังไม่มีหลักฐาน`,
+      note: 'ลายเซ็นหรือรูปยังไม่ถูกอัปโหลด',
+      state: 'danger',
+    })
+  }
+
+  const left = t.stops_total - t.stops_done
+  steps.push(
+    left > 0
+      ? { key: 'left', title: `เหลืออีก ${left} จุด`, state: 'current' }
+      : { key: 'back', title: 'ส่งครบทุกจุดแล้ว', state: t.status === 'completed' ? 'done' : 'current' },
+  )
+
+  if (t.status === 'completed') {
+    steps.push({ key: 'done', title: 'ปิดเที่ยวแล้ว', state: 'done' })
+  }
+
+  return steps
 }

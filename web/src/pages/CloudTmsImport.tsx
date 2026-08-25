@@ -175,7 +175,7 @@ export default function CloudTmsImport(): React.JSX.Element {
               <div style={{ fontWeight: 600, fontSize: 13.5 }}>
                 ร้านที่ยังไม่จับคู่ ({preview.unmapped_dealers.length}) — ใบของร้านเหล่านี้จะถูกข้าม
               </div>
-              <table className="table">
+              <table className="table ops-table">
                 <thead>
                   <tr>
                     <th>ร้านใน TMS</th>

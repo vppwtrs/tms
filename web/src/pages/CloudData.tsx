@@ -50,7 +50,7 @@ export default function CloudData(): React.JSX.Element {
         <Button variant="outline" loading={datasetBusy} onClick={() => { if (window.confirm('ล้างเฉพาะชุดข้อมูลทดสอบที่ระบบสร้างไว้ใช่ไหม')) void datasetAction('clear') }}>ล้างชุดข้อมูลทดสอบ</Button>
       </div>
     </div>
-    {!data ? <TableSkeleton rows={8} cols={3} /> : <div className="card"><div className="table-wrap"><table className="table">
+    {!data ? <TableSkeleton rows={8} cols={3} /> : <div className="card"><div className="table-wrap"><table className="table ops-table">
       <thead><tr><th>ชุดข้อมูล</th><th>ตาราง</th><th className="num">จำนวนรายการ</th></tr></thead>
       <tbody>{data.map((row) => <tr key={row.table}><td><b>{row.label}</b></td><td><code>{row.table}</code></td><td className="num">{row.count.toLocaleString('th-TH')}</td></tr>)}</tbody>
     </table></div></div>}

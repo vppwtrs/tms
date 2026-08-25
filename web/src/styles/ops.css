@@ -1,0 +1,864 @@
+/* ops.css — ชั้นการนำเสนอของจอออฟฟิศ
+ *
+ * โหลดต่อจาก components.css จึงทับได้ทุกอย่าง แต่ตั้งใจไม่ทับ:
+ * คลาสในนี้ขึ้นต้น .ops- ทั้งหมด ของเดิม (.card .table .btn .badge .modal-*)
+ * ยังทำงานเหมือนเดิมทุกที่ที่ยังเรียกอยู่ ถอดไฟล์นี้ออกแล้วเว็บกลับเป็นของเก่า
+ *
+ * ข้อยกเว้นเดียวคือ .ops-table ซึ่งเกาะบน .table เดิม — เป็นผิวเสริม
+ * ไม่ใช่ตารางคนละตัว ตารางที่ยังไม่ได้ใส่คลาสนี้จึงหน้าตาไม่เปลี่ยน
+ *
+ * จอคนขับ (.app-shell.is-driver และคลาส .job-* .stop-* .pod-*) ไม่มีอะไรในนี้แตะ
+ */
+
+/* ============================================================
+   แผงข้อมูล — หน่วยพื้นฐานของทุกหน้า
+   แน่นกว่า .card เพราะงานของมันคือใส่ตารางยาว ๆ ไม่ใช่ข้อความสั้น ๆ
+   ============================================================ */
+.ops-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--sh-1);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ops-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 14px var(--panel-pad);
+  background: var(--panel-head-bg);
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+
+.ops-panel-title {
+  font-family: var(--font-display);
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ops-panel-title svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* จำนวนแถวข้างชื่อแผง — บอกขนาดของกองงานโดยไม่ต้องเลื่อนดู */
+.ops-panel-count {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--bg-deep);
+  border-radius: var(--r-full);
+  padding: 2px 9px;
+  flex-shrink: 0;
+}
+
+.ops-panel-body {
+  padding: var(--panel-pad);
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================================================
+   แถบตัวเลขประจำวัน
+   ============================================================ */
+.ops-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.ops-kpi {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--sh-1);
+  padding: 16px var(--panel-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* เส้นสีบาง ๆ ด้านบน บอกว่าตัวเลขนี้เป็นเรื่องดีหรือเรื่องต้องรีบ */
+.ops-kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--accent);
+}
+.ops-kpi.is-warn::before { background: var(--warning); }
+.ops-kpi.is-danger::before { background: var(--danger); }
+.ops-kpi.is-success::before { background: var(--success); }
+
+.ops-kpi-label {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+.ops-kpi-value {
+  font-family: var(--font-display);
+  font-size: var(--font-2xl);
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-kpi-unit {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.ops-kpi-foot {
+  font-size: var(--font-xs);
+  color: var(--faint);
+}
+.ops-kpi-foot.is-warn { color: var(--warning); font-weight: 700; }
+.ops-kpi-foot.is-danger { color: var(--danger); font-weight: 700; }
+
+/* ============================================================
+   สรุปประจำวัน — ต่อยอดคำศัพท์ .ai-card/.ai-item ที่มีอยู่แล้ว
+   ตรงนี้คุมแค่กรอบนอก รายการข้างในยังใช้ .ai-item ของเดิม
+   ============================================================ */
+.ops-insights {
+  margin-bottom: var(--space-5);
+}
+
+.ops-insights .ops-panel-body {
+  padding: 6px var(--panel-pad) var(--panel-pad);
+}
+
+.ops-insight-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 2px;
+  color: var(--success);
+  font-weight: 700;
+  font-size: var(--font-sm);
+}
+
+/* ============================================================
+   กระดานสามคอลัมน์ของหน้าแผนงาน
+   ตรงกลางกว้างสุดเพราะเป็นที่ที่คนวางแผนใช้เวลาจริง
+   ============================================================ */
+.ops-board {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.35fr) minmax(0, 0.75fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* หัวคอลัมน์ของกระดาน — เดิมเป็น inline style ซ้ำสามที่ในหน้าเดียว */
+.ops-col-title {
+  font-family: var(--font-display);
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ops-col-title svg {
+  flex-shrink: 0;
+}
+
+/* รายการรถ/คนขับที่ว่าง — เตี้ยและแน่น เป็นข้อมูลอ้างอิง ไม่ใช่ของที่ต้องกด */
+.ops-res-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.ops-res-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--font-sm);
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ops-res-list li:last-child {
+  border-bottom: 0;
+}
+.ops-res-name {
+  font-weight: 650;
+  color: var(--ink);
+}
+.ops-res-meta {
+  font-size: var(--font-xs);
+  color: var(--muted);
+  margin-left: auto;
+  text-align: right;
+}
+.ops-res-empty {
+  font-size: var(--font-sm);
+  color: var(--muted);
+  padding: 6px 2px;
+}
+
+/* ============================================================
+   ตารางแน่น — ผิวเสริมบน .table เดิม
+   ============================================================ */
+.ops-table {
+  font-size: var(--font-sm);
+}
+
+/* ไม่ใช้ position: sticky กับหัวตาราง — .table-wrap ตั้ง overflow-x ไว้ ซึ่งทำให้
+   overflow-y กลายเป็น auto ตามไปด้วย กล่องนั้นจึงเป็นตัวเลื่อนที่ไม่มีอะไรให้เลื่อน
+   แล้ว sticky ก็ไม่ทำงานสักครั้ง เขียนไว้ก็ได้แค่โค้ดที่ดูเหมือนทำอะไรสักอย่าง */
+.ops-table thead th {
+  background: var(--panel-head-bg);
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ops-table tbody td {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+/* ตารางที่ยืนอยู่กลางหน้าโดยไม่มีการ์ดห่อ ได้กรอบแผงให้ในตัว
+   เดิมมันลอยอยู่บนพื้นหน้าเฉย ๆ จนแยกไม่ออกว่าตารางจบตรงไหนและหน้าเริ่มตรงไหน */
+.table-wrap:has(> .ops-table) {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--sh-1);
+}
+
+/* อยู่ในการ์ดอยู่แล้วก็ไม่ต้องมีกรอบซ้อนกรอบ */
+.card .table-wrap:has(> .ops-table) {
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+/* แถวสลับสีอ่อนมาก — ช่วยไล่สายตาข้ามคอลัมน์กว้าง ๆ โดยไม่กลายเป็นลายทาง */
+.ops-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-deep) 45%, transparent);
+}
+
+/* แถวที่กดเปิดรายละเอียดได้ ต้องบอกด้วยเคอร์เซอร์ ไม่ใช่ให้เดา */
+.ops-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+.ops-table tbody tr.is-clickable:hover {
+  background: var(--table-row-hover);
+}
+.ops-table tbody tr.is-selected {
+  background: var(--accent-050);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* ============================================================
+   Drawer — แผงรายละเอียดที่เลื่อนมาจากขวา
+   ใช้แทน modal เฉพาะกรณี "ดูรายละเอียดของแถวที่กด" เพราะยังต้องเห็น
+   รายการที่ค้างอยู่ข้างหลัง modal เดิมทุกตัวที่เป็นฟอร์มยังเป็น modal
+   ============================================================ */
+.ops-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 18, 46, 0.42);
+  backdrop-filter: blur(2px);
+  z-index: 60;
+  animation: opsFade var(--motion-base) var(--ease-out);
+}
+
+.ops-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(520px, 100vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--sh-3);
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  animation: opsSlideIn var(--motion-enter) var(--ease-emphasized);
+}
+
+@keyframes opsFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes opsSlideIn {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ops-drawer,
+  .ops-drawer-scrim {
+    animation: none;
+  }
+}
+
+/* หัว drawer พื้นเข้ม — แยกชั้นให้ชัดว่านี่ทับอยู่บนหน้าเดิม ไม่ใช่ส่วนหนึ่งของมัน */
+.ops-drawer-head {
+  background: var(--ops-dark);
+  color: var(--ops-dark-ink);
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.ops-drawer-title {
+  font-family: var(--font-display);
+  font-size: var(--font-lg);
+  font-weight: 800;
+  margin: 0;
+  color: var(--ops-dark-ink);
+  min-width: 0;
+}
+
+.ops-drawer-sub {
+  font-size: var(--font-xs);
+  color: var(--ops-dark-muted);
+  margin-top: 3px;
+}
+
+.ops-drawer-close {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--ops-dark-line);
+  color: var(--ops-dark-ink);
+  border-radius: var(--r-sm);
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--motion-fast) var(--ease);
+}
+.ops-drawer-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ops-drawer-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  overscroll-behavior: contain;
+}
+
+.ops-drawer-foot {
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+.ops-drawer-section {
+  margin-bottom: var(--space-5);
+}
+.ops-drawer-section:last-child {
+  margin-bottom: 0;
+}
+.ops-drawer-section h3 {
+  font-size: var(--font-xs);
+  font-weight: 800;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+/* คู่ ป้ายกำกับ/ค่า ใน drawer */
+.ops-kv {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 6px var(--space-3);
+  font-size: var(--font-sm);
+}
+.ops-kv dt {
+  color: var(--muted);
+}
+.ops-kv dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ============================================================
+   ไทม์ไลน์ — ลำดับเหตุการณ์ของเที่ยวหรือของออเดอร์
+   ============================================================ */
+.ops-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 4px;
+}
+
+.ops-tl-item {
+  position: relative;
+  padding: 0 0 18px 24px;
+  border-left: 2px solid var(--line);
+}
+.ops-tl-item:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.ops-tl-dot {
+  position: absolute;
+  left: -7px;
+  top: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--r-full);
+  background: var(--surface);
+  border: 2px solid var(--line-strong);
+}
+.ops-tl-item.is-done .ops-tl-dot { background: var(--success); border-color: var(--success); }
+.ops-tl-item.is-current .ops-tl-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-050); }
+.ops-tl-item.is-danger .ops-tl-dot { background: var(--danger); border-color: var(--danger); }
+
+.ops-tl-title {
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--ink);
+}
+.ops-tl-item.is-pending .ops-tl-title {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.ops-tl-time {
+  font-size: var(--font-xs);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.ops-tl-note {
+  font-size: var(--font-xs);
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ============================================================
+   สโคปพื้นเข้ม — แผนที่และแผงล็อกอิน
+   นิยามตัวแปรทับภายในตัวเอง สีจึงไม่รั่วออกไปนอกบล็อก
+   และของข้างในที่ใช้ .btn/.badge เดิมได้สีถูกโดยไม่ต้องเขียนซ้ำ
+   ============================================================ */
+.ops-dark {
+  --surface: var(--ops-dark-2);
+  --surface-2: var(--ops-dark-3);
+  --bg: var(--ops-dark);
+  --bg-deep: var(--ops-dark);
+  /* ชื่อดิบของ Layer 1 ด้วย — คลาสเก่าบางตัว (เช่น .track-item:hover) อ้าง --paper-deep
+     ตรง ๆ ไม่ผ่านชื่อ semantic ลืมตัวนี้แล้วจะได้พื้นขาวโพลนกลางแผงเข้ม */
+  --paper: var(--ops-dark);
+  --paper-deep: var(--ops-dark-3);
+  --surface-3: var(--ops-dark-3);
+  --ink: var(--ops-dark-ink);
+  --ink-2: var(--ops-dark-ink);
+  --muted: var(--ops-dark-muted);
+  --faint: var(--ops-dark-muted);
+  --line: var(--ops-dark-line);
+  --line-soft: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --card-bg: var(--ops-dark-2);
+  --card-border: var(--ops-dark-line);
+  --panel-bg: var(--ops-dark-2);
+  --panel-border: var(--ops-dark-line);
+  --panel-head-bg: var(--ops-dark-3);
+  --link: var(--violet-300);
+  --input-border: rgba(255, 255, 255, 0.2);
+  color-scheme: dark;
+  background: var(--ops-dark);
+  color: var(--ops-dark-ink);
+}
+
+/* ============================================================
+   แผนที่ติดตามรถ
+   ============================================================ */
+.ops-map-wrap {
+  position: relative;
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  min-height: 420px;
+  height: calc(100vh - var(--topbar-height) - 220px);
+}
+
+.ops-map {
+  position: absolute;
+  inset: 0;
+}
+
+/* ทำให้ tile ของ OSM เข้ากับพื้นเข้มโดยไม่ต้องซื้อชุด tile กลางคืน
+   invert+hue-rotate เป็นสูตรมาตรฐานของ Leaflet: ถนนกลายเป็นเส้นสว่าง
+   บนพื้นเข้ม ตัวหนังสือบนแผนที่ยังอ่านได้ */
+.ops-map-wrap .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(185deg) brightness(0.92) contrast(0.9) saturate(0.7);
+}
+
+/* หมุดและเส้นทางไม่ควรโดน filter ด้วย ไม่งั้นสีที่ตั้งใจเลือกมาจะกลับด้าน
+   Leaflet วางของพวกนี้คนละ pane กับ tile จึงยกเว้นได้ตรง ๆ */
+.ops-map-wrap .leaflet-overlay-pane,
+.ops-map-wrap .leaflet-marker-pane,
+.ops-map-wrap .leaflet-tooltip-pane,
+.ops-map-wrap .leaflet-popup-pane {
+  filter: none;
+}
+
+.ops-map-wrap .leaflet-container {
+  background: var(--ops-dark);
+  font-family: var(--font-sans);
+}
+
+.ops-map-wrap .leaflet-control-layers,
+.ops-map-wrap .leaflet-bar a {
+  background: var(--ops-dark-2);
+  color: var(--ops-dark-ink);
+  border-color: var(--ops-dark-line);
+}
+.ops-map-wrap .leaflet-bar a:hover {
+  background: var(--ops-dark-3);
+  color: var(--ops-dark-ink);
+}
+.ops-map-wrap .leaflet-control-attribution {
+  background: rgba(23, 19, 49, 0.75);
+  color: var(--ops-dark-muted);
+}
+.ops-map-wrap .leaflet-control-attribution a {
+  color: var(--violet-300);
+}
+
+/* รายการรถลอยทับมุมแผนที่ — แผนที่ได้พื้นที่เต็ม รายการยังกดได้ */
+.ops-map-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  width: 300px;
+  z-index: 500; /* เหนือ pane ของ Leaflet แต่ต่ำกว่า drawer (60) ซึ่งเป็น fixed คนละ stacking context */
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--ops-dark-2) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--ops-dark-line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.ops-map-panel-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ops-dark-line);
+  font-weight: 800;
+  font-size: var(--font-sm);
+  color: var(--ops-dark-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ops-map-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px;
+  overscroll-behavior: contain;
+}
+
+/* ============================================================
+   หัวแถบบน — ช่องค้นหารวม
+   ============================================================ */
+.ops-search {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+  min-width: 0;
+}
+
+.ops-search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px 0 36px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--input-border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--font-sm);
+}
+.ops-search input:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.ops-search-ic {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+  display: flex;
+}
+
+/* ผลการค้นหาแบบหล่นลงมา */
+.ops-search-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--sh-3);
+  z-index: 45;
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.ops-search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  background: none;
+  border-radius: var(--r-8);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--font-sm);
+  color: var(--ink);
+}
+.ops-search-item:hover,
+.ops-search-item:focus-visible {
+  background: var(--accent-050);
+}
+.ops-search-kind {
+  font-size: var(--font-xs);
+  color: var(--muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.ops-search-empty {
+  padding: 14px 10px;
+  color: var(--muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+/* ============================================================
+   หน้าล็อกอินสองคอลัมน์
+   ============================================================ */
+.ops-login {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.ops-login-art {
+  padding: 56px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+/* แสงจาง ๆ สองจุด ให้พื้นเข้มไม่แบนเป็นแผ่นเดียว */
+.ops-login-art::before {
+  content: '';
+  position: absolute;
+  inset: -20% 30% 40% -20%;
+  background: radial-gradient(circle, rgba(138, 107, 209, 0.4), transparent 62%);
+  pointer-events: none;
+}
+.ops-login-art::after {
+  content: '';
+  position: absolute;
+  inset: 50% -25% -30% 35%;
+  background: radial-gradient(circle, rgba(232, 130, 159, 0.26), transparent 62%);
+  pointer-events: none;
+}
+
+.ops-login-art > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ops-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--font-lg);
+  color: var(--ops-dark-ink);
+}
+
+.ops-login-lead h2 {
+  font-family: var(--font-display);
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 14px;
+  color: var(--ops-dark-ink);
+}
+
+.ops-login-lead p {
+  margin: 0;
+  color: var(--ops-dark-muted);
+  font-size: var(--font-md);
+  max-width: 44ch;
+  line-height: 1.7;
+}
+
+.ops-login-points {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ops-login-points li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ops-dark-ink);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.ops-login-points svg {
+  color: var(--violet-300);
+  flex-shrink: 0;
+}
+
+.ops-login-foot {
+  font-size: var(--font-xs);
+  color: var(--ops-dark-muted);
+}
+
+.ops-login-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px var(--space-6);
+  background: var(--bg);
+}
+
+/* ============================================================
+   จอแคบ — ยึดบันไดเดิม 1100 / 900 / 720 / 560
+   ============================================================ */
+@media (max-width: 1240px) {
+  .ops-board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  }
+  /* คอลัมน์ทรัพยากรลงไปอยู่เต็มแถวล่าง ยังเห็นครบ ไม่ได้ถูกซ่อน */
+  .ops-board > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1100px) {
+  .ops-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ops-board > :nth-child(3) {
+    grid-column: auto;
+  }
+  .ops-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .ops-login {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* แผงภาพยุบเหลือหัวเรื่องสั้น ๆ ไม่กินทั้งหน้าจอก่อนถึงช่องกรอก */
+  .ops-login-art {
+    padding: 28px var(--space-5);
+    gap: 18px;
+  }
+  .ops-login-lead h2 {
+    font-size: var(--font-xl);
+  }
+  .ops-login-lead p,
+  .ops-login-points,
+  .ops-login-foot {
+    display: none;
+  }
+
+  .ops-map-wrap {
+    height: 420px;
+  }
+  /* รายการรถออกจากการลอยทับ มาอยู่ใต้แผนที่ — บนจอแคบแผงลอยกินแผนที่เกินครึ่ง */
+  .ops-map-panel {
+    position: static;
+    width: auto;
+    margin-top: var(--space-4);
+    max-height: 380px;
+    background: var(--ops-dark-2);
+  }
+
+  .ops-search {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .ops-kv {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px var(--space-3);
+  }
+  .ops-kv dd {
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .ops-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ops-drawer {
+    width: 100vw;
+  }
+}

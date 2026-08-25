@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { Button, Field, Input } from '../components/ui'
+import { IconPin, IconRoute, IconShield } from '../components/icons'
 
 /**
  * หน้าเข้าสู่ระบบช่องเดียว
@@ -98,9 +99,26 @@ export default function CloudLogin(): React.JSX.Element {
   }
 
   return (
-    <div className="login-page">
-      {/* แสงเขียวหลังโลโก้ — ตกแต่งล้วน อยู่หลังการ์ดและไม่รับการกด */}
-      <span className="login-orb" aria-hidden="true" />
+    <div className="ops-login">
+      {/* แผงซ้าย — ตกแต่งล้วน ไม่มีของที่ต้องกด บนจอแคบเหลือแค่หัวเรื่อง (ops.css) */}
+      <aside className="ops-login-art ops-dark">
+        <div className="ops-login-brand">
+          <img src={`${import.meta.env.BASE_URL}login-logo.png`} alt="" width={34} height={34} style={{ borderRadius: 10, objectFit: 'cover' }} />
+          ทรานส์พลัส TMS
+        </div>
+        <div className="ops-login-lead">
+          <h2>ศูนย์ควบคุมงานขนส่ง<br />ในหน้าจอเดียว</h2>
+          <p>วางแผนเที่ยว จ่ายงานให้คนขับ ติดตามรถตามเวลาจริง และเก็บหลักฐานการส่งครบทุกจุด</p>
+          <ul className="ops-login-points">
+            <li><IconRoute size={16} /> วางแผนและจ่ายงานจากกระดานเดียว</li>
+            <li><IconPin size={16} /> ติดตามตำแหน่งรถระหว่างวิ่ง</li>
+            <li><IconShield size={16} /> หลักฐานการส่งพร้อมลายเซ็นและรูป</li>
+          </ul>
+        </div>
+        <div className="ops-login-foot">ทรานส์พลัส TMS · คลาวด์</div>
+      </aside>
+
+      <div className="ops-login-form">
       <form className="login-card" onSubmit={submit}>
         <div className="logo-big">
           {/* โลโก้จริงของแอป — รถบรรทุกขนส่ง (วงกลม ขอบขาวทำใน CSS) */}
@@ -146,6 +164,7 @@ export default function CloudLogin(): React.JSX.Element {
           <b>ไม่ใช่รหัสของ TMS</b>
         </div>
       </form>
+      </div>
     </div>
   )
 }

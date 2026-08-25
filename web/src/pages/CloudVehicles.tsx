@@ -3,6 +3,7 @@ import {
   listVehicles, createVehicle, updateVehicle, setVehicleStatus, removeVehicle,
 } from '../api/vehicles'
 import type { Paged } from '../api/customers'
+import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import type { VehicleRow } from '../types/database'
@@ -50,6 +51,12 @@ export default function CloudVehicles(): React.JSX.Element {
   const [page, setPage] = useState(1)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
+
+  /* คำค้นที่ส่งมาจากช่องค้นหารวมบนแถบบน */
+  useUrlSearchTerm((term) => {
+    setQ(term)
+    setPage(1)
+  })
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<VehicleRow | null>(null)
@@ -185,7 +192,7 @@ export default function CloudVehicles(): React.JSX.Element {
         </div>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table ops-table">
             <thead>
               <tr>
                 <th>ทะเบียน</th>
