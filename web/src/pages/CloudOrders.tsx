@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow } from '../api/orders'
 import { forceDeleteTrip } from '../api/trips'
+import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
 import { useRealtime } from '../hooks/useRealtime'
 import { PodViewModal } from '../components/PodViewModal'
 import { listAllCustomers } from '../api/customers'
@@ -211,6 +212,15 @@ export default function CloudOrders(): React.JSX.Element {
   const [from, setFrom] = useState(todayIso())
   const [to, setTo] = useState(todayIso())
   const [driverId, setDriverId] = useState('')
+
+  /* คำค้นที่ส่งมาจากช่องค้นหารวมบนแถบบน — ต้องล้างช่วงวันที่ด้วย
+     ไม่งั้นใบเก่าที่คนกำลังตามหาจะถูกตัวกรอง "วันนี้" กรองทิ้งแล้วขึ้นว่าไม่พบ */
+  useUrlSearchTerm((term) => {
+    setQ(term)
+    setFrom('')
+    setTo('')
+    setPage(1)
+  })
 
   const [customers, setCustomers] = useState<CustomerRow[]>([])
   const [drivers, setDrivers] = useState<DriverRow[]>([])

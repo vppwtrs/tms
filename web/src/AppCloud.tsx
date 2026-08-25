@@ -71,9 +71,14 @@ function Protected(): React.JSX.Element {
 
 /** หน้าแรกขึ้นกับสิทธิ์ — คนขับไม่มีสิทธิ์ฝั่งออฟฟิศ พาไปหน้าออฟฟิศคือส่งไปเจอหน้าว่าง */
 function Home(): React.JSX.Element {
-  const { can } = useCloudAuth()
+  const { can, user } = useCloudAuth()
+  /* คนขับเข้าหน้าออฟฟิศไปก็เจอหน้าว่าง พาไปงานของเขาเลย
+     ตัดสินด้วย role ไม่ใช่ myjobs.view — ผู้ดูแลระบบก็มีสิทธิ์นั้นติดตัวมาด้วย
+     เงื่อนไขเดิมจึงส่งคนออฟฟิศทุกคนที่มีสิทธิ์นั้นข้ามหน้าแรกไปที่จอคนขับ
+     (เกณฑ์เดียวกับที่ CloudLayout ใช้เลือกโครงหน้าจอ) */
+  if (user?.role === 'driver') return <Navigate to="/my-jobs" replace />
+  if (can('customers.view') || can('orders.view') || can('orders.write') || can('dispatch.view')) return <CloudHome />
   if (can('myjobs.view')) return <Navigate to="/my-jobs" replace />
-  if (can('customers.view') || can('orders.write') || can('dispatch.view')) return <CloudHome />
   if (can('users.manage')) return <Navigate to="/users" replace />
   /* ไม่เข้าเงื่อนไขไหนเลย = ล็อกอินได้แต่ไม่มีสิทธิ์เปิดหน้าไหนได้เลย
      ห้ามเด้งไป /login เด็ดขาด — PublicOnly จะเห็นว่ามี user แล้วเด้งกลับมาที่นี่ วนไม่จบ

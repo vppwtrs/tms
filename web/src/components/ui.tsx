@@ -276,7 +276,12 @@ export function Pagination({ page, totalPages, total, onChange }: { page: number
 
 /* ---------- StatCard ---------- */
 export function StatCard({ label, value, symbol, icon, tone, foot, trend }: { label: string; value: number | string; symbol?: string; icon: ReactNode; tone: string; foot?: ReactNode; trend?: { dir: 'up' | 'down' | 'flat'; text: string } }) {
-  const shown = typeof value === 'number' ? useCountUp(value) : value
+  /* เรียก hook ไม่มีเงื่อนไขเสมอ แล้วค่อยเลือกว่าจะใช้ผลของมันไหม
+     ของเดิมเขียน `typeof value === 'number' ? useCountUp(value) : value` ซึ่งแปลว่า
+     การ์ดใบเดียวกันเรียก hook บ้างไม่เรียกบ้างตามชนิดของค่าที่ส่งเข้ามา
+     วันที่ค่าเปลี่ยนจากตัวเลขเป็นข้อความ (เช่น "—" ตอนโหลดไม่ได้) React จะพังทั้งหน้า */
+  const counted = useCountUp(typeof value === 'number' ? value : 0)
+  const shown = typeof value === 'number' ? counted : value
   const arrow = trend ? (trend.dir === 'up' ? '▲' : trend.dir === 'down' ? '▼' : '•') : ''
   const trendColor = trend ? (trend.dir === 'up' ? 'var(--success)' : trend.dir === 'down' ? 'var(--danger)' : 'var(--muted)') : undefined
   return (

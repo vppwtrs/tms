@@ -246,9 +246,9 @@ export default function CloudDispatch(): React.JSX.Element {
       {loading ? (
         <TableSkeleton rows={4} cols={4} />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+        <div className="ops-board">
           <div>
-            <h2 style={{ fontSize: 17, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 className="ops-col-title">
               <IconRoute size={18} style={{ color: 'var(--info)' }} />
               รอคนขับรับงาน
               <Badge label={fmtNum(waiting.length)} tone="planned" />
@@ -278,7 +278,7 @@ export default function CloudDispatch(): React.JSX.Element {
           </div>
 
           <div>
-            <h2 style={{ fontSize: 17, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 className="ops-col-title">
               <IconTruck size={18} style={{ color: 'var(--warning)' }} />
               คนขับรับแล้ว
               <Badge label={fmtNum(running.length)} tone="in_progress" dot />
@@ -309,9 +309,52 @@ export default function CloudDispatch(): React.JSX.Element {
             ))}
           </div>
 
+          {/* ทรัพยากรที่เหลือ — คำถามที่ถูกถามทุกครั้งก่อนสร้างเที่ยวคือ "ยังมีรถว่างไหม"
+              เดิมตอบได้ทางเดียวคือเปิดหน้าต่างสร้างเที่ยวแล้วดูในรายการเลือก
+              ข้อมูลชุดนี้โหลดมาอยู่แล้วตั้งแต่แรกสำหรับหน้าต่างนั้น ตรงนี้แค่เอามาแสดง */}
+          <aside className="ops-panel">
+            <div className="ops-panel-head">
+              <h2 className="ops-panel-title"><IconTruck size={16} /> รถว่าง</h2>
+              <span className="ops-panel-count">{fmtNum(vehicles.length)}</span>
+            </div>
+            <div className="ops-panel-body">
+              {vehicles.length === 0 ? (
+                <div className="ops-res-empty">ไม่มีรถว่างในตอนนี้</div>
+              ) : (
+                <ul className="ops-res-list">
+                  {vehicles.map((v) => (
+                    <li key={v.id}>
+                      <span className="ops-res-name">{v.plate_no}</span>
+                      <span className="ops-res-meta">{VEHICLE_TYPE_LABEL[v.vehicle_type]} · {fmtWeight(v.capacity_kg)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="ops-panel-head" style={{ borderTop: '1px solid var(--panel-border)' }}>
+              <h2 className="ops-panel-title"><IconUsers size={16} /> คนขับว่าง</h2>
+              <span className="ops-panel-count">{fmtNum(drivers.length)}</span>
+            </div>
+            <div className="ops-panel-body">
+              {drivers.length === 0 ? (
+                <div className="ops-res-empty">ไม่มีคนขับว่างในตอนนี้</div>
+              ) : (
+                <ul className="ops-res-list">
+                  {drivers.map((d) => (
+                    <li key={d.id}>
+                      <span className="ops-res-name">{d.name}</span>
+                      {/* คนขับที่ยังไม่มีบัญชี จ่ายงานไปก็เปิดแอปดูไม่ได้ — ต้องเห็นตั้งแต่ตอนเลือก */}
+                      <span className="ops-res-meta">{d.user_id ? d.phone ?? '—' : 'ยังไม่มีบัญชีเข้าแอป'}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </aside>
+
           {done.length > 0 && (
             <div style={{ gridColumn: '1 / -1' }}>
-              <h2 style={{ fontSize: 17, margin: '10px 0 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 className="ops-col-title" style={{ marginTop: 10 }}>
                 <IconCheck size={18} style={{ color: 'var(--success)' }} />
                 จบวันนี้
                 <Badge label={fmtNum(done.length)} tone="success" />

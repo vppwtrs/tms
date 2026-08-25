@@ -21,6 +21,10 @@ export interface TrackedTrip {
   trip_no: string
   status: string
   departed_at: string | null
+  /* ปิดงานที่ร้านสุดท้ายเมื่อไหร่ กับกลับถึงคลังเมื่อไหร่ — คนละเวลา
+     ทั้งคู่มีค่าเฉพาะเที่ยวที่จบแล้ว */
+  arrived_at: string | null
+  returned_at: string | null
   plate_no: string
   drivers: string | null
   last_seen: TrackPoint | null

@@ -127,7 +127,7 @@ export default function CloudUsage(): React.JSX.Element {
           <b>ตารางที่กินที่มากที่สุด</b>
           <div className="text-xs text-muted">รวมขนาด index แล้ว · จำนวนแถวเป็นค่าประมาณจากตัวนับของ Postgres</div>
         </div>
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table ops-table">
           <thead><tr><th>ตาราง</th><th className="num">ขนาด</th><th className="num">แถว (ประมาณ)</th></tr></thead>
           <tbody>{data.tables.map((t) => (
             <tr key={t.name}>
@@ -161,7 +161,7 @@ export default function CloudUsage(): React.JSX.Element {
           <b>ไฟล์ในถัง</b>
           <div className="text-xs text-muted">รูปหลักฐานการส่งมอบคือของที่โตเร็วที่สุดในระบบนี้</div>
         </div>
-        <div className="table-wrap"><table className="table">
+        <div className="table-wrap"><table className="table ops-table">
           <thead><tr><th>ถัง</th><th className="num">จำนวนไฟล์</th><th className="num">ขนาดรวม</th></tr></thead>
           <tbody>{data.buckets.length === 0 ? (
             <tr><td colSpan={3} className="text-muted">ยังไม่มีไฟล์</td></tr>

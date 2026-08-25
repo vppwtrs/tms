@@ -269,7 +269,7 @@ export default function CloudDrivers(): React.JSX.Element {
         </div>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table ops-table">
             <thead>
               <tr>
                 <th>ชื่อ</th>

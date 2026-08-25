@@ -5,6 +5,9 @@ import { ToastProvider } from './context/ToastContext'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
+/* ชั้นของจอออฟฟิศ — ต้องมาหลัง components.css เพราะ .ops-table เกาะทับ .table เดิม
+   ผิวของคนขับโหลดแยกตอนเข้าหน้าคนขับ (styles/driverSkin.ts) ไม่เกี่ยวกับไฟล์นี้ */
+import './styles/ops.css'
 import './styles/animations.css'
 
 /**

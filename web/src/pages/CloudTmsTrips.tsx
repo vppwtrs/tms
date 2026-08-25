@@ -403,7 +403,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
 
       {data && data.trips.length > 0 && (
         <div className="card" style={{ padding: 18, marginTop: 16 }}>
-          <table className="table">
+          <table className="table ops-table">
             <thead>
               <tr>
                 <th>เที่ยว</th>
