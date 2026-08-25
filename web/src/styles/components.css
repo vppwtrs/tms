@@ -1682,10 +1682,14 @@
   padding: 40px 38px;
   animation: scaleIn 0.3s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
+/* โลโก้เป็นรูป .png สี่เหลี่ยม กล่องนี้จึงต้องเป็นตัวตัดขอบให้ — ไม่มี overflow
+   มุมสี่เหลี่ยมของรูปจะโผล่พ้นมุมมนของกล่องออกมาให้เห็นเป็นสามเหลี่ยมขาวสี่มุม
+   (เดิมข้างในเป็น svg โปร่ง ซึ่งไม่มีมุมให้โผล่ ปัญหาจึงเพิ่งมีตอนเปลี่ยนเป็นรูป) */
 .login-card .logo-big {
   width: 60px;
   height: 60px;
-  border-radius: 18px;
+  border-radius: 50%;
+  overflow: hidden;
   background: var(--grad-brand);
   display: flex;
   align-items: center;
@@ -1693,6 +1697,7 @@
   margin: 0 auto 18px;
   box-shadow: var(--sh-brand);
 }
+.login-card .logo-big img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .login-card .logo-big svg {
   stroke: #fff;
 }
@@ -2667,6 +2672,9 @@
   flex-direction: column;
   gap: var(--space-4);
 }
+/* ตัวห่อของหัวเที่ยว — เดิมสามชิ้นนี้เป็นลูกของ .job-focus โดยตรงจึงได้ gap ของมัน
+   พอห่อรวมเพื่อทำกล่องเขียวในแอป เว็บปกติจะเสียระยะไป ใส่คืนตรงนี้ให้เท่าเดิม */
+.job-hero { display: flex; flex-direction: column; gap: var(--space-4); }
 .job-focus.status-planned { border-left-color: var(--info); }
 /* ขากลับคลังใช้สีเดียวกับกำลังวิ่ง — งานยังไม่จบ รถยังอยู่ข้างนอก */
 .job-focus.status-in_progress,

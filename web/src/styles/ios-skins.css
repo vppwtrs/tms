@@ -351,6 +351,6 @@
 
 /* เลขเที่ยวขึ้นสองที่ตอนกางออก — หัวการ์ดข้างนอกกับแถบข้างใน
    เก็บหัวการ์ดไว้เพราะปุ่มซ่อนจุดส่งอยู่ตรงนั้น แล้วตัดแถบข้างในทิ้ง */
-.is-native-app[data-skin='route'] .job-card.is-open .job-focus > .job-bar {
+.is-native-app[data-skin='route'] .job-card.is-open .job-focus .job-bar {
   display: none;
 }

@@ -21,7 +21,10 @@
   --ink: #12211b;
   --ink-2: #1c2d25;
   --muted: #5b6b63;
-  --faint: #6e7f77;
+  /* บอร์ดใช้ #6e7f77 ซึ่งวัดได้ 3.86:1 บนพื้นกระดาษ ไม่ผ่าน AA ที่ 11–12px
+     ซึ่งเป็นขนาดของข้อความรองเกือบทุกจุดในจอนี้ ขยับเข้มขึ้นน้อยที่สุด
+     เท่าที่จะผ่าน 4.5 (4.57 บนกระดาษ / 5.01 บนการ์ดขาว) โทนยังเป็นเทาจาง */
+  --faint: #63736b;
 
   --fleet: #0e7c4a;        /* accent/600 */
   --fleet-deep: #0e3b2c;   /* hero/900 ต้น */
@@ -188,13 +191,16 @@
   border-top: none; border-radius: 22px 22px 0 0;
   box-shadow: 0 -6px 24px rgba(18, 33, 27, 0.08); padding-top: var(--space-2);
 }
-.is-native-app .driver-tab { color: #93a39b; font-weight: 700; transition: color 0.2s ease; }
+/* แท็บที่ไม่ได้เปิดอยู่ บอร์ดใช้ #93a39b = 2.64:1 ซึ่งเป็นตัวหนังสือของเมนูหลัก
+   จางขนาดนั้นอ่านไม่ออกกลางแดด ใช้เทาเดียวกับข้อความรอง ยังต่างจากสีเขียวชัด */
+.is-native-app .driver-tab { color: var(--faint); font-weight: 700; transition: color 0.2s ease; }
 .is-native-app .driver-tab.is-active,
 .is-native-app .driver-tab[aria-current='page'] { color: var(--fleet); }
 .is-native-app[data-theme='dark'] .driver-tab.is-active,
 .is-native-app[data-theme='dark'] .driver-tab[aria-current='page'] { color: var(--fleet-bright); }
 .is-native-app .driver-tab-badge {
-  background: #e24a3b; color: #fff; box-shadow: 0 0 0 2px var(--surface);
+  /* แดงของบอร์ดให้ตัวเลขขาวบนมันแค่ 3.98:1 — เข้มขึ้นนิดเดียวได้ 5.23:1 */
+  background: #c8362a; color: #fff; box-shadow: 0 0 0 2px var(--surface);
   font-weight: 800; font-size: 10px; min-width: 17px; height: 17px; border-radius: 99px;
   display: inline-flex; align-items: center; justify-content: center; padding: 0 4px;
   position: absolute; top: -7px; left: calc(50% + 8px);
@@ -334,6 +340,13 @@
   --line: #2a352f; --line-soft: #202a25;
   --ink: #f0f4f2; --ink-2: #e2e9e6; --muted: #a8b8b0; --faint: #93a39b;
   --fleet: #2ea36c; --fleet-tint: #12301f; --fleet-ink: #7fd4ab;
+  /* โทนความหมายต้องย้ายมาด้วย ไม่งั้นกฎของชั้นเดิมที่อ้าง --info เช่น
+     .stop-item.is-open .stop-item-seq จะไปหยิบสีน้ำเงินของธีมมืดตัวกลาง
+     มาใช้ กลายเป็นหมุดสีน้ำเงินโผล่กลางจอที่เขียวทั้งใบ */
+  --info: #2ea36c; --info-bg: #12301f;
+  --ok: #2ea36c; --ok-bg: #12301f;
+  --warn: #d9a441; --warn-bg: #33270f;
+  --danger: #ff6b60; --danger-bg: #3a1c19;
   --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 6px 18px rgba(0,0,0,0.25);
   --shadow-float: 0 10px 24px rgba(0,0,0,0.4);
 }
@@ -591,3 +604,50 @@
 }
 .is-native-app .stop-lock-text { flex: 1 1 190px; min-width: 0; }
 .is-native-app .stop-lock-exit { flex: 0 0 auto; min-height: 40px; }
+
+/* ปุ่มแจ้งปัญหาบนการ์ดเที่ยว — 34px เตี้ยกว่าขั้นต่ำ 44pt ที่ Apple กำหนด
+   ไม่ขยายตัวหนังสือ เพราะมันเป็นปุ่มรอง แต่ขยายพื้นที่รับนิ้วให้ถึงเกณฑ์ */
+.is-native-app .job-card-issue {
+  min-height: 44px; height: 44px; padding: 0 12px;
+}
+
+/* ---- ธีมมืด: ปุ่มทึบต้องสลับเป็นเขียวสว่างตัวหนังสือเข้ม ----
+   เขียว #2ea36c ใช้เป็นตัวหนังสือบนพื้นมืดได้สบาย (5.96:1) แต่พอเอามาถมเป็นพื้นปุ่ม
+   แล้ววางตัวหนังสือขาวทับ เหลือ 3.20:1 ซึ่งไม่ผ่าน AA — และมันคือปุ่มหลักของทุกจอ
+   สลับขั้ว: พื้นเป็น accent/400 ตัวหนังสือเป็นหมึกเข้ม ได้ 10.8:1 */
+.is-native-app[data-theme='dark'] .btn-primary,
+.is-native-app[data-theme='dark'] .job-card-accept,
+.is-native-app[data-theme='dark'] .job-cta-bar .btn,
+.is-native-app[data-theme='dark'] .stop-item-cta,
+.is-native-app[data-theme='dark'] .pod-actions .btn-primary,
+.is-native-app[data-theme='dark'] .login-card button[type='submit'] {
+  background: var(--fleet-bright);
+  color: #08160f;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+.is-native-app[data-theme='dark'] .stop-item.is-now .stop-item-seq,
+.is-native-app[data-theme='dark'] .stop-item.is-locked .stop-item-seq {
+  background: var(--fleet-bright);
+  color: #08160f;
+}
+
+/* ธีมมืด: ตัวหนังสือเขียวบนพื้นเขียวจาง วัดได้ 4.48:1 — พลาด AA ไปนิดเดียว
+   ที่พื้นใช้ --fleet-tint ให้ใช้เขียวอ่อน --fleet-ink เป็นตัวหนังสือแทน (8.1:1)
+   ส่วน --fleet ยังเป็นสีสำหรับถมพื้นเหมือนเดิม */
+.is-native-app[data-theme='dark'] .stop-lock-bar,
+.is-native-app[data-theme='dark'] .stop-lock-text,
+.is-native-app[data-theme='dark'] .stop-lock-text strong,
+.is-native-app[data-theme='dark'] .badge-completed,
+.is-native-app[data-theme='dark'] .badge-delivered,
+.is-native-app[data-theme='dark'] .badge-in_progress {
+  color: var(--fleet-ink);
+}
+
+/* การ์ดจุดส่งที่กำลังส่งอยู่มีพื้นเขียวจาง ตัวหนังสือระดับ --faint บนพื้นนั้น
+   วัดได้ 4.30:1 ต่ำกว่าเกณฑ์ — เข้มขึ้นหนึ่งขั้นเฉพาะการ์ดที่มีพื้นสี */
+.is-native-app .stop-item.is-locked dt,
+.is-native-app .stop-item.is-now dt,
+.is-native-app .stop-item.is-locked .stop-bill-qty,
+.is-native-app .stop-item.is-now .stop-bill-qty {
+  color: var(--muted);
+}
