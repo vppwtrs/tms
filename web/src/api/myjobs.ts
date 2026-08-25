@@ -1,6 +1,6 @@
 import { supabase, unwrap, toDataError } from './supabase.js'
 import type { MyOrderRow, MyTripRow } from '../types/database.js'
-import type { MyJob, MyJobOrder } from '../types.js'
+import type { MyJob, MyJobOrder, OdometerStatus } from '../types.js'
 
 /**
  * ฝั่งคนขับ — แทน server/src/modules/myjobs + pod (เฉพาะส่วนที่คนขับใช้)
@@ -26,7 +26,7 @@ export async function listMyOrders(tripIds: number[]): Promise<MyOrderRow[]> {
   )
 }
 
-async function rpc(fn: 'start_trip' | 'complete_trip' | 'finish_return', args: { p_trip_id: number }): Promise<void> {
+async function rpc(fn: 'start_trip' | 'complete_trip', args: { p_trip_id: number }): Promise<void> {
   const { error } = await supabase.rpc(fn, args)
   if (error) throw toDataError(error)
 }
@@ -54,8 +54,31 @@ export const startTrip = (tripId: number) => rpc('start_trip', { p_trip_id: trip
 export const completeTrip = (tripId: number) => rpc('complete_trip', { p_trip_id: tripId })
 
 /** รถกลับถึงคลังแล้ว — จบเที่ยวจริง คืนรถกับคนขับให้ว่างตรงนี้
- *  ไม่ใช่ตอน completeTrip ซึ่งแค่ปิดงานที่ร้านสุดท้าย */
-export const finishReturn = (tripId: number) => rpc('finish_return', { p_trip_id: tripId })
+ *  ไม่ใช่ตอน completeTrip ซึ่งแค่ปิดงานที่ร้านสุดท้าย
+ *
+ *  ค่าทางด่วนส่งมาพร้อมกันตรงนี้ ไม่ใช่ยิงแยกอีกครั้งหลังจบงาน เพราะสองคำสั่ง
+ *  แปลว่าจบงานสำเร็จแต่ค่าทางด่วนหายได้ ซึ่งคือเงินที่คนขับสำรองจ่ายไปแล้ว
+ *  null = จอไม่ได้ถาม (ยังไม่ apply migration หรือกดจากที่อื่น) ต่างจาก 0 ที่แปลว่าถามแล้วไม่มี */
+export async function finishReturn(tripId: number, tollCost?: number | null): Promise<void> {
+  const { error } = await supabase.rpc('finish_return',
+    { p_trip_id: tripId, p_toll_cost: tollCost ?? null })
+  if (error) throw toDataError(error)
+}
+
+/** เลขไมล์ประจำวัน — บันทึกได้เฉพาะรถที่คนขับมีงานอยู่ และเลขต้องไม่ถอยหลัง
+ *  ทั้งสองด่านอยู่ฝั่งฐาน หน้าจอแค่ถามให้ถูกจังหวะ */
+export async function logOdometer(vehicleId: number, readingKm: number): Promise<void> {
+  const { error } = await supabase.rpc('log_odometer',
+    { p_vehicle_id: vehicleId, p_reading_km: readingKm })
+  if (error) throw toDataError(error)
+}
+
+/** วันนี้กรอกเลขไมล์ของรถคันนี้ไปหรือยัง กับเลขครั้งก่อนไว้กันกรอกผิดหลัก */
+export async function odometerStatus(vehicleId: number): Promise<OdometerStatus> {
+  const { data, error } = await supabase.rpc('odometer_status', { p_vehicle_id: vehicleId })
+  if (error) throw toDataError(error)
+  return data as unknown as OdometerStatus
+}
 
 /** ปิดการส่งทีละจุด แล้วเด้งเข้าฟอร์ม POD ต่อ — ตรงกับ POST /api/my-jobs/orders/:id/deliver เดิม */
 export async function deliverOrder(orderId: number): Promise<void> {
@@ -160,6 +183,7 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
       departed_at: t.departed_at,
       arrived_at: t.arrived_at,
       notes: t.notes,
+      vehicle_id: t.vehicle_id,
       vehicle_plate: t.plate_no,
       accepted_at: t.accepted_at,
       my_accepted_at: t.my_accepted_at,

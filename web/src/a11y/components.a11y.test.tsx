@@ -41,6 +41,7 @@ const SAMPLE_BOL = {
   delivered_at: null,
   notes: 'โทรก่อนถึงปลายทาง',
   trip_no: 'TRP-2026-0001',
+  vehicle_id: 9,
   vehicle_plate: 'กข 1234',
   vehicle_type: 'truck6',
   driver_name: 'นายใจดี',

@@ -69,6 +69,8 @@ export interface MyJobOrder {
 export interface MyJob {
   id: number
   trip_no: string
+  /* รถที่กำลังขับ — ต้องใช้เป็นกุญแจตอนบันทึกเลขไมล์ ทะเบียนใช้แทนไม่ได้ */
+  vehicle_id: number
   status: TripStatus
   departed_at: string | null
   arrived_at: string | null
@@ -87,6 +89,13 @@ export interface MyJob {
   area: string | null
   orders: MyJobOrder[]
   total_weight: number
+}
+
+/* สถานะเลขไมล์ของรถคันหนึ่งสำหรับคนขับที่เปิดแอปอยู่ */
+export interface OdometerStatus {
+  logged_today: boolean
+  reading_km: number | null
+  last_km: number | null
 }
 
 export interface PermissionCatalog {

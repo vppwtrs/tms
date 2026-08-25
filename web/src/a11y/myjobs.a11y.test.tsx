@@ -40,6 +40,7 @@ const JOB: MyJob = {
   departed_at: '2026-08-13T05:00:00.000Z',
   arrived_at: null,
   notes: null,
+  vehicle_id: 9,
   vehicle_plate: '9กก-0123',
   vehicle_type: 'truck6',
   accepted_at: '2026-08-13T04:55:00.000Z',

@@ -1,4 +1,4 @@
-import type { MyJob } from '../types.js'
+import type { MyJob, OdometerStatus } from '../types.js'
 import { allJobs, clone, delay, findJob } from './store.js'
 
 /** แทน api/myjobs ในโหมดสาธิต — รูปร่างของ export ต้องตรงกันทุกตัว
@@ -70,10 +70,43 @@ export async function completeTrip(tripId: number): Promise<void> {
   await delay(null)
 }
 
-export async function finishReturn(tripId: number): Promise<void> {
+export async function finishReturn(tripId: number, tollCost?: number | null): Promise<void> {
   const job = findJob(tripId)
   if (job) { job.status = 'completed'; job.arrived_at = new Date().toISOString() }
+  /* โหมดสาธิตไม่มีตารางเงิน เก็บไว้ให้ดูว่าจอส่งอะไรมา ไม่ได้ใช้ต่อที่ไหน */
+  if (tollCost != null) demoTolls.set(tripId, tollCost)
   await delay(null)
+}
+
+const demoTolls = new Map<number, number>()
+/* เลขไมล์ของโหมดสาธิต — คีย์เป็น "รถ|วัน" เหมือน unique ของตารางจริง */
+const demoOdometer = new Map<string, number>()
+
+function todayKey(): string {
+  return new Date().toLocaleDateString('sv-SE')
+}
+
+export async function logOdometer(vehicleId: number, readingKm: number): Promise<void> {
+  /* ของจริงปฏิเสธเลขที่ถอยหลัง โหมดสาธิตต้องปฏิเสธเหมือนกัน ไม่งั้นคนลอง
+     จะไม่เห็นด่านนี้จนกว่าจะเจอของจริงหน้างาน */
+  let last: number | null = null
+  for (const [k, v] of demoOdometer) {
+    if (k.startsWith(`${vehicleId}|`) && !k.endsWith(todayKey())) last = Math.max(last ?? 0, v)
+  }
+  if (last != null && readingKm < last) {
+    throw new Error(`เลขไมล์น้อยกว่าครั้งก่อน (${last.toLocaleString('th-TH')}) — อ่านเลขบนหน้าปัดอีกครั้ง`)
+  }
+  demoOdometer.set(`${vehicleId}|${todayKey()}`, readingKm)
+  await delay(null)
+}
+
+export async function odometerStatus(vehicleId: number): Promise<OdometerStatus> {
+  const now = demoOdometer.get(`${vehicleId}|${todayKey()}`) ?? null
+  let last: number | null = null
+  for (const [k, v] of demoOdometer) {
+    if (k.startsWith(`${vehicleId}|`) && !k.endsWith(todayKey())) last = Math.max(last ?? 0, v)
+  }
+  return delay({ logged_today: now != null, reading_km: now, last_km: last })
 }
 
 function eachOrder(fn: (o: MyJob['orders'][number]) => void, orderId: number): void {

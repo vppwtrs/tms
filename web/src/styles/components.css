@@ -3510,3 +3510,34 @@
    ซึ่งอยู่ท้ายแต่ละแถวและตอบคนละคำถาม */
 .trip-order-cancel { display: flex; justify-content: flex-end; margin: -2px 0 4px; }
 .trip-order-cancel .btn { color: var(--danger); }
+
+/* ปุ่มถอยออกจากเที่ยว — ต้องเป็นแถวเต็มความกว้างและสูงเท่าปุ่มสั่งงานอื่น
+   เพราะมันคือปุ่มเดียวที่พาออกจากจอที่เหลือทั้งจอเป็นปุ่มปิดจุดส่ง */
+.job-back {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-height: 44px; padding: 0 4px;
+  background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600;
+  color: var(--muted); text-align: left;
+}
+.job-back-ic { display: inline-flex; transform: rotate(180deg); }
+
+/* กล่องจบงาน + ค่าทางด่วน กับกล่องเลขไมล์ — สองอย่างนี้เป็นแบบฟอร์มสั้น
+   ที่คนขับกรอกยืนอยู่ข้างรถ ตัวหนังสือจึงใหญ่กว่าฟอร์มบนเว็บออฟฟิศ */
+.finish-box, .odo-box { display: flex; flex-direction: column; gap: var(--space-3); }
+.finish-lead, .odo-lead { font-size: var(--font-base); line-height: 1.6; }
+.finish-toll-q { font-size: var(--font-base); font-weight: 600; }
+.finish-toll-pick { display: flex; gap: 8px; }
+.finish-toll-pick .pod-kind { flex: 1; min-height: 48px; justify-content: center; }
+.finish-toll-note, .odo-last { font-size: var(--font-sm); color: var(--muted); line-height: 1.6; }
+
+/* แถบเตือนว่ายังไม่ได้กรอกเลขไมล์ — เตือนอย่างเดียว ไม่ขวางงาน
+   ใช้สีเตือนไม่ใช่สีอันตราย เพราะยังไม่กรอกไม่ได้แปลว่ามีอะไรเสียหาย */
+.odo-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-height: 48px; padding: 10px 14px; margin-bottom: var(--space-3);
+  border: 1px solid var(--warn); border-radius: var(--radius-md);
+  background: var(--warn-bg); color: var(--text);
+  font: inherit; font-size: var(--font-sm); text-align: left; cursor: pointer;
+}
+.odo-bar-cta { font-weight: 700; color: var(--warn); white-space: nowrap; }

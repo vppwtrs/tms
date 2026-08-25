@@ -43,3 +43,7 @@ supabase/functions/**/supabase/
 
 # บันทึกงานสำหรับผู้ช่วย AI — อยู่ในเครื่องเท่านั้น ห้ามขึ้น GitHub
 update.md
+
+# โฟลเดอร์สำรองของเปลือก iOS ระหว่างทดลอง ไม่ใช่ของที่ต้องมีในระบบ
+ios-driver.untracked-backup/
+.vscode/
