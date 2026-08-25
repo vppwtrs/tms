@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "dev:cloud": "vite --mode cloud",
     "build:cloud": "tsc --noEmit && vite build --mode cloud",
-    "dev:demo": "vite --mode demo"
+    "dev:demo": "vite --mode demo",
+    "build:demo": "vite build --mode demo"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",

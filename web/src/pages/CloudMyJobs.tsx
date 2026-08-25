@@ -48,7 +48,12 @@ export default function CloudMyJobs(): React.JSX.Element {
      ตอนนี้มันคือแท็บ "ประวัติ" ที่ล่างจอ ซึ่งเห็นตลอดเวลา */
   const showDone = true
   /* แท็บล่างจอ — โครงของแอปที่ใช้งานจริงบนมือถือ นิ้วโป้งถึงทุกอันโดยไม่ต้องขยับมือ */
-  const [tab, setTab] = useState<'jobs' | 'history' | 'me'>('jobs')
+  /* แท็บเริ่มต้นปกติคือ 'jobs' — ค่าจาก env มีไว้ให้ CI เปิดตรงไปแท็บที่จะถ่ายรูป
+     ตั้งได้เฉพาะตอน build โหมดสาธิต ของจริงไม่เคยมีค่านี้จึงได้ 'jobs' เสมอ */
+  const startTab = import.meta.env.VITE_DEMO_TAB
+  const [tab, setTab] = useState<'jobs' | 'history' | 'me'>(
+    startTab === 'history' || startTab === 'me' ? startTab : 'jobs',
+  )
   const [pwOpen, setPwOpen] = useState(false)
   const [theme, setTheme] = useState<Theme>(() => currentTheme())
   const [busy, setBusy] = useState(0)

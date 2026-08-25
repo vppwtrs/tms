@@ -1,0 +1,115 @@
+# ถ่ายรูปหน้าจอแอปคนขับจาก iOS Simulator
+#
+# มีไว้ตอบคำถามเดียว: แอปหน้าตายังไงตอนรันอยู่ใน iOS จริง ๆ
+# เครื่องที่พัฒนาเป็น Windows จึงไม่มีทั้ง Xcode และ Simulator — ยืม macOS
+# runner มาเปิดแอปแล้วถ่ายรูปกลับมาแทน
+#
+# แยกไฟล์จาก ios-driver.yml ตั้งใจ: อันนั้นสร้างของที่เอาไปลงเครื่องจริง
+# ห้ามพังเพราะงานถ่ายรูป
+#
+# ใช้ bundle โหมดสาธิต ไม่ใช่ตัวจริง — ข้อมูลอยู่ในเครื่องล้วน ไม่ยิงออกเน็ต
+# และเข้าหลังล็อกอินได้เองโดยไม่ต้องพิมพ์รหัส (VITE_DEMO_AUTOLOGIN)
+name: ios-driver-screens
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    env:
+      BUNDLE_ID: com.transplus.tms.driver
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # เปลือก native ไม่ได้ขึ้นกับว่าจอไหนถูกเปิด จึงคอมไพล์ครั้งเดียวพอ
+      # แล้วค่อยสลับเฉพาะ bundle เว็บข้างในทีหลัง ซึ่งใช้เวลาไม่กี่วินาที
+      - name: Build the web bundle once so the shell has something to wrap
+        run: npm run build:demo -w web
+        env:
+          VITE_DEMO_AUTOLOGIN: '1'
+
+      - name: Copy the bundle into the Capacitor shell
+        run: npm run sync -w ios-driver
+
+      - name: Build the app for the simulator
+        working-directory: ios-driver/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      # ชื่อรุ่นเครื่องเปลี่ยนไปเรื่อยตามภาพของ runner — เลือกเครื่อง iPhone
+      # ตัวแรกที่ใช้ได้จริงแทนการเขียนชื่อรุ่นตายตัวที่จะพังเงียบ ๆ วันหนึ่ง
+      - name: Boot a simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for v in d.values() for x in v if x['name'].startswith('iPhone')))")
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID"
+
+      - name: Shoot every screen
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          APP="ios-driver/ios/App/build/Build/Products/Debug-iphonesimulator/App.app"
+          mkdir -p screens
+
+          shoot () {
+            local tab="$1" name="$2"
+            # สร้าง bundle ใหม่ให้เปิดมาที่แท็บที่ต้องการ แล้วยัดทับของเดิมใน App.app
+            VITE_DEMO_AUTOLOGIN=1 VITE_DEMO_TAB="$tab" npm run build:demo -w web
+            rm -rf "$APP/public"
+            cp -R web/dist "$APP/public"
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+            xcrun simctl uninstall "$UDID" "$BUNDLE_ID" || true
+            xcrun simctl install "$UDID" "$APP"
+            xcrun simctl launch "$UDID" "$BUNDLE_ID"
+            # ให้ WebView วาดจบก่อน — จอแรกมี animation เข้าอยู่ราวครึ่งวินาที
+            sleep 8
+            xcrun simctl io "$UDID" screenshot "screens/$name.png"
+          }
+
+          shoot jobs    1-jobs
+          shoot history 2-history
+          shoot me      3-me
+
+          # จอล็อกอิน: build ที่ไม่เปิด autologin
+          npm run build:demo -w web
+          rm -rf "$APP/public"
+          cp -R web/dist "$APP/public"
+          xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl uninstall "$UDID" "$BUNDLE_ID" || true
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" "$BUNDLE_ID"
+          sleep 8
+          xcrun simctl io "$UDID" screenshot "screens/0-login.png"
+
+          ls -la screens
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-driver-screens
+          path: screens/
+          retention-days: 14

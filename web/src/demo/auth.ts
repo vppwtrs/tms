@@ -41,6 +41,13 @@ export class PendingApprovalError extends Error {
 }
 
 const KEY = 'demo-signed-in'
+
+/* ถ่ายรูปหน้าจอบน iOS Simulator ใน CI พิมพ์รหัสเองไม่ได้ ตั้งค่านี้ตอน build
+   แล้วแอปเปิดมาอยู่หลังล็อกอินเลย — อยู่ในไฟล์ของโหมดสาธิตซึ่ง vite ต่อให้
+   เฉพาะ mode demo build ปกติจึงไม่มีไฟล์นี้ ไม่มีทางหลุดไปอยู่ในของจริง */
+if (import.meta.env.VITE_DEMO_AUTOLOGIN === '1') {
+  try { sessionStorage.setItem(KEY, '1') } catch { /* jsdom ไม่มี sessionStorage */ }
+}
 const listeners = new Set<(signedIn: boolean) => void>()
 
 function emit(signedIn: boolean): void {
