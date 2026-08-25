@@ -11,8 +11,15 @@
 # และเข้าหลังล็อกอินได้เองโดยไม่ต้องพิมพ์รหัส (VITE_DEMO_AUTOLOGIN)
 name: ios-driver-screens
 
+# GitHub โชว์ปุ่ม Run workflow ให้เฉพาะ workflow ที่มีอยู่บน branch ตั้งต้น
+# ไฟล์นี้ยังอยู่แต่บน feat/ios-driver-app ปุ่มจึงไม่ขึ้น — จนกว่าจะ merge เข้า main
+# ระหว่างนี้สั่งด้วยการ push แตะไฟล์นี้ ซึ่ง trigger จาก branch ตัวเองได้
 on:
   workflow_dispatch:
+  push:
+    branches: [feat/ios-driver-app]
+    paths:
+      - '.github/workflows/ios-driver-screens.yml'
 
 jobs:
   screenshots:
