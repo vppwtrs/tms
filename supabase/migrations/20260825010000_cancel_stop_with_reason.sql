@@ -48,12 +48,15 @@ create or replace view public.my_orders as
          o.tms_unit_count,
          o.work_kind,
          o.seq,
-         o.cancel_reason,
-         o.cancelled_at,
          c.name as customer_name,
          c.phone as customer_phone,
          c.address as customer_address,
-         (exists (select 1 from public.pod p where p.order_id = o.id)) as has_pod
+         (exists (select 1 from public.pod p where p.order_id = o.id)) as has_pod,
+         /* คอลัมน์ใหม่ต่อท้ายเสมอ — create or replace view เปลี่ยนลำดับหรือแทรก
+            กลางลิสต์ไม่ได้ Postgres ปฏิเสธทั้งคำสั่ง ต้อง drop view ทิ้งก่อน
+            ซึ่งพังของที่อ้างถึง view นี้อยู่ */
+         o.cancel_reason,
+         o.cancelled_at
     from public.orders o
     join public.trips t on t.id = o.trip_id
     left join public.customers c on c.id = o.customer_id

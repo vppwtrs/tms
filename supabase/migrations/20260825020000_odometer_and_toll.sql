@@ -11,7 +11,6 @@
    ซึ่งเอาไปเป็นกุญแจไม่ได้ ทะเบียนซ้ำกันได้เมื่อรถถูกขายแล้วป้ายถูกใช้ต่อ */
 create or replace view public.my_trips as
   select t.id, t.trip_no, t.status, t.departed_at, t.arrived_at, t.notes,
-         t.vehicle_id,
          v.plate_no, v.vehicle_type,
          t.accepted_at, t.issue_note, t.issue_at,
          (select td.accepted_at from public.trip_drivers td
@@ -21,7 +20,9 @@ create or replace view public.my_trips as
          (select count(*)::int from public.trip_drivers td
            where td.trip_id = t.id and td.accepted_at is not null) as accepted_count,
          (select tt.warehouse_code from public.tms_trips tt where tt.trip_id = t.id limit 1) as warehouse_code,
-         (select tt.area from public.tms_trips tt where tt.trip_id = t.id limit 1) as area
+         (select tt.area from public.tms_trips tt where tt.trip_id = t.id limit 1) as area,
+         /* ต่อท้ายเท่านั้น — แทรกกลางลิสต์แล้ว create or replace view ล้มทั้งคำสั่ง */
+         t.vehicle_id
     from public.trips t
     join public.vehicles v on v.id = t.vehicle_id
    where app.has_perm('myjobs.view')
