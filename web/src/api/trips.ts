@@ -275,6 +275,24 @@ export const acceptTrip = (tripId: number) => call('accept_trip', { p_trip_id: t
 /** คนวางแผนเคลียร์ปัญหาที่คนขับแจ้งไว้ หลังคุยกันจบแล้ว */
 export const clearTripIssue = (tripId: number) => call('clear_trip_issue', { p_trip_id: tripId })
 
+/** ยกเลิกจุดส่งทั้งร้านในเที่ยว — ฟังก์ชันเดียวกับที่คนขับใช้
+ *
+ *  ต่างจาก removeOrderFromTrip ที่ถอนใบออกจากเที่ยวเพื่อจัดใหม่: อันนี้บอกว่า
+ *  "งานนี้ไม่ต้องส่งแล้ว" ใบยังอยู่ในเที่ยว ยังอ่านย้อนหลังได้ว่าเคยสั่งไปแล้ว
+ *  ยกเลิกด้วยเหตุผลอะไร ใครเป็นคนกด
+ *
+ *  ไม่ปลด tms_shipments — ถ้าจะปล่อยใบดิบกลับไปสั่งใหม่ ใช้ removeOrder ต่างหาก
+ *  ซึ่งเป็นการตัดสินใจคนละเรื่องกับการบอกว่าร้านนี้ยกเลิก */
+export async function cancelStopOrders(orderIds: number[], reason: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_stop', { p_order_ids: orderIds, p_reason: reason })
+  if (error) throw toDataError(error)
+}
+
+export async function undoCancelStopOrders(orderIds: number[]): Promise<void> {
+  const { error } = await supabase.rpc('undo_cancel_stop', { p_order_ids: orderIds })
+  if (error) throw toDataError(error)
+}
+
 /** ยกเลิกเที่ยว — ออเดอร์กลับไปรอจัดใหม่ ไม่ได้ถูกยกเลิกตาม */
 export const cancelTrip = (tripId: number) => call('dispatch_cancel_trip', { p_trip_id: tripId })
 

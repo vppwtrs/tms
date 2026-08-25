@@ -65,6 +65,23 @@ export async function deliverOrder(orderId: number): Promise<void> {
 
 /** ถอนการปิดส่งที่กดผิดร้าน — ฝั่ง DB ปฏิเสธเองถ้าเก็บหลักฐานไปแล้ว
  *  หรือเที่ยวปิดไปแล้ว ไม่ต้องเช็คซ้ำตรงนี้ */
+/** ยกเลิกจุดส่งทั้งร้าน — ทุกใบของร้านนั้นพร้อมกัน พร้อมเหตุผลที่บังคับกรอก
+ *
+ *  ไม่ลบอะไร แค่เปลี่ยนสถานะเป็น cancelled ซึ่ง complete_trip ไม่นับเป็นงานค้าง
+ *  คนขับจึงปิดเที่ยวต่อได้เองโดยไม่ต้องรอออฟฟิศ
+ *  ใบดิบจาก TMS ยังผูกกับออเดอร์ไว้เหมือนเดิม การปล่อยกลับไปสั่งใหม่เป็นการ
+ *  ตัดสินใจของออฟฟิศ ไม่ใช่ของคนขับที่หน้าร้าน */
+export async function cancelStop(orderIds: number[], reason: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_stop', { p_order_ids: orderIds, p_reason: reason })
+  if (error) throw new Error(error.message)
+}
+
+/** ถอนการยกเลิก — กดผิดร้านต้องแก้เองได้ในนาทีนั้น ไม่ใช่โทรหาออฟฟิศ */
+export async function undoCancelStop(orderIds: number[]): Promise<void> {
+  const { error } = await supabase.rpc('undo_cancel_stop', { p_order_ids: orderIds })
+  if (error) throw new Error(error.message)
+}
+
 export async function undoDeliverOrder(orderId: number): Promise<void> {
   const { error } = await supabase.rpc('undo_deliver_order', { p_order_id: orderId })
   if (error) throw toDataError(error)
@@ -128,6 +145,8 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
       tms_picking_list_no: o.tms_picking_list_no,
       tms_unit_count: o.tms_unit_count,
       seq: o.seq,
+      cancel_reason: o.cancel_reason,
+      cancelled_at: o.cancelled_at,
     })
     byTrip.set(o.trip_id, list)
   }

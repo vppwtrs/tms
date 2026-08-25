@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip,
+  getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip, cancelStopOrders,
   startTrip, completeTrip, closeTripPreview, type TripClosePreview, cancelTrip, acceptTrip, clearTripIssue, forceDeleteTrip, type BoardTrip,
 } from '../api/trips'
 import { listUnassignedOrders, type DispatchOrderRow } from '../api/orders'
@@ -14,6 +14,7 @@ import {
   PageHeader, SearchInput, Select, TableSkeleton, Textarea,
 } from '../components/ui'
 import {
+  CANCEL_STOP_REASONS,
   ORDER_STATUS_LABEL, ORDER_TONE, PRIORITY_LABEL,
   TRIP_STATUS_LABEL, TRIP_TONE, VEHICLE_TYPE_LABEL,
 } from '../utils/constants'
@@ -87,6 +88,11 @@ export default function CloudDispatch(): React.JSX.Element {
   const [creating, setCreating] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [cancelling, setCancelling] = useState<BoardTrip | null>(null)
+  /* ยกเลิกทั้งร้านในเที่ยว — เก็บใบที่จะยกเลิกกับชื่อร้านไว้ด้วยกัน
+     เพราะกล่องต้องบอกได้ว่ากำลังยกเลิกร้านไหน กี่ใบ ไม่ใช่คำเตือนลอย ๆ */
+  const [cancelStore, setCancelStore] = useState<{ tripId: number; ids: number[]; name: string } | null>(null)
+  const [storeReason, setStoreReason] = useState('')
+  const [storeNote, setStoreNote] = useState('')
   /* ปิดเที่ยวจากออฟฟิศเปลี่ยนใบที่ยังไม่ถึงมือลูกค้าให้เป็น "ส่งสำเร็จ" ทันที
      จึงต้องถามก่อน และต้องถามด้วยตัวเลขจริงของเที่ยวนั้น ไม่ใช่คำเตือนลอย ๆ */
   const [closing, setClosing] = useState<{ trip: BoardTrip; preview: TripClosePreview } | null>(null)
@@ -266,6 +272,7 @@ export default function CloudDispatch(): React.JSX.Element {
                 onPurge={canPurge ? () => setPurging(t) : undefined}
                 onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
                 onRemoveOrder={(orderId) => void act(t.id, () => removeOrderFromTrip(t.id, orderId), 'ถอนออเดอร์ออกจากเที่ยวแล้ว')}
+                onCancelStore={(ids, name) => { setCancelStore({ tripId: t.id, ids, name }); setStoreReason(''); setStoreNote('') }}
               />
             ))}
           </div>
@@ -296,6 +303,8 @@ export default function CloudDispatch(): React.JSX.Element {
                 onCancel={() => setCancelling(t)}
                 onPurge={canPurge ? () => setPurging(t) : undefined}
                 onClearIssue={() => void act(t.id, () => clearTripIssue(t.id), 'เคลียร์ปัญหาแล้ว')}
+                /* เที่ยวที่กำลังวิ่งคือจังหวะที่ร้านโดนยกเลิกจริง ๆ ปุ่มต้องมีตรงนี้ */
+                onCancelStore={(ids, name) => { setCancelStore({ tripId: t.id, ids, name }); setStoreReason(''); setStoreNote('') }}
               />
             ))}
           </div>
@@ -513,13 +522,74 @@ export default function CloudDispatch(): React.JSX.Element {
           if (t) void act(t.id, () => cancelTrip(t.id), `ยกเลิกเที่ยว ${tripNo(t)} แล้ว — รถ/คนขับกลับว่าง`)
         }}
       />
+
+      {/* ยกเลิกทั้งร้านในเที่ยว — ใบยังอยู่ในเที่ยว ไม่ได้ถูกลบ ต่างจากปุ่มถอนใบ
+          ที่เอาใบออกไปจัดใหม่ อันนั้นตอบว่า "ยังต้องส่ง แต่ไม่ใช่เที่ยวนี้"
+          อันนี้ตอบว่า "ไม่ต้องส่งแล้ว" ซึ่งเป็นคนละคำถาม */}
+      {cancelStore && (
+        <Modal
+          open
+          onClose={() => setCancelStore(null)}
+          title={`ยกเลิกร้าน — ${cancelStore.name}`}
+          footer={
+            <div className="form-actions">
+              <Button variant="ghost" onClick={() => setCancelStore(null)}>ไม่ยกเลิก</Button>
+              <Button
+                variant="danger"
+                disabled={!storeReason || (storeReason === 'อื่น ๆ' && !storeNote.trim())}
+                loading={busyId === cancelStore.tripId}
+                onClick={() => {
+                  const target = cancelStore
+                  const reason = storeReason === 'อื่น ๆ'
+                    ? storeNote.trim()
+                    : storeNote.trim() ? `${storeReason} — ${storeNote.trim()}` : storeReason
+                  setCancelStore(null)
+                  void act(target.tripId, () => cancelStopOrders(target.ids, reason),
+                    `ยกเลิก ${target.name} แล้ว (${target.ids.length} ใบ)`)
+                }}
+              >
+                ยืนยันยกเลิกร้านนี้
+              </Button>
+            </div>
+          }
+        >
+          <div className="cancel-stop">
+            <p className="cancel-stop-lead">
+              ยกเลิก <b>{cancelStore.ids.length} ใบ</b> ของร้านนี้ ใบที่ส่งไปแล้วหรือ
+              เก็บหลักฐานแล้วไม่ถูกแตะ · ร้านนี้จะไม่นับเป็นงานค้างของเที่ยวอีก
+            </p>
+            <p className="cancel-stop-note">
+              ใบยังอยู่ในเที่ยว อ่านย้อนหลังได้ว่าเคยสั่งแล้วยกเลิกเพราะอะไร
+              ถ้าต้องการปล่อยใบดิบกลับไปสั่งใหม่ ให้ลบใบที่หน้าออเดอร์แทน
+            </p>
+
+            <div className="cancel-stop-reasons" role="group" aria-label="เหตุผลที่ยกเลิก">
+              {[...CANCEL_STOP_REASONS, 'อื่น ๆ'].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className="pod-kind"
+                  aria-pressed={storeReason === r}
+                  onClick={() => setStoreReason(r)}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+
+            <Field label={storeReason === 'อื่น ๆ' ? 'เหตุผลที่ยกเลิก (จำเป็น)' : 'รายละเอียดเพิ่มเติม (ไม่บังคับ)'}>
+              <Textarea rows={2} value={storeNote} onChange={(e) => setStoreNote(e.target.value)} />
+            </Field>
+          </div>
+        </Modal>
+      )}
     </>
   )
 }
 
 function TripCard({
   trip, busy, canEdit, onStart, onComplete, onCancel, onPurge, onAccept, onClearIssue,
-  onAddOrders, onRemoveOrder,
+  onAddOrders, onRemoveOrder, onCancelStore,
 }: {
   trip: BoardTrip
   busy: boolean
@@ -534,6 +604,9 @@ function TripCard({
   onClearIssue?: () => void
   onAddOrders?: () => void
   onRemoveOrder?: (orderId: number) => void
+  /* ยกเลิกทั้งร้านในเที่ยว — ต่างจากถอนใบออกจากเที่ยว ตรงที่ใบยังอยู่และอ่าน
+     ย้อนหลังได้ว่าเคยสั่งไปแล้วแต่ยกเลิกด้วยเหตุผลอะไร */
+  onCancelStore?: (orderIds: number[], storeName: string) => void
 }): React.JSX.Element {
   const pct = trip.vehicle_capacity > 0 ? (trip.total_weight / trip.vehicle_capacity) * 100 : 0
   const capClass = pct > 100 ? 'over' : pct > 90 ? 'warn' : ''
@@ -652,6 +725,23 @@ function TripCard({
                 {/* ที่อยู่เต็มยาวเกินกว่าจะเป็นหัวข้อ — ตัดที่คั่นแรก เหลือชื่อร้าน */}
                 {((store.rows[0] as OrderRow).destination.split('·')[0] ?? '').trim()}
                 <span className="text-xs text-muted"> · {store.rows.length} ใบ</span>
+              </div>
+            )}
+            {canEdit && trip.status !== 'completed' && onCancelStore
+              && store.rows.some((o) => (o as OrderRow).status !== 'delivered' && (o as OrderRow).status !== 'cancelled') && (
+              <div className="trip-order-cancel">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onCancelStore(
+                    store.rows
+                      .filter((o) => (o as OrderRow).status !== 'delivered' && (o as OrderRow).status !== 'cancelled')
+                      .map((o) => (o as OrderRow).id),
+                    ((store.rows[0] as OrderRow).destination.split('·')[0] ?? '').trim(),
+                  )}
+                >
+                  ยกเลิกร้านนี้
+                </Button>
               </div>
             )}
             {store.rows.map((o) => (

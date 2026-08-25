@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   listMyJobs, reloadJob, startTrip, completeTrip, finishReturn, deliverOrder, undoDeliverOrder,
   savePodWithPhotos, POD_PHOTO_KINDS, type PodPhoto,
+  cancelStop, undoCancelStop,
   acceptTrip, reportIssue, saveStopOrder,
 } from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
@@ -13,7 +14,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { groupStops, jobTripNo, type StopGroup } from '../utils/stops'
-import { TRIP_STATUS_LABEL } from '../utils/constants'
+import { CANCEL_STOP_REASONS, TRIP_STATUS_LABEL } from '../utils/constants'
 import { daysAgoIso, fmtDate, fmtDateTime, fmtLongToday, fmtTime, todayIso } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
@@ -67,6 +68,12 @@ export default function CloudMyJobs(): React.JSX.Element {
   const [podStop, setPodStop] = useState<StopGroup | null>(null)
   /* ร้านที่กำลังจะถอนการปิดส่ง — ถามก่อนเสมอ การถอยผิดจุดคือกดผิดซ้ำสอง */
   const [undoing, setUndoing] = useState<StopGroup | null>(null)
+  /* ร้านที่กำลังจะยกเลิก + เหตุผลที่เลือกไว้ — เก็บแยกกันเพราะกล่องต้องเปิดค้าง
+     ระหว่างเลือกเหตุผล ปิดแล้วเปิดใหม่ต้องไม่จำของเดิม */
+  const [cancelling, setCancelling] = useState<StopGroup | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelNote, setCancelNote] = useState('')
+  const [undoCancelling, setUndoCancelling] = useState<StopGroup | null>(null)
   /* จบงานคือขั้นที่ย้อนไม่ได้จากฝั่งคนขับ — รถถูกนับว่าว่างทันที และเที่ยวหลุดจากจอไปเลย
      ถามยืนยันก่อนหนึ่งครั้ง ไม่ใช่หน่วงเวลา เพราะคนที่กลับถึงคลังจริงไม่ควรต้องรอ */
   const [finishing, setFinishing] = useState<MyJob | null>(null)
@@ -304,6 +311,44 @@ export default function CloudMyJobs(): React.JSX.Element {
 
   /* ถอนการปิดส่งทั้งร้าน — ปิดทีเดียวทั้งร้าน ก็ต้องถอยทีเดียวทั้งร้าน
      ถอยทีละใบจะเหลือร้านที่ส่งไปครึ่งเดียวโดยไม่มีใครตั้งใจให้เป็นแบบนั้น */
+  /* ยกเลิกทั้งร้าน — ทุกใบที่ยังไม่ส่งของร้านนั้นไปพร้อมกัน
+     ใบที่เก็บหลักฐานไปแล้วไม่ถูกแตะ ฝั่งฐานปฏิเสธทั้งชุดถ้าเจอ POD อยู่แล้ว */
+  const doCancelStop = async (stop: StopGroup, reason: string): Promise<void> => {
+    setDelivering(stop.key)
+    try {
+      const ids = stop.orders.filter((o) => o.status !== 'delivered' && !o.has_pod).map((o) => o.id)
+      if (ids.length === 0) throw new Error('ร้านนี้ไม่มีใบที่ยกเลิกได้แล้ว')
+      await cancelStop(ids, reason)
+      const tripId = stop.orders[0]?.trip_id
+      const updated = tripId ? await reloadJob(tripId, showDone) : null
+      if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
+      toast.push('success', `ยกเลิก ${stop.customer_name ?? stop.destination} แล้ว — แจ้งออฟฟิศให้ทราบแล้ว`)
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setDelivering('')
+      setCancelling(null)
+      setCancelReason('')
+      setCancelNote('')
+    }
+  }
+
+  const doUndoCancelStop = async (stop: StopGroup): Promise<void> => {
+    setDelivering(stop.key)
+    try {
+      await undoCancelStop(stop.orders.filter((o) => o.status === 'cancelled').map((o) => o.id))
+      const tripId = stop.orders[0]?.trip_id
+      const updated = tripId ? await reloadJob(tripId, showDone) : null
+      if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
+      toast.push('success', `ถอนการยกเลิก ${stop.customer_name ?? stop.destination} แล้ว`)
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    } finally {
+      setDelivering('')
+      setUndoCancelling(null)
+    }
+  }
+
   const undoDeliver = async (stop: StopGroup): Promise<void> => {
     setDelivering(stop.key)
     try {
@@ -563,6 +608,8 @@ export default function CloudMyJobs(): React.JSX.Element {
                       onViewPod={setPodView}
                       onDeliver={(stop) => void deliver(stop)}
                       onUndoDeliver={(stop) => setUndoing(stop)}
+                      onCancelStop={(stop) => { setCancelling(stop); setCancelReason(''); setCancelNote('') }}
+                      onUndoCancelStop={(stop) => setUndoCancelling(stop)}
                       onReorder={(j, ids) => void reorder(j, ids)}
                     />
 
@@ -659,6 +706,82 @@ export default function CloudMyJobs(): React.JSX.Element {
         loading={undoing !== null && delivering === undoing.key}
         onConfirm={() => { if (undoing) void undoDeliver(undoing) }}
         onClose={() => setUndoing(null)}
+      />
+
+      {/* ยกเลิกร้าน — ต้องเลือกเหตุผลก่อน ปุ่มยืนยันปิดอยู่จนกว่าจะเลือก
+          และกล่องบอกจำนวนใบจริงของร้านนั้น ไม่ใช่คำเตือนลอย ๆ */}
+      {cancelling && (
+        <Modal
+          open
+          onClose={() => setCancelling(null)}
+          title={`ยกเลิกร้าน — ${cancelling.customer_name ?? cancelling.destination}`}
+          footer={
+            <div className="pod-actions">
+              <Button variant="ghost" onClick={() => setCancelling(null)}>ไม่ยกเลิก</Button>
+              <Button
+                variant="danger"
+                disabled={!cancelReason || (cancelReason === 'อื่น ๆ' && !cancelNote.trim())}
+                loading={delivering === cancelling.key}
+                onClick={() => {
+                  const reason = cancelReason === 'อื่น ๆ'
+                    ? cancelNote.trim()
+                    : cancelNote.trim() ? `${cancelReason} — ${cancelNote.trim()}` : cancelReason
+                  void doCancelStop(cancelling, reason)
+                }}
+              >
+                ยืนยันยกเลิกร้านนี้
+              </Button>
+            </div>
+          }
+        >
+          <div className="cancel-stop">
+            <p className="cancel-stop-lead">
+              ร้านนี้มี <b>{cancelling.pending.length} ใบ</b> ที่ยังไม่ได้ส่ง
+              ทั้งหมดจะถูกทำเครื่องหมายว่ายกเลิก แล้วร้านนี้จะไม่นับเป็นงานค้างอีก
+              ทำให้ปิดเที่ยวได้เมื่อร้านที่เหลือส่งครบ
+            </p>
+            <p className="cancel-stop-note">
+              ไม่ได้ลบข้อมูลทิ้ง ออฟฟิศเห็นทั้งร้านและเหตุผล และเป็นคนตัดสินว่า
+              จะปล่อยใบกลับไปสั่งใหม่หรือไม่ · ถ้ากดผิด ถอนคืนได้จากการ์ดร้านนี้
+            </p>
+
+            <div className="cancel-stop-reasons" role="group" aria-label="เหตุผลที่ยกเลิก">
+              {[...CANCEL_STOP_REASONS, 'อื่น ๆ'].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className="pod-kind"
+                  aria-pressed={cancelReason === r}
+                  onClick={() => setCancelReason(r)}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+
+            <Field label={cancelReason === 'อื่น ๆ' ? 'เหตุผลที่ยกเลิก (จำเป็น)' : 'รายละเอียดเพิ่มเติม (ไม่บังคับ)'}>
+              <Textarea
+                rows={2}
+                value={cancelNote}
+                onChange={(e) => setCancelNote(e.target.value)}
+                placeholder="เช่น ร้านแจ้งว่าสั่งซ้ำ ให้ส่งคืนคลัง"
+              />
+            </Field>
+          </div>
+        </Modal>
+      )}
+
+      <ConfirmDialog
+        open={undoCancelling !== null}
+        title="ถอนการยกเลิกร้านนี้"
+        message={undoCancelling ? (
+          <>ให้ <b>{undoCancelling.customer_name ?? undoCancelling.destination}</b>{' '}
+            กลับมาเป็นร้านที่ต้องส่งอีกครั้งใช่หรือไม่?</>
+        ) : ''}
+        confirmLabel="ถอนการยกเลิก"
+        loading={undoCancelling !== null && delivering === undoCancelling.key}
+        onConfirm={() => { if (undoCancelling) void doUndoCancelStop(undoCancelling) }}
+        onClose={() => setUndoCancelling(null)}
       />
 
       {podFor && (

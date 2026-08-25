@@ -48,6 +48,8 @@ function order(o: Partial<MyJobOrder> & { destination: string; customer_name: st
     tms_picking_list_no: null,
     tms_unit_count: null,
     seq: null,
+    cancel_reason: null,
+    cancelled_at: null,
     ...o,
   }
 }

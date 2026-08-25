@@ -37,6 +37,8 @@ export function StopItem({
   onViewPod,
   onDeliver,
   onUndoDeliver,
+  onCancelStop,
+  onUndoCancelStop,
   onMove,
   canMoveUp,
   canMoveDown,
@@ -61,6 +63,10 @@ export function StopItem({
   onDeliver: (stop: StopGroup) => void
   /* ถอนการปิดส่งที่กดผิด — ไม่ส่งมา = ปุ่มไม่ขึ้น (จอฝั่ง LAN ที่ยังไม่มีตัวเรียก) */
   onUndoDeliver?: (stop: StopGroup) => void
+  /* ร้านยกเลิกจากต้นทาง — คนขับส่งไม่ได้แต่ต้องปิดเที่ยวต่อได้
+     ไม่ส่งมา = ปุ่มไม่ขึ้น (จอที่ดูอย่างเดียว) */
+  onCancelStop?: (stop: StopGroup) => void
+  onUndoCancelStop?: (stop: StopGroup) => void
   /* ลำดับการแวะเป็นของคนขับ ปุ่มขึ้น/ลงแทนการลาก — ลากในรถที่สั่นแล้วพลาดง่าย */
   onMove?: (stop: StopGroup, dir: -1 | 1) => void
   canMoveUp?: boolean
@@ -129,6 +135,39 @@ export function StopItem({
             <Button size="lg" className="stop-item-cta" onClick={() => onPod(stop)}>
               เก็บหลักฐานการส่งมอบ
             </Button>
+          )}
+
+          {/* ร้านที่ต้นทางยกเลิกกลางเที่ยว ถ้าไม่มีทางปิด ใบจะค้างเป็นงานที่ยังไม่ส่ง
+              แล้วทั้งเที่ยวปิดไม่ได้ ทั้งที่ร้านอื่นส่งครบแล้ว
+              เป็นปุ่มรอง สีอันตราย ไม่วางคู่ปุ่มปิดส่ง และถามเหตุผลก่อนเสมอ */}
+          {canProgress && onCancelStop && stop.pending.length > 0 && !stop.cancelled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="stop-item-cancel"
+              onClick={() => onCancelStop(stop)}
+            >
+              ร้านยกเลิก — ส่งไม่ได้
+            </Button>
+          )}
+
+          {/* ยกเลิกแล้วต้องอ่านออกว่ายกเลิกเพราะอะไร ไม่ใช่ป้าย "ยกเลิก" ลอย ๆ
+              ที่พรุ่งนี้ไม่มีใครตอบได้ว่าเกิดอะไรขึ้น */}
+          {stop.cancelled && (
+            <div className="stop-item-cancelled" role="status">
+              <b>ยกเลิกแล้ว</b>
+              <span>{stop.orders.find((o) => o.cancel_reason)?.cancel_reason ?? 'ไม่ได้บันทึกเหตุผล'}</span>
+              {canProgress && onUndoCancelStop && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="stop-item-undo"
+                  onClick={() => onUndoCancelStop(stop)}
+                >
+                  ถอนการยกเลิก
+                </Button>
+              )}
+            </div>
           )}
 
           {/* กางการ์ดผิดร้านแล้วกดปิดส่งเป็นเรื่องที่เกิดขึ้นจริง เคยมีใบที่ขึ้นว่า

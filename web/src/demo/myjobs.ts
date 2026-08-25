@@ -90,6 +90,39 @@ export async function undoDeliverOrder(orderId: number): Promise<void> {
   await delay(null)
 }
 
+export async function cancelStop(orderIds: number[], reason: string): Promise<void> {
+  const clean = reason.trim()
+  if (!clean) throw new Error('ต้องบอกเหตุผลที่ยกเลิก')
+  /* ของจริงปฏิเสธทั้งชุดเมื่อมีใบที่เก็บหลักฐานแล้ว โหมดสาธิตต้องปฏิเสธเหมือนกัน
+     ไม่งั้นคนลองจะเชื่อว่ายกเลิกทับหลักฐานได้ */
+  for (const j of allJobs()) {
+    for (const o of j.orders) {
+      if (orderIds.includes(o.id) && o.has_pod) throw new Error('ยกเลิกไม่ได้ — มีใบที่เก็บหลักฐานแล้ว 1 ใบ')
+    }
+  }
+  for (const id of orderIds) {
+    eachOrder((o) => {
+      o.status = 'cancelled'
+      o.cancel_reason = clean
+      o.cancelled_at = new Date().toISOString()
+      o.delivered_at = null
+    }, id)
+  }
+  await delay(null)
+}
+
+export async function undoCancelStop(orderIds: number[]): Promise<void> {
+  for (const id of orderIds) {
+    eachOrder((o) => {
+      if (o.status !== 'cancelled') return
+      o.status = 'assigned'
+      o.cancel_reason = null
+      o.cancelled_at = null
+    }, id)
+  }
+  await delay(null)
+}
+
 export async function saveStopOrder(tripId: number, orderIds: number[]): Promise<void> {
   const job = findJob(tripId)
   if (job) {

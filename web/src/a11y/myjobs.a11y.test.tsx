@@ -27,6 +27,8 @@ function makeOrder(over: Partial<MyJobOrder> = {}): MyJobOrder {
     customer_phone: '081-234-5678',
     customer_address: 'ถนนมิตรภาพ นครราชสีมา',
     has_pod: 0,
+    cancel_reason: null,
+    cancelled_at: null,
     ...over,
   }
 }

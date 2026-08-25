@@ -3478,3 +3478,35 @@
 .quota-fill.is-warning { background: var(--warning); }
 .quota-fill.is-danger { background: var(--danger); }
 .quota-note { margin-top: 2px; }
+
+/* ---- ยกเลิกจุดส่ง ---- */
+/* ปุ่มยกเลิกร้านเป็นทางถอย ไม่ใช่ทางเดินหน้า จึงจาง เล็ก และไม่อยู่ติดปุ่มปิดส่ง
+   แต่ยังต้องได้พื้นที่รับนิ้วเต็มตามเกณฑ์ */
+.stop-item-cancel {
+  width: 100%;
+  min-height: 44px;
+  color: var(--danger);
+}
+.stop-item-cancelled {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--font-sm);
+}
+.stop-item-cancelled b { font-weight: 700; }
+.stop-item-cancelled span { color: var(--ink-2); }
+
+.cancel-stop { display: flex; flex-direction: column; gap: var(--space-3); }
+.cancel-stop-lead { font-size: var(--font-base); line-height: 1.6; }
+.cancel-stop-note { font-size: var(--font-sm); color: var(--muted); line-height: 1.6; }
+/* ตัวเลือกเหตุผลเรียงเป็นชิป กดนิ้วเดียวจบ ไม่ต้องพิมพ์ข้างถนน */
+.cancel-stop-reasons { display: flex; flex-wrap: wrap; gap: 8px; }
+.cancel-stop-reasons .pod-kind { min-height: 44px; }
+/* ปุ่มยกเลิกร้านบนกระดานจัดเที่ยว — อยู่ท้ายหัวข้อร้าน ไม่ปนกับปุ่มถอนใบรายใบ
+   ซึ่งอยู่ท้ายแต่ละแถวและตอบคนละคำถาม */
+.trip-order-cancel { display: flex; justify-content: flex-end; margin: -2px 0 4px; }
+.trip-order-cancel .btn { color: var(--danger); }

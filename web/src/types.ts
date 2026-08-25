@@ -60,6 +60,10 @@ export interface MyJobOrder {
   tms_unit_count: number | null
   /* ลำดับที่คนขับจัดเอง null = ยังไม่จัด */
   seq: number | null
+  /* เหตุผลที่ยกเลิกจุดส่งนี้ — มีค่าเมื่อ status = cancelled เท่านั้น
+     จอต้องแสดงเหตุผลเสมอ "ยกเลิก" เฉย ๆ อ่านย้อนหลังแล้วตอบอะไรไม่ได้ */
+  cancel_reason: string | null
+  cancelled_at: string | null
 }
 
 export interface MyJob {

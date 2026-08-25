@@ -65,6 +65,8 @@ export function JobFocus({
   onViewPod,
   onDeliver,
   onUndoDeliver,
+  onCancelStop,
+  onUndoCancelStop,
   onReorder,
 }: {
   job: MyJob
@@ -89,6 +91,8 @@ export function JobFocus({
   onViewPod?: (order: MyJobOrder) => void
   onDeliver: (stop: StopGroup) => void
   onUndoDeliver?: (stop: StopGroup) => void
+  onCancelStop?: (stop: StopGroup) => void
+  onUndoCancelStop?: (stop: StopGroup) => void
   /* จัดลำดับร้านใหม่ทั้งเที่ยว — คนขับรู้เส้นทางจริงดีกว่าลำดับที่เอกสารให้มา
      ไม่ส่งมา = สแตกที่ยังไม่มีการจัดลำดับ (ฝั่ง LAN) ปุ่มขึ้น/ลงจะไม่ขึ้น */
   onReorder?: (job: MyJob, orderIds: number[]) => void
@@ -136,6 +140,10 @@ export function JobFocus({
   }, [stops, lockedKey, lockedStop])
 
   const delivered = stops.filter((s) => s.done).length
+  /* ร้านที่ยกเลิกไม่ใช่ร้านที่ส่งแล้ว แต่ก็ไม่ใช่งานค้าง — แถบคืบหน้าต้องนับมันว่า
+     จบแล้ว ไม่งั้นจอจะขึ้น "ส่งแล้ว 1/2" พร้อมปุ่มปิดงาน ซึ่งอ่านแล้วขัดกันเอง */
+  const cancelledStops = stops.filter((s) => s.cancelled).length
+  const settled = delivered + cancelledStops
   const active = job.status !== 'completed' && job.status !== 'cancelled'
   /* ประตูเป็นของ "ฉัน" ไม่ใช่ของเที่ยว — คนขับหลักกดรับไปแล้วไม่ได้แปลว่าผู้ช่วยรับแล้ว
      my_accepted_at เป็น undefined บนสแตก LAN ที่ยังไม่มีคอลัมน์นี้ ถอยไปใช้ของเดิม */
@@ -236,7 +244,7 @@ export function JobFocus({
       /* ยังส่งไม่ครบ ห้ามปิดเที่ยว — ถ้าปิดตอนนี้ จุดที่เหลือจะถูกเหมาเป็น "ส่งแล้ว"
          ทั้งที่ยังไม่ได้ไป แล้ว POD ของร้านเหล่านั้นก็ไม่มีใครเก็บ
          บอกจำนวนที่เหลือแทนปุ่มที่กดไม่ได้ เพราะคำถามคือ "อีกกี่ร้าน" */
-      return <p className="job-cta-hint">เหลืออีก {stops.length - delivered} จุด — ปิดงานได้เมื่อส่งครบ</p>
+      return <p className="job-cta-hint">เหลืออีก {stops.length - settled} จุด — ปิดงานได้เมื่อส่งครบ</p>
     }
     if (canClose) {
       return (
@@ -278,11 +286,11 @@ export function JobFocus({
         <div className="job-meter-track">
           <div
             className="job-meter-fill"
-            style={{ width: `${stops.length ? (delivered / stops.length) * 100 : 0}%` }}
+            style={{ width: `${stops.length ? (settled / stops.length) * 100 : 0}%` }}
           />
         </div>
         <span className="job-meter-text">
-          ส่งแล้ว {delivered}/{stops.length} ร้าน
+          ส่งแล้ว {delivered}/{stops.length} ร้าน{cancelledStops > 0 ? ` · ยกเลิก ${cancelledStops}` : ''}
         </span>
       </div>
 
@@ -375,6 +383,18 @@ export function JobFocus({
                       }
                     : undefined
                 }
+                /* ยกเลิกร้าน = ไม่ต้องอยู่ที่ร้านนี้แล้ว ปล่อยล็อกเหมือนตอนถอนการส่ง
+                   ไม่งั้นจอยังล็อกอยู่ที่ร้านที่เพิ่งบอกว่าไปไม่ได้ */
+                onCancelStop={
+                  onCancelStop
+                    ? (target) => {
+                        setLockedKey(null)
+                        setConfirmSwitch(false)
+                        onCancelStop(target)
+                      }
+                    : undefined
+                }
+                onUndoCancelStop={onUndoCancelStop}
                 onMove={canReorder ? move : undefined}
                 canMoveUp={i > 0}
                 canMoveDown={i < stops.length - 1}

@@ -146,6 +146,9 @@ export type OrderRow = {
   tms_picking_list_no: string | null
   work_kind: 'vehicle' | 'box' | null
   tms_unit_count: number | null
+  cancel_reason: string | null
+  cancelled_at: string | null
+  cancelled_by: number | null
 }
 
 export type PodRow = {
@@ -289,6 +292,8 @@ export type MyOrderRow = {
   work_kind: string | null
   /* ลำดับที่คนขับจัดเอง null = ยังไม่จัด เรียงตามกำหนดส่งไปก่อน */
   seq: number | null
+  cancel_reason: string | null
+  cancelled_at: string | null
   customer_name: string | null
   customer_phone: string | null
   customer_address: string | null
@@ -389,6 +394,16 @@ export interface Database {
         Returns: { order_id: number; order_no: string; pl_no: string | null }
       }
       complete_trip: { Args: { p_trip_id: number }; Returns: void }
+      /* ยกเลิกจุดส่งทั้งร้าน — ใช้ร่วมกันทั้งจอคนขับและจอออฟฟิศ ฟังก์ชันเดียว
+         แยกสิทธิ์ข้างในเอง คนขับได้เฉพาะเที่ยวตัวเองตอนกำลังวิ่ง */
+      cancel_stop: {
+        Args: { p_order_ids: number[]; p_reason: string }
+        Returns: { cancelled: number; trip_id: number }
+      }
+      undo_cancel_stop: {
+        Args: { p_order_ids: number[] }
+        Returns: { restored: number; trip_id: number }
+      }
       save_pod: {
         Args: {
           p_order_id: number
