@@ -59,6 +59,16 @@ const tiles = LONGDO_KEY
       credit: '© ผู้ร่วมสร้าง OpenStreetMap',
     }
 
+/* ชั้นจราจรของ Longdo — ซ้อนทับแผนที่ ไม่ใช่แทนที่ ต้องมีคีย์ถึงจะมี
+   ปิดไว้เป็นค่าตั้งต้นด้วยเหตุผลสองข้อ: มันกินโควต้าเป็นสองเท่า (ขอ tile สองชุดต่อการเลื่อนหนึ่งครั้ง)
+   และสีแดงของรถติดทับสีของหมุดรถเรา ซึ่งเป็นสิ่งที่หน้านี้มีไว้ให้ดูตั้งแต่แรก
+   คนที่อยากดูจราจรจะเปิดเองตอนที่ต้องการ และเราจำไว้ให้ในเครื่องเขา */
+const TRAFFIC_URL = LONGDO_KEY
+  ? `https://ms.longdo.com/mmmap/tile.php?proj=epsg3857&mode=trafficoverlay&zoom={z}&x={x}&y={y}&HD=1&key=${LONGDO_KEY}`
+  : ''
+
+const TRAFFIC_PREF = 'tracking-traffic'
+
 export default function CloudTracking(): React.JSX.Element {
   const { can } = useCloudAuth()
   const [trips, setTrips] = useState<TrackedTrip[]>([])
@@ -111,6 +121,20 @@ export default function CloudTracking(): React.JSX.Element {
     if (map.current) return
     const m = L.map(node).setView(HOME, 10)
     L.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.credit }).addTo(m)
+
+    /* ปุ่มเปิด-ปิดจราจรของ Leaflet เอง ไม่ต้องมีปุ่มของเราให้ดูแลอีกอัน
+       ไม่มีคีย์ = ไม่มีชั้นนี้ และไม่มีปุ่มที่กดแล้วไม่เกิดอะไรขึ้นให้คนงง */
+    if (TRAFFIC_URL) {
+      const traffic = L.tileLayer(TRAFFIC_URL, {
+        maxZoom: 19,
+        opacity: 0.85,
+        attribution: '© Longdo Traffic Map',
+      })
+      if (localStorage.getItem(TRAFFIC_PREF) === '1') traffic.addTo(m)
+      L.control.layers(undefined, { 'การจราจร': traffic }, { collapsed: false }).addTo(m)
+      m.on('overlayadd', () => localStorage.setItem(TRAFFIC_PREF, '1'))
+      m.on('overlayremove', () => localStorage.removeItem(TRAFFIC_PREF))
+    }
     map.current = m
     layer.current = L.layerGroup().addTo(m)
     setMapReady(true)

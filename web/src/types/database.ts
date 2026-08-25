@@ -412,7 +412,9 @@ export interface Database {
       }
       remove_order_from_trip: { Args: { p_trip_id: number; p_order_id: number }; Returns: void }
       dispatch_start_trip: { Args: { p_trip_id: number }; Returns: void }
-      dispatch_complete_trip: { Args: { p_trip_id: number }; Returns: void }
+      dispatch_complete_trip: { Args: { p_trip_id: number }; Returns: { trip_no: string; closed: number; without_pod: number } }
+      /** ถามก่อนกดปิด: ปิดแล้วจะกินกี่ใบ และในนั้นไม่มีหลักฐานกี่ใบ */
+      trip_close_preview: { Args: { p_trip_id: number }; Returns: { trip_no: string | null; open_orders: number; without_pod: number } }
       dispatch_cancel_trip: { Args: { p_trip_id: number }; Returns: void }
       convert_quote: {
         Args: { p_quote_id: number; p_scheduled_at: string; p_notes?: string | null }

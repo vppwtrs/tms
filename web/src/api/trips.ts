@@ -230,7 +230,7 @@ export async function addOrdersToTrip(tripId: number, orderIds: number[]): Promi
 }
 
 async function call(
-  fn: 'remove_order_from_trip' | 'dispatch_start_trip' | 'dispatch_complete_trip'
+  fn: 'remove_order_from_trip' | 'dispatch_start_trip'
     | 'dispatch_cancel_trip' | 'clear_trip_issue' | 'accept_trip',
   args: Record<string, number>,
 ): Promise<void> {
@@ -243,9 +243,30 @@ export const removeOrderFromTrip = (tripId: number, orderId: number) =>
 
 export const startTrip = (tripId: number) => call('dispatch_start_trip', { p_trip_id: tripId })
 
+/** สิ่งที่จะเกิดขึ้นถ้ากดปิดเที่ยวตอนนี้ — ถามก่อนแตะข้อมูล
+ *  ตัวเลขจริงเท่านั้นที่ทำให้คนอ่านกล่องยืนยัน คำเตือนลอย ๆ ทุกคนกดผ่าน */
+export async function closeTripPreview(tripId: number): Promise<TripClosePreview> {
+  const { data, error } = await supabase.rpc('trip_close_preview', { p_trip_id: tripId } as never)
+  if (error) throw toDataError(error)
+  return data as unknown as TripClosePreview
+}
+
+export interface TripClosePreview {
+  trip_no: string | null
+  /** ใบที่จะถูกเปลี่ยนเป็น "ส่งสำเร็จ" ทันทีที่กด */
+  open_orders: number
+  /** ใบที่จะถูกนับว่าส่งแล้วทั้งที่ไม่มีหลักฐานสักใบ */
+  without_pod: number
+}
+
 /** ปิดเที่ยวจากฝั่งออฟฟิศ — ไม่บังคับว่าต้องส่งครบก่อน ต่างจากปุ่มของคนขับ
- *  มีไว้สำหรับตอนที่หน้างานปิดเองไม่ได้ (เน็ตหลุด แบตหมด) ไม่ใช่ทางลัดปกติ */
-export const completeTrip = (tripId: number) => call('dispatch_complete_trip', { p_trip_id: tripId })
+ *  มีไว้สำหรับตอนที่หน้างานปิดเองไม่ได้ (เน็ตหลุด แบตหมด) ไม่ใช่ทางลัดปกติ
+ *  ใบที่ถูกปิดทั้งที่ไม่มีหลักฐาน ถูกบันทึกไว้ใน evidence_audit_log ทุกใบ */
+export async function completeTrip(tripId: number): Promise<{ closed: number; without_pod: number }> {
+  const { data, error } = await supabase.rpc('dispatch_complete_trip', { p_trip_id: tripId } as never)
+  if (error) throw toDataError(error)
+  return data as unknown as { closed: number; without_pod: number }
+}
 
 /** คนขับกดรับงาน — ประตูที่กันไม่ให้งานวิ่งข้ามหัวคนขับ
  *  สถานะจาก TMS ที่ค้างอยู่จะมีผลก็ต่อเมื่อผ่านประตูนี้แล้ว */

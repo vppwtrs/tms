@@ -59,6 +59,9 @@ export function CameraCapture({
 
   const secure = typeof window !== 'undefined' && window.isSecureContext
   const supported = secure && typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+  /* เก็บคำที่เบราว์เซอร์บอกไว้ดิบ ๆ ไม่แปลไทย — ชื่อ error คือสิ่งเดียวที่ชี้ได้ว่า
+     ติดที่สิทธิ์ ที่ฮาร์ดแวร์ หรือที่ตัวเบราว์เซอร์ไม่มีของให้ตั้งแต่ต้น */
+  const lastErr = useRef('')
 
   const stop = (): void => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -125,6 +128,7 @@ export function CameraCapture({
       setStream(got)
     } catch (e) {
       const name = (e as { name?: string }).name
+      lastErr.current = `${name ?? 'Error'}: ${(e as { message?: string }).message ?? ''}`
       setProblem(
         name === 'NotAllowedError'
           ? 'ไม่ได้รับอนุญาตให้ใช้กล้อง — เปิดสิทธิ์กล้องให้เว็บนี้ในตั้งค่าเบราว์เซอร์'
@@ -210,6 +214,12 @@ export function CameraCapture({
                ไม่ปล่อยเป็นกรอบดำเปล่าที่คนต้องเดาเองว่าแอปพังหรือกล้องพัง */
             <div className="cam-stage-off">
               <p>{problem || (supported ? 'กำลังเปิดกล้อง…' : 'อุปกรณ์นี้เปิดกล้องในหน้าเว็บไม่ได้')}</p>
+              {/* เครื่องคนขับอยู่คนละที่กับคนแก้บั๊ก และ "กล้องไม่ขึ้น" อธิบายอะไรไม่ได้เลย
+                  บรรทัดนี้คือสิ่งที่คนขับถ่ายจอส่งมาแล้วตอบได้ทันทีว่าติดด่านไหน */}
+              <details className="cam-why">
+                <summary>ทำไมกล้องไม่ขึ้น</summary>
+                <code>{cameraFacts(lastErr.current)}</code>
+              </details>
               {supported && (
                 <Button variant="outline" onClick={() => void start()}>
                   เปิดกล้องอีกครั้ง
@@ -294,4 +304,30 @@ export function CameraCapture({
       {problem && <p className="text-xs text-danger">{problem}</p>}
     </div>
   )
+}
+
+/**
+ * ข้อเท็จจริงของเครื่องที่กล้องไม่ขึ้น — เขียนให้อ่านจากรูปถ่ายจอได้ในบรรทัดเดียว
+ *
+ * สามค่าแรกคือสามด่านที่กล้องบนเว็บตายได้: ต้องเป็น https, ต้องมี mediaDevices,
+ * และบน iOS ที่เปิดจากไอคอนหน้าจอ (standalone) รุ่นก่อน 14.3 ไม่มี getUserMedia ให้เลย
+ * ต่อให้กดอนุญาตยังไงก็ไม่มีอะไรขึ้น เพราะไม่มีของให้เรียกตั้งแต่ต้น
+ */
+function cameraFacts(err = ''): string {
+  const nav = typeof navigator === 'undefined' ? undefined : navigator
+  const standalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      (nav as { standalone?: boolean } | undefined)?.standalone === true)
+  const ios = /OS (\d+)[._](\d+)/.exec(nav?.userAgent ?? '')
+  return [
+    `secure=${typeof window !== 'undefined' && window.isSecureContext}`,
+    `mediaDevices=${!!nav?.mediaDevices}`,
+    `getUserMedia=${!!nav?.mediaDevices?.getUserMedia}`,
+    `standalone=${standalone}`,
+    `ios=${ios ? `${ios[1]}.${ios[2]}` : 'ไม่ใช่ iOS'}`,
+    err ? `error=${err}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }

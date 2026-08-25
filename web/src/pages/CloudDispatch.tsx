@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip,
-  startTrip, completeTrip, cancelTrip, acceptTrip, clearTripIssue, forceDeleteTrip, type BoardTrip,
+  startTrip, completeTrip, closeTripPreview, type TripClosePreview, cancelTrip, acceptTrip, clearTripIssue, forceDeleteTrip, type BoardTrip,
 } from '../api/trips'
 import { listUnassignedOrders, type DispatchOrderRow } from '../api/orders'
 import { useRealtime } from '../hooks/useRealtime'
@@ -87,6 +87,9 @@ export default function CloudDispatch(): React.JSX.Element {
   const [creating, setCreating] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [cancelling, setCancelling] = useState<BoardTrip | null>(null)
+  /* ปิดเที่ยวจากออฟฟิศเปลี่ยนใบที่ยังไม่ถึงมือลูกค้าให้เป็น "ส่งสำเร็จ" ทันที
+     จึงต้องถามก่อน และต้องถามด้วยตัวเลขจริงของเที่ยวนั้น ไม่ใช่คำเตือนลอย ๆ */
+  const [closing, setClosing] = useState<{ trip: BoardTrip; preview: TripClosePreview } | null>(null)
   /* ลบถาวร — ของเก็บกวาดข้อมูลทดสอบและข้อมูลที่เสีย ไม่ใช่ทางทำงานปกติ
      จึงเห็นเฉพาะผู้ดูแลระบบ และมีกล่องยืนยันของตัวเองที่บอกว่าอะไรจะหายไปบ้าง
      ลบถึงข้อมูลดิบจาก TMS ด้วย — เก็บซากไว้แล้วมันจะโผล่กลับมาให้กดนำเข้าซ้ำ
@@ -113,6 +116,16 @@ export default function CloudDispatch(): React.JSX.Element {
       setLoading(false)
     }
   }, [])
+
+  /* ถามฐานก่อนว่าการกดครั้งนี้จะกินอะไรบ้าง แล้วค่อยขึ้นกล่องยืนยัน
+     ถ้าถามไม่สำเร็จก็ยังให้ปิดได้ แต่ขึ้นกล่องแบบไม่มีตัวเลข ดีกว่าปิดทางออกฉุกเฉินทิ้ง */
+  const askClose = async (t: BoardTrip): Promise<void> => {
+    try {
+      setClosing({ trip: t, preview: await closeTripPreview(t.id) })
+    } catch {
+      setClosing({ trip: t, preview: { trip_no: null, open_orders: 0, without_pod: 0 } })
+    }
+  }
 
   useEffect(() => { void loadAll() }, [loadAll])
 
@@ -278,7 +291,7 @@ export default function CloudDispatch(): React.JSX.Element {
                   ? () => void act(t.id, () => startTrip(t.id), `เริ่มเที่ยว ${tripNo(t)} — สถานะออเดอร์เป็นกำลังขนส่ง`)
                   : undefined}
                 onComplete={(t.status === 'in_progress' || t.status === 'returning')
-                  ? () => void act(t.id, () => completeTrip(t.id), `เที่ยว ${tripNo(t)} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)
+                  ? () => void askClose(t)
                   : undefined}
                 onCancel={() => setCancelling(t)}
                 onPurge={canPurge ? () => setPurging(t) : undefined}
@@ -453,6 +466,35 @@ export default function CloudDispatch(): React.JSX.Element {
               const r = await forceDeleteTrip(t.id)
               return r
             }, `ลบเที่ยว ${tripNo(t)} ถาวรแล้ว`)
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={closing !== null}
+        onClose={() => setClosing(null)}
+        title="ปิดเที่ยวจากฝั่งออฟฟิศ"
+        message={closing ? (
+          <>
+            ปิดเที่ยว <b>{tripNo(closing.trip)}</b> แทนคนขับ — ใบที่ยังไม่ถึงมือลูกค้า{' '}
+            <b>{fmtNum(closing.preview.open_orders)} ใบ</b> จะถูกนับเป็น <b>ส่งสำเร็จ</b> ทันที
+            {closing.preview.without_pod > 0 && (
+              <>
+                {' '}และในเที่ยวนี้มี <b>{fmtNum(closing.preview.without_pod)} ใบที่ยังไม่มีหลักฐานการส่ง</b>{' '}
+                — ปิดแล้วจะไม่มีใครกลับไปเก็บให้ ระบบจะบันทึกไว้ว่าใครปิดและขาดใบไหนบ้าง
+              </>
+            )}
+          </>
+        ) : ''}
+        confirmLabel="ปิดเที่ยว"
+        danger={closing !== null && closing.preview.without_pod > 0}
+        loading={busyId !== null}
+        onConfirm={() => {
+          const c = closing
+          setClosing(null)
+          if (c) {
+            void act(c.trip.id, () => completeTrip(c.trip.id),
+              `เที่ยว ${tripNo(c.trip)} เสร็จสิ้น — ออเดอร์เป็นส่งสำเร็จ`)
           }
         }}
       />
