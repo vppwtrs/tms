@@ -67,15 +67,36 @@ export default function CloudPermissionGroups(): React.JSX.Element {
         <div><h2 style={{ margin: 0, fontSize: 18 }}>สิทธิ์เริ่มต้นของกลุ่ม</h2><p className="text-sm text-muted" style={{ margin: '4px 0 0' }}>ผู้ใช้ที่ไม่ได้ตั้งค่าเฉพาะบุคคลจะใช้รายการนี้</p></div>
         {role === 'admin' && <Badge label="กลุ่มป้องกันการแก้ไข" tone="pending" />}
       </div>
-      {loading ? <TableSkeleton rows={8} cols={2} /> : Object.entries(grouped).map(([group, entries]) => <section key={group} style={{ marginBottom: 18 }}>
-        <h3 style={{ fontSize: 14, margin: '0 0 8px' }}>{group}</h3>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {entries.map((p) => <label key={p.permission} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, opacity: role === 'admin' ? .7 : 1 }}>
-            <input type="checkbox" checked={allowed.has(p.permission)} disabled={role === 'admin' || busy === p.permission} onChange={() => void toggle(p.permission)} />
-            <span><b>{p.label}</b><small style={{ display: 'block', color: 'var(--muted)' }}>{p.description}</small></span>
-          </label>)}
-        </div>
-      </section>)}
+      {loading ? <TableSkeleton rows={8} cols={2} /> : Object.entries(grouped).map(([group, entries]) => {
+        /* จำนวนที่เปิดอยู่ต่อหมวด — คำถามที่หน้านี้ถูกเปิดมาถามคือ "กลุ่มนี้ทำอะไรได้บ้าง"
+           ซึ่งเดิมตอบได้ทางเดียวคืออ่านทุกบรรทัดแล้วนับกล่องติ๊กเอาเอง สามสิบกว่าบรรทัด
+           ตัวเลขต่อหมวดตอบโครงสร้างทั้งหน้าได้โดยไม่ต้องอ่านรายการเลย */
+        const on = entries.filter((p) => allowed.has(p.permission)).length
+        return (
+        <section key={group} className="pgroup">
+          <h3 className="pgroup-head">
+            {group}
+            <span className={`pgroup-count${on === 0 ? ' is-none' : on === entries.length ? ' is-all' : ''}`}>
+              {on}/{entries.length}
+            </span>
+          </h3>
+          <div className="pgroup-list">
+            {entries.map((p) => {
+              const isOn = allowed.has(p.permission)
+              return (
+              /* ติ๊กแล้วทั้งแถวเปลี่ยน ไม่ใช่แค่กล่องเล็ก ๆ ด้านซ้าย — สิ่งที่คนมาดูคือ
+                 "อันไหนเปิดอยู่" การให้คำตอบนั้นอยู่ในสี่เหลี่ยม 16px เดียวแปลว่าต้อง
+                 เล็งทีละบรรทัด แถบซ้ายกับพื้นที่เปลี่ยนทำให้กวาดตาลงมาทีเดียวจบ */
+              <label key={p.permission} className={`pgroup-row${isOn ? ' is-on' : ''}`} data-locked={role === 'admin' ? '' : undefined}>
+                <input type="checkbox" checked={isOn} disabled={role === 'admin' || busy === p.permission} onChange={() => void toggle(p.permission)} />
+                <span><b>{p.label}</b><small>{p.description}</small></span>
+              </label>
+              )
+            })}
+          </div>
+        </section>
+        )
+      })}
       <p className="text-xs text-muted" style={{ margin: 0 }}>สิทธิ์ผู้ใช้และการเปลี่ยนกลุ่มจะถูกตรวจสอบซ้ำในระบบ ไม่ได้พึ่งเฉพาะหน้าจอนี้</p>
     </div>
     <div className="card" style={{ padding: 18, marginTop: 16 }}>

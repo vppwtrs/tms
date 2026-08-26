@@ -352,3 +352,69 @@
 }
 .error-box > svg { flex: none; }
 .error-box > span { flex: 1; min-width: 0; }
+
+/* ============================================================
+   กลุ่มสิทธิ์
+   ============================================================
+
+   หน้านี้ถูกเปิดมาถามคำถามเดียว: กลุ่มนี้ทำอะไรได้บ้าง
+   เดิมตอบได้ทางเดียวคืออ่านสามสิบกว่าบรรทัดแล้วนับกล่องติ๊กเอาเอง เพราะคำตอบของ
+   แต่ละบรรทัดถูกใส่ไว้ในสี่เหลี่ยมขนาด 16px ที่ริมซ้าย ต้องเล็งทีละอัน
+   และหมวดหมู่ซึ่งเป็นโครงของหน้ากลับเบากว่ารายการที่มันคุมอยู่
+
+   แก้สองที่ หมวดได้ตัวเลขบอกว่าเปิดกี่จากทั้งหมด อ่านโครงทั้งหน้าจบโดยไม่ต้องแตะรายการ
+   และแถวที่เปิดอยู่เปลี่ยนทั้งแถว ไม่ใช่แค่กล่อง กวาดตาลงมาครั้งเดียวก็เห็นว่าอันไหนติด */
+
+.pgroup { margin-bottom: 18px; }
+.pgroup-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.pgroup-count {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px rgba(var(--shade), 0.08);
+}
+/* เปิดครบกับปิดหมดคือสองคำตอบที่ชัดเจน ส่วนที่เปิดบางส่วนคือที่ที่ต้องอ่านต่อ
+   สามสถานะนี้ต่างกันด้วยน้ำหนักและสี ไม่ใช่ด้วยสีอย่างเดียว */
+.pgroup-count.is-all { background: var(--success-bg); color: var(--success); }
+.pgroup-count.is-none { opacity: 0.55; }
+
+.pgroup-list { display: grid; gap: 8px; }
+
+.pgroup-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-snap) var(--spring-snap),
+    border-color var(--dur-snap) var(--spring-snap);
+}
+.pgroup-row small { display: block; color: var(--muted); }
+.pgroup-row.is-on {
+  background: var(--success-bg);
+  border-color: transparent;
+  border-left-color: var(--success);
+}
+.pgroup-row:hover { background: var(--surface-2); }
+.pgroup-row.is-on:hover { background: var(--success-bg); }
+/* กลุ่มผู้ดูแลระบบแก้ไม่ได้ตามการออกแบบ ทั้งแถวจึงต้องอ่านออกว่าแตะไม่ได้
+   ก่อนที่นิ้วจะไปถึง ไม่ใช่ตอนกดแล้วไม่มีอะไรเกิดขึ้น */
+.pgroup-row[data-locked] { opacity: 0.7; cursor: not-allowed; }
+.pgroup-row[data-locked]:hover { background: transparent; }
+.pgroup-row[data-locked].is-on:hover { background: var(--success-bg); }
