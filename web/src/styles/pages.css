@@ -23,6 +23,23 @@
 }
 .ops-lane[data-lane='run']  { --lane: var(--warning); }
 .ops-lane[data-lane='done'] { --lane: var(--success); }
+.ops-lane[data-lane='queue'] { --lane: var(--accent); }
+
+/* ---- ช่อง "จบวันนี้" ----
+   จบแล้วไม่มีอะไรให้ทำต่อ แต่ยังต้องเห็นว่าวันนี้ทำอะไรไปบ้าง จึงจางลง ไม่ใช่ซ่อน
+   จางด้วยการลดความเข้มของตัวหนังสือกับเงา ไม่ใช่ opacity ทั้งใบ เพราะ opacity
+   ลากป้ายสถานะกับตัวเลขให้จางตามไปด้วย จนคู่สีหลุดเกณฑ์ที่วัดผ่านมาแล้ว */
+.ops-lane[data-lane='done'] .trip-card {
+  box-shadow: var(--rim);
+  background: var(--surface-2);
+}
+.ops-lane[data-lane='done'] .trip-card .trip-meta {
+  color: var(--muted);
+}
+.ops-lane[data-lane='done'] .trip-card:hover {
+  box-shadow: var(--rim), var(--lift-1);
+  background: var(--surface);
+}
 
 .ops-lane .ops-col-title {
   position: sticky;
@@ -596,3 +613,30 @@
   white-space: nowrap;
 }
 .inline-field input { width: 160px; }
+
+/* ===== ชั้นของหมวดสิทธิ์ =====
+   แต่ละชั้นเป็นแถบแนวนอนที่มีหัวข้อกำกับ การ์ดในแถบเดียวกันสูงเท่ากัน
+   ช่องว่างจึงอยู่ระหว่างชั้น ไม่ใช่เป็นหลุมกระจายอยู่กลางตาราง */
+.pgroup-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.pgroup-band-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.pgroup-band-title {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--ink);
+}
+/* ในแถบเดียวการ์ดยืดเท่ากัน — ขอบล่างตรงกันทั้งแถวคือสิ่งที่อ่านออกว่า "เป็นพวกเดียวกัน" */
+.pgroup-band .pgroup-grid { align-items: stretch; }

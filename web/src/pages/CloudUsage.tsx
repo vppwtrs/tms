@@ -82,7 +82,16 @@ export default function CloudUsage(): React.JSX.Element {
   }
 
   if (!can('users.manage')) {
-    return <div className="card" style={{ margin: 24, padding: 24, textAlign: 'center' }}><h2>ไม่มีสิทธิ์เปิดหน้านี้</h2></div>
+    /* เขียนให้ตรงกับหน้าข้อมูลระบบ — บอกว่าต้องมีสิทธิ์อะไรและขอจากใคร
+       ไม่งั้นคนอ่านว่าระบบพังแล้วแจ้งมาเป็นบั๊ก ทั้งที่มันกันถูกแล้ว */
+    return (
+      <div className="card" style={{ margin: 24, padding: 24 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>ไม่มีสิทธิ์เปิดหน้านี้</h2>
+        <p className="text-sm text-muted" style={{ margin: 0 }}>
+          หน้านี้ต้องมีสิทธิ์ <b>จัดการผู้ใช้</b> ติดต่อผู้ดูแลระบบเพื่อขอเปิดให้
+        </p>
+      </div>
+    )
   }
 
   const num = (n: number): string => n.toLocaleString('th-TH')

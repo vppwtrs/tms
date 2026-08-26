@@ -26,7 +26,6 @@ const CloudMyJobs = lazy(() => import('./pages/CloudMyJobs'))
 const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudData = lazy(() => import('./pages/CloudData'))
 const CloudUsage = lazy(() => import('./pages/CloudUsage'))
-const CloudPermissionGroups = lazy(() => import('./pages/CloudPermissionGroups'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
 const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
 const CloudTmsTrips = lazy(() => import('./pages/CloudTmsTrips'))
@@ -133,7 +132,9 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/drivers" element={<RequirePermission permission="drivers.view"><CloudDrivers /></RequirePermission>} />
           <Route path="/customers" element={<RequirePermission permission="customers.view"><CloudCustomers /></RequirePermission>} />
           <Route path="/users" element={<RequirePermission permission="users.manage"><CloudUsers /></RequirePermission>} />
-          <Route path="/permission-groups" element={<RequirePermission permission="users.manage"><CloudPermissionGroups /></RequirePermission>} />
+          {/* กลุ่มสิทธิ์ยุบเข้าเป็นแท็บในหน้าผู้ใช้และสิทธิ์แล้ว — เส้นทางเดิมยังต้องพาไปถึงที่เดิม
+              ลิงก์ที่คนบุ๊กมาร์กไว้หรือส่งกันในแชทไม่ควรกลายเป็นหน้าไม่พบ */}
+          <Route path="/permission-groups" element={<Navigate to="/users?tab=groups" replace />} />
           <Route path="/data" element={<RequirePermission permission="users.manage"><CloudData /></RequirePermission>} />
           <Route path="/usage" element={<RequirePermission permission="users.manage"><CloudUsage /></RequirePermission>} />
         </Route>

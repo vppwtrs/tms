@@ -168,6 +168,55 @@
   align-items: start;
 }
 
+/* ช่อง "รอจัดคิว" โผล่เฉพาะตอนมีใบค้างจริง กระดานจึงมีสองรูปทรง
+   ช่องใหม่แคบที่สุดเพราะการ์ดในนั้นมีแค่สามบรรทัด ไม่ใช่เพราะไม่สำคัญ */
+.ops-board.has-queue {
+  grid-template-columns:
+    minmax(0, 0.7fr) minmax(0, 0.85fr) minmax(0, 1.2fr) minmax(0, 0.7fr);
+}
+
+/* การ์ดออเดอร์รอจัดคิว — เตี้ยกว่าการ์ดเที่ยวเพราะยังไม่มีรถ ไม่มีคนขับ
+   ไม่มีความจุ มีแค่ "ใบไหน ไปไหน ส่งเมื่อไหร่" และปุ่มเดียวที่ทำให้มันเดินต่อ */
+.queue-card {
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 10px var(--space-4);
+  margin-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.queue-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.queue-card-meta {
+  font-size: var(--font-sm);
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* ตัวนับรถว่าง/คนขับว่างบนหัวหน้า — เป็นข้อมูล ไม่ใช่ปุ่ม จึงไม่มีขอบแบบปุ่ม
+   และไม่ตอบสนองตอนชี้เมาส์ ของที่กดไม่ได้ต้องไม่ทำท่าว่ากดได้ */
+.ops-res-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-2, var(--paper-deep));
+  color: var(--ink-2);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+.ops-res-chip svg { color: var(--muted); flex-shrink: 0; }
+.ops-res-chip b { font-variant-numeric: tabular-nums; color: var(--ink); }
+
 /* หัวคอลัมน์ของกระดาน — เดิมเป็น inline style ซ้ำสามที่ในหน้าเดียว */
 .ops-col-title {
   font-family: var(--font-display);
@@ -236,6 +285,50 @@
   padding-top: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
+}
+
+/* ---- ความสูงแถวคงที่ ----
+   44px มาจากสองทางที่บังเอิญตรงกัน: ช่วง "กระชับ" ของตารางองค์กรคือ 40–44px
+   และ 44px คือขนาดเป้ากดขั้นต่ำ แถวจึงแน่นที่สุดเท่าที่ยังกดถูกด้วยนิ้ว
+
+   ที่แก้จริงคือจังหวะแนวตั้ง — เดิมความสูงแถวลอยตามเนื้อหา แถวที่ชื่อร้านยาวจนขึ้น
+   สองบรรทัดจะสูงกว่าเพื่อนอยู่แถวเดียวกลางตาราง ตากวาดลงมาแล้วสะดุด ซึ่งคืออาการ
+   ที่อ่านออกมาเป็นคำว่า "ดูไม่สมมาตร" เป็นค่าต่ำสุด ไม่ใช่ค่าตายตัว เซลล์ที่มีป้าย
+   กับปุ่มอยู่ด้วยกันยังสูงได้ตามของข้างใน */
+.ops-table tbody td {
+  height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* เซลล์ปุ่มต้องเป็น table-cell ต่อไป ห้ามตั้ง display:flex ที่ตัว `<td>` เอง —
+   เซลล์ที่หลุดจาก display:table-cell ไม่เข้าการคำนวณความกว้างของตารางอีก ขอบขวา
+   จึงยื่นพ้นการ์ดและเส้นคั่นแถวลากไม่ถึง อีกทั้ง `height` ที่เคยเป็นค่าต่ำสุด
+   กลายเป็นความสูงจริง ของข้างในเลยล้นไปทับแถวล่าง ให้ div ข้างในเป็น flex แทน */
+.ops-table tbody td.cell-actions {
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  white-space: nowrap;
+  width: 1%;
+}
+.cell-actions-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 32px;
+}
+
+/* ---- คอลัมน์ที่ยอมให้ตัดบรรทัด ----
+   ตารางหนึ่งตัวควรมีคอลัมน์เดียวที่ทำแบบนี้ได้ — คอลัมน์ที่เป็นคำอธิบายจริง ๆ
+   ใส่เกินหนึ่งคอลัมน์เมื่อไหร่ ความสูงแถวก็กลับไปลอยตามเนื้อหาเหมือนเดิม */
+.ops-table td.cell-wrap {
+  white-space: normal;
+  line-height: 1.35;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .ops-table tbody td {
@@ -673,20 +766,24 @@
    จอแคบ — ยึดบันไดเดิม 1100 / 900 / 720 / 560
    ============================================================ */
 @media (max-width: 1240px) {
-  .ops-board {
+  .ops-board,
+  .ops-board.has-queue {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   }
-  /* คอลัมน์ทรัพยากรลงไปอยู่เต็มแถวล่าง ยังเห็นครบ ไม่ได้ถูกซ่อน */
-  .ops-board > :nth-child(3) {
+  /* คอลัมน์ทรัพยากรลงไปอยู่เต็มแถวล่าง ยังเห็นครบ ไม่ได้ถูกซ่อน
+     เลือกด้วยชื่อคลาส ไม่ใช่ลำดับลูก — กระดานมีสามหรือสี่ช่องแล้วแต่ว่ามีใบรอจัดคิวไหม
+     ลำดับที่ตายตัวจึงชี้ผิดตัวทันทีที่ช่องใหม่โผล่ */
+  .ops-board > .ops-panel {
     grid-column: 1 / -1;
   }
 }
 
 @media (max-width: 1100px) {
-  .ops-board {
+  .ops-board,
+  .ops-board.has-queue {
     grid-template-columns: minmax(0, 1fr);
   }
-  .ops-board > :nth-child(3) {
+  .ops-board > .ops-panel {
     grid-column: auto;
   }
   .ops-kpis {
@@ -743,4 +840,21 @@
   .ops-kpis {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ===== โลโก้บริษัทใต้โลโก้แอปในหน้าล็อกอิน =====
+   ไฟล์เป็นภาพขาวดำ วางเป็น <img> ตรง ๆ แล้วธีมมืดจะได้ตัวอักษรดำบนพื้นเข้มจนอ่านไม่ออก
+   ใช้เป็น mask แทน สีจึงมาจากโทเคน เปลี่ยนตามธีมเองโดยไม่ต้องมีไฟล์สองใบ
+   จางกว่าชื่อระบบหนึ่งระดับโดยตั้งใจ — ตรงนี้บอกว่าใครเป็นเจ้าของ ไม่ใช่หัวเรื่องของหน้า */
+.login-company {
+  width: 132px;
+  height: 55px;
+  margin: 10px auto 2px;
+  background-color: var(--muted);
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
 }

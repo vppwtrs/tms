@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select, TableSkeleton } from '../components/ui'
+import { useSearchParams } from 'react-router-dom'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, MoreMenu, PageHeader, Select, TableSkeleton, TabPanel, Tabs } from '../components/ui'
+import { PermissionAuditPanel, RolePermissionsPanel } from './CloudPermissionGroups'
 import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listUserPermissionOverrides, saveUserPermission, resetUserPermissions, seedRolePermissionPresets } from '../api/users'
 import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import { ChangePasswordModal } from '../components/ChangePasswordModal'
@@ -47,6 +49,19 @@ const ROLE_HELP: Record<string, string> = {
 const ASSIGNABLE: UserRole[] = ['viewer', 'dispatcher', 'admin']
 
 export default function CloudUsers(): React.JSX.Element {
+  /* แท็บที่เปิดอยู่เก็บใน URL ไม่ใช่ใน state ล้วน — ลิงก์ที่ส่งให้กันต้องเปิดมาตรงแท็บเดิม
+     ปุ่มย้อนกลับต้องพากลับมาแท็บก่อนหน้า และ `/permission-groups` ของเดิมชี้มาที่
+     `?tab=groups` ได้โดยไม่ต้องมีหน้าของตัวเองอีก */
+  const [params, setParams] = useSearchParams()
+  const rawTab = params.get('tab')
+  const tab = rawTab === 'groups' || rawTab === 'audit' ? rawTab : 'accounts'
+  const setTab = (key: string): void => {
+    const next = new URLSearchParams(params)
+    if (key === 'accounts') next.delete('tab')
+    else next.set('tab', key)
+    setParams(next)
+  }
+
   const [users, setUsers] = useState<UserRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const errorRef = useRef<HTMLDivElement>(null)
@@ -256,6 +271,19 @@ export default function CloudUsers(): React.JSX.Element {
         subtitle="พนักงานออฟฟิศเข้าระบบด้วยบัญชี TMS บริษัท — ที่นี่กำหนดว่าใครเห็นอะไรได้บ้าง"
       />
 
+      {/* สามมุมของเรื่องเดียวกัน: ใครมีบัญชี · กลุ่มให้อะไรมาเป็นค่าเริ่มต้น · ใครแก้อะไรไปแล้ว
+          เดิมมุมที่สองกับสามอยู่คนละหน้า ทำให้ตอบคำถาม "คนนี้เปิดหน้านั้นได้ไหม" ต้องเด้งไปมา */}
+      <Tabs
+        idPrefix="users"
+        value={tab}
+        onChange={setTab}
+        items={[
+          { key: 'accounts', label: 'บัญชี', badge: pending.length > 0 ? String(pending.length) : undefined },
+          { key: 'groups', label: 'สิทธิ์เริ่มต้นของกลุ่ม' },
+          { key: 'audit', label: 'ประวัติการเปลี่ยนแปลง' },
+        ]}
+      />
+
       {/* แถบนี้อยู่หัวหน้า ส่วนปุ่มที่ทำให้มันขึ้นอยู่กลางตารางที่ต้องเลื่อนลงไปกด
           ถ้าไม่เลื่อนกลับมาให้ คนกดจะเห็นแค่ปุ่มหมุนแล้วเงียบ ทั้งที่มีเหตุผลบอกอยู่ */}
       <div ref={errorRef}>
@@ -267,6 +295,7 @@ export default function CloudUsers(): React.JSX.Element {
         </div>
       )}
 
+      <TabPanel tabKey="accounts" value={tab} idPrefix="users">
       <div className="card" style={{ padding: 16, marginBottom: 18, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <b>การจัดการบัญชี</b>
@@ -475,36 +504,30 @@ export default function CloudUsers(): React.JSX.Element {
                         tone={u.is_active ? 'success' : 'danger'}
                       />
                     </td>
-                    <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {/* บัญชีที่เข้าด้วยรหัส TMS ตั้งรหัสที่นี่ไม่ได้ — รหัสฝั่งเราของบัญชีนั้น
-                          ถูกสุ่มใหม่ทุกครั้งที่ล็อกอินผ่าน TMS อยู่แล้ว ปุ่มจึงไม่ควรมีให้กดเก้อ */}
-                      {u.auth_source !== 'tms' && u.auth_id !== null && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          loading={busyId === u.id}
-                          onClick={() => void reset(u)}
-                        >
-                          สุ่มรหัสให้ผู้ใช้นี้
-                        </Button>
-                      )}
+                    <td className="cell-actions"><div className="cell-actions-in">
+                      {/* ปุ่มที่กดทุกวันอยู่ในแถว ที่เหลือพับเข้าเมนู — สี่ปุ่มเรียงกันในเซลล์เดียว
+                          ตัดบรรทัดเป็นสามชั้นบนจอปกติ แถวสูงขึ้นเป็นสามเท่าและปุ่มลบถาวร
+                          ไปอยู่ห่างจากปุ่มที่กดบ่อยแค่ไม่กี่พิกเซล เหมือนที่แก้ไปแล้วบนการ์ดเที่ยว */}
                       {u.is_active && (
                         <Button size="sm" variant="ghost" onClick={() => void openPermissions(u)}>
                           ตั้งค่าสิทธิ์
                         </Button>
                       )}
-                      {u.is_active && (
-                        <Button size="sm" variant="ghost" onClick={() => setToRevoke(u)}>
-                          ระงับ
-                        </Button>
-                      )}
-                      {/* เดิมซ่อนปุ่มลบสำหรับบัญชีที่มาจากการล็อกอิน TMS ซึ่งเป็นบัญชี
-                          พนักงานจริงเกือบทั้งหมด — ผลคือแถวที่คนอยากลบที่สุดกลับไม่มีปุ่มเลย
-                          และไม่มีอะไรบอกว่าทำไม แสดงปุ่มไว้ แล้วอธิบายผลตอนยืนยันแทน */}
-                      <Button size="sm" variant="ghost" className="text-danger" onClick={() => setToDelete(u)}>
-                        ลบถาวร
-                      </Button>
-                    </td>
+                      <MoreMenu
+                        items={[
+                          /* บัญชีที่เข้าด้วยรหัส TMS ตั้งรหัสที่นี่ไม่ได้ — รหัสฝั่งเราของบัญชีนั้น
+                             ถูกสุ่มใหม่ทุกครั้งที่ล็อกอินผ่าน TMS อยู่แล้ว จึงไม่ควรมีให้กดเก้อ */
+                          ...(u.auth_source !== 'tms' && u.auth_id !== null
+                            ? [{ label: 'สุ่มรหัสให้ผู้ใช้นี้', onClick: () => void reset(u), disabled: busyId === u.id }]
+                            : []),
+                          ...(u.is_active ? [{ label: 'ระงับการใช้งาน', onClick: () => setToRevoke(u) }] : []),
+                          /* เดิมซ่อนปุ่มลบสำหรับบัญชีที่มาจากการล็อกอิน TMS ซึ่งเป็นบัญชี
+                             พนักงานจริงเกือบทั้งหมด — ผลคือแถวที่คนอยากลบที่สุดกลับไม่มีปุ่มเลย
+                             และไม่มีอะไรบอกว่าทำไม แสดงไว้ แล้วอธิบายผลตอนยืนยันแทน */
+                          { label: 'ลบถาวร', onClick: () => setToDelete(u), danger: true },
+                        ]}
+                      />
+                    </div></td>
                   </tr>
                 ))}
               </tbody>
@@ -595,6 +618,15 @@ export default function CloudUsers(): React.JSX.Element {
         onConfirm={() => void deleteAccount()}
         onClose={() => setToDelete(null)}
       />
+      </TabPanel>
+
+      <TabPanel tabKey="groups" value={tab} idPrefix="users">
+        <RolePermissionsPanel />
+      </TabPanel>
+
+      <TabPanel tabKey="audit" value={tab} idPrefix="users">
+        <PermissionAuditPanel />
+      </TabPanel>
     </>
   )
 }

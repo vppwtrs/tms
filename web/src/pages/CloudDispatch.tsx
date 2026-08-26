@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getTripBoardDetailed, createTrip, addOrdersToTrip, removeOrderFromTrip, cancelStopOrders,
   startTrip, completeTrip, closeTripPreview, type TripClosePreview, cancelTrip, acceptTrip, clearTripIssue, forceDeleteTrip, type BoardTrip,
@@ -10,9 +10,10 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import type { DriverRow, OrderRow, VehicleRow } from '../types/database'
 import {
-  Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Modal,
+  Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Modal, MoreMenu,
   PageHeader, SearchInput, Select, TableSkeleton, Textarea,
 } from '../components/ui'
+import { useFlipBoard } from '../hooks/useFlipBoard'
 import {
   CANCEL_STOP_REASONS,
   ORDER_STATUS_LABEL, ORDER_TONE, PRIORITY_LABEL,
@@ -45,6 +46,21 @@ function billNo(o: { tms_picking_list_no?: string | null; order_no: string }): s
 /** เลขเที่ยวที่คนเรียกกันจริง — ของ TMS ก่อน TRP ของเราเป็นตัวสำรอง */
 function tripNo(t: { tms_trip_no?: string | null; trip_no: string }): string {
   return t.tms_trip_no ?? t.trip_no
+}
+
+/** เกินเท่านี้แล้วยังไม่มีใครกดรับ = ต้องโทรตาม ไม่ใช่รอต่อ
+ *  สองชั่วโมงมาจากรอบงานจริง: งานเช้าที่ยังไม่ถึงมือตอนสาย แปลว่ารอบบ่ายจะเลื่อนตาม */
+const WAIT_ALERT_MIN = 120
+
+/** รออยู่นานแค่ไหนแล้ว — ตัวเลขเดียวที่ตัดสินว่าต้องหยิบโทรศัพท์หรือยัง
+ *
+ *  กระดานเดิมบอกแค่ว่าเที่ยวอยู่ช่อง "รอคนขับรับงาน" ซึ่งจริงแต่ไม่พอ เพราะเที่ยวที่
+ *  เพิ่งจ่ายไปหนึ่งนาทีกับเที่ยวที่ค้างมาตั้งแต่เช้าหน้าตาเหมือนกันเป๊ะ */
+export function waitedFor(iso: string): { text: string; late: boolean } {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
+  const late = mins >= WAIT_ALERT_MIN
+  if (mins < 60) return { text: `รอ ${mins} นาที`, late }
+  return { text: `รอ ${Math.floor(mins / 60)} ชม. ${mins % 60} นาที`, late }
 }
 
 /** รวมใบของร้านเดียวกันเป็นจุดเดียว — กติกาเดียวกับหน้าออเดอร์และจอคนขับ
@@ -135,6 +151,19 @@ export default function CloudDispatch(): React.JSX.Element {
 
   useEffect(() => { void loadAll() }, [loadAll])
 
+  /* เวลาที่รออยู่ต้องเดินเอง ไม่ใช่ค้างที่ค่าตอนโหลด — คนเปิดหน้านี้ค้างไว้ทั้งวัน
+     ถ้าตัวเลขไม่ขยับ มันจะโกหกมากขึ้นเรื่อย ๆ ทุกนาทีที่ผ่านไป
+     นับเป็นนาทีอยู่แล้ว เดินนาทีละครั้งก็พอ ไม่ต้องถี่กว่านั้น */
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  /* การ์ดที่ย้ายช่องต้องเลื่อนไป ไม่ใช่หายแล้วโผล่ — ดู hooks/useFlipBoard */
+  const boardRef = useRef<HTMLDivElement>(null)
+  useFlipBoard(boardRef, board)
+
   /* กระดานจัดรถเป็นหน้าที่คนหลายคนแก้พร้อมกันมากที่สุด — คนหนึ่งลากออเดอร์เข้าเที่ยว
      อีกคนต้องเห็นทันที ไม่ใช่ลากซ้ำแล้วเจอ error ว่าออเดอร์ถูกจัดไปแล้ว */
   useRealtime(['trips', 'orders'], () => void loadAll())
@@ -224,8 +253,29 @@ export default function CloudDispatch(): React.JSX.Element {
       <PageHeader
         title="แผนงานขนส่ง"
         subtitle="งานจาก TMS เข้ามาเองพร้อมรถและคนขับ — หน้านี้ดูว่าถึงมือคนขับแล้วหรือยัง"
+        /* คำถามที่ถูกถามก่อนทุกครั้งที่จะจ่ายงานคือ "ยังมีรถว่างไหม" คำตอบเคยอยู่
+           ท้ายกระดาน ซึ่งบนจอแคบต้องเลื่อนลงไปหา ตัวเลขสองตัวนี้เบาพอที่จะอยู่บนหัว
+           ได้ตลอด ส่วนรายชื่อว่ามีคันไหนบ้างยังอยู่ที่แผงเดิม
+           อยู่ในช่องข้อมูล ไม่ใช่ช่องปุ่ม — ปุ่มหลักต้องอยู่ขวาสุดเสมอตามกติกาของหัวหน้า */
+        filters={
+          <>
+            <span className="ops-res-chip" title="รถที่ยังไม่ถูกจองในเที่ยวไหน">
+              <IconTruck size={14} /> รถว่าง <b>{fmtNum(vehicles.length)}</b>
+            </span>
+            <span className="ops-res-chip" title="คนขับที่ยังไม่ถูกจองในเที่ยวไหน">
+              <IconUsers size={14} /> คนขับว่าง <b>{fmtNum(drivers.length)}</b>
+            </span>
+          </>
+        }
         actions={canEdit && (
-          <Button variant="outline" icon={<IconPlus size={16} />} onClick={() => setCreateOpen(true)}>
+          /* ล้างของที่เลือกค้างไว้ก่อนเปิด — ปุ่มบนการ์ด "รอจัดคิว" เลือกใบให้ล่วงหน้า
+             ถ้าคนกดปุ่มนั้นแล้วปิดหน้าต่างไป แล้วมาเปิดจากตรงนี้ ใบเดิมจะยังติดมาด้วย
+             ซึ่งอ่านไม่ออกว่ามาจากไหน และเป็นทางที่สร้างเที่ยวผิดใบได้จริง */
+          <Button
+            variant="outline"
+            icon={<IconPlus size={16} />}
+            onClick={() => { setSelected(new Set()); setCreateOpen(true) }}
+          >
             สร้างเที่ยวเอง
           </Button>
         )}
@@ -246,7 +296,51 @@ export default function CloudDispatch(): React.JSX.Element {
       {loading ? (
         <TableSkeleton rows={4} cols={4} />
       ) : (
-        <div className="ops-board">
+        <div className={`ops-board${pendingOrders.length > 0 ? ' has-queue' : ''}`} ref={boardRef}>
+          {/* ออเดอร์ที่ยังไม่เข้าเที่ยว — ช่องนี้โผล่เฉพาะตอนมีของจริง
+              งานเกือบทั้งหมดมาจาก TMS พร้อมรถและคนขับแล้ว ช่องนี้จึงว่างเป็นปกติ
+              และช่องว่างที่กินพื้นที่ถาวรคือเหตุผลที่มันเคยถูกย้ายเข้าหน้าต่างไป
+              แต่ตอนที่มีของ มันเคยมองไม่เห็นเลยจนกว่าจะเปิดหน้าต่างสร้างเที่ยว
+              ซึ่งแปลว่าไม่มีใครรู้ว่ามีใบค้างอยู่ */}
+          {pendingOrders.length > 0 && (
+            <div className="ops-lane" data-lane="queue">
+              <h2 className="ops-col-title">
+                <IconBox size={18} />
+                รอจัดคิว
+                <Badge label={fmtNum(pendingOrders.length)} tone="pending" />
+              </h2>
+              {byStore(pendingOrders).map((store) => {
+                const first = store.rows[0] as DispatchOrderRow
+                const ids = store.rows.map((o) => o.id)
+                return (
+                  <div key={store.key} className="queue-card" data-flip-id={`queue-${store.key}`}>
+                    <div className="queue-card-head">
+                      <span className="trip-no">{billNo(first)}</span>
+                      {store.rows.length > 1 && (
+                        <span className="text-xs text-muted">· {store.rows.length} ใบ</span>
+                      )}
+                      {store.rows.some((o) => o.priority === 'urgent') && (
+                        <Badge label={PRIORITY_LABEL.urgent} tone="urgent" dot />
+                      )}
+                    </div>
+                    <div className="queue-card-meta">
+                      {(first.destination.split('·')[0] ?? '').trim()} · กำหนดส่ง {fmtDate(first.scheduled_at)}
+                    </div>
+                    {canEdit && (
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        onClick={() => { setSelected(new Set(ids)); setCreateOpen(true) }}
+                      >
+                        สร้างเที่ยวขนส่ง
+                      </Button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           <div className="ops-lane" data-lane="wait">
             <h2 className="ops-col-title">
               <IconRoute size={18} />
@@ -658,11 +752,18 @@ function TripCard({
   const stores = byStore(trip.orders)
   const [openStops, setOpenStops] = useState(false)
 
+  /* เที่ยวที่ยังไม่มีใครกดรับเท่านั้นที่ "รอ" อยู่จริง เที่ยวที่รับแล้วเวลาที่ผ่านไป
+     ไม่ได้แปลว่าอะไร เพราะมันกำลังเดินทางอยู่ ไม่ได้ค้าง */
+  const waiting = !trip.accepted_at && trip.status !== 'completed' ? waitedFor(trip.created_at) : null
+
   return (
-    <div className="trip-card">
+    <div className="trip-card" data-flip-id={`trip-${trip.id}`}>
       <div className="trip-head">
         <span className="trip-no">{tripNo(trip)}</span>
         <Badge label={TRIP_STATUS_LABEL[trip.status]} tone={TRIP_TONE[trip.status]} dot={trip.status === 'in_progress'} />
+        {waiting && (
+          <Badge label={waiting.text} tone={waiting.late ? 'urgent' : 'planned'} />
+        )}
         <div className="spacer" style={{ flex: 1 }} />
         {canEdit && onAccept && (
           /* คนวางแผนกดรับแทนได้ ไม่ใช่ทางลัดปกติ — มีไว้สำหรับคนขับที่ยังไม่มีบัญชี
@@ -681,18 +782,18 @@ function TripCard({
             <IconCheck size={14} /> เสร็จสิ้น
           </Button>
         )}
-        {canEdit && onCancel && (
-          <Button variant="ghost" size="sm" className="text-danger" onClick={onCancel} disabled={busy}>
-            ยกเลิกเที่ยว
-          </Button>
-        )}
-        {/* อยู่ท้ายสุดเสมอ และเขียนว่า "ลบถาวร" ไม่ใช่ไอคอนถังขยะเฉย ๆ
-            ปุ่มที่ลบหลักฐานได้ต้องอ่านออกว่ามันทำอะไรก่อนนิ้วจะไปถึง */}
-        {onPurge && (
-          <Button variant="ghost" size="sm" className="text-danger" onClick={onPurge} disabled={busy}>
-            ลบถาวร
-          </Button>
-        )}
+        {/* งานที่ทำแล้วย้อนยากอยู่ในเมนู ไม่ใช่เรียงปนกับปุ่มที่กดทุกชั่วโมง
+            ตัวเลือกข้างในยังเขียนเต็มว่าทำอะไร — ปุ่มที่ลบหลักฐานได้ต้องอ่านออกก่อนนิ้วจะไปถึง */}
+        <MoreMenu
+          items={[
+            ...(canEdit && onCancel
+              ? [{ label: 'ยกเลิกเที่ยว', onClick: onCancel, danger: true, disabled: busy }]
+              : []),
+            ...(onPurge
+              ? [{ label: 'ลบถาวร', onClick: onPurge, danger: true, disabled: busy }]
+              : []),
+          ]}
+        />
       </div>
 
       <div className="trip-meta">

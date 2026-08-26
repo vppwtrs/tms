@@ -88,6 +88,9 @@ export interface BoardTrip {
   freight_cost: number | null
   /* null บนเที่ยวที่ยังไม่จบ = ยังไม่ถึงมือคนขับ คือประตูที่กันงานไม่ให้วิ่งเอง */
   accepted_at: string | null
+  /* เที่ยวถูกสร้างเมื่อไหร่ — กระดานใช้คิดว่ารออยู่นานแค่ไหนแล้ว ซึ่งเป็นตัวเดียว
+     ที่ตัดสินว่าต้องโทรตามคนขับหรือยัง */
+  created_at: string
   /* เที่ยวที่ไปหลายคน: รับแล้วกี่คนจากกี่คน — accepted_at บอกแค่ว่ามีคนแรกรับแล้ว */
   crew_size: number
   crew_accepted: number
@@ -175,6 +178,7 @@ export async function getTripBoardDetailed(): Promise<{
       total_weight: mine.reduce((s, o) => (o.status === 'cancelled' ? s : s + o.weight_kg), 0),
       freight_cost: t.freight_actual_cost ?? t.freight_cost,
       accepted_at: t.accepted_at,
+      created_at: t.created_at,
       /* "รับแล้ว 2/3" — คำถามแรกของคนวางแผนตอนเช้าคือคนครบหรือยัง ไม่ใช่รถออกหรือยัง
          เที่ยวคนเดียวก็ยังตอบได้ตามปกติ (1/1) หน้าจอเป็นคนตัดสินว่าจะโชว์ไหม */
       crew_size: crew.length,
