@@ -527,42 +527,6 @@
   animation: flashRow 1.2s ease-out;
 }
 
-/* ===== Tabs — แถบสลับมุมมองในหน้ารายละเอียด ===== */
-.tabs {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: var(--space-5);
-}
-.tab {
-  border: none;
-  background: transparent;
-  padding: 9px 14px;
-  font-family: inherit;
-  font-size: var(--font-sm);
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  /* ชดเชยเส้น 1px ของแถบ ให้เส้นใต้แท็บที่เลือกทับพอดี ไม่เหลื่อม */
-  margin-bottom: -1px;
-  transition: color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
-}
-.tab:hover {
-  color: var(--ink);
-}
-.tab.active {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
-}
-.tab-count {
-  margin-left: 4px;
-  font-size: var(--font-xs);
-  font-weight: 500;
-  color: var(--faint);
-}
-
 /* ===== HelpTip — ปุ่ม ? อธิบายศัพท์เฉพาะ ===== */
 /* ปุ่ม ? — วงกลมยังดู 16px เท่าเดิม แต่พื้นที่กดจริง 24×24
    (WCAG 2.2 · 2.5.8 Target Size (Minimum) ขั้นต่ำ 24×24 CSS px — ของเดิม 16 ตก) */
@@ -1086,11 +1050,14 @@
   z-index: 50;
   transition: transform var(--motion-enter) var(--ease-emphasized);
 }
+/* สูงเท่าแถบบนพอดี — เส้นใต้โลโก้กับเส้นใต้แถบบนต้องเป็นเส้นเดียวกันเมื่อมองจากหน้าจอ
+   ไม่ใช่สองเส้นที่เหลื่อมกัน 13px ซึ่งเป็นระยะที่ตาจับได้แต่บอกไม่ถูกว่าอะไรผิด */
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 22px 22px 18px;
+  min-height: var(--topbar-height);
+  padding: 0 22px;
   border-bottom: 1px solid var(--sidebar-line);
 }
 .sidebar-brand .logo {
@@ -1219,7 +1186,7 @@
   display: none;
 }
 .is-collapsed .sidebar-brand {
-  padding: 22px 0 18px;
+  padding: 0;
   justify-content: center;
   gap: 0;
 }
@@ -1568,6 +1535,117 @@
 .trip-order-row .grow {
   flex: 1;
 }
+
+/* ===== แท็บ =====
+   เส้นใต้ตัวที่เลือกอยู่ทับเส้นคั่นพอดี ไม่ใช่ลอยอยู่เหนือมัน — แท็บที่เลือกอยู่ต้องอ่านออกว่า
+   "เปิดออกมาเป็นแผงข้างล่างนี้" ไม่ใช่ปุ่มสี่ปุ่มที่บังเอิญมีอันหนึ่งเข้ม */
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-5);
+  overflow-x: auto;
+}
+.tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--font-md);
+  color: var(--muted);
+  padding: 10px 16px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: color var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard);
+}
+.tab:hover { color: var(--ink-2); }
+.tab:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: var(--radius-sm); }
+.tab.is-on {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+/* ตัวเลขบนแท็บบอกว่ามีของค้างให้ทำ ไม่ใช่บอกว่ามีของทั้งหมดกี่ชิ้น
+   จึงขึ้นเฉพาะตอนมีจริง และใช้สีเตือน ไม่ใช่สีกลาง */
+.tab-badge {
+  font-size: var(--font-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+/* ตัวเลขในวงเล็บ — ใช้กับแท็บที่นับ "มีของอยู่กี่ชิ้น" ไม่ใช่ "มีของค้างให้ทำ"
+   จึงเงียบกว่า .tab-badge โดยตั้งใจ ไม่ใช่สีเตือน */
+.tab-count {
+  margin-left: 4px;
+  font-size: var(--font-xs);
+  font-weight: 500;
+  color: var(--faint);
+}
+[role='tabpanel']:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; border-radius: var(--radius); }
+
+/* ตัวสลับกลุ่มสิทธิ์บนสุดของแท็บ */
+.pgroup-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.pgroup-switch-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.pgroup-switch-desc { margin: 0; flex: 1; min-width: 240px; }
+
+/* ===== เมนูงานที่ทำแล้วย้อนยาก (MoreMenu) ===== */
+.more-menu {
+  position: relative;
+  display: inline-flex;
+}
+.more-menu-trigger .store-caret {
+  transform: rotate(90deg);
+}
+.more-menu-trigger .store-caret.is-open {
+  transform: rotate(-90deg);
+}
+.more-menu-pop {
+  position: fixed;
+  z-index: var(--z-overlay);
+  min-width: 168px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--sh-2);
+  animation: fadeUp var(--motion-fast) var(--ease-enter);
+}
+.more-menu-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  font: inherit;
+  font-size: var(--font-sm);
+  color: var(--ink-2);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.more-menu-item:hover:not(:disabled) { background: var(--table-row-hover); }
+.more-menu-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.more-menu-item:disabled { opacity: 0.45; cursor: default; }
+/* งานที่ลบของจริงเป็นสีอันตรายตั้งแต่ตอนอ่าน ไม่ใช่ตอนกดแล้วค่อยมีกล่องแดงมาถาม */
+.more-menu-item.is-danger { color: var(--danger); }
 /* ===== บล็อกความพร้อมทรัพยากร (ภาพรวม) ===== */
 .res-block + .res-block {
   margin-top: var(--space-4);
@@ -3552,3 +3630,59 @@
   color: var(--brand); text-decoration: underline; text-underline-offset: 3px;
 }
 .is-pod-photo .pod-swap { color: #7fe0a8; }
+
+/* ===== ตารางรายการสินค้าในใบ (PL) =====
+   สามอย่างนี้เป็นข้อมูลคนละชนิดกัน — รหัสรุ่นไว้เทียบกับใบจริงทีละตัว ชื่อไว้ยืนยันว่า
+   หยิบถูกของ จำนวนไว้นับตอนโหลด วางเป็นบรรทัดลอย ๆ แล้วสายตาต้องไล่หาขอบเขตของ
+   แต่ละคอลัมน์เอาเองทุกบรรทัด ตารางจริงให้ขอบนั้นมาฟรี
+   ชื่อสินค้าเป็นคอลัมน์เดียวที่ปล่อยให้ตัดบรรทัดได้ อีกสองคอลัมน์ล็อกความกว้างตามเนื้อ */
+.item-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-size: 12.5px;
+}
+.item-table th {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--faint);
+  text-align: left;
+  padding: 0 8px 4px 0;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.item-table td {
+  padding: 3px 8px 3px 0;
+  vertical-align: top;
+}
+.item-table tr + tr td { border-top: 1px solid var(--line-soft); }
+.item-table .item-code {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  width: 1%;
+}
+.item-table .item-name { color: var(--muted); line-height: 1.4; }
+/* จำนวนชิดขวาและใช้ตัวเลขความกว้างเท่ากัน หลักจึงตรงกันทุกบรรทัด นับด้วยตาได้ */
+.item-table .item-qty {
+  width: 1%;
+  padding-right: 0;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* โลโก้บริษัทในแถบเมนู — ใช้ mask เหมือนหน้าล็อกอิน สีมาจากโทเคนของแถบเมนู
+   จึงถูกทั้งธีมสว่างและมืดโดยไม่ต้องมีไฟล์รูปสองใบ ตอนย่อเมนูซ่อนไปพร้อมข้อความอื่น */
+.sidebar-brand .brand-company {
+  width: 96px;
+  height: 38px;
+  margin-top: 2px;
+  background-color: var(--faint);
+  -webkit-mask-position: left center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: left center;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+.is-collapsed .brand-company { display: none; }

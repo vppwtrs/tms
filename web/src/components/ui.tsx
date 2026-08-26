@@ -1,4 +1,5 @@
-import { cloneElement, isValidElement, useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { cloneElement, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { createPortal } from 'react-dom'
 import { useCountUp } from '../hooks/useCountUp'
 import { IconAlert, IconX } from './icons'
 
@@ -24,6 +25,153 @@ export function Button({ variant = 'primary', size = 'md', loading, icon, childr
       {loading ? <span className="spin" aria-hidden="true">⟳</span> : icon}
       {children}
     </button>
+  )
+}
+
+/* ---------- Tabs ----------
+   ใช้ตอนหน้าเดียวตอบคำถามหลายมุมของเรื่องเดียวกัน ไม่ใช่ตอนอยากยัดสองหน้าเข้าด้วยกัน
+
+   ค่าที่เลือกอยู่ควรอยู่ใน URL — คนส่งลิงก์หากันแล้วต้องเปิดมาตรงแท็บเดิม และปุ่มย้อนกลับ
+   ต้องพากลับมาแท็บก่อนหน้า ไม่ใช่เด้งออกจากหน้าไปเลย ตัวเลือกจึงรับค่ามาจากข้างนอก */
+export function Tabs({ items, value, onChange, idPrefix }: {
+  items: { key: string; label: string; badge?: string }[]
+  value: string
+  onChange: (key: string) => void
+  idPrefix: string
+}) {
+  return (
+    <div className="tabs" role="tablist">
+      {items.map((it) => {
+        const on = it.key === value
+        return (
+          <button
+            key={it.key}
+            type="button"
+            role="tab"
+            id={`${idPrefix}-tab-${it.key}`}
+            aria-selected={on}
+            aria-controls={`${idPrefix}-panel-${it.key}`}
+            className={`tab${on ? ' is-on' : ''}`}
+            onClick={() => onChange(it.key)}
+          >
+            {it.label}
+            {it.badge && <span className="tab-badge">{it.badge}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export function TabPanel({ tabKey, value, idPrefix, children }: {
+  tabKey: string
+  value: string
+  idPrefix: string
+  children: ReactNode
+}) {
+  if (tabKey !== value) return null
+  return (
+    <div
+      role="tabpanel"
+      id={`${idPrefix}-panel-${tabKey}`}
+      aria-labelledby={`${idPrefix}-tab-${tabKey}`}
+      tabIndex={0}
+    >
+      {children}
+    </div>
+  )
+}
+
+/* ---------- MoreMenu ----------
+   เมนูสำหรับงานที่ทำแล้วย้อนยาก — ยกเลิกเที่ยว ลบถาวร
+
+   ปุ่มพวกนี้เคยวางเรียงอยู่บนหัวการ์ดปนกับปุ่มที่ใช้ทุกวัน การ์ดใบหนึ่งจึงมีปุ่มได้ถึงห้าปุ่ม
+   และปุ่มที่ลบของจริงอยู่ห่างจากปุ่มที่กดทุกชั่วโมงแค่ไม่กี่พิกเซล พับเข้าเมนูแล้วสองอย่างนี้
+   ไม่ได้อยู่ในระยะนิ้วเดียวกันอีก ส่วนตัวเลือกข้างในยังเขียนเต็มว่าทำอะไร ไม่ใช่ไอคอนถังขยะ */
+export function MoreMenu({ label = 'อื่น ๆ', items }: {
+  label?: string
+  items: { label: string; onClick: () => void; danger?: boolean; disabled?: boolean }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
+  /* เมนูวาดที่ <body> ไม่ใช่ในเซลล์ตาราง — กรอบการ์ดกับ .table-wrap ตัดของที่ล้นออกนอกตัวเอง
+     เมนูของแถวสุดท้ายจึงโผล่พ้นขอบการ์ดหรือโดนตัดหาย วางเป็น fixed แล้วคำนวณตำแหน่ง
+     จากปุ่มเอง ทำให้มันไม่ขึ้นกับกรอบไหนเลย และพลิกขึ้นบนเมื่อที่ข้างล่างไม่พอ */
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open) { setPos(null); return }
+    const place = (): void => {
+      const t = wrapRef.current?.getBoundingClientRect()
+      if (!t) return
+      const h = popRef.current?.offsetHeight ?? 0
+      const below = window.innerHeight - t.bottom
+      const up = h > 0 && below < h + 12 && t.top > h + 12
+      setPos({ top: up ? t.top - h - 4 : t.bottom + 4, right: window.innerWidth - t.right })
+    }
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [open, items.length])
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent): void => {
+      const n = e.target as Node
+      if (!wrapRef.current?.contains(n) && !popRef.current?.contains(n)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  if (items.length === 0) return null
+
+  return (
+    <div className="more-menu" ref={wrapRef}>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm more-menu-trigger"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {label}
+        <span className={`store-caret${open ? ' is-open' : ''}`} aria-hidden="true">›</span>
+      </button>
+      {open && createPortal(
+        <div
+          className="more-menu-pop"
+          role="menu"
+          ref={popRef}
+          /* ก่อนวัดความสูงจริงได้ ซ่อนไว้ก่อน ไม่งั้นเฟรมแรกจะกระพริบที่มุมซ้ายบน */
+          style={pos ? { top: pos.top, right: pos.right } : { visibility: 'hidden' }}
+        >
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              className={`more-menu-item${it.danger ? ' is-danger' : ''}`}
+              disabled={it.disabled}
+              onClick={() => { setOpen(false); it.onClick() }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </div>
   )
 }
 

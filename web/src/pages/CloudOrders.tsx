@@ -601,16 +601,24 @@ export default function CloudOrders(): React.JSX.Element {
                       {/* รายการของครบทุกบรรทัด ไม่ย่อ ไม่ตัดท้าย — บรรทัดพวกนี้คือสิ่งที่
                           คนโหลดของเทียบกับใบจริงทีละรุ่น */}
                       {o.items.length > 0 ? (
-                        o.items.map((it) => (
-                          <div
-                            key={it.item_no}
-                            style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '2px 0' }}
-                          >
-                            <span style={{ fontFamily: 'var(--font-mono)' }}>{it.item_no}</span>
-                            <span className="text-muted" style={{ flex: 1 }}>{it.item_name ?? ''}</span>
-                            <span>×{it.qty}</span>
-                          </div>
-                        ))
+                        <table className="item-table">
+                          <thead>
+                            <tr>
+                              <th className="item-code">รหัสสินค้า</th>
+                              <th>ชื่อสินค้า</th>
+                              <th className="item-qty">จำนวน</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {o.items.map((it) => (
+                              <tr key={it.item_no}>
+                                <td className="item-code">{it.item_no}</td>
+                                <td className="item-name">{it.item_name ?? ''}</td>
+                                <td className="item-qty">{it.qty}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       ) : (
                         <div className="text-xs text-muted" style={{ marginTop: 2 }}>{o.goods_desc}</div>
                       )}

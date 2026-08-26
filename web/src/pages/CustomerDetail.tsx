@@ -181,7 +181,7 @@ export default function CustomerDetail(): React.JSX.Element {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`tab${tab === t.key ? ' active' : ''}`}
+                className={`tab${tab === t.key ? ' is-on' : ''}`}
                 role="tab"
                 aria-selected={tab === t.key}
               >

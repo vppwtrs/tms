@@ -712,18 +712,27 @@ export default function CloudTmsTrips(): React.JSX.Element {
                         {pl.qty == null ? 'TMS ไม่ส่งจำนวนมา' : `${pl.qty} ชิ้น`}
                       </span>
                     </div>
-                    {pl.items.map((it) => (
-                      <div
-                        key={it.item_no}
-                        style={{ display: 'flex', gap: 8, fontSize: 12.5, padding: '2px 0' }}
-                      >
-                        <span style={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>
-                          {it.item_no}
-                        </span>
-                        <span className="text-muted" style={{ flex: 1 }}>{it.item_name ?? ''}</span>
-                        <span>{it.qty == null ? '—' : `×${it.qty}`}</span>
-                      </div>
-                    ))}
+                    {pl.items.length > 0 && (
+                      <table className="item-table">
+                        <thead>
+                          <tr>
+                            <th className="item-code">รหัสสินค้า</th>
+                            <th>ชื่อสินค้า</th>
+                            <th className="item-qty">จำนวน</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pl.items.map((it) => (
+                            <tr key={it.item_no}>
+                              <td className="item-code">{it.item_no}</td>
+                              <td className="item-name">{it.item_name ?? ''}</td>
+                              {/* ไม่รู้จำนวน ต้องเขียนว่าไม่รู้ — 0 อ่านว่าใบนี้ไม่มีของ */}
+                              <td className="item-qty">{it.qty == null ? '—' : it.qty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 ))}
               </div>
