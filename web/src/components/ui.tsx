@@ -1,6 +1,6 @@
 import { cloneElement, isValidElement, useEffect, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { useCountUp } from '../hooks/useCountUp'
-import { IconX } from './icons'
+import { IconAlert, IconX } from './icons'
 
 /* ---------- Button ---------- */
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -345,16 +345,24 @@ export function SearchInput({ value, onChange, placeholder }: { value: string; o
   )
 }
 
-/* ---------- ErrorBox ---------- */
+/* ---------- ErrorBox ----------
+ *
+ * เดิมเป็นการ์ดสูงสี่สิบพิกเซลจัดกลางพร้อม emoji ⚠️ ซึ่งมีปัญหาสองชั้น
+ *
+ * ชั้นแรก emoji ถูกวาดโดยฟอนต์ของระบบปฏิบัติการ หน้าตาจึงไม่เหมือนกันสักเครื่อง
+ * และไม่เข้ากับไอคอนเส้นชุดที่ใช้ทั้งระบบ ที่หนักกว่าคือโปรแกรมอ่านหน้าจอจะอ่าน
+ * ออกเสียงว่า "สัญลักษณ์เตือน" ก่อนถึงข้อความจริงทุกครั้ง
+ *
+ * ชั้นที่สอง ของที่พังมักพังแค่ส่วนเดียวของหน้า ไม่ใช่ทั้งหน้า การจัดกลางในกล่องสูง ๆ
+ * ทำให้มันกินพื้นที่เท่าเนื้อหาหลักและผลักของที่ยังใช้ได้ตกจอ กลายเป็นแถบแนวนอน
+ * อ่านจากซ้ายไปขวาเหมือนประโยค: มีอะไรผิด แล้วทำอะไรต่อ */
 export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--danger)' }}>
-      <div style={{ fontSize: 28, marginBottom: 8 }}>⚠️</div>
-      <div className="text-strong">{message}</div>
+    <div className="error-box" role="alert">
+      <IconAlert size={18} aria-hidden="true" />
+      <span>{message}</span>
       {onRetry && (
-        <Button variant="outline" size="sm" style={{ marginTop: 14 }} onClick={onRetry}>
-          ลองใหม่
-        </Button>
+        <Button variant="outline" size="sm" onClick={onRetry}>ลองใหม่</Button>
       )}
     </div>
   )

@@ -332,3 +332,23 @@
   font-size: var(--font-sm);
   line-height: 1.5;
 }
+
+/* กล่องแจ้งข้อผิดพลาด — แถบแนวนอน อ่านจากซ้ายไปขวาเหมือนประโยคเดียว
+   ไอคอน ข้อความ แล้วทางออก เรียงตามลำดับที่คนต้องการมันจริง ๆ
+   ไม่กินความสูงเกินจำเป็น เพราะของที่พังมักพังแค่ส่วนเดียวของหน้า
+   ส่วนที่ยังใช้ได้ต้องไม่ถูกผลักตกจอไปด้วย */
+.error-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-left: 3px solid var(--danger);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.error-box > svg { flex: none; }
+.error-box > span { flex: 1; min-width: 0; }
