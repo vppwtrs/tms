@@ -313,9 +313,25 @@ export default function CloudTmsTrips(): React.JSX.Element {
 
   return (
     <>
+      {/* วันที่คือตัวเลือกว่าตารางข้างล่างแสดงอะไร ซึ่งก็คือตัวกรอง เดิมมันอยู่ในการ์ด
+          ของตัวเองที่มีของอยู่ชิ้นเดียว คั่นกลางระหว่างหัวหน้าจอกับข้อมูล
+          ย้ายขึ้นไปอยู่กับหัวเหมือนตัวกรองของทุกหน้า */}
       <PageHeader
         title="เที่ยวจาก TMS"
         subtitle="เที่ยวของกองรถบริษัท (Fleet Owner) — นำเข้าเป็นเที่ยววิ่งของระบบ"
+        filters={
+          <label className="inline-field">
+            วันที่ของเที่ยว
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value)
+                void load(e.target.value)
+              }}
+            />
+          </label>
+        }
       />
 
       {/* ปุ่มเล็ก ไม่ใช่หน้าเต็ม — ข้อมูลไหลเข้าเองอยู่แล้วทุก 5 นาที ปุ่มมีไว้เร่งรอบ
@@ -340,19 +356,6 @@ export default function CloudTmsTrips(): React.JSX.Element {
 
       {pull.error && <ErrorBox message={pull.error} />}
       {error && <ErrorBox message={error} onRetry={() => void load(date)} />}
-
-      <div className="card" style={{ padding: 18, display: 'grid', gap: 14, maxWidth: 320 }}>
-        <Field label="วันที่ของเที่ยว" required>
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value)
-              void load(e.target.value)
-            }}
-          />
-        </Field>
-      </div>
 
       {/* เที่ยวที่ TMS ยกเลิกหลังจากเรานำเข้าไปแล้ว — ขึ้นบนสุดเสมอ ไม่ใช่ซ่อนท้ายหน้า
           ระบบไม่ยกเลิกให้เอง เพราะรถอาจวิ่งออกไปแล้ว คนต้องตัดสินเอง */}

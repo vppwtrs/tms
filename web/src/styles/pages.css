@@ -582,3 +582,17 @@
   align-items: start;
   margin-bottom: 18px;
 }
+
+/* ช่องกรอกที่มีป้ายชื่ออยู่ในแถวเดียวกัน ใช้กับตัวกรองบนหัวหน้าจอ
+   ป้ายอยู่ข้างหน้าไม่ใช่ข้างบน เพราะบนหัวหน้าจอความสูงคือสิ่งที่กำลังประหยัดอยู่
+   และตัวกรองมีชิ้นเดียวถึงสองชิ้น ป้ายจึงไม่ต้องเรียงให้ตรงกันแบบในฟอร์ม */
+.inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.inline-field input { width: 160px; }
