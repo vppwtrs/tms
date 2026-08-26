@@ -175,7 +175,10 @@ export default function CloudTmsImport(): React.JSX.Element {
               <div style={{ fontWeight: 600, fontSize: 13.5 }}>
                 ร้านที่ยังไม่จับคู่ ({preview.unmapped_dealers.length}) — ใบของร้านเหล่านี้จะถูกข้าม
               </div>
-              <table className="table ops-table">
+              {/* is-task บอกว่าช่องเลือกในตารางนี้คืองานของหน้า ไม่ใช่คอลัมน์ที่นาน ๆ แก้ที
+                  ตารางทั่วไปทำให้ช่องเลือกเงียบจนกว่านิ้วจะเข้าใกล้ ซึ่งที่นี่จะกลายเป็น
+                  การซ่อนสิ่งที่คนเปิดหน้านี้มาทำ — เขาต้องเห็นตั้งแต่แรกว่ามีกี่ร้านรอตัดสินใจ */}
+              <table className="table ops-table is-task">
                 <thead>
                   <tr>
                     <th>ร้านใน TMS</th>

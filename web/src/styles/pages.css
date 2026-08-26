@@ -238,7 +238,10 @@
    นิ้วแตะคือถึงตัวแล้ว ถ้าซ่อนกรอบไว้บนแท็บเล็ต คนใช้จะไม่มีทางรู้เลยว่าช่องนั้นกดได้
    ที่นั่นจึงคงกรอบไว้ตลอดเหมือนเดิม ยอมให้ตารางแน่นกว่าเพื่อแลกกับการที่ของยังใช้ได้ */
 @media (hover: hover) and (pointer: fine) {
-  .ops-table td select {
+  /* .is-task คือตารางที่ช่องเลือกเป็นงานของหน้านั้นเอง เช่นหน้านำเข้าออเดอร์
+     ที่ทั้งหน้ามีไว้จับคู่ร้านกับลูกค้า ที่นั่นการทำให้ช่องเงียบคือการซ่อนงาน
+     คนเปิดหน้ามาต้องเห็นตั้งแต่แรกว่ามีกี่รายการรอตัดสินใจ */
+  .ops-table:not(.is-task) td select {
     border-color: transparent;
     background-color: transparent;
     box-shadow: none;
@@ -247,15 +250,15 @@
       background-color var(--dur-snap) var(--spring-snap),
       box-shadow var(--dur-snap) var(--spring-snap);
   }
-  .ops-table tr:hover td select,
-  .ops-table td select:focus-visible {
+  .ops-table:not(.is-task) tr:hover td select,
+  .ops-table:not(.is-task) td select:focus-visible {
     border-color: var(--input-border);
     background-color: var(--surface);
     box-shadow: var(--lift-1);
   }
   /* ช่องที่แก้ไม่ได้ยังเงียบตอนชี้ จึงอ่านออกว่าต่างจากช่องที่แก้ได้แต่ยังไม่ถูกแตะ
      ไม่ใช่เหมือนกันจนกว่าจะลองกดแล้วไม่มีอะไรเกิดขึ้น */
-  .ops-table tr:hover td select:disabled {
+  .ops-table:not(.is-task) tr:hover td select:disabled {
     border-color: transparent;
     background-color: transparent;
     box-shadow: none;
