@@ -234,31 +234,37 @@
    ปกติจึงอ่านเหมือนตัวหนังสือธรรมดา กรอบโผล่มาตอนชี้หรือตอนโฟกัส
    ซึ่งเป็นจังหวะเดียวที่คนต้องรู้ว่ามันกดได้ */
 
-.ops-table td select {
-  border-color: transparent;
-  background-color: transparent;
-  box-shadow: none;
-  transition:
-    border-color var(--dur-snap) var(--spring-snap),
-    background-color var(--dur-snap) var(--spring-snap),
-    box-shadow var(--dur-snap) var(--spring-snap);
+/* ทั้งบล็อกนี้ใช้เฉพาะเครื่องที่ชี้ได้จริง — จอสัมผัสไม่มี "ตอนนิ้วเข้าใกล้"
+   นิ้วแตะคือถึงตัวแล้ว ถ้าซ่อนกรอบไว้บนแท็บเล็ต คนใช้จะไม่มีทางรู้เลยว่าช่องนั้นกดได้
+   ที่นั่นจึงคงกรอบไว้ตลอดเหมือนเดิม ยอมให้ตารางแน่นกว่าเพื่อแลกกับการที่ของยังใช้ได้ */
+@media (hover: hover) and (pointer: fine) {
+  .ops-table td select {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: none;
+    transition:
+      border-color var(--dur-snap) var(--spring-snap),
+      background-color var(--dur-snap) var(--spring-snap),
+      box-shadow var(--dur-snap) var(--spring-snap);
+  }
+  .ops-table tr:hover td select,
+  .ops-table td select:focus-visible {
+    border-color: var(--input-border);
+    background-color: var(--surface);
+    box-shadow: var(--lift-1);
+  }
+  /* ช่องที่แก้ไม่ได้ยังเงียบตอนชี้ จึงอ่านออกว่าต่างจากช่องที่แก้ได้แต่ยังไม่ถูกแตะ
+     ไม่ใช่เหมือนกันจนกว่าจะลองกดแล้วไม่มีอะไรเกิดขึ้น */
+  .ops-table tr:hover td select:disabled {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: none;
+  }
 }
-.ops-table tr:hover td select,
-.ops-table td select:focus-visible {
-  border-color: var(--input-border);
-  background-color: var(--surface);
-  box-shadow: var(--lift-1);
-}
-/* ช่องที่แก้ไม่ได้ต้องอ่านออกว่าต่างจากช่องที่แก้ได้แต่ยังไม่ถูกแตะ ไม่ใช่เหมือนกัน
-   จนกว่าจะลองกดแล้วไม่มีอะไรเกิดขึ้น */
+/* สีของตัวหนังสือในช่องที่แก้ไม่ได้ ไม่ขึ้นกับว่าเครื่องชี้ได้หรือไม่ */
 .ops-table td select:disabled {
   opacity: 1;
   color: var(--muted);
-}
-.ops-table tr:hover td select:disabled {
-  border-color: transparent;
-  background-color: transparent;
-  box-shadow: none;
 }
 
 /* ตัวเลขในตารางกว้างเท่ากันทุกตัว — เบอร์โทร วันที่ จำนวน เรียงกันเป็นแนวตั้ง
@@ -271,10 +277,10 @@
    และสีแดงโผล่เฉพาะตอนชี้ — ปุ่มแดงหกตัวเรียงกันทำให้ตารางทั้งใบดูเหมือนมีปัญหา */
 .ops-table td .actions > .text-danger:last-child {
   margin-left: 6px;
-  color: var(--muted);
 }
-.ops-table td .actions > .text-danger:last-child:hover {
-  color: var(--danger);
+@media (hover: hover) and (pointer: fine) {
+  .ops-table td .actions > .text-danger:last-child { color: var(--muted); }
+  .ops-table td .actions > .text-danger:last-child:hover { color: var(--danger); }
 }
 
 /* ============================================================
