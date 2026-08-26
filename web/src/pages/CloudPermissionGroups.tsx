@@ -16,6 +16,9 @@ export default function CloudPermissionGroups(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [audit, setAudit] = useState<PermissionAuditRow[]>([])
+  /* ตัวนับแยกจากข้อความแจ้ง — ติ๊กสิทธิ์ตัวที่สองในกลุ่มเดิมได้ข้อความเดิมเป๊ะ
+     ถ้าผูก effect ไว้กับข้อความ ประวัติจะค้างอยู่ที่รายการแรก */
+  const [savedCount, setSavedCount] = useState(0)
 
   const load = async (): Promise<void> => {
     setLoading(true)
@@ -28,7 +31,7 @@ export default function CloudPermissionGroups(): React.JSX.Element {
     finally { setLoading(false) }
   }
   useEffect(() => { void load() }, [role])
-  useEffect(() => { void listPermissionAudit().then(setAudit).catch(() => undefined) }, [notice])
+  useEffect(() => { void listPermissionAudit().then(setAudit).catch(() => undefined) }, [savedCount])
 
   const grouped = useMemo(() => {
     const source = PERMISSION_INFO.filter((p) => available.length === 0 || available.includes(p.permission))
@@ -43,6 +46,7 @@ export default function CloudPermissionGroups(): React.JSX.Element {
       await saveRolePermission(role, permission, next)
       setAllowed((old) => { const copy = new Set(old); next ? copy.add(permission) : copy.delete(permission); return copy })
       setNotice(`อัปเดตสิทธิ์กลุ่ม${ROLE_INFO[role].label}แล้ว`)
+      setSavedCount((n) => n + 1)
       setError(null)
     } catch (e) { setError(e instanceof Error ? e.message : 'บันทึกสิทธิ์กลุ่มไม่สำเร็จ') }
     finally { setBusy(null) }

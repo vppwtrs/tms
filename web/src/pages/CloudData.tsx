@@ -38,7 +38,7 @@ export default function CloudData(): React.JSX.Element {
     <div className="card" style={{ padding: 18, marginBottom: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <IconTable size={18} />
-        <div><b>ภาพรวมข้อมูล</b><div className="text-xs text-muted">หน้านี้เป็นแบบตรวจสอบอย่างเดียว ยังไม่มีการล้างข้อมูลจริง</div></div>
+        <div><b>ภาพรวมข้อมูล</b><div className="text-xs text-muted">ตารางด้านล่างเป็นตัวเลขอย่างเดียว ปุ่มที่ลบได้มีเฉพาะชุดข้อมูลทดสอบ</div></div>
         <Button variant="outline" size="sm" loading={loading} onClick={() => void load()} style={{ marginLeft: 'auto' }}>รีเฟรช</Button>
       </div>
     </div>

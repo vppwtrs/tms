@@ -323,9 +323,9 @@ export default function CloudUsers(): React.JSX.Element {
       )}
 
       {/* แบบฟอร์มสร้างบัญชีอยู่ใน Modal — ไม่ให้ยาวปนกับตาราง */}
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="สร้างบัญชีพนักงานขับรถ" size="md">
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="สร้างบัญชีผู้ใช้" size="md">
         <div>
-          <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>สร้างบัญชีพนักงานขับรถ</h3>
+          <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>สร้างบัญชีผู้ใช้</h3>
           <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>
             ระบบสุ่มรหัสให้ แสดงครั้งเดียว · ผู้ใช้เข้าสู่ระบบด้วยชื่อผู้ใช้ที่ admin กำหนด
             (กู้รหัสทางอีเมลไม่ได้ ต้องกลับมาตั้งใหม่ที่นี่)
@@ -462,7 +462,9 @@ export default function CloudUsers(): React.JSX.Element {
                     <td>{u.username}</td>
                     <td>
                       <Select value={u.role} disabled={roleBusy === u.id} onChange={(e) => setRoleChange({ user: u, role: e.target.value as UserRole })}>
-                        {(['admin', 'dispatcher', 'viewer', ...(u.auth_source === 'tms' ? [] : ['driver'])] as UserRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                        {/* กลุ่มปัจจุบันต้องอยู่ในรายการเสมอ ไม่งั้น <select> ที่หาค่าตัวเองไม่เจอ
+                            จะโชว์ตัวเลือกแรกแทน คนอ่านจะเห็นบทบาทผิดโดยที่ไม่มีอะไรเปลี่ยน */}
+                        {([...new Set<UserRole>(['admin', 'dispatcher', 'viewer', ...(u.auth_source === 'tms' ? [] : ['driver' as UserRole]), u.role])]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                       </Select>
                       <div className="text-xs text-muted" style={{ marginTop: 4 }}>{ROLE_HELP[u.role]}</div>
                     </td>
