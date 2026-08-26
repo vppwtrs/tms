@@ -276,3 +276,41 @@
 .ops-table td .actions > .text-danger:last-child:hover {
   color: var(--danger);
 }
+
+/* ============================================================
+   หน้าเข้าสู่ระบบ
+   ============================================================
+
+   ปุ่มดูรหัสผ่านอยู่ในช่องเดียวกับรหัส ไม่ใช่ข้าง ๆ ช่อง เพราะมันเป็นของของช่องนั้น
+   ไม่ใช่ของของฟอร์ม และวางไว้ในช่องแล้วนิ้วโป้งเอื้อมถึงตอนถือมือถือมือเดียว
+   ซึ่งเป็นท่าที่คนขับใช้จริงตอนยืนอยู่หน้ารถ */
+
+.pw-field {
+  position: relative;
+}
+.pw-field input {
+  /* เผื่อที่ให้ปุ่ม ไม่ให้ตัวหนังสือวิ่งไปใต้ปุ่ม */
+  padding-right: 58px;
+}
+.pw-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  /* สูง 34 กว้างอย่างน้อย 44 — เล็กกว่านี้นิ้วโป้งกดพลาดไปโดนช่องกรอกแทน
+     แล้วแป้นพิมพ์เด้งขึ้นมาบังปุ่มที่กำลังจะกด */
+  min-width: 44px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 650;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color var(--dur-snap) var(--spring-snap), color var(--dur-snap) var(--spring-snap);
+}
+.pw-toggle:hover { background: var(--surface-2); color: var(--ink); }
+.pw-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }

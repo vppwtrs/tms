@@ -39,6 +39,7 @@ export default function CloudLogin(): React.JSX.Element {
   const { loginOffice, loginDriver, logout, pendingName } = useCloudAuth()
   const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -141,8 +142,18 @@ export default function CloudLogin(): React.JSX.Element {
             />
           </Field>
           <Field label="รหัสผ่าน" required>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                   placeholder="••••••••" autoComplete="current-password" />
+            {/* คนขับพิมพ์รหัสบนจอมือถือกลางแดด พิมพ์ผิดแล้วไม่มีทางรู้จนกว่าจะโดนปฏิเสธ
+                แล้วต้องพิมพ์ใหม่ทั้งชุด ปุ่มดูรหัสเป็นทางเดียวที่ตรวจเองได้ก่อนกดส่ง
+                ค่าเริ่มต้นยังปิดไว้ — คนที่ยืนอยู่ข้างหลังไม่ควรเห็นโดยที่เจ้าตัวไม่ได้เลือก */}
+            <div className="pw-field">
+              <Input type={showPw ? 'text' : 'password'} value={password}
+                     onChange={(e) => setPassword(e.target.value)}
+                     placeholder="••••••••" autoComplete="current-password" />
+              <button type="button" className="pw-toggle" onClick={() => setShowPw((v) => !v)}
+                      aria-pressed={showPw} aria-label={showPw ? 'ซ่อนรหัสผ่าน' : 'ดูรหัสผ่าน'}>
+                {showPw ? 'ซ่อน' : 'ดู'}
+              </button>
+            </div>
           </Field>
 
           {error && (
