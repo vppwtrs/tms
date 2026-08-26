@@ -7,6 +7,7 @@ export const TMS_EXPIRED_EVENT = 'tms-token-expired'
 export const getTmsToken = (): string | null => null
 export const clearTmsToken = (): void => {}
 export function signalTmsExpired(): void {}
+export function takeSignedOutReason(): string | null { return null }
 export function tmsTokenSecondsLeft(): number | null { return null }
 
 export async function signInWithTms(): Promise<{ pending: boolean; account: TmsAccount | null }> {

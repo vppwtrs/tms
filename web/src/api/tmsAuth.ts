@@ -29,6 +29,16 @@ const TMS_TOKEN_KEY = 'tmsToken'
 export const getTmsToken = (): string | null => sessionStorage.getItem(TMS_TOKEN_KEY)
 export const clearTmsToken = (): void => sessionStorage.removeItem(TMS_TOKEN_KEY)
 
+/* เหตุผลที่ถูกพาออกมา — หน้าล็อกอินอ่านค่านี้แล้วลบทิ้ง
+   เก็บใน sessionStorage ไม่ใช่ state เพราะการเด้งออกทำให้ component ที่รู้เรื่องถูกถอด
+   ไปแล้ว และเก็บที่นี่ไม่ใช่ที่ context เพราะฝั่งที่รู้สาเหตุจริงคือชั้น API ตัวนี้ */
+const TMS_EXPIRED_REASON_KEY = 'tms-signed-out-reason'
+export function takeSignedOutReason(): string | null {
+  const v = sessionStorage.getItem(TMS_EXPIRED_REASON_KEY)
+  if (v) sessionStorage.removeItem(TMS_EXPIRED_REASON_KEY)
+  return v
+}
+
 /* token ของ TMS หมดอายุ = ตัวตนฝั่งบริษัทหมดอายุ ซึ่งเป็นสิ่งเดียวที่รับรองบัญชีออฟฟิศ
    ปล่อยให้อยู่หน้าเดิมแปลว่าเห็นข้อมูลค้างบนจอ กดอะไรก็ขึ้น error ทีละปุ่ม
    ยิงเหตุการณ์ออกไปให้ตัวจัดการ session พาออกไปหน้าล็อกอินทีเดียว
@@ -44,6 +54,10 @@ export function signalTmsExpired(): void {
      ทุกตัวจะเจอ 401 พร้อมกัน ถ้ายิง event ทุกตัวก็เด้งซ้ำเป็นสิบรอบ */
   if (expiredFired) return
   expiredFired = true
+  sessionStorage.setItem(
+    TMS_EXPIRED_REASON_KEY,
+    'การเชื่อมต่อกับ TMS หมดอายุแล้ว ระบบจึงพาออกมาเพื่อความปลอดภัย — เข้าสู่ระบบใหม่ได้เลย',
+  )
   window.dispatchEvent(new CustomEvent(TMS_EXPIRED_EVENT))
 }
 

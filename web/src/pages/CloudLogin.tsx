@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { Button, Field, Input } from '../components/ui'
 import { IconPin, IconRoute, IconShield } from '../components/icons'
+import { takeSignedOutReason } from '../api/tmsAuth'
 
 /**
  * หน้าเข้าสู่ระบบช่องเดียว
@@ -40,6 +41,9 @@ export default function CloudLogin(): React.JSX.Element {
   const [user, setUser] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
+  /* อ่านครั้งเดียวตอน mount แล้วค่าถูกลบทิ้ง — ไม่งั้นข้อความค้างข้ามการล็อกอินรอบถัดไป
+     แล้วคนอ่านจะคิดว่าเพิ่งโดนเด้งออกอีกครั้งทั้งที่ไม่ได้เกิดอะไรขึ้น */
+  const [signedOutReason] = useState(() => takeSignedOutReason())
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -129,6 +133,11 @@ export default function CloudLogin(): React.JSX.Element {
         <p className="login-sub">Transport Management System</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* คนที่มาถึงหน้านี้เพราะถูกพาออกมา ไม่ได้ตั้งใจมาเอง เขาเพิ่งพิมพ์รหัสไปเมื่อกี้
+              ถ้าไม่บอกเหตุผล สิ่งที่เขาสรุปคือระบบพัง ไม่ใช่ token หมดอายุตามกำหนด */}
+          {signedOutReason && !error && (
+            <div className="login-notice" role="status">{signedOutReason}</div>
+          )}
           <Field label="ชื่อผู้ใช้ TMS หรืออีเมล" required>
             <Input
               value={user}

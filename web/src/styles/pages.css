@@ -314,3 +314,15 @@
 }
 .pw-toggle:hover { background: var(--surface-2); color: var(--ink); }
 .pw-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+/* ข้อความบอกเหตุผลที่ถูกพาออกมา — เป็นข่าวสาร ไม่ใช่ความผิดของคนอ่าน
+   จึงใช้โทนกลางที่อ่านออกว่าให้ทำอะไรต่อ ไม่ใช่สีแดงซึ่งอ่านว่ามีอะไรเสียหาย */
+.login-notice {
+  background: var(--info-bg, var(--surface-2));
+  color: var(--ink-2);
+  border-left: 3px solid var(--info);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
