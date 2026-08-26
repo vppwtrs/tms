@@ -70,7 +70,6 @@ const NAV: NavGroup[] = [
     label: 'ระบบ',
     items: [
       { to: '/users', label: 'ผู้ใช้และสิทธิ์', icon: IconShield, perm: 'users.manage' },
-      { to: '/permission-groups', label: 'กลุ่มสิทธิ์', icon: IconShield, perm: 'users.manage' },
       { to: '/data', label: 'ข้อมูลระบบ', icon: IconTable, perm: 'users.manage' },
       { to: '/usage', label: 'การใช้งานระบบ', icon: IconChart, perm: 'users.manage' },
     ],
@@ -134,9 +133,20 @@ export function CloudLayout(): React.JSX.Element {
               <circle cx="17" cy="17.5" r="1.8" />
             </svg>
           </div>
+          {/* บรรทัดบนคือชื่อระบบ บรรทัดล่างคือเจ้าของระบบ — เดิมบรรทัดล่างเป็นคำขยาย
+              ของบรรทัดบน ("TMS · ระบบบริหารจัดการขนส่ง") ซึ่งพูดเรื่องเดียวกันซ้ำสองรอบ
+              โลโก้บริษัทใช้เป็น mask เหมือนหน้าล็อกอิน สีจึงมาจากโทเคนของแถบเมนู */}
           <div className="brand-text">
-            <div className="brand-name">ระบบขนส่ง</div>
-            <div className="brand-sub">TMS · ระบบบริหารจัดการขนส่ง</div>
+            <div className="brand-name">TMS Operations</div>
+            <div
+              className="brand-company"
+              role="img"
+              aria-label="VPPW (Thailand) Co., Ltd."
+              style={{
+                WebkitMaskImage: `url(${import.meta.env.BASE_URL}vppw-mark.png)`,
+                maskImage: `url(${import.meta.env.BASE_URL}vppw-mark.png)`,
+              }}
+            />
           </div>
         </div>
 
@@ -175,7 +185,7 @@ export function CloudLayout(): React.JSX.Element {
             <IconPanelLeft size={17} />
             <span className="nav-label">ย่อเมนู</span>
           </button>
-          <div className="nav-label sidebar-version">ทรานส์พลัส TMS · คลาวด์</div>
+          <div className="nav-label sidebar-version">TMS Operations · คลาวด์</div>
         </div>
       </aside>
 

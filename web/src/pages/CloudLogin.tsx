@@ -109,7 +109,7 @@ export default function CloudLogin(): React.JSX.Element {
       <aside className="ops-login-art ops-dark">
         <div className="ops-login-brand">
           <img src={`${import.meta.env.BASE_URL}login-logo.png`} alt="" width={34} height={34} style={{ borderRadius: 10, objectFit: 'cover' }} />
-          ทรานส์พลัส TMS
+          TMS Operations
         </div>
         <div className="ops-login-lead">
           <h2>ศูนย์ควบคุมงานขนส่ง<br />ในหน้าจอเดียว</h2>
@@ -120,7 +120,7 @@ export default function CloudLogin(): React.JSX.Element {
             <li><IconShield size={16} /> หลักฐานการส่งพร้อมลายเซ็นและรูป</li>
           </ul>
         </div>
-        <div className="ops-login-foot">ทรานส์พลัส TMS · คลาวด์</div>
+        <div className="ops-login-foot">TMS Operations · คลาวด์</div>
       </aside>
 
       <div className="ops-login-form">
@@ -129,6 +129,19 @@ export default function CloudLogin(): React.JSX.Element {
           {/* โลโก้จริงของแอป — รถบรรทุกขนส่ง (วงกลม ขอบขาวทำใน CSS) */}
           <img src={`${import.meta.env.BASE_URL}login-logo.png`} alt="" width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
+        {/* โลโก้บริษัท — ใช้เป็นหน้ากาก (mask) ไม่ใช่รูปสี ตัวอักษรจึงรับสีจากโทเคน
+            เปลี่ยนตามธีมสว่าง/มืดเองโดยไม่ต้องมีไฟล์รูปสองใบ */}
+        {/* เส้นทางรูปมาจาก BASE_URL ไม่ใช่ '/' ตายตัว — GitHub Pages เสิร์ฟที่ /<repo>/
+            ถ้าเขียนทับใน CSS โลโก้จะหายเฉพาะบนโปรดักชัน ซึ่งเป็นที่ที่ไม่มีใครเห็นตอนแก้ */}
+        <div
+          className="login-company"
+          role="img"
+          aria-label="VPPW (Thailand) Co., Ltd."
+          style={{
+            WebkitMaskImage: `url(${import.meta.env.BASE_URL}vppw-mark.png)`,
+            maskImage: `url(${import.meta.env.BASE_URL}vppw-mark.png)`,
+          }}
+        />
         <h1>ระบบบริหารจัดการขนส่ง</h1>
         <p className="login-sub">Transport Management System</p>
 

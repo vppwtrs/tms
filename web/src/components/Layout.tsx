@@ -156,7 +156,7 @@ export function Layout(): React.JSX.Element {
             <IconPanelLeft size={16} />
             <span className="nav-label">ย่อเมนู</span>
           </button>
-          <div className="nav-label sidebar-version">ทรานส์พลัส TMS v1.0 · 2026</div>
+          <div className="nav-label sidebar-version">TMS Operations v1.0 · 2026</div>
         </div>
       </aside>
 
