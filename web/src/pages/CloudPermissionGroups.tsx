@@ -53,15 +53,18 @@ export default function CloudPermissionGroups(): React.JSX.Element {
   }
 
   return <>
-    <PageHeader title="กลุ่มสิทธิ์" subtitle="กำหนดสิทธิ์เริ่มต้นให้แต่ละหน้าที่ ผู้ใช้จะสืบทอดค่านี้โดยอัตโนมัติ" />
+    {/* ปุ่มเลือกกลุ่มเคยอยู่ในการ์ดที่กินเต็มแถวเพื่อบรรจุปุ่มสี่ปุ่มกับคำอธิบายบรรทัดเดียว
+        มันคือตัวสลับบริบทของทั้งหน้า ที่ของมันคือหัวหน้าจอ เหมือนตัวกรองของหน้าอื่น */}
+    <PageHeader
+      title="กลุ่มสิทธิ์"
+      subtitle={ROLE_INFO[role].description}
+      filters={ROLES.map((r) => (
+        <Button key={r} variant={r === role ? 'primary' : 'outline'} size="sm" onClick={() => setRole(r)}>{ROLE_INFO[r].label}</Button>
+      ))}
+    />
     {error && <ErrorBox message={error} onRetry={() => void load()} />}
     {notice && <div role="status" style={{ padding: 10, marginBottom: 16, borderRadius: 8, color: 'var(--success)', background: 'var(--success-bg)' }}>{notice}</div>}
-    <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {ROLES.map((r) => <Button key={r} variant={r === role ? 'primary' : 'outline'} onClick={() => setRole(r)}>{ROLE_INFO[r].label}</Button>)}
-      </div>
-      <p className="text-sm text-muted" style={{ margin: '12px 0 0' }}>{ROLE_INFO[role].description}</p>
-    </div>
+
     <div className="card" style={{ padding: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 14 }}>
         <div><h2 style={{ margin: 0, fontSize: 18 }}>สิทธิ์เริ่มต้นของกลุ่ม</h2><p className="text-sm text-muted" style={{ margin: '4px 0 0' }}>ผู้ใช้ที่ไม่ได้ตั้งค่าเฉพาะบุคคลจะใช้รายการนี้</p></div>

@@ -572,3 +572,13 @@
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
+
+/* กล่องประกอบของตารางบนหน้าข้อมูลระบบ — เคียงกันไม่ใช่ซ้อนกัน
+   ทั้งคู่รวมกันยังใช้ความกว้างไม่ถึงครึ่ง การซ้อนลงล่างจึงดันตารางจริงตกจอเปล่า ๆ */
+.data-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 18px;
+}
