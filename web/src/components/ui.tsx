@@ -29,8 +29,13 @@ export function Button({ variant = 'primary', size = 'md', loading, icon, childr
 
 /* ---------- Badge ---------- */
 export function Badge({ label, tone, dot }: { label: string; tone?: string; dot?: boolean }) {
+  /* ป้ายสถานะได้แถบสีซ้าย ป้ายนับจำนวนไม่ได้ — แถบข้างตัวเลขอ่านเป็นขีดเกิน
+     ไม่ใช่สถานะ และตัวเลขไม่ได้ต้องการมิติที่สองอยู่แล้ว เพราะมันเทียบกันเองได้
+     ป้ายที่มีจุดอยู่แล้วก็ไม่เอาซ้ำ จุดทำหน้าที่เดียวกัน */
+  const isCount = /^\d[\d,.\s]*$/.test(label)
+  const status = !dot && !isCount
   return (
-    <span className={`badge badge-${tone ?? 'pending'}`}>
+    <span className={`badge badge-${tone ?? 'pending'}${status ? ' badge-status' : ''}`}>
       {dot && <span className="dot" />}
       {label}
     </span>

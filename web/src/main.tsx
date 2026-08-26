@@ -9,6 +9,9 @@ import './styles/components.css'
    ผิวของคนขับโหลดแยกตอนเข้าหน้าคนขับ (styles/driverSkin.ts) ไม่เกี่ยวกับไฟล์นี้ */
 import './styles/ops.css'
 import './styles/animations.css'
+/* ชั้นมิติ — แสง เงา และฟิสิกส์การเคลื่อนที่ ต้องมาหลังทุกไฟล์ที่นิยาม
+   box-shadow/transition ไว้ ไม่งั้นเงาเดิมที่ตั้งมือทับบันไดความสูงกลับ */
+import './styles/depth.css'
 
 /**
  * มีสองปลายทาง เลือกด้วย mode ของ Vite:
