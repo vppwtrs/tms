@@ -247,9 +247,9 @@ export default function CloudDispatch(): React.JSX.Element {
         <TableSkeleton rows={4} cols={4} />
       ) : (
         <div className="ops-board">
-          <div>
+          <div className="ops-lane" data-lane="wait">
             <h2 className="ops-col-title">
-              <IconRoute size={18} style={{ color: 'var(--info)' }} />
+              <IconRoute size={18} />
               รอคนขับรับงาน
               <Badge label={fmtNum(waiting.length)} tone="planned" />
             </h2>
@@ -277,9 +277,9 @@ export default function CloudDispatch(): React.JSX.Element {
             ))}
           </div>
 
-          <div>
+          <div className="ops-lane" data-lane="run">
             <h2 className="ops-col-title">
-              <IconTruck size={18} style={{ color: 'var(--warning)' }} />
+              <IconTruck size={18} />
               คนขับรับแล้ว
               <Badge label={fmtNum(running.length)} tone="in_progress" dot />
             </h2>
@@ -353,9 +353,9 @@ export default function CloudDispatch(): React.JSX.Element {
           </aside>
 
           {done.length > 0 && (
-            <div style={{ gridColumn: '1 / -1' }}>
+            <div className="ops-lane" data-lane="done" style={{ gridColumn: '1 / -1' }}>
               <h2 className="ops-col-title" style={{ marginTop: 10 }}>
-                <IconCheck size={18} style={{ color: 'var(--success)' }} />
+                <IconCheck size={18} />
                 จบวันนี้
                 <Badge label={fmtNum(done.length)} tone="success" />
               </h2>
