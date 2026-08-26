@@ -448,9 +448,9 @@ export default function CloudOrders(): React.JSX.Element {
            ตารางทำแบบนี้ไม่ได้ เพราะสามชั้นซ้อนกันในตารางเดียวอ่านเป็นแถวแบน ๆ เสมอ */
         <div style={{ display: 'grid', gap: 14 }}>
           {groupOrders(data.rows).map((trip) => (
-            <section key={trip.key} className="card" style={{ padding: 14 }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                <span className="text-strong" style={{ fontSize: 15 }}>{trip.tripNo}</span>
+            <section key={trip.key} className="card ord-group">
+              <div className="ord-group-head">
+                <span className="ord-group-no">{trip.tripNo}</span>
                 <span className="text-xs text-muted">
                   {/* คลังมาก่อนจำนวนร้าน — คำถามแรกเวลามีปัญหาคือ "ของออกจากคลังไหน"
                       ไม่ใช่ "เที่ยวนี้แวะกี่ร้าน" ซึ่งดูจากการ์ดข้างล่างก็เห็นอยู่แล้ว */}
@@ -472,7 +472,9 @@ export default function CloudOrders(): React.JSX.Element {
                     title="ลบเที่ยวนี้ถาวร"
                     onClick={() => setPurging(trip)}
                   >
-                    <IconTrash size={14} />
+                    {/* เขียนว่าลบถาวรเหมือนกระดานจัดรถ ไอคอนถังขยะเดี่ยว ๆ อ่านไม่ออก
+                        ว่าลบใบเดียวหรือลบทั้งเที่ยว ซึ่งเป็นคนละเรื่องกันโดยสิ้นเชิง */}
+                    <IconTrash size={14} /> ลบถาวร
                   </Button>
                 )}
               </div>
