@@ -205,6 +205,15 @@ export default function CloudDrivers(): React.JSX.Element {
       <PageHeader
         title="พนักงานขับ"
         subtitle="ทะเบียนพนักงานขับ — เบอร์ติดต่อ ใบขับขี่ และสถานะ"
+        filters={<>
+          <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาชื่อ / เบอร์ / เลขใบขับขี่..." />
+          <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={{ width: 150 }}>
+            <option value="">สถานะทั้งหมด</option>
+            {(['available', 'on_trip', 'off_duty'] as DriverStatus[]).map((s) => (
+              <option key={s} value={s}>{DRIVER_STATUS_LABEL[s]}</option>
+            ))}
+          </Select>
+        </>}
         actions={canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>เพิ่มพนักงานขับ</Button>}
       />
 
@@ -244,15 +253,6 @@ export default function CloudDrivers(): React.JSX.Element {
         </div>
       )}
 
-      <div className="toolbar">
-        <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาชื่อ / เบอร์ / เลขใบขับขี่..." />
-        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={{ width: 150 }}>
-          <option value="">สถานะทั้งหมด</option>
-          {(['available', 'on_trip', 'off_duty'] as DriverStatus[]).map((s) => (
-            <option key={s} value={s}>{DRIVER_STATUS_LABEL[s]}</option>
-          ))}
-        </Select>
-      </div>
 
       {error ? (
         <ErrorBox message={error} onRetry={() => void load()} />

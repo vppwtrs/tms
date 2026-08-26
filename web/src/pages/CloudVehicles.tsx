@@ -164,18 +164,18 @@ export default function CloudVehicles(): React.JSX.Element {
       <PageHeader
         title="จัดการรถยนต์"
         subtitle="รถทั้งหมดในบริษัท — ทะเบียน ประเภท ความจุ และสถานะ"
+        filters={<>
+          <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาทะเบียน / ยี่ห้อ / รุ่น..." />
+          <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={{ width: 160 }}>
+            <option value="">สถานะทั้งหมด</option>
+            {(['available', 'on_trip', 'maintenance', 'inactive'] as VehicleStatus[]).map((s) => (
+              <option key={s} value={s}>{VEHICLE_STATUS_LABEL[s]}</option>
+            ))}
+          </Select>
+        </>}
         actions={canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>เพิ่มรถ</Button>}
       />
 
-      <div className="toolbar">
-        <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาทะเบียน / ยี่ห้อ / รุ่น..." />
-        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={{ width: 160 }}>
-          <option value="">สถานะทั้งหมด</option>
-          {(['available', 'on_trip', 'maintenance', 'inactive'] as VehicleStatus[]).map((s) => (
-            <option key={s} value={s}>{VEHICLE_STATUS_LABEL[s]}</option>
-          ))}
-        </Select>
-      </div>
 
       {error ? (
         <ErrorBox message={error} onRetry={() => void load()} />

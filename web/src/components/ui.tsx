@@ -311,14 +311,25 @@ export function StatCard({ label, value, symbol, icon, tone, foot, trend }: { la
 }
 
 /* ---------- PageHeader ---------- */
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+/* หัวหน้าจอ
+ *
+ * เดิมหัวเรื่อง คำอธิบาย และแถบตัวกรอง ต่างคนต่างกินแถวเต็มความกว้างของตัวเอง
+ * บนจอ 1440 หัวเรื่องใช้ความกว้างจริงไม่ถึงหนึ่งในเจ็ดของแถว ที่เหลือว่างเปล่า
+ * แล้วแถบตัวกรองซึ่งมีของอยู่สองสามชิ้นก็กินอีกแถวเต็ม ๆ รวมแล้วเสียความสูงร้อยกว่า
+ * พิกเซลก่อนถึงข้อมูลจริง ทุกหน้า ทุกครั้งที่เปิด
+ *
+ * ตัวกรองจึงขึ้นไปอยู่แถวเดียวกับหัวเรื่อง ชิดขวา ที่ว่างที่มีอยู่แล้วถูกใช้แทนที่จะ
+ * ไปเบียดความสูง จอแคบค่อยตกลงมาเป็นแถวของตัวเอง ซึ่งตอนนั้นความกว้างหมดจริง
+ * ไม่ใช่การเสียของ */
+export function PageHeader({ title, subtitle, actions, filters }: { title: string; subtitle?: string; actions?: ReactNode; filters?: ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-      <div>
+    <div className="page-head">
+      <div className="page-head-text">
         <h1 className="page-title">{title}</h1>
         {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
-      {actions && <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>{actions}</div>}
+      {filters && <div className="page-head-filters">{filters}</div>}
+      {actions && <div className="page-head-actions">{actions}</div>}
     </div>
   )
 }

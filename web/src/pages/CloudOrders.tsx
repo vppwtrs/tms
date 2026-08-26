@@ -207,6 +207,10 @@ export default function CloudOrders(): React.JSX.Element {
   const [purging, setPurging] = useState<TripGroup | null>(null)
   const [purgeLoading, setPurgeLoading] = useState(false)
   const [q, setQ] = useState('')
+  /* ตัวกรองที่นาน ๆ ใช้ที ถูกพับไว้ ปิดตอนเข้าหน้าเสมอเพราะค่าทั้งหมดเริ่มที่ว่าง
+     ถ้าวันหลังทำให้ตัวกรองจำค่าข้ามการเข้าหน้า ต้องเปิดค้างไว้ให้เองด้วย
+     ไม่งั้นคนจะเห็นผลลัพธ์ที่ถูกกรองอยู่โดยไม่เห็นว่าอะไรกรองมัน */
+  const [moreOpen, setMoreOpen] = useState(false)
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
   const [from, setFrom] = useState(todayIso())
@@ -385,6 +389,9 @@ export default function CloudOrders(): React.JSX.Element {
   }
 
   const filtersDirty = Boolean(q || status || priority || driverId) || !rangeIsToday
+  /* นับเฉพาะอันที่อยู่ในกลุ่มที่พับไว้ — ตัวเลขนี้คือคำตอบของ "ทำไมเห็นไม่ครบ"
+     โดยไม่ต้องกางออกมาดู ซึ่งเป็นคำถามเดียวที่ทำให้คนกดกางจริง ๆ */
+  const moreCount = [status, priority, driverId].filter(Boolean).length + (from || to ? (rangeIsToday || rangeIsTomorrow || rangeIsWeek || rangeIsAll ? 0 : 1) : 0)
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1
 
@@ -393,41 +400,52 @@ export default function CloudOrders(): React.JSX.Element {
       <PageHeader
         title="จัดการออเดอร์"
         subtitle={rangeIsToday ? 'กำหนดส่งวันนี้ — เปลี่ยนช่วงวันได้ที่แถบตัวกรอง' : rangeIsAll ? 'ออเดอร์ขนส่งทั้งหมด — ค้นหา กรอง ดูสถานะ และจัดการ' : `กำหนดส่ง ${from || 'ไม่จำกัด'} ถึง ${to || 'ไม่จำกัด'}`}
+        filters={<>
+          <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาเลขที่ / เส้นทาง / สินค้า..." />
+          {/* ช่วงวันคือตัวกรองที่ถูกแตะทุกวัน อยู่ในสายตาตลอด ไม่พับ */}
+          <div className="range-quick" role="group" aria-label="ช่วงกำหนดส่ง">
+            <Button variant={rangeIsToday ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(today, today)}>วันนี้</Button>
+            <Button variant={rangeIsTomorrow ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(tomorrow, tomorrow)}>พรุ่งนี้</Button>
+            <Button variant={rangeIsWeek ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(today, daysAgoIso(-6))}>7 วัน</Button>
+            <Button variant={rangeIsAll ? 'accent' : 'ghost'} size="sm" onClick={() => setRange('', '')}>ทั้งหมด</Button>
+          </div>
+          {/* ที่เหลืออีกห้าชิ้นนาน ๆ ใช้ที เดิมกางอยู่ตลอดและกินความสูงสองแถวทุกครั้ง
+              ที่เปิดหน้า ตัวเลขบนปุ่มบอกว่ามีกี่อันทำงานอยู่ จึงตอบ "ทำไมเห็นไม่ครบ"
+              ได้โดยไม่ต้องกาง ซึ่งเป็นคำถามเดียวที่ทำให้คนกดกางจริง ๆ */}
+          <Button variant={moreOpen || moreCount > 0 ? 'outline' : 'ghost'} size="sm"
+                  aria-expanded={moreOpen} onClick={() => setMoreOpen((v) => !v)}>
+            ตัวกรองเพิ่มเติม{moreCount > 0 && <span className="filter-count">{moreCount}</span>}
+          </Button>
+          {filtersDirty && (
+            <Button variant="ghost" size="sm" onClick={resetFilters}>กลับเป็นวันนี้</Button>
+          )}
+        </>}
         actions={canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>สร้างออเดอร์</Button>}
       />
 
-      <div className="toolbar">
-        <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาเลขที่ / เส้นทาง / สินค้า..." />
-        <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={{ width: 150 }}>
-          <option value="">สถานะทั้งหมด</option>
-          {ORDER_STATUS_ORDER.map((s) => (
-            <option key={s} value={s}>{ORDER_STATUS_LABEL[s]}</option>
-          ))}
-        </Select>
-        <Select value={priority} onChange={(e) => { setPriority(e.target.value); setPage(1) }} style={{ width: 130 }}>
-          <option value="">ความสำคัญทั้งหมด</option>
-          <option value="normal">ปกติ</option>
-          <option value="urgent">ด่วน</option>
-        </Select>
-        <div className="range-quick" role="group" aria-label="ช่วงกำหนดส่ง">
-          <Button variant={rangeIsToday ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(today, today)}>วันนี้</Button>
-          <Button variant={rangeIsTomorrow ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(tomorrow, tomorrow)}>พรุ่งนี้</Button>
-          <Button variant={rangeIsWeek ? 'accent' : 'ghost'} size="sm" onClick={() => setRange(today, daysAgoIso(-6))}>7 วัน</Button>
-          <Button variant={rangeIsAll ? 'accent' : 'ghost'} size="sm" onClick={() => setRange('', '')}>ทั้งหมด</Button>
+      {moreOpen && (
+        <div className="filter-more">
+          <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} style={{ width: 150 }}>
+            <option value="">สถานะทั้งหมด</option>
+            {ORDER_STATUS_ORDER.map((s) => (
+              <option key={s} value={s}>{ORDER_STATUS_LABEL[s]}</option>
+            ))}
+          </Select>
+          <Select value={priority} onChange={(e) => { setPriority(e.target.value); setPage(1) }} style={{ width: 130 }}>
+            <option value="">ความสำคัญทั้งหมด</option>
+            <option value="normal">ปกติ</option>
+            <option value="urgent">ด่วน</option>
+          </Select>
+          <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1) }} style={{ width: 150 }} title="กำหนดส่ง ตั้งแต่" />
+          <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1) }} style={{ width: 150 }} title="ถึง" />
+          <Select value={driverId} onChange={(e) => { setDriverId(e.target.value); setPage(1) }} style={{ width: 170 }} title="คนขับที่รับผิดชอบ">
+            <option value="">คนขับทั้งหมด</option>
+            {drivers.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </Select>
         </div>
-        <Input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1) }} style={{ width: 150 }} title="กำหนดส่ง ตั้งแต่" />
-        <Input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1) }} style={{ width: 150 }} title="ถึง" />
-        <Select value={driverId} onChange={(e) => { setDriverId(e.target.value); setPage(1) }} style={{ width: 170 }} title="คนขับที่รับผิดชอบ">
-          <option value="">คนขับทั้งหมด</option>
-          {drivers.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </Select>
-        <div className="spacer" />
-        {filtersDirty && (
-          <Button variant="ghost" size="sm" onClick={resetFilters}>กลับเป็นวันนี้</Button>
-        )}
-      </div>
+      )}
 
       {error ? (
         <ErrorBox message={error} onRetry={() => void load()} />

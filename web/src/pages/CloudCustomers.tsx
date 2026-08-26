@@ -164,16 +164,16 @@ export default function CloudCustomers(): React.JSX.Element {
       <PageHeader
         title="ลูกค้า"
         subtitle="ฐานข้อมูลลูกค้า"
+        filters={<>
+          <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาชื่อ / ผู้ติดต่อ / เบอร์..." />
+          <Select value={segment} onChange={(e) => { setSegment(e.target.value); setPage(1) }} style={{ width: 160 }}>
+            <option value="">ทุกกลุ่ม</option>
+            {SEGMENTS.map((s) => <option key={s} value={s}>{SEGMENT_LABEL[s]}</option>)}
+          </Select>
+        </>}
         actions={canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>เพิ่มลูกค้า</Button>}
       />
 
-      <div className="toolbar">
-        <SearchInput value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="ค้นหาชื่อ / ผู้ติดต่อ / เบอร์..." />
-        <Select value={segment} onChange={(e) => { setSegment(e.target.value); setPage(1) }} style={{ width: 160 }}>
-          <option value="">ทุกกลุ่ม</option>
-          {SEGMENTS.map((s) => <option key={s} value={s}>{SEGMENT_LABEL[s]}</option>)}
-        </Select>
-      </div>
 
       {error ? (
         <ErrorBox message={error} onRetry={load} />
