@@ -90,12 +90,24 @@ export function tmsTokenSecondsLeft(token = getTmsToken()): number | null {
 
 async function gateway<T>(route: 'auth' | 'call', body: unknown): Promise<T> {
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+  /* เส้น auth ยังไม่มีตัวตน ใช้ anon key ได้อย่างเดียว แต่เส้น call ต้องส่ง session
+     ของคนที่ล็อกอินอยู่จริง — ฝั่ง Edge Function เอาไปเช็คว่าบัญชีนี้ถูกอนุมัติ
+     และยังไม่ถูกปิด ก่อนจะยอมส่งต่อคำขอไปหา TMS
+     anon key ใช้แทนไม่ได้ เพราะมันอยู่ใน bundle ที่ใครเปิดหน้าเว็บก็หยิบไปได้ */
+  let bearer = anonKey
+  if (route === 'call') {
+    const { data } = await supabase.auth.getSession()
+    if (!data.session) throw new DataError('SESSION', 'ต้องเข้าสู่ระบบก่อน')
+    bearer = data.session.access_token
+  }
+
   const res = await fetch(`${FUNCTIONS_BASE}/${route}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
+      Authorization: `Bearer ${bearer}`,
     },
     body: JSON.stringify(body),
   })
@@ -130,17 +142,18 @@ export interface TmsAccount {
 
 /** ล็อกอินด้วยบัญชี TMS — สำเร็จแล้วจะได้ session ของ Supabase ทันที
  *  คืน pending = true เมื่อบัญชียังไม่ถูก admin อนุมัติ (ล็อกอินได้แต่ยังไม่มีสิทธิ์อะไร) */
+/* tenant ไม่รับจากที่นี่แล้ว — ตรึงไว้ฝั่ง Edge Function เพราะค่าที่ client
+   กำหนดได้ ถูกยัดใส่ header ที่ยิงไปหาบริษัทตรง ๆ เปิดให้ไล่หา tenant อื่นได้ */
 export async function signInWithTms(
   username: string,
   password: string,
-  tenant = 'root',
 ): Promise<{ pending: boolean; account: TmsAccount | null }> {
   const r = await gateway<{
     session: { access_token: string; refresh_token: string }
     tms_token: string
     account: TmsAccount | null
     pending: boolean
-  }>('auth', { username, password, tenant })
+  }>('auth', { username, password })
 
   /* ยัด session ที่ gateway ออกให้เข้า supabase-js เพื่อให้ทุก query หลังจากนี้
      มีตัวตนและ refresh ต่ออายุเองอัตโนมัติ เหมือนล็อกอินด้วยอีเมลปกติทุกประการ */
@@ -155,13 +168,21 @@ export async function signInWithTms(
   return { pending: r.pending, account: r.account }
 }
 
+/** ชื่องานที่ยิงไปหา TMS ได้ — ตัวจริงที่แปลงเป็น path อยู่ใน Edge Function
+ *
+ *  ที่นี่ไม่มี path ของบริษัทอยู่เลยโดยตั้งใจ ของเดิมส่ง path มาจากหน้าเว็บ
+ *  ซึ่งแปลว่าโครงสร้าง API ภายในบริษัททั้งชุดถูกคอมไพล์ติดไปกับ bundle
+ *  ใครเปิด devtools ก็อ่านได้ว่ามี endpoint อะไร รับ body หน้าตายังไง */
+export type TmsOp =
+  | 'warehouses'
+  | 'myWarehouses'
+  | 'pickingLists'
+  | 'trips'
+  | 'tripPickingList'
+
 /** ยิงคำขอ **อ่าน** ไปยัง TMS ผ่าน gateway
- *  path ที่ยิงได้ถูกล็อกไว้ในฝั่ง Edge Function แล้ว — ที่นี่แค่ส่งต่อ */
-export async function tmsCall<T>(
-  path: string,
-  body?: unknown,
-  method: 'GET' | 'POST' = 'POST',
-): Promise<T> {
+ *  งานที่ยิงได้ กับจำนวนต่อหน้า ถูกล็อกไว้ฝั่ง Edge Function แล้ว — ที่นี่แค่ส่งชื่องาน */
+export async function tmsOp<T>(op: TmsOp, params?: Record<string, unknown>): Promise<T> {
   const token = getTmsToken()
   if (!token) {
     /* ไม่มี token ไม่เท่ากับ token หมดอายุ กรณีที่พบบ่อยที่สุดคือเปิดแท็บใหม่ —
@@ -193,5 +214,5 @@ export async function tmsCall<T>(
     throw new DataError('TMS_TOKEN_EXPIRED', 'การเข้าระบบ TMS หมดอายุ — เข้าสู่ระบบใหม่')
   }
 
-  return gateway<T>('call', { path, method, body, token })
+  return gateway<T>('call', { op, params, token })
 }

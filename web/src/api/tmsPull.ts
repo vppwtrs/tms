@@ -1,5 +1,5 @@
 import { supabase, toDataError } from './supabase.js'
-import { tmsCall } from './tmsAuth.js'
+import { tmsOp } from './tmsAuth.js'
 
 /**
  * ดึงข้อมูลจาก TMS บริษัท แล้วส่งเข้า Supabase
@@ -98,7 +98,7 @@ function unwrap(raw: unknown): unknown[] {
  *  เคยส่ง page/pageSize/keyword ตามที่เดาเอาเอง แล้วได้ผลลัพธ์ว่างแบบไม่มี error
  *  ชื่อที่ถูกมาจาก extractor ที่ยิงกับของจริงมาก่อน อย่าแก้โดยไม่ทดสอบใหม่ */
 async function searchWarehouses(): Promise<Warehouse[]> {
-  const raw = await tmsCall<unknown>('/v1/warehouses/search', { pageNumber: 1, pageSize: 200 })
+  const raw = await tmsOp<unknown>('warehouses')
   return unwrap(raw).map(toWarehouse).filter((w) => w.code)
 }
 
@@ -119,7 +119,7 @@ export async function listWarehouses(): Promise<Warehouse[]> {
      ทั้งที่คนคนนั้นเปิดดูคลังได้จริงในหน้า TMS — extractor เลยมี KM23-CW-01
      ฝังเป็นค่าเริ่มต้นไว้กันเหนียว ที่นี่ไม่ฝังรหัสคลังลงโค้ด แต่ถอยไปถาม
      /v1/warehouses/search ซึ่งคืนคลังที่สิทธิ์ของบัญชีมองเห็นทั้งหมด */
-  const personal = await tmsCall<unknown>('/personal/warehouses', undefined, 'GET')
+  const personal = await tmsOp<unknown>('myWarehouses')
     .then((raw) => unwrap(raw).map(toWarehouse).filter((w) => w.code))
     .catch(() => [] as Warehouse[])
 
@@ -220,6 +220,9 @@ interface PlHeader {
   details?: PlDetail[]
 }
 
+/* ต้องตรงกับ pageSize ของ op เดียวกันใน supabase/functions/tms-gateway/index.ts
+   ที่นี่ไม่ได้ส่งค่านี้ออกไปแล้ว (client กำหนดจำนวนต่อหน้าไม่ได้อีก) แต่ยังใช้ตัดสิน
+   ว่า "ได้ไม่ครบหน้า = หมดแล้ว" ตั้งไม่ตรงกันเมื่อไหร่ ตัวดึงจะหยุดกลางทางเงียบ ๆ */
 const PL_PAGE_SIZE = 500
 const PL_MAX_PAGES = 60
 
@@ -250,7 +253,6 @@ export async function pullPickingLists(
   },
   onProgress?: (msg: string) => void,
 ): Promise<PullResult> {
-  const path = `/v1/pickinglistheaders/${encodeURIComponent(opts.warehouse.code)}/search`
   const keep = new Set<string>(opts.statuses ?? [])
   const maxPages = opts.maxPages ?? PL_MAX_PAGES
 
@@ -258,11 +260,9 @@ export async function pullPickingLists(
   let scanned = 0
 
   for (let page = 1; page <= maxPages; page++) {
-    const r = await tmsCall<{ data?: PlHeader[]; items?: PlHeader[] }>(path, {
-      orderBy: ['planDeliveryDate Descending'],
-      pageNumber: page,
-      pageSize: PL_PAGE_SIZE,
-      keyword: null,
+    const r = await tmsOp<{ data?: PlHeader[]; items?: PlHeader[] }>('pickingLists', {
+      warehouse: opts.warehouse.code,
+      page,
     })
     const batch = r.data ?? r.items ?? []
     scanned += batch.length
@@ -574,6 +574,9 @@ function toTripHeader(item: unknown): TripHeader {
   }
 }
 
+/* ต้องตรงกับ pageSize ของ op เดียวกันใน supabase/functions/tms-gateway/index.ts
+   ที่นี่ไม่ได้ส่งค่านี้ออกไปแล้ว (client กำหนดจำนวนต่อหน้าไม่ได้อีก) แต่ยังใช้ตัดสิน
+   ว่า "ได้ไม่ครบหน้า = หมดแล้ว" ตั้งไม่ตรงกันเมื่อไหร่ ตัวดึงจะหยุดกลางทางเงียบ ๆ */
 const TRIP_PAGE_SIZE = 200
 
 export interface TripPullResult {
@@ -599,7 +602,7 @@ async function tripPickingLists(trip: TripHeader): Promise<PlHeader[]> {
   const embedded = trip.pickingLists ?? []
   if (!trip.id) return embedded
   try {
-    const r = await tmsCall<unknown>('/v1/tripheaders/pickingList', { Id: trip.id })
+    const r = await tmsOp<unknown>('tripPickingList', { id: trip.id })
     const list = unwrap(r) as PlHeader[]
     return list.length ? list : embedded
   } catch {
@@ -612,7 +615,6 @@ export async function pullTrips(
   onProgress?: (msg: string) => void,
 ): Promise<TripPullResult> {
   const guid = await warehouseGuid(opts.warehouse)
-  const path = `/v1/tripheaders/${encodeURIComponent(guid)}/search`
   const maxPages = opts.maxPages ?? 2
 
   const trips: TripHeader[] = []
@@ -621,12 +623,7 @@ export async function pullTrips(
   let complete = false
 
   for (let page = 1; page <= maxPages; page++) {
-    const r = await tmsCall<unknown>(path, {
-      orderBy: ['orderDate Descending'],
-      pageNumber: page,
-      pageSize: TRIP_PAGE_SIZE,
-      keyword: null,
-    })
+    const r = await tmsOp<unknown>('trips', { guid, page })
     const batchRaw = unwrap(r)
     const batch = batchRaw.map(toTripHeader)
     scanned += batch.length

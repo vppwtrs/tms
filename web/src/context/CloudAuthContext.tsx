@@ -23,7 +23,7 @@ interface CloudAuthValue {
   /** ชื่อคนที่ล็อกอินผ่านแต่ยังไม่ถูกอนุมัติ — null เมื่อไม่ได้อยู่ในสถานะนั้น */
   pendingName: string | null
   loginDriver: (email: string, password: string) => Promise<void>
-  loginOffice: (username: string, password: string, tenant?: string) => Promise<void>
+  loginOffice: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   /** โหลดโปรไฟล์ใหม่ — ใช้หลังเปลี่ยนสิ่งที่อยู่ในแถว users เช่นธงบังคับตั้งรหัสใหม่ */
   refreshProfile: () => Promise<void>
@@ -73,8 +73,8 @@ export function CloudAuthProvider({ children }: { children: ReactNode }): React.
     await refresh()
   }
 
-  const loginOffice = async (username: string, password: string, tenant?: string): Promise<void> => {
-    const { pending, account } = await signInWithTms(username, password, tenant)
+  const loginOffice = async (username: string, password: string): Promise<void> => {
+    const { pending, account } = await signInWithTms(username, password)
     if (pending) {
       setUser(null)
       setPendingName(account?.name ?? username)

@@ -6,15 +6,15 @@
  *   POST /tms-gateway/call   ส่งต่อคำขออ่านข้อมูลไปยัง TMS (แก้ CORS)
  *
  * ทำไมต้องมีตัวนี้:
- * เบราว์เซอร์ยิงหา pdi.vespiario.net จากโดเมนอื่นไม่ได้ (CORS) เดิมแก้ด้วย server.js
+ * เบราว์เซอร์ยิงหา TMS จากโดเมนอื่นไม่ได้ (CORS) เดิมแก้ด้วย server.js
  * บนเครื่องออฟฟิศ ซึ่งบังคับให้ตัวดึงเป็นโปรแกรมแยกตลอดกาล ย้ายตัวกลางมาไว้ตรงนี้
  * แอปจึงเหลือตัวเดียว เปิดจากที่ไหนก็ได้
  *
  * ===== ข้อจำกัดที่ตั้งใจใส่ ห้ามถอด =====
  *
- * 1. อ่านอย่างเดียว — ALLOW คือรายการ path ที่ยิงได้ทั้งหมด ไม่มี endpoint ไหน
+ * 1. อ่านอย่างเดียว — OPS คือรายการงานที่ยิงได้ทั้งหมด ไม่มีตัวไหน
  *    ที่เขียนกลับเข้า TMS บริษัท ข้อตกลงกับบริษัทคือ "ไม่แก้ข้อมูลภายใน"
- *    เติม path ใหม่ได้ แต่ต้องเป็น search/report/profile เท่านั้น
+ *    เติมงานใหม่ได้ แต่ต้องเป็น search/report/profile เท่านั้น
  *
  * 2. ไม่เก็บ ไม่ log รหัสผ่าน — รหัสถูกใช้แลก token ครั้งเดียวแล้วหลุดจากหน่วยความจำ
  *    ห้ามใส่ console.log(body) เด็ดขาด log ของ Edge Function เก็บไว้อ่านย้อนหลังได้
@@ -25,7 +25,19 @@
  * 4. ฟังก์ชันนี้ไม่มีรหัสของบริษัทเก็บไว้เลยสักตัว ต่างจากแผนเดิม (tms-sync)
  *    ที่ต้องเก็บ service account ไว้ใน secret — คนที่ยึด secret ไปได้ ก็ยังล็อกอิน TMS ไม่ได้
  *
- * secret ที่ต้องตั้ง: TMS_BASE_URL เท่านั้น (เช่น https://pdi.vespiario.net/tms-api/api)
+ * 5. เส้น call ต้องมีตัวตนฝั่งเราที่ยังใช้งานอยู่ (27 ส.ค. 69)
+ *    เดิมเช็คแค่ "มี token ของ TMS" ผลคือคนที่ admin กดปิดบัญชีไปแล้ว หรือบัญชีใหม่
+ *    ที่ยังไม่ถูกอนุมัติ ยังดูดข้อมูลคลัง/เที่ยว/ใบสั่งของบริษัทได้ต่อจนกว่า token
+ *    จะหมดอายุไปเอง ทั้งที่คอมเมนต์ในไฟล์นี้เองเขียนว่าบัญชีใหม่ "ยังไม่มีสิทธิ์อะไร"
+ *
+ * 6. client ไม่รู้จัก path ของ TMS (27 ส.ค. 69)
+ *    เดิม client ส่ง path มาเอง แปลว่า '/v1/tripheaders/{guid}/search' และเพื่อน ๆ
+ *    ถูกคอมไพล์ติดไปใน bundle ที่ใครเปิด devtools ก็อ่านได้ว่า API ภายในบริษัท
+ *    หน้าตายังไง ตอนนี้ client ส่งแค่ชื่องาน (op) ตัวแปลงอยู่ที่นี่ที่เดียว
+ *    ผลพลอยได้: pageSize ย้ายมาฝั่งนี้ client จึงขอเกินโควตาไม่ได้อีก
+ *
+ * secret ที่ต้องตั้ง: TMS_BASE_URL (เช่น https://host.example/tms-api/api)
+ *                     WEB_ORIGINS  โดเมนเว็บเราคั่นด้วย comma (ไม่ตั้ง = ใช้ค่าเริ่มต้นล่าง)
  * SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ระบบใส่ให้เองอยู่แล้ว
  */
 
@@ -33,34 +45,98 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const TMS_BASE = Deno.env.get('TMS_BASE_URL') ?? ''
 
-/* path ที่ยอมให้ส่งต่อ — อ่านล้วน ตรวจด้วย regex ไม่ใช่ startsWith
-   เพราะ startsWith('/v1/') จะเปิดให้ทั้ง API ผ่านหมด */
-const ALLOW: RegExp[] = [
-  /^\/personal\/profile$/,
-  /^\/personal\/warehouses$/,
-  /^\/v1\/warehouses\/search$/,
-  /^\/v1\/reports\/actualshipment$/,
-  /^\/v1\/pickinglistheaders\/[^/]+\/search$/,
-  /* เที่ยว — อ้างคลังด้วย GUID ไม่ใช่รหัส ต่างจาก pickinglistheaders ข้างบน
-     ลืมบรรทัดนี้ตอนเพิ่มเส้นเที่ยวใน 0013 ผลคือหน้าดึงข้อมูลได้ 403 จาก gateway เอง
-     ไม่ใช่จาก TMS ซึ่งอ่านข้อความ error แล้วเดาสาเหตุไม่ออกเลย */
-  /^\/v1\/tripheaders\/[^/]+\/search$/,
-  /* ใบของเที่ยวหนึ่งพร้อมรายการสินค้า — เส้น search ส่ง pickingLists มาแบบไม่มี details
-     จำนวนต่อรุ่นจึงหายทั้งระบบ ต้องถามเส้นนี้ทีละเที่ยวถึงจะได้มา (body: { Id }) */
-  /^\/v1\/tripheaders\/pickingList$/,
-]
+/* tenant ตรึงไว้ ไม่รับจาก client — เดิมรับมาแล้วยัดใส่ header ตรง ๆ
+   ซึ่งเปิดให้คนนอกไล่ยิงหา tenant อื่นของบริษัทผ่านเรา */
+const TENANT = Deno.env.get('TMS_TENANT') ?? 'root'
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+/* ---------- CORS: เฉพาะโดเมนของเรา ----------
+   เดิมเป็น '*' ซึ่งแปลว่าเว็บอะไรก็ได้ที่พนักงานเปิดค้างไว้ ยิงเส้น auth ของเรา
+   จากเบราว์เซอร์ของเขาเองได้เงียบ ๆ */
+const ORIGINS = (Deno.env.get('WEB_ORIGINS') ?? 'https://vppwtrs.github.io')
+  .split(',').map(o => o.trim()).filter(Boolean)
+
+/* แอปเนทีฟ (Capacitor) ไม่มีโดเมนจริง ส่ง origin เป็น capacitor:// มา
+   ส่วน localhost คือตอน dev */
+const originOk = (o: string): boolean =>
+  ORIGINS.includes(o) ||
+  /^https?:\/\/localhost(:\d+)?$/.test(o) ||
+  /^(capacitor|ionic):\/\//.test(o)
+
+const corsFor = (req: Request): Record<string, string> => {
+  const o = req.headers.get('origin') ?? ''
+  /* ไม่ใช่โดเมนเรา = ไม่ใส่ header ให้เลย เบราว์เซอร์บล็อกเอง
+     ไม่ตอบ 403 เพราะคำขอจาก curl ไม่มี origin และไม่ควรถูกกันด้วยเหตุนี้ —
+     ตัวกันจริงคือการยืนยันตัวตนข้างล่าง CORS แค่กันเว็บอื่นเรียกแทนผู้ใช้ */
+  return {
+    ...(originOk(o) ? { 'Access-Control-Allow-Origin': o, Vary: 'Origin' } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
-  })
+/* ---------- รายการงานที่ยิงได้ ----------
+   client ส่งชื่อ op กับพารามิเตอร์เท่าที่จำเป็น ตัวสร้าง path กับ body อยู่ที่นี่
+   จำนวนต่อหน้าอยู่ที่นี่ด้วย — เดิม client ส่ง pageSize มาเอง ใส่เลขเท่าไหร่ก็ได้ */
+interface Op { path: string; method: 'GET' | 'POST'; body?: unknown }
+
+const pageNo = (v: unknown): number => {
+  const n = Number(v)
+  return Number.isFinite(n) && n >= 1 && n <= 200 ? Math.floor(n) : 1
+}
+
+/* กัน path traversal: รหัสคลังกับ GUID มาจาก TMS ก็จริง แต่เดินผ่าน client มาแล้ว
+   จึงต้องถือว่าเป็นของที่คนยิงกำหนดได้ '../' อันเดียวพาไปได้ทั้ง API */
+const seg = (v: unknown): string => {
+  const s = String(v ?? '')
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(s)) throw new Error('bad segment')
+  return encodeURIComponent(s)
+}
+
+const OPS: Record<string, (p: Record<string, unknown>) => Op> = {
+  /** คลังทั้งหมดที่บัญชีนี้เห็น
+   *  ชื่อพารามิเตอร์ต้องเป็น pageNumber/pageSize — เคยส่ง page/keyword ตามที่เดาเอง
+   *  แล้วได้ผลว่างแบบไม่มี error ชื่อที่ถูกมาจาก extractor ที่ยิงกับของจริงมาก่อน */
+  warehouses: () => ({
+    path: '/v1/warehouses/search',
+    method: 'POST',
+    body: { pageNumber: 1, pageSize: 200 },
+  }),
+
+  /** คลังที่ผูกกับตัวบุคคล — หลายบัญชีเป็นค่าว่างทั้งที่เปิดดูได้จริงในหน้า TMS */
+  myWarehouses: () => ({ path: '/personal/warehouses', method: 'GET' }),
+
+  /** ใบสั่งของคลังหนึ่ง ทีละหน้า */
+  pickingLists: p => ({
+    path: `/v1/pickinglistheaders/${seg(p.warehouse)}/search`,
+    method: 'POST',
+    body: {
+      orderBy: ['planDeliveryDate Descending'],
+      pageNumber: pageNo(p.page),
+      pageSize: 500,
+      keyword: null,
+    },
+  }),
+
+  /** เที่ยวของคลังหนึ่ง — อ้างคลังด้วย GUID ไม่ใช่รหัส ต่างจาก pickingLists ข้างบน */
+  trips: p => ({
+    path: `/v1/tripheaders/${seg(p.guid)}/search`,
+    method: 'POST',
+    body: {
+      orderBy: ['orderDate Descending'],
+      pageNumber: pageNo(p.page),
+      pageSize: 200,
+      keyword: null,
+    },
+  }),
+
+  /** ใบของเที่ยวหนึ่งพร้อมรายการสินค้า — เส้น search ส่ง pickingLists มาแบบไม่มี
+   *  details จำนวนต่อรุ่นจึงหายทั้งระบบ ต้องถามเส้นนี้ทีละเที่ยวถึงจะได้มา */
+  tripPickingList: p => ({
+    path: '/v1/tripheaders/pickingList',
+    method: 'POST',
+    body: { Id: seg(p.id) },
+  }),
+}
 
 const admin = () =>
   createClient(
@@ -71,9 +147,12 @@ const admin = () =>
 
 /* อีเมลปลอมที่ผูกกับ username ของ TMS — Supabase Auth บังคับให้มีอีเมล
    ใช้โดเมน .invalid ตาม RFC 2606 เพื่อให้ชัดว่าส่งเมลไปไม่ถึงแน่นอน
-   ไม่ใช้อีเมลจริงจาก TMS เพราะถ้าวันหนึ่งเขาเปลี่ยนอีเมลพนักงาน บัญชีเราจะหลุดจากกัน */
+   ไม่ใช้อีเมลจริงจาก TMS เพราะถ้าวันหนึ่งเขาเปลี่ยนอีเมลพนักงาน บัญชีเราจะหลุดจากกัน
+
+   แปลงอักขระนอกชุดเป็นรหัสฐานสิบหก ไม่ใช่ยุบเป็นขีดล่างรวด — เดิม 'a-b' กับ 'a_b'
+   ได้อีเมลเดียวกัน สองคนจึงใช้บัญชีฝั่งเราร่วมกันโดยไม่มีใครรู้ */
 const authEmail = (username: string) =>
-  `${username.toLowerCase().replace(/[^a-z0-9._-]/g, '_')}@tms.invalid`
+  `${username.toLowerCase().replace(/[^a-z0-9._-]/g, c => `-${c.charCodeAt(0).toString(16)}-`)}@tms.invalid`
 
 /* รหัสผ่านฝั่ง Supabase ไม่มีใครต้องรู้ รวมทั้งเจ้าตัว — ตั้งใหม่ทุกครั้งที่ล็อกอิน
    แล้วใช้ทันทีในฟังก์ชันนี้ ไม่เคยถูกส่งออกไปไหน
@@ -81,30 +160,68 @@ const authEmail = (username: string) =>
 const throwaway = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')
 
-async function handleAuth(req: Request): Promise<Response> {
-  const { username, password, tenant } = await req.json().catch(() => ({}))
-  if (!username || !password) return json({ error: 'ต้องมี username และ password' }, 400)
+/* ---------- ตัวจำกัดรอบเดารหัส ----------
+   นับสองชั้น: ต่อ IP กันคนเดียวไล่ยิงหลายบัญชี ต่อ username กันหลายเครื่องรุมบัญชีเดียว
+   โควตาต่อ username ตั้งต่ำกว่า เพราะคนพิมพ์รหัสผิดจริงไม่เกินไม่กี่ครั้ง */
+const IP_LIMIT = 30
+const USER_LIMIT = 8
+const WINDOW = '15 minutes'
 
-  /* ---- 1. ถาม TMS ว่าคนนี้เป็นพนักงานจริงมั้ย ---- */
-  let tmsToken: string | null = null
-  // ยืนยันแล้วว่า build นี้ใช้ userName แต่เผื่อ build อื่นที่รับ email ไว้ด้วย
-  for (const shape of [{ userName: username, password }, { email: username, password }]) {
-    const r = await fetch(`${TMS_BASE}/tokens`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', accept: 'application/json', tenant: tenant || 'root' },
-      body: JSON.stringify(shape),
+async function throttle(sb: ReturnType<typeof admin>, key: string, limit: number): Promise<boolean> {
+  const { data, error } = await sb.rpc('tms_login_gate', {
+    p_key: key, p_limit: limit, p_window: WINDOW,
+  })
+  /* ตัวนับล่ม = ปล่อยผ่าน ไม่ใช่ปิดประตู — ถ้าปิด คนทั้งออฟฟิศเข้าระบบไม่ได้เพราะ
+     ตารางนับมีปัญหา ซึ่งแลกไม่คุ้มกับการกันคนเดารหัสไม่กี่นาที */
+  if (error) return true
+  return data !== false
+}
+
+const clientIp = (req: Request): string =>
+  (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
+
+const reply = (cors: Record<string, string>) =>
+  (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
-    if (r.ok) {
-      const d = await r.json()
-      tmsToken = d.token
-      break
-    }
-    if (r.status === 401) break   // รหัสผิดจริง ไม่ต้องลองรูปแบบอื่น
+
+async function handleAuth(req: Request, cors: Record<string, string>): Promise<Response> {
+  const json = reply(cors)
+
+  const { username, password } = await req.json().catch(() => ({}))
+  if (!username || !password) return json({ error: 'ต้องมี username และ password' }, 400)
+  if (typeof username !== 'string' || username.length > 128) {
+    return json({ error: 'username ไม่ถูกต้อง' }, 400)
   }
+
+  const sb = admin()
+
+  /* นับทั้งสองชั้นเสมอ ไม่ลัดออกตอนชั้นแรกเต็ม — ไม่งั้นคนร้ายอ่านได้จากพฤติกรรม
+     ว่าโดนกันด้วยชั้นไหน และตัวนับต่อ username ก็จะหยุดเดินตอนที่ต้องการมันที่สุด */
+  const okIp = await throttle(sb, `ip:${clientIp(req)}`, IP_LIMIT)
+  const okUser = await throttle(sb, `user:${username.toLowerCase()}`, USER_LIMIT)
+  if (!okIp || !okUser) {
+    return json({ error: 'พยายามเข้าสู่ระบบบ่อยเกินไป — รอสัก 15 นาทีแล้วลองใหม่' }, 429)
+  }
+  /* เก็บกวาดแถวเก่าแบบสุ่มเจอ ไม่ต้องตั้ง cron ให้มีของต้องคอยดูแลเพิ่มอีกตัว */
+  if (Math.random() < 0.01) await sb.rpc('tms_login_sweep')
+
+  /* ---- 1. ถาม TMS ว่าคนนี้เป็นพนักงานจริงมั้ย ----
+     ยิงรูปแบบเดียว — เดิมลอง userName แล้วต่อด้วย email ซึ่งคูณโหลดที่ยิงไปหา
+     บริษัทเป็นสองเท่าทุกครั้งที่รหัสผิด ยืนยันแล้วว่า build นี้ใช้ userName */
+  let tmsToken: string | null = null
+  const r = await fetch(`${TMS_BASE}/tokens`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', accept: 'application/json', tenant: TENANT },
+    body: JSON.stringify({ userName: username, password }),
+  })
+  if (r.ok) tmsToken = (await r.json()).token
   if (!tmsToken) return json({ error: 'เข้าสู่ระบบ TMS ไม่สำเร็จ' }, 401)
 
   /* ---- 2. หา/สร้างบัญชีฝั่งเรา ---- */
-  const sb = admin()
+
   const email = authEmail(username)
   const pw = throwaway()
 
@@ -177,21 +294,46 @@ async function handleAuth(req: Request): Promise<Response> {
   })
 }
 
-async function handleCall(req: Request): Promise<Response> {
-  const { path, method, body, token } = await req.json().catch(() => ({}))
+async function handleCall(req: Request, cors: Record<string, string>): Promise<Response> {
+  const json = reply(cors)
+
+  /* ---- ตัวตนฝั่งเราต้องมาก่อน ----
+     header Authorization ต้องเป็น session ของคนที่ล็อกอินอยู่จริง ไม่ใช่ anon key —
+     anon key ถูกคอมไพล์ติดไปกับ bundle ใครเปิดหน้าเว็บก็หยิบไปได้ */
+  const jwt = (req.headers.get('authorization') ?? '').replace(/^Bearer /i, '')
+  if (!jwt) return json({ error: 'ต้องเข้าสู่ระบบก่อน' }, 401)
+
+  const sb = admin()
+  const { data: who } = await sb.auth.getUser(jwt)
+  if (!who.user) return json({ error: 'ต้องเข้าสู่ระบบก่อน' }, 401)
+
+  /* บัญชีที่ยังไม่ถูกอนุมัติ หรือถูก admin ปิดไปแล้ว ต้องหมดสิทธิ์ดึงข้อมูลทันที
+     ไม่ใช่รอจนกว่า token ของ TMS จะหมดอายุไปเอง */
+  const { data: me } = await sb.from('users')
+    .select('is_active').eq('auth_id', who.user.id).maybeSingle()
+  if (!me?.is_active) return json({ error: 'บัญชีนี้ยังไม่ได้รับอนุมัติให้ดึงข้อมูล' }, 403)
+
+  const { op, params, token } = await req.json().catch(() => ({}))
   if (!token) return json({ error: 'ไม่มี token ของ TMS' }, 401)
-  if (typeof path !== 'string' || !ALLOW.some(re => re.test(path))) {
-    return json({ error: 'path นี้ไม่อยู่ในรายการที่อนุญาต' }, 403)
+
+  const build = typeof op === 'string' ? OPS[op] : undefined
+  if (!build) return json({ error: 'ไม่รู้จักงานนี้' }, 403)
+
+  let spec: Op
+  try {
+    spec = build((params ?? {}) as Record<string, unknown>)
+  } catch {
+    return json({ error: 'พารามิเตอร์ไม่ถูกต้อง' }, 400)
   }
 
-  const r = await fetch(TMS_BASE + path, {
-    method: method === 'GET' ? 'GET' : 'POST',
+  const r = await fetch(TMS_BASE + spec.path, {
+    method: spec.method,
     headers: {
       authorization: `Bearer ${token}`,
       accept: 'application/json',
       'Content-Type': 'application/json',
     },
-    body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
+    body: spec.method === 'GET' ? undefined : JSON.stringify(spec.body ?? {}),
   })
 
   const text = await r.text()
@@ -202,13 +344,16 @@ async function handleCall(req: Request): Promise<Response> {
 }
 
 Deno.serve(async req => {
+  const cors = corsFor(req)
+  const json = reply(cors)
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (!TMS_BASE) return json({ error: 'ยังไม่ได้ตั้ง TMS_BASE_URL' }, 500)
 
   const route = new URL(req.url).pathname.split('/').pop()
   try {
-    if (route === 'auth') return await handleAuth(req)
-    if (route === 'call') return await handleCall(req)
+    if (route === 'auth') return await handleAuth(req, cors)
+    if (route === 'call') return await handleCall(req, cors)
     return json({ error: 'ไม่รู้จัก route นี้' }, 404)
   } catch (e) {
     // ข้อความ error เท่านั้น ห้าม log request body — มีรหัสผ่านอยู่ในนั้น
