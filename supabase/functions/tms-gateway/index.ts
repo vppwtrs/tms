@@ -4,6 +4,7 @@
  * ทำสองอย่าง:
  *   POST /tms-gateway/auth   ยืนยันตัวกับ TMS แล้วออก session ของ Supabase ให้
  *   POST /tms-gateway/call   ส่งต่อคำขออ่านข้อมูลไปยัง TMS (แก้ CORS)
+ *   POST /tms-gateway/disconnect  ลบการเชื่อมต่อ TMS ของคนที่ล็อกอินอยู่ (ตอนล็อกเอาต์)
  *
  * ทำไมต้องมีตัวนี้:
  * เบราว์เซอร์ยิงหา TMS จากโดเมนอื่นไม่ได้ (CORS) เดิมแก้ด้วย server.js
@@ -22,8 +23,12 @@
  * 3. ยิงได้ที่เดียวคือ TMS_BASE_URL — ไม่รับ URL จาก client
  *    ถ้ารับ ตัวนี้จะกลายเป็น open proxy ให้คนทั้งอินเทอร์เน็ตยิงอะไรก็ได้ผ่านเรา
  *
- * 4. ฟังก์ชันนี้ไม่มีรหัสของบริษัทเก็บไว้เลยสักตัว ต่างจากแผนเดิม (tms-sync)
+ * 4. ไม่มี "รหัสผ่าน" ของบริษัทเก็บไว้เลยสักตัว ต่างจากแผนเดิม (tms-sync)
  *    ที่ต้องเก็บ service account ไว้ใน secret — คนที่ยึด secret ไปได้ ก็ยังล็อกอิน TMS ไม่ได้
+ *
+ *    ข้อนี้เคยเขียนว่า "ไม่มีรหัสของบริษัทเก็บไว้เลย" แล้วแก้ถ้อยคำวันที่ 27 ส.ค. 69
+ *    ตอนย้าย token ไปเก็บใน public.tms_sessions (ดูข้อ 7) — เหตุผลเต็มอยู่ในไฟล์
+ *    migration 20260827020000 สรุปสั้น ๆ คือ token อายุสั้นรายคนไม่ใช่บัญชีกลาง
  *
  * 5. เส้น call ต้องมีตัวตนฝั่งเราที่ยังใช้งานอยู่ (27 ส.ค. 69)
  *    เดิมเช็คแค่ "มี token ของ TMS" ผลคือคนที่ admin กดปิดบัญชีไปแล้ว หรือบัญชีใหม่
@@ -35,6 +40,12 @@
  *    ถูกคอมไพล์ติดไปใน bundle ที่ใครเปิด devtools ก็อ่านได้ว่า API ภายในบริษัท
  *    หน้าตายังไง ตอนนี้ client ส่งแค่ชื่องาน (op) ตัวแปลงอยู่ที่นี่ที่เดียว
  *    ผลพลอยได้: pageSize ย้ายมาฝั่งนี้ client จึงขอเกินโควตาไม่ได้อีก
+ *
+ * 7. token ของ TMS ไม่เคยเดินทางถึงเบราว์เซอร์ (27 ส.ค. 69)
+ *    เดิม /auth คืน token ลงไปให้หน้าเว็บเก็บใน sessionStorage — XSS จุดเดียวในเว็บเรา
+ *    เท่ากับ token ที่อ่านข้อมูลภายในบริษัทได้หลุดออกไป ความเสียหายไม่จบที่ระบบเรา
+ *    ตอนนี้เก็บใน public.tms_sessions ผูกกับ auth_id เส้น call หยิบเองจากคนที่
+ *    ยืนยันตัวแล้ว หน้าเว็บได้รู้แค่ "เชื่อมอยู่ เหลืออีกกี่วินาที"
  *
  * secret ที่ต้องตั้ง: TMS_BASE_URL (เช่น https://host.example/tms-api/api)
  *                     WEB_ORIGINS  โดเมนเว็บเราคั่นด้วย comma (ไม่ตั้ง = ใช้ค่าเริ่มต้นล่าง)
@@ -160,6 +171,22 @@ const authEmail = (username: string) =>
 const throwaway = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')
 
+/* ---------- ที่เก็บ token ของ TMS ----------
+   อ่านวันหมดอายุจาก payload ของ JWT ตรง ๆ ไม่ตรวจลายเซ็น — ตรงนี้ไม่ได้ใช้ตัดสิน
+   สิทธิ์อะไร แค่อ่านวันหมดอายุที่ TMS ประกาศมาเอง ตัวตัดสินจริงคือ TMS ที่ตอบ 401 */
+function tokenExpiry(token: string): Date | null {
+  const part = token.split('.')[1]
+  if (!part) return null
+  try {
+    /* base64url ไม่ใช่ base64 — ต้องแปลง - _ กลับก่อน ไม่งั้น atob โยน error
+       กับ token ที่มีอักขระสองตัวนี้ ซึ่งเจอเมื่อไหร่ก็ไม่รู้ */
+    const exp = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))).exp
+    return typeof exp === 'number' ? new Date(exp * 1000) : null
+  } catch {
+    return null
+  }
+}
+
 /* ---------- ตัวจำกัดรอบเดารหัส ----------
    นับสองชั้น: ต่อ IP กันคนเดียวไล่ยิงหลายบัญชี ต่อ username กันหลายเครื่องรุมบัญชีเดียว
    โควตาต่อ username ตั้งต่ำกว่า เพราะคนพิมพ์รหัสผิดจริงไม่เกินไม่กี่ครั้ง */
@@ -283,38 +310,74 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
   const { data: me } = await sb.from('users')
     .select('id, name, role, is_active').eq('auth_id', authId).maybeSingle()
 
+  /* token ของบริษัทจบการเดินทางตรงนี้ ไม่ถูกส่งลงไปที่เบราว์เซอร์ (ข้อ 7)
+     เขียนทับของเดิมเสมอ — คนหนึ่งคนมีได้ session เดียว ล็อกอินใหม่ = ของเก่าใช้ไม่ได้ */
+  const expiresAt = tokenExpiry(tmsToken)
+  const { error: keepErr } = await sb.from('tms_sessions').upsert({
+    auth_id: authId,
+    token: tmsToken,
+    expires_at: expiresAt?.toISOString() ?? null,
+    updated_at: new Date().toISOString(),
+  })
+  if (keepErr) return json({ error: 'เก็บการเชื่อมต่อ TMS ไม่สำเร็จ' }, 500)
+
   return json({
     session: {
       access_token: session.session.access_token,
       refresh_token: session.session.refresh_token,
     },
-    tms_token: tmsToken,
+    /* บอกแค่วันหมดอายุ ไม่ใช่ตัว token — หน้าเว็บใช้ค่านี้ขึ้นป้ายเตือนก่อนหมดเวลา */
+    tms_expires_at: expiresAt ? Math.floor(expiresAt.getTime() / 1000) : null,
     account: me ?? null,
     pending: !me?.is_active,
   })
 }
 
+/* ---- ตัวตนฝั่งเราต้องมาก่อนทุกเส้นที่ไม่ใช่ auth ----
+   header Authorization ต้องเป็น session ของคนที่ล็อกอินอยู่จริง ไม่ใช่ anon key —
+   anon key ถูกคอมไพล์ติดไปกับ bundle ใครเปิดหน้าเว็บก็หยิบไปได้ */
+async function identify(
+  req: Request,
+  sb: ReturnType<typeof admin>,
+): Promise<{ authId: string } | { error: string; status: number }> {
+  const jwt = (req.headers.get('authorization') ?? '').replace(/^Bearer /i, '')
+  if (!jwt) return { error: 'ต้องเข้าสู่ระบบก่อน', status: 401 }
+
+  const { data: who } = await sb.auth.getUser(jwt)
+  if (!who.user) return { error: 'ต้องเข้าสู่ระบบก่อน', status: 401 }
+
+  return { authId: who.user.id }
+}
+
 async function handleCall(req: Request, cors: Record<string, string>): Promise<Response> {
   const json = reply(cors)
 
-  /* ---- ตัวตนฝั่งเราต้องมาก่อน ----
-     header Authorization ต้องเป็น session ของคนที่ล็อกอินอยู่จริง ไม่ใช่ anon key —
-     anon key ถูกคอมไพล์ติดไปกับ bundle ใครเปิดหน้าเว็บก็หยิบไปได้ */
-  const jwt = (req.headers.get('authorization') ?? '').replace(/^Bearer /i, '')
-  if (!jwt) return json({ error: 'ต้องเข้าสู่ระบบก่อน' }, 401)
-
   const sb = admin()
-  const { data: who } = await sb.auth.getUser(jwt)
-  if (!who.user) return json({ error: 'ต้องเข้าสู่ระบบก่อน' }, 401)
+  const id = await identify(req, sb)
+  if ('error' in id) return json({ error: id.error }, id.status)
 
   /* บัญชีที่ยังไม่ถูกอนุมัติ หรือถูก admin ปิดไปแล้ว ต้องหมดสิทธิ์ดึงข้อมูลทันที
      ไม่ใช่รอจนกว่า token ของ TMS จะหมดอายุไปเอง */
   const { data: me } = await sb.from('users')
-    .select('is_active').eq('auth_id', who.user.id).maybeSingle()
+    .select('is_active').eq('auth_id', id.authId).maybeSingle()
   if (!me?.is_active) return json({ error: 'บัญชีนี้ยังไม่ได้รับอนุมัติให้ดึงข้อมูล' }, 403)
 
-  const { op, params, token } = await req.json().catch(() => ({}))
-  if (!token) return json({ error: 'ไม่มี token ของ TMS' }, 401)
+  /* หยิบ token ของบริษัทจากฝั่งเซิร์ฟเวอร์ ไม่ใช่รับมาจากคำขอ (ข้อ 7)
+     เจ้าตัวเองก็อ่านตารางนี้ไม่ได้ — RLS เปิดแล้วไม่มี policy สักอัน */
+  const { data: link } = await sb.from('tms_sessions')
+    .select('token, expires_at').eq('auth_id', id.authId).maybeSingle()
+  if (!link) {
+    return json({ error: 'ยังไม่ได้เชื่อมกับ TMS — เข้าสู่ระบบใหม่หนึ่งครั้ง', code: 'NO_TMS_SESSION' }, 409)
+  }
+  /* ตัดจบก่อนยิง ถ้า exp บอกว่าหมดแล้ว — ประหยัดคำขอที่รู้ผลอยู่แล้วว่า 401
+     เผื่อ 30 วินาทีให้นาฬิกาที่เดินคลาดกัน ไม่ให้ตัดก่อนเวลาจริง */
+  if (link.expires_at && Date.parse(link.expires_at) < Date.now() - 30_000) {
+    await sb.from('tms_sessions').delete().eq('auth_id', id.authId)
+    return json({ error: 'การเข้าระบบ TMS หมดอายุ' }, 401)
+  }
+  const token = link.token
+
+  const { op, params } = await req.json().catch(() => ({}))
 
   const build = typeof op === 'string' ? OPS[op] : undefined
   if (!build) return json({ error: 'ไม่รู้จักงานนี้' }, 403)
@@ -336,11 +399,28 @@ async function handleCall(req: Request, cors: Record<string, string>): Promise<R
     body: spec.method === 'GET' ? undefined : JSON.stringify(spec.body ?? {}),
   })
 
+  /* TMS ปฏิเสธ token = ตัวตนฝั่งบริษัทหมดอายุจริง ไม่ใช่แค่ค่า exp ที่เราเดา
+     ลบทิ้งเลย ไม่ให้ทุกคำขอถัดไปวิ่งไปเก้อที่บริษัทซ้ำ ๆ */
+  if (r.status === 401) await sb.from('tms_sessions').delete().eq('auth_id', id.authId)
+
   const text = await r.text()
   return new Response(text, {
     status: r.status,
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
+}
+
+/** ตัดการเชื่อมต่อ TMS — หน้าเว็บเรียกตอนล็อกเอาต์
+ *  เดิมแค่ลบ sessionStorage ฝั่งเบราว์เซอร์ก็จบ ตอนนี้ของจริงอยู่ฝั่งนี้ */
+async function handleDisconnect(req: Request, cors: Record<string, string>): Promise<Response> {
+  const json = reply(cors)
+  const sb = admin()
+  const id = await identify(req, sb)
+  /* ล็อกเอาต์ตอน session หมดอายุไปแล้วเป็นเรื่องปกติ ตอบ ok ไปเลย ไม่ต้องให้หน้าเว็บ
+     ขึ้น error ระหว่างพาผู้ใช้ออก — แถวที่ค้างถูกกวาดทิ้งตามอายุอยู่แล้ว */
+  if ('error' in id) return json({ ok: true })
+  await sb.from('tms_sessions').delete().eq('auth_id', id.authId)
+  return json({ ok: true })
 }
 
 Deno.serve(async req => {
@@ -354,6 +434,7 @@ Deno.serve(async req => {
   try {
     if (route === 'auth') return await handleAuth(req, cors)
     if (route === 'call') return await handleCall(req, cors)
+    if (route === 'disconnect') return await handleDisconnect(req, cors)
     return json({ error: 'ไม่รู้จัก route นี้' }, 404)
   } catch (e) {
     // ข้อความ error เท่านั้น ห้าม log request body — มีรหัสผ่านอยู่ในนั้น

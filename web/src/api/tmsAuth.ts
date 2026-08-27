@@ -20,14 +20,45 @@ import { supabase, DataError } from './supabase.js'
 
 const FUNCTIONS_BASE = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/tms-gateway`
 
-/* token ของ TMS อยู่ใน sessionStorage ไม่ใช่ localStorage — ต่างจาก session ของเราเอง
-   เพราะนี่คือ token ของระบบบริษัท ปิดแท็บแล้วควรหาย ไม่ควรค้างในเครื่องข้ามวัน
-   ผลที่ยอมรับ: เปิดแท็บใหม่ต้องล็อกอิน TMS ใหม่ถึงจะกดดึงข้อมูลได้
-   แต่ session ของระบบเรายังอยู่ ใช้งานหน้าอื่นได้ตามปกติ */
-const TMS_TOKEN_KEY = 'tmsToken'
+/* ===== token ของ TMS ไม่อยู่ในเบราว์เซอร์อีกแล้ว (27 ส.ค. 69) =====
+   เดิมเก็บใน sessionStorage โดยให้เหตุผลว่า "ปิดแท็บแล้วควรหาย" ซึ่งลดความเสี่ยง
+   ได้จริงแต่ไม่ได้ปิดรูที่สำคัญกว่า: XSS จุดเดียวในเว็บเรา อ่าน sessionStorage ได้
+   ทันทีระหว่างที่แท็บยังเปิดอยู่ = token ที่เข้าถึงข้อมูลภายในบริษัทหลุดออกไป
 
-export const getTmsToken = (): string | null => sessionStorage.getItem(TMS_TOKEN_KEY)
-export const clearTmsToken = (): void => sessionStorage.removeItem(TMS_TOKEN_KEY)
+   ตอนนี้ token อยู่ในตาราง tms_sessions ฝั่งเซิร์ฟเวอร์ ที่แม้แต่เจ้าตัวก็อ่านไม่ได้
+   (RLS เปิด ไม่มี policy สักอัน) gateway หยิบเองจากคนที่ยืนยันตัวแล้ว
+   ที่นี่เหลือเก็บแค่ "หมดอายุเมื่อไหร่" ซึ่งไม่ใช่ความลับ ใช้ขึ้นป้ายเตือนอย่างเดียว
+
+   ผลพลอยได้: เปิดแท็บใหม่ไม่ต้องล็อกอิน TMS ซ้ำอีกแล้ว ของจริงอยู่ฝั่งเซิร์ฟเวอร์
+   จึงเก็บวันหมดอายุใน localStorage ไม่ใช่ sessionStorage เพื่อให้ทุกแท็บเห็นตรงกัน */
+const TMS_EXPIRES_KEY = 'tms-expires-at'
+
+const readExpiry = (): number | null => {
+  try {
+    const v = Number(localStorage.getItem(TMS_EXPIRES_KEY))
+    return Number.isFinite(v) && v > 0 ? v : null
+  } catch {
+    return null   /* โหมดส่วนตัวของ Safari โยน error ตอนแตะที่เก็บ */
+  }
+}
+
+const writeExpiry = (epochSeconds: number | null): void => {
+  try {
+    if (epochSeconds) localStorage.setItem(TMS_EXPIRES_KEY, String(epochSeconds))
+    else localStorage.removeItem(TMS_EXPIRES_KEY)
+  } catch {
+    /* เขียนไม่ได้ก็ยังใช้งานได้ แค่ไม่มีป้ายเตือนก่อนหมดเวลา */
+  }
+}
+
+/** ตัดการเชื่อมต่อ TMS — เรียกตอนล็อกเอาต์
+ *  ลบฝั่งเบราว์เซอร์ทันที แล้วบอกเซิร์ฟเวอร์ให้ลบของจริงตามไป
+ *  ไม่ await เพราะตัวเรียกกำลังพาผู้ใช้ออกจากระบบ ไม่ควรค้างรอเน็ต และถ้าคำขอนี้
+ *  ล้ม แถวที่ค้างก็หมดอายุแล้วถูกกวาดทิ้งอยู่ดี */
+export const clearTmsToken = (): void => {
+  writeExpiry(null)
+  void gateway('disconnect', {}).catch(() => {})
+}
 
 /* เหตุผลที่ถูกพาออกมา — หน้าล็อกอินอ่านค่านี้แล้วลบทิ้ง
    เก็บใน sessionStorage ไม่ใช่ state เพราะการเด้งออกทำให้ component ที่รู้เรื่องถูกถอด
@@ -49,7 +80,9 @@ export const TMS_EXPIRED_EVENT = 'tms-token-expired'
 
 let expiredFired = false
 export function signalTmsExpired(): void {
-  clearTmsToken()
+  /* ลบแค่วันหมดอายุฝั่งเบราว์เซอร์ ไม่ยิง disconnect — ทางที่มาถึงตรงนี้คือ
+     gateway ลบแถวฝั่งเซิร์ฟเวอร์ไปแล้ว ยิงซ้ำได้แต่เปลืองคำขอเปล่า */
+  writeExpiry(null)
   /* ยิงครั้งเดียวต่อการหมดอายุหนึ่งครั้ง — รอบดึงข้อมูลยิงหลายคำขอซ้อนกัน
      ทุกตัวจะเจอ 401 พร้อมกัน ถ้ายิง event ทุกตัวก็เด้งซ้ำเป็นสิบรอบ */
   if (expiredFired) return
@@ -72,23 +105,12 @@ const armTmsExpiry = (): void => { expiredFired = false }
  *
  *  อ่านจาก payload ของ JWT ตรง ๆ ไม่ตรวจลายเซ็น — ตรงนี้ไม่ได้ใช้ตัดสินสิทธิ์อะไร
  *  แค่อ่านวันหมดอายุที่ TMS ประกาศมาเอง ตัวตัดสินจริงคือ TMS ที่ปฏิเสธ 401 */
-export function tmsTokenSecondsLeft(token = getTmsToken()): number | null {
-  if (!token) return null
-  const part = token.split('.')[1]
-  if (!part) return null
-  try {
-    /* base64url ไม่ใช่ base64 — ต้องแปลง - _ กลับก่อน ไม่งั้น atob โยน error
-       กับ token ที่มีอักขระสองตัวนี้ ซึ่งเจอเมื่อไหร่ก็ไม่รู้ */
-    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'))
-    const exp = (JSON.parse(json) as { exp?: number }).exp
-    if (typeof exp !== 'number') return null
-    return Math.floor(exp - Date.now() / 1000)
-  } catch {
-    return null
-  }
+export function tmsTokenSecondsLeft(): number | null {
+  const exp = readExpiry()
+  return exp === null ? null : Math.floor(exp - Date.now() / 1000)
 }
 
-async function gateway<T>(route: 'auth' | 'call', body: unknown): Promise<T> {
+async function gateway<T>(route: 'auth' | 'call' | 'disconnect', body: unknown): Promise<T> {
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
   /* เส้น auth ยังไม่มีตัวตน ใช้ anon key ได้อย่างเดียว แต่เส้น call ต้องส่ง session
@@ -96,7 +118,7 @@ async function gateway<T>(route: 'auth' | 'call', body: unknown): Promise<T> {
      และยังไม่ถูกปิด ก่อนจะยอมส่งต่อคำขอไปหา TMS
      anon key ใช้แทนไม่ได้ เพราะมันอยู่ใน bundle ที่ใครเปิดหน้าเว็บก็หยิบไปได้ */
   let bearer = anonKey
-  if (route === 'call') {
+  if (route !== 'auth') {
     const { data } = await supabase.auth.getSession()
     if (!data.session) throw new DataError('SESSION', 'ต้องเข้าสู่ระบบก่อน')
     bearer = data.session.access_token
@@ -128,6 +150,15 @@ async function gateway<T>(route: 'auth' | 'call', body: unknown): Promise<T> {
       signalTmsExpired()
       throw new DataError('TMS_TOKEN_EXPIRED', 'การเข้าระบบ TMS หมดอายุ — เข้าสู่ระบบใหม่')
     }
+    /* 409 = ยังไม่เคยเชื่อมกับ TMS ในรอบนี้ ต่างจากหมดอายุ ไม่ใช่เหตุให้เด้งออกทั้งระบบ
+       เกิดกับบัญชีคนขับที่บังเอิญเปิดหน้าฝั่งออฟฟิศ หรือคนที่เพิ่งล็อกเอาต์ TMS
+       ปล่อยให้เป็น error ของหน้านั้นหน้าเดียว ตามเหตุผลเดียวกับ NO_TMS_TOKEN เดิม */
+    if (route === 'call' && res.status === 409) {
+      throw new DataError(
+        'NO_TMS_TOKEN',
+        msg ?? 'หน้านี้ต้องต่อกับ TMS แต่ยังไม่ได้เชื่อม — ออกจากระบบแล้วเข้าใหม่หนึ่งครั้ง',
+      )
+    }
     throw new DataError(String(res.status), msg ?? 'ติดต่อระบบ TMS ไม่ได้')
   }
   return data as T
@@ -150,7 +181,7 @@ export async function signInWithTms(
 ): Promise<{ pending: boolean; account: TmsAccount | null }> {
   const r = await gateway<{
     session: { access_token: string; refresh_token: string }
-    tms_token: string
+    tms_expires_at: number | null
     account: TmsAccount | null
     pending: boolean
   }>('auth', { username, password })
@@ -163,7 +194,7 @@ export async function signInWithTms(
   })
   if (error) throw new DataError('SESSION', 'รับ session ไม่สำเร็จ')
 
-  sessionStorage.setItem(TMS_TOKEN_KEY, r.tms_token)
+  writeExpiry(r.tms_expires_at)
   armTmsExpiry()
   return { pending: r.pending, account: r.account }
 }
@@ -183,36 +214,17 @@ export type TmsOp =
 /** ยิงคำขอ **อ่าน** ไปยัง TMS ผ่าน gateway
  *  งานที่ยิงได้ กับจำนวนต่อหน้า ถูกล็อกไว้ฝั่ง Edge Function แล้ว — ที่นี่แค่ส่งชื่องาน */
 export async function tmsOp<T>(op: TmsOp, params?: Record<string, unknown>): Promise<T> {
-  const token = getTmsToken()
-  if (!token) {
-    /* ไม่มี token ไม่เท่ากับ token หมดอายุ กรณีที่พบบ่อยที่สุดคือเปิดแท็บใหม่ —
-       token อยู่ใน sessionStorage ตามที่ตั้งใจไว้ข้างบน มันจึงหายไปพร้อมแท็บเก่า
-       โดยที่ session ของระบบเรายังอยู่ครบและยังไม่หมดอายุ
+  /* ไม่มี token ให้ตรวจที่นี่แล้ว — ของจริงอยู่ฝั่งเซิร์ฟเวอร์ ตัวที่รู้ว่ามีหรือไม่มี
+     คือ gateway ซึ่งตอบ 409 NO_TMS_SESSION มาให้ (ดูการแปลงเป็น error ใน gateway())
 
-       เดิมตรงนี้เรียก signalTmsExpired() ซึ่งพาออกไปหน้าล็อกอินทั้งระบบ ขัดกับที่
-       คอมเมนต์ของ TMS_TOKEN_KEY เขียนไว้เองว่า "session ของระบบเรายังอยู่
-       ใช้งานหน้าอื่นได้ตามปกติ" ผลจริงคือกดเมนูที่คุยกับ TMS หนึ่งครั้งแล้วหลุด
-       ทั้งระบบ งานที่ค้างอยู่บนหน้าอื่นหายไปด้วย ทั้งที่ไม่มีอะไรหมดอายุเลย
-
-       ตัวคุมสิทธิ์จริงคือ RLS กับ permission ในฐาน ไม่ใช่ token ตัวนี้ — มันอนุญาต
-       แค่การยิงไปหา TMS การไม่มีมันจึงไม่ได้เปิดข้อมูลอะไรเพิ่มให้ใคร ปล่อยให้เป็น
-       error ของหน้านั้นหน้าเดียวจึงพอ
-
-       ส่วน 401 จาก TMS และ token ที่ exp หมดแล้ว ยังเรียก signalTmsExpired()
-       เหมือนเดิม สองอันนั้นเป็นหลักฐานว่าตัวตนฝั่งบริษัทหมดอายุจริง */
-    throw new DataError(
-      'NO_TMS_TOKEN',
-      'หน้านี้ต้องต่อกับ TMS แต่แท็บนี้ยังไม่ได้เชื่อม — ออกจากระบบแล้วเข้าใหม่หนึ่งครั้ง',
-    )
-  }
-
-  /* ตัดจบก่อนยิง ถ้า exp บอกว่าหมดแล้ว — ประหยัดคำขอที่รู้ผลอยู่แล้วว่า 401
-     เผื่อ 30 วินาทีให้นาฬิกาเครื่องที่เดินคลาดจาก server ไม่ให้ตัดก่อนเวลาจริง */
-  const left = tmsTokenSecondsLeft(token)
+     ค่าที่อ่านได้ที่นี่เป็นแค่วันหมดอายุที่จำไว้ ใช้ตัดจบก่อนยิงคำขอที่รู้ผลอยู่แล้ว
+     ว่าจะโดนปฏิเสธ เผื่อ 30 วินาทีให้นาฬิกาที่เดินคลาดกัน ไม่ให้ตัดก่อนเวลาจริง
+     อ่านไม่ได้ (เปิดแท็บใหม่ ล้างที่เก็บ) ก็ยิงไปเลย ให้เซิร์ฟเวอร์เป็นคนตัดสิน */
+  const left = tmsTokenSecondsLeft()
   if (left !== null && left <= -30) {
     signalTmsExpired()
     throw new DataError('TMS_TOKEN_EXPIRED', 'การเข้าระบบ TMS หมดอายุ — เข้าสู่ระบบใหม่')
   }
 
-  return gateway<T>('call', { op, params, token })
+  return gateway<T>('call', { op, params })
 }
