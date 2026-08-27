@@ -42,7 +42,8 @@ if (import.meta.env.MODE === 'demo') {
   void import('./demo/geo').then(({ installDemoGeolocation }) => installDemoGeolocation())
 }
 
-/* ผิวของแอป iOS — ติดคลาสที่ <html> แล้ว ios-app.css ค่อยทับสีและระยะให้
+/* ผิวของแอป iOS — ติดคลาสที่ <html> แล้วชั้น ios-*.css ค่อยทับสีและระยะให้
+   (ของจริงคือ Design C ใน ios-softop.css ที่โหลดท้ายสุด ดู styles/driverSkin.ts)
    ไม่แตะ JSX สักบรรทัด ลำดับล็อกอินและเส้นทางของงานจึงเหมือนเดิมทั้งหมด
 
    ?native=1 มีไว้ดูตัวอย่างผิวนี้บนเดสก์ท็อป — ของจริงมาจาก Capacitor
@@ -50,13 +51,52 @@ if (import.meta.env.MODE === 'demo') {
 /* ไม่ใช้ top-level await ตรงนี้ — เป้าหมายของ build เป็น es2019 และ WebView
    ของ iOS รุ่นเก่ายังไม่รองรับ ผิวที่มาช้าไปหนึ่งเฟรมยอมรับได้ จอขาวเพราะ
    สคริปต์พังทั้งก้อนยอมไม่ได้ */
+/* ที่เก็บของ ?native=1 — sessionStorage เพราะเป็นของสำหรับ "ดูตัวอย่าง" ไม่ใช่
+   การตั้งค่า ปิดแท็บแล้วต้องหลุดเอง
+
+   เดิมเก็บใน localStorage ซึ่งจำไว้ตลอดไป ใครเผลอเปิดลิงก์ที่มี ?native=1
+   หนึ่งครั้งจะติดผิวจอคนขับทุกหน้ารวมหน้าออฟฟิศ แคบอยู่กลางจอ และไม่มีอะไร
+   บนจอบอกว่าต้องเปิด ?native=0 เพื่อออก — เสียเวลาไล่หากันมาแล้วหนึ่งวัน
+
+   ทุกครั้งที่อ่านเขียนต้องกันพลาด Safari โหมดส่วนตัวโยน error ตรงนี้ ซึ่งจะทำให้
+   ผิวของคนขับไม่โหลดเลย แล้วคนขับได้จอออฟฟิศบนมือถือ */
+const PREVIEW_KEY = 'preview-native'
+
+function readPreviewFlag(): boolean {
+  try {
+    return sessionStorage.getItem(PREVIEW_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writePreviewFlag(on: boolean): void {
+  try {
+    if (on) sessionStorage.setItem(PREVIEW_KEY, '1')
+    else sessionStorage.removeItem(PREVIEW_KEY)
+  } catch {
+    /* เฉย ๆ — ไม่มีที่เก็บก็แค่ดูตัวอย่างข้ามหน้าไม่ได้ ไม่ใช่เรื่องที่ต้องหยุดแอป */
+  }
+}
+
+/** ค่าเก่าที่ค้างจากตอนเก็บใน localStorage — ล้างทุกครั้งที่บูต เครื่องที่ติดอยู่
+ *  จึงหลุดเองโดยไม่ต้องรู้จัก ?native=0 */
+function clearLegacyPreviewFlag(): void {
+  try {
+    localStorage.removeItem(PREVIEW_KEY)
+  } catch {
+    /* เฉย ๆ */
+  }
+}
+
 async function applyNativeSkin(): Promise<void> {
-  /* จำไว้ในเครื่อง เพราะ ?native=1 หลุดทันทีที่ router เปลี่ยนหน้า
+  /* จำไว้ทั้งแท็บ เพราะ ?native=1 หลุดทันทีที่ router เปลี่ยนหน้า
      แล้วผิวจะหายไปกลางทาง ทำให้ดูตัวอย่างไม่ได้จริง (?native=0 เพื่อเลิกดู) */
+  clearLegacyPreviewFlag()
   const flag = new URLSearchParams(window.location.search).get('native')
-  if (flag === '1') localStorage.setItem('preview-native', '1')
-  if (flag === '0') localStorage.removeItem('preview-native')
-  const forced = localStorage.getItem('preview-native') === '1'
+  if (flag === '1') writePreviewFlag(true)
+  if (flag === '0') writePreviewFlag(false)
+  const forced = readPreviewFlag()
   const { Capacitor } = await import('@capacitor/core')
   /* ในแอปจริงหรือตอนบังคับดูตัวอย่าง ผิวติดทั้งเว็บตั้งแต่บูต เพราะทุกหน้าที่
      เปิดในแอปคือหน้าของคนขับอยู่แล้ว นอกจากนั้นปล่อยให้ useDriverSkin

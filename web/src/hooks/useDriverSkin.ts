@@ -20,8 +20,15 @@ const DRIVER_PATHS = ['/my-jobs']
 export function useDriverSkin(): void {
   const { pathname } = useLocation()
   useEffect(() => {
-    const forced = localStorage.getItem('preview-native') === '1'
-      || document.documentElement.dataset.nativeShell === '1'
+    /* ต้องอ่านที่เดียวกับที่ main.tsx เขียน — sessionStorage ไม่ใช่ localStorage
+       และกันพลาดไว้ เพราะ Safari โหมดส่วนตัวโยน error ตรงนี้ */
+    let saved = false
+    try {
+      saved = sessionStorage.getItem('preview-native') === '1'
+    } catch {
+      /* เฉย ๆ — ไม่มีที่เก็บก็ถือว่าไม่ได้บังคับดูตัวอย่าง */
+    }
+    const forced = saved || document.documentElement.dataset.nativeShell === '1'
     if (forced) return
     const on = DRIVER_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
     void setDriverSkin(on)
