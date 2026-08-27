@@ -1162,8 +1162,11 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
 
      ลำดับสลับได้ — หน้างานจริงไม่ได้เดินทางเดียว บางร้านเจ้าของยืนรออยู่แล้ว
      ยื่นมือให้เซ็นทันทีตั้งแต่ยังไม่ยกของลง บางร้านต้องยกของเข้าไปในร้านก่อน
-     กว่าจะหาคนเซ็นเจอ บังคับลำดับเดียวคือบังคับให้คนขับยืนรอในจังหวะที่ไม่ต้องรอ */
-  const [step, setStep] = useState<'photo' | 'sign'>('photo')
+     กว่าจะหาคนเซ็นเจอ บังคับลำดับเดียวคือบังคับให้คนขับยืนรอในจังหวะที่ไม่ต้องรอ
+
+     เปิดมาที่หน้าเซ็น เพราะผู้รับคือฝ่ายที่เดินหายไปได้ ส่วนของที่ต้องถ่ายยังอยู่
+     ที่เดิมเสมอ ถ่ายรูปก่อนยังทำได้ด้วยปุ่ม "ไปถ่ายรูป" ที่หน้านี้ */
+  const [step, setStep] = useState<'photo' | 'sign'>('sign')
   /* path ของรูปที่อัปขึ้นถังแล้วตั้งแต่จบหน้าแรก — หน้าสองมีแค่ลายเซ็นกับปุ่มบันทึก
      ซึ่งเร็ว ผู้รับจึงไม่ต้องยืนรอโหลดรูปทั้งกองโดยถือมือถือของคนอื่นไว้ */
   const [photos, setPhotos] = useState<PodPhoto[] | null>(null)
@@ -1316,6 +1319,38 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
     </div>
   )
 
+  /* ทางออกของคนที่เพิ่งกดปิดส่งผิดร้าน — ต้องขึ้นทั้งสองหน้า เพราะฟอร์มเด้งขึ้นเอง
+     ทันทีหลังกดปิดส่ง และหน้าแรกที่เห็นเปลี่ยนได้ตามลำดับที่คนขับเลือก
+     คนที่กดผิดรู้ตัวตอนอ่านชื่อร้านบนหัวฟอร์ม ไม่ใช่ตอนกลับไปที่รายการ
+     ล่างสุดของหน้าเสมอ ไม่แย่งที่กับกล้องหรือช่องเซ็น */
+  const undoButton = onUndo && (
+    <button type="button" className="pod-undo" onClick={onUndo} disabled={saving}>
+      ไม่ใช่ร้านนี้ — ยกเลิกการส่ง
+    </button>
+  )
+
+  /* ป้ายขั้นตอน — ลำดับยังไม่ถูกกำหนดจนกว่าจะทำขั้นแรกเสร็จจริง ก่อนหน้านั้นจึงบอก
+     แค่ชื่อขั้น ไม่ติดเลข ไม่งั้นเลข "1" เปลี่ยนความหมายใต้มือคนขับตอนสลับหน้าเปล่า ๆ
+     พอมีของขั้นแรกแล้ว เลขล็อกตามลำดับที่เขาทำจริง ไม่ใช่ลำดับที่เราคิดไว้ก่อน */
+  const podSteps = (() => {
+    const label = (k: 'photo' | 'sign'): string => (k === 'photo' ? 'รูป' : 'ลายเซ็น')
+    const other = (k: 'photo' | 'sign'): 'photo' | 'sign' => (k === 'photo' ? 'sign' : 'photo')
+    const done: 'photo' | 'sign' | null = photos ? 'photo' : sig ? 'sign' : null
+    const first = done ?? step
+    const order: ('photo' | 'sign')[] = [first, other(first)]
+    return (
+      /* เลขใน aria คือหน้าที่กำลังเปิดอยู่ ไม่ใช่จำนวนขั้นที่ทำไปแล้ว — คนที่ฟัง
+         ด้วยเสียงต้องรู้ว่าตัวเองยืนอยู่ตรงไหน ไม่ใช่ว่าเหลืออะไรอีก */
+      <div className="pod-steps" aria-label={`ขั้นตอนที่ ${order.indexOf(step) + 1} จาก ${order.length}`}>
+        {order.map((k, i) => (
+          <span key={k} className={done === k ? 'is-done' : k === step ? 'is-now' : ''}>
+            {done ? `${i + 1} · ${label(k)}` : label(k)}
+          </span>
+        ))}
+      </div>
+    )
+  })()
+
   /* ---- หน้าที่ 2: ลายเซ็น ----
      ยื่นมือถือให้ผู้รับตอนนี้ จอมีของอยู่อย่างเดียวคือช่องเซ็น ไม่มีปุ่มอื่นให้กดพลาด
      และไม่มีทางถอยกลับไปแก้รูป — รูปขึ้นถังไปแล้ว การให้ถอยคือให้อัปซ้ำ */
@@ -1344,10 +1379,7 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
       >
         {savingVeil}
         {/* ป้ายขั้นตอนเดินตามลำดับที่คนขับเลือกจริง ไม่ใช่ลำดับที่เราคิดไว้ก่อน */}
-        <div className="pod-steps" aria-label={photos ? 'ขั้นตอนที่ 2 จาก 2' : 'ขั้นตอนที่ 1 จาก 2'}>
-          <span className={photos ? 'is-done' : 'is-now'}>{photos ? '1 · รูป' : '1 · ลายเซ็น'}</span>
-          <span className={photos ? 'is-now' : ''}>{photos ? '2 · ลายเซ็น' : '2 · รูป'}</span>
-        </div>
+        {podSteps}
 
         <div className="pod-meta">
           <span>{photos ? `อัปรูปแล้ว ${photos.length} รูป` : 'ยังไม่ได้ถ่ายรูป — เซ็นก่อนได้ แล้วค่อยไปถ่าย'}</span>
@@ -1366,6 +1398,8 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
               min() ทำให้พอดีทั้งจอเตี้ยและจอสูง โดยไม่ดันปุ่มบันทึกตกจอ */}
           <SignaturePad onChange={setSig} height="min(52vh, 460px)" compact />
         </div>
+
+        {undoButton}
       </Modal>
     )
   }
@@ -1396,10 +1430,7 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
       }
     >
       {savingVeil}
-      <div className="pod-steps" aria-label={sig ? 'ขั้นตอนที่ 2 จาก 2' : 'ขั้นตอนที่ 1 จาก 2'}>
-        <span className={sig ? 'is-done' : 'is-now'}>{sig ? '1 · ลายเซ็น' : '1 · รูป'}</span>
-        <span className={sig ? 'is-now' : ''}>{sig ? '2 · รูป' : '2 · ลายเซ็น'}</span>
-      </div>
+      {podSteps}
 
       <div className="pod-meta">
         {orders.length > 1 && <span>ปิดพร้อมกัน {orders.length} ใบของร้านนี้</span>}
@@ -1516,14 +1547,7 @@ function PodSheet({ orders, onClose, onSaved, onUndo }: {
         )}
       </div>
 
-      {/* ทางออกของคนที่เพิ่งกดปิดส่งผิดร้าน — ล่างสุด ไม่แย่งที่กับกล้อง
-          แต่ยังอยู่ในหน้านี้ เพราะฟอร์มเด้งขึ้นเองทันทีหลังกดปิดส่ง คนที่กดผิด
-          รู้ตัวตอนอ่านชื่อร้านบนหัวฟอร์ม ไม่ใช่ตอนกลับไปที่รายการ */}
-      {onUndo && (
-        <button type="button" className="pod-undo" onClick={onUndo} disabled={saving}>
-          ไม่ใช่ร้านนี้ — ยกเลิกการส่ง
-        </button>
-      )}
+      {undoButton}
     </Modal>
   )
 }
