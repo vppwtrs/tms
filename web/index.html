@@ -2,12 +2,29 @@
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
+    <!-- Content-Security-Policy ถูกฉีดตรงนี้ตอน build โดย cspPlugin ใน vite.config.ts
+         ไม่เขียนไว้ที่นี่เพราะ dev server ใช้สคริปต์ inline ของ Vite เอง (HMR,
+         React Refresh) ซึ่งจะโดน CSP บล็อกจนแก้โค้ดไม่ได้ทั้งวัน -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="ระบบบริหารจัดการขนส่ง (Transport Management System) - จัดการออเดอร์ รถ พนักงานขับ และรายงาน" />
     <meta name="theme-color" content="#faf9fd" />
     <script>
       /* ทาธีมก่อนเบราว์เซอร์วาดเฟรมแรก — ถ้ารอ React จะเห็นจอขาวแวบหนึ่งก่อนเป็นสีเข้ม */
       (function () {
+        /* กันเว็บอื่นเอาหน้านี้ไปฝัง iframe แล้วหลอกให้คนกดปุ่มโดยไม่รู้ตัว
+           (clickjacking) — ปกติกันด้วย frame-ancestors ของ CSP แต่คำสั่งนั้น
+           ใช้ใน meta ไม่ได้ตามสเปก และ GitHub Pages ตั้ง header เองไม่ได้
+           เหลือทางนี้ทางเดียว: รู้ตัวว่าถูกฝังแล้วดีดตัวเองออกมาเป็นหน้าเต็ม */
+        try {
+          if (window.top !== window.self) {
+            window.top.location = window.self.location
+          }
+        } catch (e) {
+          /* เข้าถึง window.top ไม่ได้ = ถูกฝังแบบ sandbox ที่ห้ามพาออก
+             ซ่อนหน้าทิ้งไปเลย ดีกว่าปล่อยให้มีปุ่มให้กดอยู่ในกรอบของคนอื่น */
+          document.documentElement.style.display = 'none'
+        }
+
         try {
           var t = localStorage.getItem('tms-theme')
           /* ยังไม่เคยเลือกเอง = โหมดสว่าง ไม่ตามการตั้งค่าเครื่อง
