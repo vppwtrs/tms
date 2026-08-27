@@ -1,268 +1,108 @@
 /**
- * ชนิดข้อมูลของตารางใน Supabase — เขียนมือให้ตรงกับ supabase/migrations/
+ * ชื่อที่โค้ดในระบบใช้เรียกชนิดข้อมูลของตาราง — ทุกอันชี้ไปที่ database.generated.ts
  *
- * ปกติไฟล์นี้ควร generate ด้วย `npx supabase gen types typescript --linked > web/src/types/database.ts`
- * แต่ตอนนี้ยังไม่ได้ link project จึงเขียนมือไปก่อน
- * **แก้ migration เมื่อไหร่ ต้องมาแก้ไฟล์นี้ด้วย** ไม่งั้น tsc ผ่านแต่ query พังตอน runtime
+ * ===== อ่านก่อนแก้ =====
+ * **ห้ามเขียนรูปร่างของตารางลงในไฟล์นี้** ของจริงมาจากฐานโดยตรง สร้างใหม่ด้วย
+ *
+ *     npx supabase gen types typescript --linked > web/src/types/database.generated.ts
+ *
+ * ไฟล์นี้เดิมเขียนมือทั้ง 783 บรรทัด เพราะตอนนั้นเชื่อว่ายังไม่ได้ link project ไว้
+ * ซึ่งไม่จริง — ตรวจแล้ววันที่ 27 ส.ค. 69 ว่า link อยู่ตั้งแต่แรก คำสั่งข้างบนใช้ได้เลย
+ * ราคาที่จ่ายไประหว่างนั้นคือทุกครั้งที่แก้ migration ต้องมาแก้ที่นี่ให้ตรงด้วยมือ
+ * ลืมเมื่อไหร่ tsc ผ่านแต่ query พังตอน runtime ซึ่งเป็นความพังที่หาสาเหตุยากที่สุด
+ *
+ * ที่ยังต้องมีไฟล์นี้อยู่ ไม่ใช้ของ generated ตรง ๆ เพราะ:
+ *  1. ชื่อสั้นกว่ามาก — `UserRow` เทียบกับ `Database['public']['Tables']['users']['Row']`
+ *     ที่ต้องเขียนซ้ำในทุกไฟล์ของชั้น api
+ *  2. เป็นจุดเดียวที่ต้องแก้ ถ้าวันหนึ่งเปลี่ยนชื่อตารางในฐาน
+ *  3. เก็บชนิดที่ฐานไม่ได้บอกเราไว้ท้ายไฟล์ (ดูหัวข้อสุดท้าย)
+ *
+ * เพิ่มตารางใหม่ในฐานแล้วอยากใช้ที่นี่: generate ใหม่ แล้วเติมหนึ่งบรรทัดข้างล่าง
  */
 
-export type UserRole = 'admin' | 'dispatcher' | 'viewer' | 'driver'
-export type VehicleType = 'pickup' | 'truck6' | 'truck10' | 'reefer' | 'van'
-export type VehicleStatus = 'available' | 'on_trip' | 'maintenance' | 'inactive'
-export type DriverStatus = 'available' | 'on_trip' | 'off_duty'
-export type TripStatus = 'planned' | 'in_progress' | 'returning' | 'completed' | 'cancelled'
-export type OrderStatus = 'pending' | 'assigned' | 'in_transit' | 'delivered' | 'cancelled'
-export type OrderPriority = 'normal' | 'urgent'
-export type PodStatus = 'collected' | 'verified'
-export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
-export type InteractionType = 'call' | 'email' | 'meeting' | 'line' | 'other'
-export type TaskStatus = 'pending' | 'done'
+/* Gen = ของที่ generate มาจากฐานตรง ๆ ห้ามแก้ไฟล์นั้นด้วยมือ
+   ตั้งชื่อย่อเพราะ Database ถูกใช้เป็นชื่อของชนิดที่ประกอบเสร็จแล้วท้ายไฟล์ */
+import type { Database as Gen } from './database.generated.js'
 
-export type UserRow = {
-  id: number
-  auth_id: string | null
-  username: string
-  name: string
-  role: UserRole
-  is_active: boolean
-  created_at: string
-  /* 0010 — พนักงานออฟฟิศยืนยันตัวผ่าน TMS บริษัท คนขับใช้อีเมล/รหัสผ่านของ Supabase
-     is_active = false คือ "รอ admin อนุมัติ" ไม่ใช่ "ถูกปิดบัญชี" ทั้งสองกรณีใช้ค่าเดียวกัน */
-  auth_source: 'local' | 'tms'
-  approved_at: string | null
-  approved_by: number | null
-  last_login_at: string | null
-  /* true = ยังใช้รหัสชั่วคราวที่ผู้ดูแลตั้งให้ แอปกั้นไว้จนกว่าจะตั้งรหัสของตัวเอง */
-  must_change_password: boolean
+/* ---------- จุดที่ฐานบอกความจริงไม่ครบ ----------
+   สองกรณีนี้เจอตอนย้ายมาใช้ types ที่ generate จากฐาน (27 ส.ค. 69) แต่ละอันคือ
+   ที่ที่ schema อ่อนกว่าที่โค้ดสมมติไว้ เขียนไว้ตรงนี้ให้เห็นชัดว่ามีกี่จุด
+   ทางแก้ที่ถูกจริงคือแก้ที่ฐาน แล้วลบตัวช่วยพวกนี้ทิ้ง */
+
+/** คอลัมน์ที่ฐานบังคับว่าต้องมีค่า แต่มี trigger เติมให้ตอน insert
+ *  generate ออกมาจึงเป็น "ต้องส่ง" ทั้งที่ของจริงปล่อยว่างได้ — ฐานไม่มีทางรู้เรื่อง trigger */
+type FilledByTrigger<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+
+/** คอลัมน์ text ที่รับได้แค่ไม่กี่ค่า แต่ไม่ได้ประกาศเป็น enum ในฐาน
+ *  generate ออกมาได้แค่ string ซึ่งกว้างเกินจริง */
+type Narrow<T, K extends keyof T, V> = Omit<T, K> & { [P in K]: V }
+
+type Tables = Gen['public']['Tables']
+
+type AppTables = Omit<Tables, 'orders' | 'quotes' | 'users'> & {
+  orders: Omit<Tables['orders'], 'Row' | 'Insert'> & {
+    /* work_kind: งานส่งรถ กับ งานส่งกล่อง คนละแบบกันทั้งจอ */
+    Row: Narrow<Tables['orders']['Row'], 'work_kind', 'vehicle' | 'box' | null>
+    /* order_no ตั้งเลขต่อจากใบล่าสุดของปีโดย trigger ใน 0007 */
+    Insert: FilledByTrigger<Tables['orders']['Insert'], 'order_no'>
+  }
+  quotes: Omit<Tables['quotes'], 'Insert'> & {
+    /* quote_no เหมือน order_no */
+    Insert: FilledByTrigger<Tables['quotes']['Insert'], 'quote_no'>
+  }
+  users: Omit<Tables['users'], 'Row'> & {
+    /* auth_source: บัญชีนี้เกิดจากล็อกอิน TMS หรือ admin สร้างให้ */
+    Row: Narrow<Tables['users']['Row'], 'auth_source', 'local' | 'tms'>
+  }
 }
 
-export type UserPermissionRow = {
-  user_id: number
-  permission: string
-  allowed: boolean
-  mode?: 'allow' | 'deny'
-  source?: 'group' | 'user'
-}
+type Row<T extends keyof AppTables> = AppTables[T]['Row']
+type Enum<T extends keyof Gen['public']['Enums']> = Gen['public']['Enums'][T]
 
-export type PermissionMode = 'inherit' | 'allow' | 'deny'
-export type PermissionAuditRow = {
-  id: number
-  actor_user_id: number | null
-  target_user_id: number | null
-  role: UserRole | null
-  action: string
-  permission: string | null
-  before_value: string | null
-  after_value: string | null
-  reason: string | null
-  created_at: string
-}
+/* ---------- ชุดค่าที่เป็น enum จริงในฐาน ----------
+   ไม่ใช่คอลัมน์ text ที่มี check — ฐานปฏิเสธค่านอกรายการนี้ให้เอง
+   เพิ่มค่าใหม่ต้องทำที่ migration แล้ว generate ใหม่ แก้ที่นี่อย่างเดียวไม่พอ */
+export type UserRole = Enum<'user_role'>
+export type VehicleType = Enum<'vehicle_type'>
+export type VehicleStatus = Enum<'vehicle_status'>
+export type DriverStatus = Enum<'driver_status'>
+export type TripStatus = Enum<'trip_status'>
+export type OrderStatus = Enum<'order_status'>
+export type OrderPriority = Enum<'order_priority'>
+export type PodStatus = Enum<'pod_status'>
+export type QuoteStatus = Enum<'quote_status'>
+export type InteractionType = Enum<'interaction_type'>
+export type TaskStatus = Enum<'task_status'>
 
-export type CustomerRow = {
-  id: number
-  name: string
-  contact_person: string | null
-  phone: string | null
-  email: string | null
-  address: string | null
-  segment: string
-  tax_id: string | null
-  credit_terms: number | null
-  tags: string | null
-  price_note: string | null
-  created_at: string
-}
+/* ---------- แถวของตาราง ---------- */
+export type UserRow = Row<'users'>
+export type UserPermissionRow = Row<'user_permissions'>
+export type PermissionAuditRow = Row<'permission_audit_log'>
+export type CustomerRow = Row<'customers'>
+export type VehicleRow = Row<'vehicles'>
+export type DriverRow = Row<'drivers'>
+export type TripRow = Row<'trips'>
+export type TripDriverRow = Row<'trip_drivers'>
+export type VehicleOdometerRow = Row<'vehicle_odometer'>
+export type OrderRow = Row<'orders'>
+export type PodRow = Row<'pod'>
+export type QuoteRow = Row<'quotes'>
+export type CustomerInteractionRow = Row<'customer_interactions'>
+export type CustomerTaskRow = Row<'customer_tasks'>
+export type TmsShipmentRow = Row<'tms_shipments'>
+export type TmsDealerMapRow = Row<'tms_dealer_map'>
 
-export type VehicleRow = {
-  id: number
-  plate_no: string
-  brand: string | null
-  model: string | null
-  vehicle_type: VehicleType
-  capacity_kg: number
-  status: VehicleStatus
-  created_at: string
-}
+/* ---------- แถวของวิว — ยังเขียนมือ ----------
+   ของ generated ใช้แทนไม่ได้: Postgres ไม่เก็บ NOT NULL ของวิว ทุกคอลัมน์จึงออกมาเป็น
+   `| null` หมดทั้งที่ของจริงไม่มีทางเป็น null (เช่น trip_no, status) ผลคือโค้ดที่เรียกใช้
+   ต้องเช็ค null ทุกจุดโดยไม่มีเหตุผล หรือไม่ก็ใส่ ! ทิ้งไว้เต็มไปหมดซึ่งแย่กว่าเดิม
 
-export type DriverRow = {
-  id: number
-  name: string
-  phone: string | null
-  license_no: string | null
-  license_type: string | null
-  status: DriverStatus
-  joined_at: string | null
-  user_id: number | null
-  created_at: string
-}
+   ที่นี่จึงประกาศตามความจริงที่วิวรับประกันไว้เอง — **แก้วิวเมื่อไหร่ต้องมาแก้ตรงนี้ด้วย**
+   ต่างจากส่วนตารางข้างบนที่ไม่ต้องแตะแล้วตลอดไป
 
-export type TripRow = {
-  id: number
-  trip_no: string
-  vehicle_id: number
-  driver_id: number
-  status: TripStatus
-  departed_at: string | null
-  arrived_at: string | null
-  /* รถกลับถึงคลังจริงเมื่อไหร่ — arrived_at คือตอนปิดงานที่ร้านสุดท้าย คนละอัน */
-  returned_at: string | null
-  fuel_cost: number
-  toll_cost: number
-  other_cost: number
-  /* ค่าจ้างขนส่งจาก TMS — null คือยังไม่มีตัวเลข ต่างจาก 0 ที่แปลว่าไม่มีค่าใช้จ่ายจริง
-     แยกจาก fuel/toll/other ที่เป็นต้นทุนที่เราจ่ายเองระหว่างทาง */
-  freight_cost: number | null
-  freight_actual_cost: number | null
-  accepted_at: string | null
-  accepted_by: number | null
-  issue_note: string | null
-  issue_at: string | null
-  notes: string | null
-  created_at: string
-  /* คนขับที่กดปิดเที่ยว — ปิดได้เฉพาะคนขับหลัก แต่บันทึกไว้เพื่อตรวจย้อนหลัง */
-  closed_by: number | null
-  /* null = ยังไม่เคยถามค่าทางด่วน ต่างจาก toll_cost = 0 ที่แปลว่าถามแล้วและไม่มีจริง */
-  toll_reported_at: string | null
-  toll_reported_by: number | null
-}
-
-/* เลขไมล์ที่คนขับกรอกวันละครั้งต่อรถหนึ่งคัน — เขียนผ่าน log_odometer เท่านั้น */
-export type VehicleOdometerRow = {
-  id: number
-  vehicle_id: number
-  driver_id: number
-  reading_km: number
-  /* วันตามเวลาไทย ไม่ใช่ UTC — กะเช้าออกรถก่อนเที่ยงคืน UTC ของวันเดียวกัน */
-  reading_date: string
-  /* start = ตอนขึ้นรถก่อนออกงาน, end = ตอนกลับถึงคลัง ระยะของวันคือผลต่าง */
-  kind: 'start' | 'end'
-  taken_at: string
-  trip_id: number | null
-  created_at: string
-}
-
-export type OrderRow = {
-  id: number
-  order_no: string
-  customer_id: number | null
-  origin: string
-  destination: string
-  distance_km: number
-  goods_desc: string
-  weight_kg: number
-  fee: number
-  status: OrderStatus
-  priority: OrderPriority
-  scheduled_at: string
-  delivered_at: string | null
-  trip_id: number | null
-  notes: string | null
-  created_at: string
-  updated_at: string
-  /** ข้อมูลอ้างอิงจาก TMS — เลขจริงแยกจาก order_no ของระบบเรา */
-  tms_trip_no: string | null
-  tms_picking_list_no: string | null
-  work_kind: 'vehicle' | 'box' | null
-  tms_unit_count: number | null
-  cancel_reason: string | null
-  cancelled_at: string | null
-  cancelled_by: number | null
-}
-
-export type PodRow = {
-  id: number
-  order_id: number
-  recipient_name: string
-  signature_data: string
-  photo_path: string | null
-  notes: string | null
-  status: PodStatus
-  lat: number | null
-  lng: number | null
-  collected_by: number
-  collected_at: string
-  updated_at: string
-}
-
-export type QuoteRow = {
-  id: number
-  quote_no: string
-  customer_id: number | null
-  origin: string
-  destination: string
-  distance_km: number
-  goods_desc: string
-  weight_kg: number
-  fee: number
-  status: QuoteStatus
-  valid_until: string | null
-  notes: string | null
-  created_by: number | null
-  converted_order_id: number | null
-  created_at: string
-  updated_at: string
-}
-
-export type TmsShipmentRow = {
-  id: number
-  picking_list_no: string
-  trip_no_tms: string | null
-  /* orderDate จากรายงาน = "Trip Date" — รายงานไม่มีฟิลด์ planDeliveryDate ดู 0006 */
-  trip_date: string | null
-  dealer_name: string | null
-  branch: string | null
-  unit: number | null
-  item_no: string | null
-  item_name: string | null
-  item_qty: number | null
-  /* ยอดของ PL ที่ถูกแบ่งส่งหลายเที่ยว — เทียบกับ unit ผ่าน qty_source
-     วัดของจริง 40 ใบแล้ว unit ตรงกับ qty ทุกใบ split ยังไม่เคยถูกใช้ */
-  item_split_qty: number | null
-  qty_source: 'qty' | 'split' | null
-  /* dealer_code คือกุญแจจับคู่ลูกค้าใน tms_dealer_map — ชื่อร้านใช้แทนไม่ได้ */
-  dealer_code: string | null
-  license_plate: string | null
-  driver_name: string | null
-  status_delivery: string | null
-  actual_cost: number | null
-  /* จาก PL header (0012) — plan_delivery_date คือวันที่ใช้วางแผน คนละตัวกับ trip_date
-     ที่เป็นวันของเที่ยวที่ TMS จับใบเข้าไปแล้ว (ว่างได้ถ้าใบยังไม่ถูกจัดเที่ยว) */
-  plan_delivery_date: string | null
-  pl_status: string | null
-  trip_status: string | null
-  pl_type: string | null
-  area: string | null
-  province: string | null
-  customer_address: string | null
-  ship_to_name: string | null
-  /* ที่อยู่ปลายทาง = ปุ่มเปิดแผนที่นำทางของคนขับ ไม่ใช่ของประดับ (กติกาเดียวกับ 0011) */
-  ship_to_address: string | null
-  ship_to_province: string | null
-  ship_to_postcode: string | null
-  total_qty: number | null
-  pickup_date: string | null
-  delivery_date: string | null
-  /* เท่าเดิม = push ไม่เขียนทับแถวนี้ คิดฝั่ง SQL ไม่ใช่ให้ client ส่งมา */
-  row_hash: string | null
-  first_seen_at: string
-  status_changed_at: string | null
-  raw: Record<string, unknown>
-  synced_at: string
-  order_id: number | null
-}
-
-/* view ฝั่งคนขับ — สังเกตว่าไม่มี fee / fuel_cost / toll_cost / other_cost
-   ถ้าวันไหนมีคนเผลอเติมคอลัมน์เงินเข้ามาที่นี่ แปลว่า view ฝั่ง SQL ก็ถูกแก้ไปแล้วเช่นกัน */
-export type TripDriverRow = {
-  trip_id: number
-  driver_id: number
-  /* 1 = คนขับหลัก (คนเดียวที่ปิดเที่ยวได้) ที่เหลือคือผู้ช่วย */
-  seq: number
-  /* คนนี้กดรับงานเมื่อไหร่ — ต่างจาก trips.accepted_at ที่เป็นของทั้งเที่ยว */
-  accepted_at: string | null
-  created_at: string
-}
-
+   my_trips / my_orders คือสิ่งที่คนขับคนหนึ่งเห็น ไม่ใช่ทั้งตาราง — ตัวกรองอยู่ในวิว
+   ฝั่งฐาน ไม่ได้อยู่ในคำสั่ง query ของแอป หน้าคนขับจึงขอข้อมูลของคนอื่นไม่ได้
+   แม้แต่ตอนที่โค้ดฝั่งเราเขียนผิด */
 export type MyTripRow = {
   id: number
   trip_no: string
@@ -320,88 +160,30 @@ export type MyOrderRow = {
   has_pod: boolean
 }
 
-export type CustomerInteractionRow = {
-  id: number
-  customer_id: number
-  type: InteractionType
-  subject: string
-  note: string | null
-  happened_at: string
-  created_by: number | null
-  created_at: string
-}
+/* ---------- ชนิดที่ฐานไม่ได้บอกเรา ----------
+   ไม่ใช่ enum ในฐาน เป็นคอลัมน์ text ที่ generate ออกมาได้แค่ `string` จึงต้องแคบให้เอง
+   ถ้าวันหนึ่งย้ายไปเป็น enum จริงในฐาน ให้ลบทิ้งแล้วใช้ Enum<> แทน */
+export type PermissionMode = 'inherit' | 'allow' | 'deny'
 
-export type CustomerTaskRow = {
-  id: number
-  customer_id: number
-  title: string
-  due_at: string | null
-  status: TaskStatus
-  note: string | null
-  created_by: number | null
-  created_at: string
-}
-
-/* คอลัมน์ที่เป็น null ได้ ต้อง "ไม่ส่งมาก็ได้" ตอน insert ไม่ใช่บังคับให้ส่ง null มาเอง
-   ถ้าไม่แยกตรงนี้ ทุกฟอร์มต้องเขียน phone: null, email: null ครบทุกช่องที่ไม่ได้กรอก */
-export type TmsDealerMapRow = {
-  dealer_code: string
-  dealer_name: string
-  customer_id: number | null
-  /* null customer_id = ยังไม่มีใครตัดสินใจ / ignored = ตัดสินใจแล้วว่าไม่เอาเข้าระบบ
-     สองอย่างนี้ต่างกัน อย่ายุบเป็นค่าเดียว ไม่งั้นร้านที่ตั้งใจข้ามจะโผล่ให้ตรวจซ้ำทุกวัน */
-  ignored: boolean
-  mapped_by: number | null
-  mapped_at: string | null
-  created_at: string
-}
-
-type NullableKeys<T> = { [K in keyof T]-?: null extends T[K] ? K : never }[keyof T]
-
-type Insertable<T, Generated extends keyof T> = Omit<T, Generated | NullableKeys<T>> &
-  Partial<Pick<T, Generated | NullableKeys<T>>>
-
-/* Relationships จำเป็นต้องมีถึงจะเข้ารูป GenericTable ของ postgrest-js
-   ปล่อยเป็น [] ได้เพราะเราไม่ได้ใช้ nested select แบบ orders(customers(*))
-   ถ้าวันไหนจะใช้ ต้อง generate types จริงด้วย supabase gen types */
-interface Table<Row, Ins = Row, Upd = Partial<Row>> {
-  Row: Row
-  Insert: Ins
-  Update: Upd
-  Relationships: []
-}
 
 interface View<Row> {
   Row: Row
   Relationships: []
 }
 
+/**
+ * ชนิดที่ supabase-js ใช้ — ตารางกับ enum มาจากฐานโดยตรง ส่วนวิวกับฟังก์ชันเขียนมือ
+ *
+ * ทำไมฟังก์ชันยังเขียนมือ: RPC ส่วนใหญ่คืน `json` หรือ `record` ซึ่ง generate ออกมา
+ * ได้แค่ `Json` แปลว่าโค้ดที่เรียกจะไม่รู้เลยว่าในนั้นมีคีย์อะไร ของที่เขียนไว้ที่นี่
+ * คือสัญญาที่อ่านมาจากตัว SQL จริง มีค่ามากกว่าและเป็นสิ่งเดียวที่กันการเรียกผิดคีย์
+ *
+ * **เพิ่ม/แก้ฟังก์ชันใน migration แล้วต้องมาแก้ที่นี่ด้วย** — เป็นหนี้ที่ยังตัดไม่ได้
+ * จนกว่า RPC จะคืนชนิดที่ฐานบอกรูปร่างได้เอง
+ */
 export interface Database {
   public: {
-    Tables: {
-      users: Table<UserRow, Insertable<UserRow, 'id' | 'created_at' | 'is_active' | 'role'>>
-      user_permissions: Table<UserPermissionRow>
-      permission_audit_log: Table<PermissionAuditRow>
-      customers: Table<CustomerRow, Insertable<CustomerRow, 'id' | 'created_at' | 'segment'>>
-      vehicles: Table<VehicleRow, Insertable<VehicleRow, 'id' | 'created_at' | 'status' | 'capacity_kg' | 'vehicle_type'>>
-      drivers: Table<DriverRow, Insertable<DriverRow, 'id' | 'created_at' | 'status'>>
-      vehicle_odometer: Table<VehicleOdometerRow, Insertable<VehicleOdometerRow, 'id' | 'created_at' | 'taken_at' | 'reading_date' | 'trip_id' | 'kind'>>
-      /* trip_no / order_no / quote_no เป็น optional เพราะ trigger ใน 0007 เติมให้ตอน insert
-         ส่งมาเองก็ได้ แต่ปกติปล่อยว่างแล้วให้ DB ตั้งเลขต่อจากใบล่าสุดของปีนี้ */
-      trips: Table<TripRow, Insertable<TripRow, 'id' | 'created_at' | 'status' | 'trip_no' | 'fuel_cost' | 'toll_cost' | 'other_cost' | 'freight_cost' | 'freight_actual_cost'>>
-      /* คนขับของเที่ยว รวมคนที่ไปด้วย — trips.driver_id เก็บได้แค่คนขับหลัก */
-      trip_drivers: Table<TripDriverRow, Insertable<TripDriverRow, 'created_at' | 'seq' | 'accepted_at'>>
-      orders: Table<OrderRow, Insertable<OrderRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'order_no' | 'priority' | 'distance_km' | 'weight_kg' | 'fee'>>
-      pod: Table<PodRow, Insertable<PodRow, 'id' | 'updated_at' | 'status'>>
-      quotes: Table<QuoteRow, Insertable<QuoteRow, 'id' | 'created_at' | 'updated_at' | 'status' | 'quote_no' | 'distance_km' | 'weight_kg' | 'fee'>>
-      customer_interactions: Table<CustomerInteractionRow, Insertable<CustomerInteractionRow, 'id' | 'created_at' | 'type'>>
-      customer_tasks: Table<CustomerTaskRow, Insertable<CustomerTaskRow, 'id' | 'created_at' | 'status'>>
-      tms_shipments: Table<TmsShipmentRow, Insertable<TmsShipmentRow, 'id' | 'synced_at'>>
-      tms_dealer_map: Table<TmsDealerMapRow, Insertable<TmsDealerMapRow, 'created_at' | 'ignored'>>
-      settings: Table<{ key: string; value: string }>
-      permissions: Table<{ permission: string; label: string }>
-      role_permissions: Table<{ role: UserRole; permission: string }>
-    }
+    Tables: AppTables
     Views: {
       my_trips: View<MyTripRow>
       my_orders: View<MyOrderRow>
@@ -767,17 +549,7 @@ export interface Database {
       tms_pull_coverage: { Args: { p_hours?: number }; Returns: unknown }
       admin_set_role_permission: { Args: { p_role: UserRole; p_permission: string; p_allowed: boolean; p_reason?: string | null }; Returns: void }
     }
-    Enums: {
-      user_role: UserRole
-      vehicle_type: VehicleType
-      vehicle_status: VehicleStatus
-      driver_status: DriverStatus
-      trip_status: TripStatus
-      order_status: OrderStatus
-      order_priority: OrderPriority
-      pod_status: PodStatus
-      quote_status: QuoteStatus
-    }
-    CompositeTypes: Record<string, never>
+    Enums: Gen['public']['Enums']
+    CompositeTypes: Gen['public']['CompositeTypes']
   }
 }
