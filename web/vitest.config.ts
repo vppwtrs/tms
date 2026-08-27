@@ -6,7 +6,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.a11y.test.{ts,tsx}'],
+    /* เดิมจับเฉพาะ *.a11y.test — ตอนนั้นมีแต่เทสต์เข้าถึงได้ พอเริ่มมีเทสต์ตรรกะ
+       (ตัวแรกคือ utils/stops.test.ts) รูปแบบเดิมจะข้ามไปเงียบ ๆ โดยไม่มีอะไรฟ้อง
+       ซึ่งแย่กว่าไม่มีเทสต์ เพราะคนเขียนเชื่อว่ามันรันอยู่
+       `npm run test:a11y` ยังกรองเฉพาะชุด a11y ได้เหมือนเดิม */
+    include: ['src/**/*.test.{ts,tsx}'],
     css: false,
     restoreMocks: true,
     /* ค่า default ของ vitest คือ 5 วินาที ซึ่งเป็นเส้นเดียวกับที่เทส dashboard
