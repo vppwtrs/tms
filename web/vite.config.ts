@@ -79,8 +79,6 @@ const demoAliases = ['myjobs', 'auth', 'tmsAuth', 'storage', 'tracking', 'pod', 
   replacement: demoModule(name),
 }))
 
-const apiPort = process.env.PORT ?? 3100
-
 /* GitHub Pages เสิร์ฟที่ <user>.github.io/<repo>/ ไม่ใช่ราก asset ทุกตัวจึงต้องมี prefix
    ตั้งผ่าน VITE_BASE ใน workflow — เว้นว่างตอน dev และตอน build ลง server ของตัวเอง */
 const base = process.env.VITE_BASE ?? '/'
@@ -91,15 +89,7 @@ export default defineConfig(({ mode }) => ({
     alias: mode === 'demo' ? demoAliases : [],
   },
   plugins: [react(), cspPlugin()],
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: `http://localhost:${apiPort}`,
-        changeOrigin: true
-      }
-    }
-  },
+  server: { port: 5173 },
   build: {
     target: 'es2019',
     sourcemap: false,

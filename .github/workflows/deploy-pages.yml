@@ -40,7 +40,7 @@ jobs:
           VITE_LONGDO_KEY: ${{ vars.LONGDO_KEY }}
           # โปรเจ็คที่ deploy ที่ <user>.github.io/<repo>/ ต้องมี base path ต่อท้าย
           VITE_BASE: /${{ github.event.repository.name }}/
-        # build:cloud ไม่ใช่ build — ตัวหลังคือระบบเดิมที่คุยกับ Express บน LAN
+        # ระบุโหมดให้ชัด แม้ build เปล่า ๆ จะให้ผลเดียวกันแล้ว — CI ไม่ควรพึ่งค่าเริ่มต้น
         # ซึ่งไม่มีอยู่บนคลาวด์ deploy ไปก็ได้หน้าที่ยิง API แล้วไม่มีใครรับ
         run: npm run build:cloud -w web
 

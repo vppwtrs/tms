@@ -17,24 +17,20 @@ import './styles/depth.css'
 import './styles/pages.css'
 
 /**
- * มีสองปลายทาง เลือกด้วย mode ของ Vite:
+ * มีสองโหมด ต่างกันแค่ "ข้อมูลมาจากไหน" ไม่ใช่คนละแอป:
  *
- *   npm run build        = ระบบเดิม — Express + SQLite บน LAN ของออฟฟิศ (ค่าเริ่มต้น)
- *   npm run build:cloud  = ระบบใหม่ — Supabase, ขึ้น GitHub Pages ให้คนขับเข้าจากบนถนน
+ *   npm run build:cloud  = Supabase ของจริง ขึ้น GitHub Pages
+ *   npm run build:demo   = สลับชั้น api ไปหาข้อมูลปลอม ไม่ยิงออกเน็ตเลย (ดู vite.config.ts)
  *
- * ใช้ MODE ที่ Vite มีให้อยู่แล้ว ไม่ตั้งตัวแปรใหม่ — ตัวแปรใหม่ต้องมีไฟล์ .env
- * ซึ่ง .gitignore กันไว้ CI จึงจะไม่เห็น แล้วจะ build ผิดตัวโดยไม่มีใครรู้
+ * เคยมีโหมดที่สามคือระบบเดิมบน Express + SQLite ใน LAN ของออฟฟิศ ซึ่งเป็นค่าเริ่มต้น
+ * ถอดออกวันที่ 27 ส.ค. 69 — ไม่มีใครใช้มาตั้งแต่ย้ายขึ้นคลาวด์ และ Vite ก็ตัดมันทิ้ง
+ * ตอน build อยู่แล้วเพราะ MODE ถูกแทนเป็นค่าคงที่ ของที่เหลือจึงเป็นแค่ไฟล์ที่คนใหม่
+ * เปิดเจอแล้วไม่รู้ว่าอันไหนของจริง (pages/Orders.tsx กับ pages/CloudOrders.tsx)
+ * ประวัติ git เก็บไว้ให้แล้วถ้าวันหนึ่งต้องย้อนดู
  *
- * ค่าเริ่มต้นเป็นของเดิมโดยตั้งใจ — ใครก็ตามที่ build โดยไม่ได้อ่านไฟล์นี้
- * ควรได้ระบบที่ออฟฟิศใช้อยู่ ไม่ใช่ระบบที่ยังย้ายไม่ครบ
- *
- * import แบบ dynamic ทั้งคู่ เพราะ api/supabase.ts โยน error ตั้งแต่ตอน import
- * ถ้าไม่มี env ของ Supabase — ถ้า import ตรง ๆ build ฝั่ง LAN จะพังทันที
- * ทั้งที่ไม่ได้ใช้ Supabase เลย
+ * import แบบ dynamic เพราะ api/supabase.ts โยน error ตั้งแต่ตอน import ถ้าไม่มี env
+ * ของ Supabase — ให้ error โผล่ตอนแอปเริ่ม ไม่ใช่ตอนโหลดโมดูลแรกสุดซึ่งได้จอขาวเปล่า
  */
-/* โหมด demo คือระบบใหม่ที่สลับชั้น api ไปหาข้อมูลปลอม — ต้องขึ้นจอเดียวกับ cloud
-   ไม่ใช่จอของระบบเดิมบน LAN ซึ่งไม่มีอะไรเกี่ยวข้องกัน */
-const CLOUD = import.meta.env.MODE === 'cloud' || import.meta.env.MODE === 'demo'
 
 /* กรอบพรีวิวใน editor กดอนุญาตตำแหน่งไม่ได้ และจอคนขับไม่ให้กดรับงานถ้าไม่มีตำแหน่ง
    โหมดสาธิตจึงใส่ตัวปลอมทับก่อนแอปขึ้น import แบบมีเงื่อนไข build ปกติจึงไม่มีไฟล์นี้ */
@@ -108,7 +104,7 @@ async function applyNativeSkin(): Promise<void> {
   await setDriverSkin(true)
 }
 
-if (CLOUD) void applyNativeSkin()
+void applyNativeSkin()
 
 /* GitHub Pages เสิร์ฟที่ <user>.github.io/<repo>/ ไม่ใช่ราก
    ทั้ง router และ service worker ต้องรู้ base เดียวกัน ไม่งั้นเปิดแล้วจอขาว
@@ -131,11 +127,9 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 }
 
 async function boot(): Promise<void> {
-  const [{ default: App }, { Provider }] = await Promise.all([
-    CLOUD ? import('./AppCloud') : import('./App'),
-    CLOUD
-      ? import('./context/CloudAuthContext').then((m) => ({ Provider: m.CloudAuthProvider }))
-      : import('./context/AuthContext').then((m) => ({ Provider: m.AuthProvider })),
+  const [{ default: App }, { CloudAuthProvider: Provider }] = await Promise.all([
+    import('./AppCloud'),
+    import('./context/CloudAuthContext'),
   ])
 
   createRoot(document.getElementById('root')!).render(

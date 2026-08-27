@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode cloud",
     "icons": "node scripts/gen-icons.mjs",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build --mode cloud",
     "preview": "vite preview",
     "test": "vitest run",
     "test:a11y": "vitest run src/a11y",
