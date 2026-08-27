@@ -15,20 +15,24 @@ export function loadDriverSkin(): Promise<void> {
   loading ??= (async () => {
     await import('./ios-app.css')
     await import('./ios-motion.css')
-    await import('./ios-skins.css')
-    await import('./ios-premium.css')
-    /* Design C "Soft Operator" — ท้ายสุด ทับโทนของผิวเดิมทั้งหมด */
+    /* Design C "Soft Operator" — ผิวเดียวของจอคนขับ */
     await import('./ios-softop.css')
   })()
   return loading
 }
 
-/** เลือกสกิน — ของจริงคือ softop ที่เหลือเก็บไว้เปิดตรวจย้อนหลังด้วย ?skin= */
-export function applySkinChoice(): void {
-  const flag = new URLSearchParams(window.location.search).get('skin')
-  const skins = ['softop', 'route', 'focus', 'sheet', 'timeline']
-  if (flag && skins.includes(flag)) localStorage.setItem('preview-skin', flag)
-  document.documentElement.dataset.skin = localStorage.getItem('preview-skin') ?? 'softop'
+/* สกินทดลองเก่า (route / focus / sheet / timeline) ถูกถอดทิ้งแล้ว — เหลือ Design C
+   ตัวเดียว แต่ค่าที่ค้างใน localStorage ยังทำให้เครื่องที่เคยลองสกินอื่นตั้ง
+   data-skin ผิดค้างไว้ ล้างทิ้งครั้งเดียวตอนเปิดผิว */
+export function clearLegacySkinChoice(): void {
+  /* Safari โหมดส่วนตัวโยน error ตรง localStorage — การล้างค่าเก่าพลาดได้โดยไม่มีใคร
+     เดือดร้อน แต่ถ้าปล่อยให้ throw ผิวคนขับจะไม่โหลดเลย แล้วคนขับได้จอออฟฟิศ */
+  try {
+    localStorage.removeItem('preview-skin')
+  } catch {
+    /* เฉย ๆ — ไม่มีที่เก็บก็ไม่มีค่าเก่าให้ล้าง */
+  }
+  delete document.documentElement.dataset.skin
 }
 
 /** เปิดหรือปิดผิวที่ <html> — เปิดครั้งแรกรอ CSS โหลดก่อน ไม่งั้นจอกะพริบ
@@ -39,7 +43,7 @@ export async function setDriverSkin(on: boolean): Promise<void> {
     root.classList.remove('is-native-app')
     return
   }
-  applySkinChoice()
+  clearLegacySkinChoice()
   await loadDriverSkin()
   root.classList.add('is-native-app')
 }
