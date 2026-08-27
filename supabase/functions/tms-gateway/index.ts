@@ -47,8 +47,20 @@
  *    ตอนนี้เก็บใน public.tms_sessions ผูกกับ auth_id เส้น call หยิบเองจากคนที่
  *    ยืนยันตัวแล้ว หน้าเว็บได้รู้แค่ "เชื่อมอยู่ เหลืออีกกี่วินาที"
  *
- * secret ที่ต้องตั้ง: TMS_BASE_URL (เช่น https://host.example/tms-api/api)
- *                     WEB_ORIGINS  โดเมนเว็บเราคั่นด้วย comma (ไม่ตั้ง = ใช้ค่าเริ่มต้นล่าง)
+ * 8. token ในฐานถูกเข้ารหัสไว้ คีย์ไม่ได้อยู่ในฐาน (27 ส.ค. 69)
+ *    คีย์คือ secret TMS_TOKEN_KEY ของฟังก์ชันนี้ ผลคือใครที่อ่านตาราง tms_sessions
+ *    ได้ — ฐานรั่ว, backup หลุด, คนที่มี service_role — ได้ไปแต่ข้อความที่ถอดไม่ออก
+ *    ต้องไปหยิบคีย์จากอีกระบบหนึ่งมาประกอบด้วยถึงจะใช้ได้
+ *
+ *    กันเจ้าของโครงสร้างเองไม่ได้ 100% เพราะ secret ก็ฝากไว้กับเขาอีกที
+ *    แต่ยกระดับจาก "query ตารางเดียวจบ" เป็น "ต้องตั้งใจประกอบจากสองระบบ"
+ *
+ *    ไม่ตั้ง TMS_TOKEN_KEY = ฟังก์ชันไม่ยอมเริ่มทำงาน ตั้งใจให้พังดังกว่าเก็บ
+ *    token เปล่า ๆ ต่อไปเงียบ ๆ โดยไม่มีใครรู้ว่าเกราะหลุดไปตั้งแต่เมื่อไหร่
+ *
+ * secret ที่ต้องตั้ง: TMS_BASE_URL  (เช่น https://host.example/tms-api/api)
+ *                     TMS_TOKEN_KEY สุ่ม 32 ไบต์ base64 — ไม่มีมนุษย์ต้องจำค่านี้
+ *                     WEB_ORIGINS   โดเมนเว็บเราคั่นด้วย comma (ไม่ตั้ง = ใช้ค่าเริ่มต้นล่าง)
  * SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ระบบใส่ให้เองอยู่แล้ว
  */
 
@@ -170,6 +182,61 @@ const authEmail = (username: string) =>
    ผลคือใครขโมยฐาน auth ไปก็ crack ไม่ได้ประโยชน์ เพราะรหัสเปลี่ยนทุกครั้งอยู่แล้ว */
 const throwaway = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')
+
+/* ---------- เข้ารหัส token ก่อนลงฐาน ----------
+   AES-GCM 256 บิต IV สุ่มใหม่ทุกครั้ง เก็บเป็น "iv.ciphertext" ฐาน base64 ทั้งคู่
+   GCM ให้ทั้งความลับและตัวตรวจว่าถูกแก้ไข — ถอดไม่ผ่านคือถอดไม่ผ่าน ไม่มีการ
+   คืนขยะที่หน้าตาเหมือนของจริงออกมา
+
+   คีย์มาจาก secret ไม่ได้อยู่ในฐาน ดูเหตุผลข้อ 8 ที่หัวไฟล์ */
+const RAW_KEY = Deno.env.get('TMS_TOKEN_KEY') ?? ''
+
+/* อ่านคีย์ครั้งเดียวตอนเรียกใช้ครั้งแรก แล้วเก็บไว้ — ไม่ทำตอนโหลดไฟล์
+   เพราะ importKey เป็น async และเราอยากให้ error โผล่ตอนมีคนใช้จริง ไม่ใช่ตอน deploy */
+let keyPromise: Promise<CryptoKey> | null = null
+const cryptoKey = (): Promise<CryptoKey> => {
+  if (!keyPromise) {
+    keyPromise = crypto.subtle.importKey(
+      'raw',
+      Uint8Array.from(atob(RAW_KEY), c => c.charCodeAt(0)),
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt', 'decrypt'],
+    )
+  }
+  return keyPromise
+}
+
+const b64 = (b: ArrayBuffer | Uint8Array): string =>
+  btoa(String.fromCharCode(...new Uint8Array(b)))
+
+async function sealToken(plain: string): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const out = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    await cryptoKey(),
+    new TextEncoder().encode(plain),
+  )
+  return `${b64(iv)}.${b64(out)}`
+}
+
+/** คืน null เมื่อถอดไม่ออก — ตัวเรียกต้องถือว่า "ไม่มี session" แล้วให้ล็อกอินใหม่
+ *  เกิดได้จริงตอนเปลี่ยนคีย์ ซึ่งต้องไม่ทำให้ระบบล่ม แค่ทุกคนเข้าใหม่หนึ่งครั้ง */
+async function openToken(sealed: string): Promise<string | null> {
+  const [ivPart, dataPart] = sealed.split('.')
+  if (!ivPart || !dataPart) return null
+  try {
+    const bytes = (v: string) => Uint8Array.from(atob(v), c => c.charCodeAt(0))
+    const out = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: bytes(ivPart) },
+      await cryptoKey(),
+      bytes(dataPart),
+    )
+    return new TextDecoder().decode(out)
+  } catch {
+    return null
+  }
+}
 
 /* ---------- ที่เก็บ token ของ TMS ----------
    อ่านวันหมดอายุจาก payload ของ JWT ตรง ๆ ไม่ตรวจลายเซ็น — ตรงนี้ไม่ได้ใช้ตัดสิน
@@ -315,7 +382,7 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
   const expiresAt = tokenExpiry(tmsToken)
   const { error: keepErr } = await sb.from('tms_sessions').upsert({
     auth_id: authId,
-    token: tmsToken,
+    token: await sealToken(tmsToken),
     expires_at: expiresAt?.toISOString() ?? null,
     updated_at: new Date().toISOString(),
   })
@@ -375,7 +442,13 @@ async function handleCall(req: Request, cors: Record<string, string>): Promise<R
     await sb.from('tms_sessions').delete().eq('auth_id', id.authId)
     return json({ error: 'การเข้าระบบ TMS หมดอายุ' }, 401)
   }
-  const token = link.token
+  const token = await openToken(link.token)
+  if (!token) {
+    /* ถอดไม่ออก = คีย์เปลี่ยนไปแล้ว (หรือแถวถูกแก้) แถวนี้ใช้ไม่ได้อีก ลบทิ้งแล้วให้เข้าใหม่
+       ตอบ 409 เหมือนกรณีไม่เคยเชื่อม เพราะสำหรับผู้ใช้มันคือเรื่องเดียวกัน */
+    await sb.from('tms_sessions').delete().eq('auth_id', id.authId)
+    return json({ error: 'ยังไม่ได้เชื่อมกับ TMS — เข้าสู่ระบบใหม่หนึ่งครั้ง', code: 'NO_TMS_SESSION' }, 409)
+  }
 
   const { op, params } = await req.json().catch(() => ({}))
 
@@ -429,6 +502,8 @@ Deno.serve(async req => {
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (!TMS_BASE) return json({ error: 'ยังไม่ได้ตั้ง TMS_BASE_URL' }, 500)
+  /* ไม่มีคีย์ = ไม่ทำงานเลย ดีกว่าเก็บ token ของบริษัทเปล่า ๆ ต่อไปแบบไม่มีใครรู้ตัว */
+  if (!RAW_KEY) return json({ error: 'ยังไม่ได้ตั้ง TMS_TOKEN_KEY' }, 500)
 
   const route = new URL(req.url).pathname.split('/').pop()
   try {
