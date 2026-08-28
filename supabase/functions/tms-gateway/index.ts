@@ -94,6 +94,12 @@ const corsFor = (req: Request): Record<string, string> => {
     ...(originOk(o) ? { 'Access-Control-Allow-Origin': o, Vary: 'Origin' } : {}),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    /* ให้เบราว์เซอร์จำผลตรวจสิทธิ์ข้ามโดเมนไว้หนึ่งวัน
+       ไม่มีบรรทัดนี้ = ทุก POST ต้องยิง OPTIONS นำหน้าเสมอ ซึ่งวัดได้จาก log จริงว่า
+       160-190ms ต่อครั้ง หน้าที่ยิง 8 คำขอจึงเสียเวลาไปกับการถามซ้ำเรื่องเดิม ~1.5 วินาที
+       ค่านี้ไม่ผ่อนความปลอดภัย — allowlist ของ origin ยังตรวจทุกคำขอเหมือนเดิม
+       ที่ถูกจำคือ "โดเมนนี้ยิงได้" ไม่ใช่ "คนนี้เป็นใคร" */
+    'Access-Control-Max-Age': '86400',
   }
 }
 
@@ -159,6 +165,150 @@ const OPS: Record<string, (p: Record<string, unknown>) => Op> = {
     method: 'POST',
     body: { Id: seg(p.id) },
   }),
+}
+
+/* ---------- งานแบบวนหลายรอบ ----------
+ *
+ * ทำไมต้องอยู่ฝั่งนี้: หน้าเว็บเคยวนเองแล้วยิงผ่าน /call ทีละหน้า วัดจาก log จริงได้
+ * 8 คำขอเรียงต่อกัน ใบละ 600–1300ms รวมหกวินาที เพราะทุกใบเดินทาง
+ * เบราว์เซอร์ → โซล → TMS ที่ไทย → กลับ
+ *
+ * ย้ายลูปมาไว้ตรงนี้ ขาที่ยาวที่สุด (โซล ↔ ไทย) ยังอยู่ แต่วิ่งอยู่ในฝั่งเซิร์ฟเวอร์
+ * และเบราว์เซอร์เหลือคำขอเดียว
+ *
+ * **กฎกรองยังอยู่ฝั่งหน้าเว็บทั้งหมด** ที่นี่ทำแค่ "วนจนกว่าจะพอ" — เกณฑ์ว่าใบไหน
+ * เข้าเงื่อนไข คลังไหนเป็นของกองรถเรา ยังตัดสินที่เดิมที่เดียว ไม่ให้กฎธุรกิจ
+ * แตกเป็นสองชุดที่ต้องแก้พร้อมกัน
+ */
+
+/** เพดานที่ยอมให้ขอได้ต่อหนึ่งคำขอ — กันไม่ให้ใครสั่งให้เรายิงหา TMS รัวไม่จำกัด */
+const SCAN_MAX_PAGES = 60
+const SCAN_MAX_IDS = 60
+/** ยิงพร้อมกันได้เท่านี้ตอนถามรายละเอียดทีละเที่ยว — มากกว่านี้คือกดดัน TMS
+    โดยไม่ได้อะไรเพิ่ม เพราะคอขวดคือฝั่งเขา ไม่ใช่ฝั่งเรา */
+const SCAN_CONCURRENCY = 4
+
+/** วันของค่าอะไรก็ตามที่ TMS ส่งมา — ตรงกับ day() ใน web/src/api/tmsPull.ts */
+const dayOf = (v: unknown): string => String(v ?? '').slice(0, 10)
+
+interface ScanResult {
+  items: unknown[]
+  pages: number
+  /** อ่านครบทั้งช่วงที่ขอแล้ว (ไม่ได้หยุดเพราะชนเพดานหน้า) */
+  complete: boolean
+}
+
+/** วนอ่านทีละหน้าจนเจอของที่เก่ากว่าช่วงที่ขอ หรือหน้าไม่เต็ม
+ *  เรียงจากใหม่ไปเก่าเสมอ — หน้าที่เก่ากว่าวันเริ่มต้นแล้ว ที่เหลือก็เก่ากว่าทั้งหมด */
+async function scanPages(
+  token: string,
+  build: (page: number) => Op,
+  opts: { from: string; dateField: string; pageSize: number; maxPages: number },
+): Promise<ScanResult> {
+  const items: unknown[] = []
+  let complete = false
+  let page = 1
+
+  for (; page <= opts.maxPages; page++) {
+    const spec = build(page)
+    const r = await fetch(TMS_BASE + spec.path, {
+      method: spec.method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: spec.method === 'GET' ? undefined : JSON.stringify(spec.body ?? {}),
+    })
+    /* หน้าไหนพัง หยุดตรงนั้นแล้วคืนของที่ได้มาแล้ว พร้อมบอกว่ายังไม่ครบ
+       ดีกว่าโยนทิ้งทั้งรอบเพราะหน้าที่เจ็ดตอบไม่ดี */
+    if (!r.ok) return { items, pages: page - 1, complete: false }
+
+    const body = await r.json().catch(() => null)
+    const batch: unknown[] = Array.isArray(body) ? body
+      : Array.isArray(body?.data) ? body.data
+      : Array.isArray(body?.items) ? body.items
+      : []
+
+    items.push(...batch)
+
+    let oldest = '9999-99-99'
+    for (const row of batch) {
+      const d = dayOf((row as Record<string, unknown>)?.[opts.dateField])
+      if (d && d < oldest) oldest = d
+    }
+
+    if (oldest !== '9999-99-99' && oldest < opts.from) { complete = true; break }
+    if (batch.length < opts.pageSize) { complete = true; break }
+  }
+
+  return { items, pages: Math.min(page, opts.maxPages), complete }
+}
+
+const SCANS: Record<
+  string,
+  (p: Record<string, unknown>, token: string) => Promise<unknown>
+> = {
+  /** ใบสั่งของคลังหนึ่ง ทุกหน้าที่ต้องอ่าน ในคำขอเดียว */
+  scanPickingLists: (p, token) => scanPages(
+    token,
+    page => OPS.pickingLists({ warehouse: p.warehouse, page }),
+    {
+      from: String(p.from ?? ''),
+      dateField: 'planDeliveryDate',
+      pageSize: 500,
+      maxPages: Math.min(Number(p.maxPages) || SCAN_MAX_PAGES, SCAN_MAX_PAGES),
+    },
+  ),
+
+  /** เที่ยวของคลังหนึ่ง ทุกหน้าที่ต้องอ่าน ในคำขอเดียว */
+  scanTrips: (p, token) => scanPages(
+    token,
+    page => OPS.trips({ guid: p.guid, page }),
+    {
+      from: String(p.from ?? ''),
+      dateField: 'orderDate',
+      pageSize: 200,
+      maxPages: Math.min(Number(p.maxPages) || 2, SCAN_MAX_PAGES),
+    },
+  ),
+
+  /** ใบพร้อมรายการสินค้าของหลายเที่ยวพร้อมกัน
+   *  เที่ยวเดียวที่ถามไม่ผ่านต้องไม่ทำให้ทั้งรอบล้ม — คืน items ว่างของเที่ยวนั้นแทน */
+  scanTripPickingLists: async (p, token) => {
+    const ids = Array.isArray(p.ids) ? p.ids.slice(0, SCAN_MAX_IDS).map(String) : []
+    const out: Array<{ id: string; items: unknown[] }> = []
+
+    for (let i = 0; i < ids.length; i += SCAN_CONCURRENCY) {
+      const chunk = ids.slice(i, i + SCAN_CONCURRENCY)
+      const done = await Promise.all(chunk.map(async (id) => {
+        try {
+          const spec = OPS.tripPickingList({ id })
+          const r = await fetch(TMS_BASE + spec.path, {
+            method: spec.method,
+            headers: {
+              authorization: `Bearer ${token}`,
+              accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(spec.body ?? {}),
+          })
+          if (!r.ok) return { id, items: [] as unknown[] }
+          const body = await r.json().catch(() => null)
+          const items: unknown[] = Array.isArray(body) ? body
+            : Array.isArray(body?.data) ? body.data
+            : Array.isArray(body?.items) ? body.items
+            : []
+          return { id, items }
+        } catch {
+          return { id, items: [] as unknown[] }
+        }
+      }))
+      out.push(...done)
+    }
+
+    return { lists: out }
+  },
 }
 
 const admin = () =>
@@ -275,10 +425,16 @@ const clientIp = (req: Request): string =>
   (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown'
 
 const reply = (cors: Record<string, string>) =>
-  (body: unknown, status = 200) =>
+  (body: unknown, status = 200, timing?: Record<string, number>) =>
     new Response(JSON.stringify(body), {
       status,
-      headers: { ...cors, 'Content-Type': 'application/json' },
+      headers: {
+        ...cors,
+        'Content-Type': 'application/json',
+        ...(timing
+          ? { 'Server-Timing': Object.entries(timing).map(([k, v]) => `${k};dur=${v}`).join(', ') }
+          : {}),
+      },
     })
 
 async function handleAuth(req: Request, cors: Record<string, string>): Promise<Response> {
@@ -300,17 +456,24 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
     return json({ error: 'พยายามเข้าสู่ระบบบ่อยเกินไป — รอสัก 15 นาทีแล้วลองใหม่' }, 429)
   }
   /* เก็บกวาดแถวเก่าแบบสุ่มเจอ ไม่ต้องตั้ง cron ให้มีของต้องคอยดูแลเพิ่มอีกตัว */
-  if (Math.random() < 0.01) await sb.rpc('tms_login_sweep')
+  /* ไม่ await — งานบ้านไม่ควรถ่วงคนที่กำลังรอเข้าระบบ ล้มก็ล้มไปเงียบ ๆ
+     แล้วรอบหน้ามีคนสุ่มเจอใหม่อยู่ดี */
+  if (Math.random() < 0.01) sb.rpc('tms_login_sweep').then(() => {}, () => {})
 
   /* ---- 1. ถาม TMS ว่าคนนี้เป็นพนักงานจริงมั้ย ----
      ยิงรูปแบบเดียว — เดิมลอง userName แล้วต่อด้วย email ซึ่งคูณโหลดที่ยิงไปหา
      บริษัทเป็นสองเท่าทุกครั้งที่รหัสผิด ยืนยันแล้วว่า build นี้ใช้ userName */
   let tmsToken: string | null = null
+  /* จับเวลาที่ใช้คุยกับบริษัท แล้วส่งกลับเป็น Server-Timing — เวลาผู้ใช้บ่นว่าช้า
+     จะได้ตอบได้ว่าช้าที่ฝั่งไหน โดยไม่ต้องเดาและไม่ต้องเปิด log
+     ตัวเลขนี้ไม่ใช่ความลับ มันคือ "เขาตอบเราช้าแค่ไหน" ไม่ได้บอกอะไรเกี่ยวกับบัญชี */
+  const t0 = performance.now()
   const r = await fetch(`${TMS_BASE}/tokens`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', accept: 'application/json', tenant: TENANT },
     body: JSON.stringify({ userName: username, password }),
   })
+  const tmsMs = Math.round(performance.now() - t0)
   if (r.ok) tmsToken = (await r.json()).token
   if (!tmsToken) return json({ error: 'เข้าสู่ระบบ TMS ไม่สำเร็จ' }, 401)
 
@@ -319,29 +482,45 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
   const email = authEmail(username)
   const pw = throwaway()
 
-  // ชื่อจริงเอาจาก TMS ไม่ให้ผู้ใช้พิมพ์เอง — จะได้ตรงกับที่ออฟฟิศเรียกกันจริง
-  let displayName = username
-  try {
-    const p = await fetch(`${TMS_BASE}/personal/profile`, {
-      headers: { authorization: `Bearer ${tmsToken}`, accept: 'application/json' },
-    })
-    if (p.ok) {
-      const d = await p.json()
-      displayName = [d.firstName, d.lastName].filter(Boolean).join(' ') || d.userName || username
-    }
-  } catch { /* ชื่อไม่ใช่เรื่องคอขาดบาดตาย */ }
-
-  const { data: existing } = await sb.from('users').select('id, auth_id, is_active, role')
+  /* หาแถวผู้ใช้ กับถามชื่อจริงจาก TMS ไม่ต้องรอกัน — สองอย่างนี้ไม่เกี่ยวข้องกันเลย
+     เดิมเรียงต่อกันทำให้เวลาล็อกอินเท่ากับผลบวกของทั้งคู่ ทั้งที่ควรเป็นตัวที่ช้ากว่า */
+  const existingP = sb.from('users').select('id, auth_id, is_active, role, name')
     .eq('username', username).maybeSingle()
+
+  // ชื่อจริงเอาจาก TMS ไม่ให้ผู้ใช้พิมพ์เอง — จะได้ตรงกับที่ออฟฟิศเรียกกันจริง
+  const profileP = fetch(`${TMS_BASE}/personal/profile`, {
+    headers: { authorization: `Bearer ${tmsToken}`, accept: 'application/json' },
+  }).then(async (p) => {
+    if (!p.ok) return null
+    const d = await p.json()
+    return [d.firstName, d.lastName].filter(Boolean).join(' ') || d.userName || null
+  }).catch(() => null)   /* ชื่อไม่ใช่เรื่องคอขาดบาดตาย */
+
+  const { data: existing } = await existingP
+
+  /* คนที่มีชื่ออยู่แล้วไม่ต้องรอผลโปรไฟล์ — ปล่อยให้คำขอนั้นวิ่งจบไปเงียบ ๆ
+     ชื่อที่เปลี่ยนใน TMS จะตามมาในรอบถัดไปที่ระบบต้องสร้างบัญชีอยู่ดี
+     แลกความสดของชื่อกับการตัดคำขอข้ามอินเทอร์เน็ตหนึ่งรอบออกจากทุกการล็อกอิน */
+  const displayName = existing?.name
+    ? existing.name
+    : (await profileP) ?? username
 
   let authId = existing?.auth_id ?? null
 
   /* public.users อาจยังมี auth_id เก่าหลัง Auth ถูกลบจากหน้า Dashboard
      ต้องตรวจตัวจริงก่อน update ไม่เช่นนั้นผู้ใช้บริษัทจะได้ "ออก session ไม่สำเร็จ"
      และค้างอยู่ในคลังเก็บถาวรตลอดไป */
+  /* อีเมลที่ใช้ signIn ต้องเป็นของ "บัญชีที่มีอยู่จริง" ไม่ใช่ของที่เพิ่งคำนวณใหม่
+     กฎแปลงชื่อผู้ใช้เป็นอีเมลปลอมเคยถูกแก้ (@ เคยกลายเป็น _ ตอนนี้เป็น -40-)
+     บัญชีที่สร้างไว้ก่อนหน้านั้นจึงมีอีเมลคนละแบบกับที่ authEmail() คืนวันนี้
+     ถ้ายืนยันตัวด้วยอีเมลใหม่ จะไม่เจอบัญชี แล้วผู้ใช้จะได้ "ออก session ไม่สำเร็จ"
+     ทั้งที่รหัส TMS ถูกและบัญชีก็ยังอยู่ครบ */
+  let signInEmail = email
+
   if (authId) {
     const { data: linkedAuth } = await sb.auth.admin.getUserById(authId)
     if (!linkedAuth.user) authId = null
+    else if (linkedAuth.user.email) signInEmail = linkedAuth.user.email
   }
 
   if (authId) {
@@ -368,24 +547,36 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
     }
   }
 
+  /* ยืนยันตัวบน client คนละตัวกับที่ใช้เขียนฐาน — สำคัญกว่าที่เห็น
+     supabase-js เก็บ session ไว้ในตัว client เมื่อ signInWithPassword สำเร็จ
+     แล้วเปลี่ยน Authorization ของ "ทุกคำสั่งถัดไป" จาก service_role เป็น JWT
+     ของผู้ใช้คนนั้น ผลคือ upsert ลง tms_sessions ข้างล่างวิ่งเป็น authenticated
+     ซึ่งไม่มีสิทธิ์แตะตารางนั้นเลย (ตั้งใจ) แล้วผู้ใช้ได้ "เก็บการเชื่อมต่อ TMS ไม่สำเร็จ"
+     ทั้งที่ทุกอย่างก่อนหน้าถูกหมด */
+  const signer = admin()
   const { data: session, error: signErr } =
-    await sb.auth.signInWithPassword({ email, password: pw })
+    await signer.auth.signInWithPassword({ email: signInEmail, password: pw })
   if (signErr || !session.session) return json({ error: 'ออก session ไม่สำเร็จ' }, 500)
 
-  await sb.from('users').update({ last_login_at: new Date().toISOString() }).eq('auth_id', authId)
+  /* สามอย่างสุดท้ายไม่ขึ้นต่อกัน ทำพร้อมกัน — และ update ที่ต่อ .select() ไว้
+     คืนแถวกลับมาในคำขอเดียว ไม่ต้องอ่านซ้ำอีกรอบ
 
-  const { data: me } = await sb.from('users')
-    .select('id, name, role, is_active').eq('auth_id', authId).maybeSingle()
-
-  /* token ของบริษัทจบการเดินทางตรงนี้ ไม่ถูกส่งลงไปที่เบราว์เซอร์ (ข้อ 7)
+     token ของบริษัทจบการเดินทางตรงนี้ ไม่ถูกส่งลงไปที่เบราว์เซอร์ (ข้อ 7)
      เขียนทับของเดิมเสมอ — คนหนึ่งคนมีได้ session เดียว ล็อกอินใหม่ = ของเก่าใช้ไม่ได้ */
   const expiresAt = tokenExpiry(tmsToken)
-  const { error: keepErr } = await sb.from('tms_sessions').upsert({
-    auth_id: authId,
-    token: await sealToken(tmsToken),
-    expires_at: expiresAt?.toISOString() ?? null,
-    updated_at: new Date().toISOString(),
-  })
+  const [{ data: me }, { error: keepErr }] = await Promise.all([
+    sb.from('users')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('auth_id', authId)
+      .select('id, name, role, is_active')
+      .maybeSingle(),
+    sb.from('tms_sessions').upsert({
+      auth_id: authId,
+      token: await sealToken(tmsToken),
+      expires_at: expiresAt?.toISOString() ?? null,
+      updated_at: new Date().toISOString(),
+    }),
+  ])
   if (keepErr) return json({ error: 'เก็บการเชื่อมต่อ TMS ไม่สำเร็จ' }, 500)
 
   return json({
@@ -397,7 +588,7 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
     tms_expires_at: expiresAt ? Math.floor(expiresAt.getTime() / 1000) : null,
     account: me ?? null,
     pending: !me?.is_active,
-  })
+  }, 200, { tms: tmsMs, total: Math.round(performance.now() - t0) })
 }
 
 /* ---- ตัวตนฝั่งเราต้องมาก่อนทุกเส้นที่ไม่ใช่ auth ----
@@ -451,6 +642,17 @@ async function handleCall(req: Request, cors: Record<string, string>): Promise<R
   }
 
   const { op, params } = await req.json().catch(() => ({}))
+
+  /* งานแบบวนหลายรอบมาก่อน — ตัวเดียวกันนี้เคยเป็นลูปฝั่งเบราว์เซอร์ที่ยิงเข้ามาสิบรอบ */
+  const scan = typeof op === 'string' ? SCANS[op] : undefined
+  if (scan) {
+    try {
+      const result = await scan((params ?? {}) as Record<string, unknown>, token)
+      return json(result)
+    } catch {
+      return json({ error: 'ดึงข้อมูลจาก TMS ไม่สำเร็จ' }, 502)
+    }
+  }
 
   const build = typeof op === 'string' ? OPS[op] : undefined
   if (!build) return json({ error: 'ไม่รู้จักงานนี้' }, 403)
