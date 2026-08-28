@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  dayButtonLabel, isFutureDay, isFutureMonth, monthGrid, monthTitle, shiftMonth, ymOf,
+  dayButtonLabel, inRange, isFutureDay, isFutureMonth, lastDays, monthGrid, monthTitle,
+  monthToDate, rangeButtonLabel, shiftMonth, ymOf,
 } from './calendar'
 
 /**
@@ -92,5 +93,49 @@ describe('monthTitle', () => {
 describe('ymOf', () => {
   it('อ่านปีและเดือนจาก iso ได้ตรง โดยเดือนเริ่มที่ 0', () => {
     expect(ymOf('2026-08-28')).toEqual({ y: 2026, m: 7 })
+  })
+})
+
+describe('rangeButtonLabel', () => {
+  const today = new Date('2026-08-28T10:00:00')
+
+  it('ช่วงวันเดียวใช้คำเดิม', () => {
+    expect(rangeButtonLabel('2026-08-28', '2026-08-28', today)).toBe('วันนี้')
+  })
+
+  it('ช่วงในเดือนเดียวกันไม่เขียนเดือนซ้ำสองครั้ง', () => {
+    /* ปุ่มนี้อยู่บนหัวหน้า ต้องสั้นพอที่จะไม่ดันของอื่น */
+    expect(rangeButtonLabel('2026-08-25', '2026-08-28', today)).toBe('25 – 28 ส.ค.')
+  })
+
+  it('ช่วงข้ามเดือนต้องมีเดือนทั้งสองฝั่ง', () => {
+    const label = rangeButtonLabel('2026-07-28', '2026-08-03', today)
+    expect(label).toContain('ก.ค.')
+    expect(label).toContain('ส.ค.')
+  })
+})
+
+describe('lastDays', () => {
+  const today = new Date('2026-08-28T10:00:00')
+
+  it('7 วันล่าสุดคือ 7 วันรวมวันนี้ ไม่ใช่ 8 วัน', () => {
+    /* ย้อนไป 7 วันแล้วนับถึงวันนี้ได้ 8 วัน ซึ่งไม่ตรงกับที่คนคาดจากคำว่า "7 วัน" */
+    const r = lastDays(7, today)
+    expect(r).toEqual({ from: '2026-08-22', to: '2026-08-28' })
+  })
+})
+
+describe('monthToDate', () => {
+  it('เริ่มที่วันที่ 1 ของเดือนนี้ ถึงวันนี้', () => {
+    expect(monthToDate(new Date('2026-08-28T10:00:00')))
+      .toEqual({ from: '2026-08-01', to: '2026-08-28' })
+  })
+})
+
+describe('inRange', () => {
+  it('รวมปลายทั้งสองข้าง', () => {
+    expect(inRange('2026-08-25', '2026-08-25', '2026-08-28')).toBe(true)
+    expect(inRange('2026-08-28', '2026-08-25', '2026-08-28')).toBe(true)
+    expect(inRange('2026-08-24', '2026-08-25', '2026-08-28')).toBe(false)
   })
 })

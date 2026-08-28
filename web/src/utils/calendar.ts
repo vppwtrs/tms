@@ -80,3 +80,44 @@ export function dayButtonLabel(iso: string, today = new Date()): string {
     ? { day: 'numeric', month: 'short' }
     : { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+/** ป้ายของช่วงวัน — วันเดียวใช้คำเดิม ช่วงยาวเขียนเป็น "25–28 ส.ค."
+ *
+ *  ย่อเดือนที่ซ้ำกันออก (25–28 ส.ค. ไม่ใช่ 25 ส.ค. – 28 ส.ค.) เพราะปุ่มนี้อยู่บน
+ *  หัวหน้าและต้องสั้นพอที่จะไม่ดันของอื่น แต่ต้องยังอ่านออกโดยไม่ต้องเดา
+ */
+export function rangeButtonLabel(from: string, to: string, today = new Date()): string {
+  if (from === to) return dayButtonLabel(from, today)
+
+  const a = new Date(`${from}T00:00:00`)
+  const b = new Date(`${to}T00:00:00`)
+  const sameYear = a.getFullYear() === b.getFullYear()
+  const sameMonth = sameYear && a.getMonth() === b.getMonth()
+  const thisYear = b.getFullYear() === today.getFullYear()
+
+  const part = (d: Date, withMonth: boolean): string =>
+    d.toLocaleDateString('th-TH', withMonth
+      ? { day: 'numeric', month: 'short' }
+      : { day: 'numeric' })
+
+  const tail = thisYear ? '' : ` ${b.getFullYear() + 543}`
+  return `${part(a, !sameMonth)} – ${part(b, true)}${tail}`
+}
+
+/** อยู่ในช่วงที่เลือกไหม (รวมปลายทั้งสอง) */
+export function inRange(iso: string, from: string, to: string): boolean {
+  return iso >= from && iso <= to
+}
+
+/** ช่วง n วันล่าสุดโดยนับวันนี้เป็นวันสุดท้าย — "7 วันล่าสุด" คือ 7 วันรวมวันนี้
+ *  ไม่ใช่ย้อนไป 7 วันแล้วได้ 8 วัน ซึ่งเป็นที่มาของตัวเลขที่ไม่ตรงกับที่คนคาด */
+export function lastDays(n: number, today = new Date()): { from: string; to: string } {
+  const start = new Date(today)
+  start.setDate(start.getDate() - (n - 1))
+  return { from: todayIso(start), to: todayIso(today) }
+}
+
+/** ตั้งแต่วันที่ 1 ของเดือนนี้ถึงวันนี้ */
+export function monthToDate(today = new Date()): { from: string; to: string } {
+  return { from: todayIso(new Date(today.getFullYear(), today.getMonth(), 1)), to: todayIso(today) }
+}

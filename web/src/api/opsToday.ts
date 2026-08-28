@@ -59,6 +59,10 @@ export interface FleetRow {
 }
 
 export interface OpsToday {
+  /** ช่วงที่ตัวเลขชุดนี้คิดมาจาก — from = to แปลว่าวันเดียว */
+  from: string
+  to: string
+  days: number
   date: string
   /** สิทธิ์ถึงตัวเลขเงินหรือไม่ — ไม่ถึงแล้วช่องเงินเป็น null ทั้งหมด */
   money: boolean
@@ -91,8 +95,8 @@ const client = supabase as unknown as {
     Promise<{ data: unknown; error: { message: string } | null }>
 }
 
-export async function opsToday(date?: string): Promise<OpsToday> {
-  const { data, error } = await client.rpc('ops_today', { p_date: date ?? null })
+export async function opsToday(from?: string, to?: string): Promise<OpsToday> {
+  const { data, error } = await client.rpc('ops_today', { p_from: from ?? null, p_to: to ?? from ?? null })
   if (error) throw new Error(error.message)
   return data as OpsToday
 }

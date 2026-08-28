@@ -1794,6 +1794,9 @@
 .daypick-day:hover:not(:disabled) { background: var(--surface-2); }
 /* วันนี้มีวงรอบ วันที่เลือกเป็นสีทึบ — สองสถานะนี้เกิดพร้อมกันได้และต้องแยกออกจากกัน */
 .daypick-day.is-today { box-shadow: inset 0 0 0 1.5px var(--line-strong, var(--line)); font-weight: 700; }
+/* วันที่อยู่ "ระหว่าง" ช่วงเป็นพื้นอ่อน ส่วนหัวกับท้ายช่วงเป็นสีทึบ
+   สามระดับนี้ทำให้อ่านออกในแวบเดียวว่าช่วงเริ่มตรงไหนจบตรงไหน โดยไม่ต้องนับวัน */
+.daypick-day.is-in { background: var(--accent-soft, var(--surface-2)); color: var(--accent-strong, var(--ink)); }
 .daypick-day.is-on { background: var(--accent); color: #fff; font-weight: 700; box-shadow: none; }
 .daypick-day:disabled { color: var(--muted); opacity: 0.32; cursor: not-allowed; }
 .daypick-day:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
