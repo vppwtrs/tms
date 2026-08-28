@@ -162,6 +162,13 @@ describe('VolumeTrend', () => {
     await expectNoAxeViolations(container)
   })
 
+  it('เส้นแนวโน้มเป็นเส้นโค้ง ไม่ใช่เส้นหักมุม', () => {
+    const { container } = render(<VolumeTrend data={VOLUME} grain="month" onGrain={() => {}} />)
+    const line = container.querySelector('.ops-vline') as SVGPathElement | null
+    expect(line?.tagName.toLowerCase()).toBe('path')
+    expect(line?.getAttribute('d')).toContain('C')
+  })
+
   it('ช่วงที่ยังไม่จบต้องถูกทำเครื่องหมายและเขียนกำกับ', () => {
     const { container } = render(<VolumeTrend data={VOLUME} grain="month" onGrain={() => {}} />)
     expect(container.querySelectorAll('.ops-vbar.is-partial')).toHaveLength(1)

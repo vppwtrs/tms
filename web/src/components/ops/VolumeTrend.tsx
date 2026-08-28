@@ -1,5 +1,6 @@
 import { fmtNum } from '../../utils/format'
 import { volumeLabel, type OpsVolume, type VolumeGrain } from '../../api/opsToday'
+import { smoothPath } from '../../utils/curve'
 
 /**
  * ปริมาณงาน — แท่งคือจุดส่ง เส้นคือเที่ยววิ่ง สลับได้ วัน / เดือน / ปี
@@ -7,6 +8,10 @@ import { volumeLabel, type OpsVolume, type VolumeGrain } from '../../api/opsToda
  * **ไม่มีแกนตัวเลขด้านซ้าย** โดยตั้งใจ แกนกินความกว้างทุกแถวเพื่อบอกสิ่งที่ตัวเลข
  * บนหัวแท่งบอกอยู่แล้ว และการอ่านค่าจากแกนต้องกวาดตาไปกลับระหว่างแท่งกับแกน
  * ซึ่งช้ากว่าอ่านตัวเลขที่อยู่ตรงนั้นเลย
+ *
+ * เส้นเป็นเส้นโค้ง ไม่ใช่เส้นหักมุม — ข้อมูลรายเดือน/รายปีเป็นค่าที่ค่อย ๆ เปลี่ยน
+ * มุมแหลมที่ทุกจุดสื่อว่ามันกระโดดตรงนั้นพอดี ทั้งที่ระหว่างจุดเราไม่มีข้อมูลเลย
+ * แต่โค้งต้องไม่เหวี่ยงเกินค่าจริง (ดู utils/curve.ts)
  *
  * สองหน่วยอยู่ในภาพเดียวได้เพราะเป็นคนละรูปทรง (แท่ง/เส้น) ไม่ใช่สองสีของแท่ง
  * เส้นถูกปรับสเกลด้วยค่าสูงสุดของตัวมันเอง — อ่าน **รูปร่าง** ของมัน ไม่ใช่ค่าเทียบแท่ง
@@ -43,7 +48,9 @@ export function VolumeTrend({ data, grain, onGrain }: {
   const barH = (n: number): number => Math.max(2, ((base - PAD_T) * n) / maxStops)
   const lineY = (n: number): number => base - ((base - PAD_T) * n) / maxTrips
 
-  const line = points.map((p, i) => `${cx(i)},${lineY(p.trips)}`).join(' ')
+  /* เส้นโค้งแบบ monotone — โค้งได้แต่ห้ามเหวี่ยงเกินค่าจริง ช่วงที่เป็นศูนย์ติดกัน
+     แล้วพุ่งขึ้น เส้นแบบเฉลี่ยทั่วไปจะแอ่นต่ำกว่าศูนย์ก่อน ซึ่งวาดวันที่วิ่งติดลบ */
+  const line = smoothPath(points.map((p, i) => ({ x: cx(i), y: lineY(p.trips) })))
   const partial = points.find((p) => p.partial)
 
   return (
@@ -97,7 +104,7 @@ export function VolumeTrend({ data, grain, onGrain }: {
             </g>
           ))}
 
-          {points.length > 1 && <polyline className="ops-vline" points={line} />}
+          {line && <path className="ops-vline" d={line} />}
           {points.map((p, i) => (
             <circle key={`d-${p.key}`} className="ops-vdot" cx={cx(i)} cy={lineY(p.trips)} r={4} />
           ))}
