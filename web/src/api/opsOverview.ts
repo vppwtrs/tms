@@ -113,13 +113,18 @@ export interface OpsOverview {
 /** ไม่ส่งวันมา = วันนี้ · ส่ง from อย่างเดียว = ตั้งแต่วันนั้นถึงวันนี้ */
 export async function opsOverview(from?: string, to?: string): Promise<OpsOverview> {
   /* ฟังก์ชันนี้เพิ่งเกิด ยังไม่อยู่ใน types ที่ generate มาจากฐาน — cast ตรงนี้จุดเดียว
-     แล้วให้ทุกคนที่เรียกได้ type จริง เมื่อ regenerate types แล้วให้ลบ cast ทิ้ง */
-  const rpc = supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>
+     แล้วให้ทุกคนที่เรียกได้ type จริง เมื่อ regenerate types แล้วให้ลบ cast ทิ้ง
 
-  const { data, error } = await rpc('ops_overview', { p_from: from ?? null, p_to: to ?? null })
+     cast ที่ **ตัวไคลเอนต์** ไม่ใช่ที่เมธอด: การดึง supabase.rpc ออกมาเก็บในตัวแปร
+     ทำให้มันหลุดจากเจ้าของ พอเรียกแล้ว this เป็น undefined ข้างในไปอ่าน this.rest ต่อ
+     ได้ "Cannot read properties of undefined (reading 'rest')" ซึ่งอ่านไม่ออกเลยว่า
+     ต้นเหตุคืออะไร */
+  const client = supabase as unknown as {
+    rpc: (fn: string, args: Record<string, unknown>) =>
+      Promise<{ data: unknown; error: { message: string } | null }>
+  }
+
+  const { data, error } = await client.rpc('ops_overview', { p_from: from ?? null, p_to: to ?? null })
   if (error) throw new Error(error.message)
   if (!data) throw new Error('ฐานข้อมูลไม่ได้ส่งสรุปกลับมา')
   return data as OpsOverview
