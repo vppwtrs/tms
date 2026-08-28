@@ -51,6 +51,14 @@ export function VolumeTrend({ data, grain, onGrain }: {
   /* เส้นโค้งแบบ monotone — โค้งได้แต่ห้ามเหวี่ยงเกินค่าจริง ช่วงที่เป็นศูนย์ติดกัน
      แล้วพุ่งขึ้น เส้นแบบเฉลี่ยทั่วไปจะแอ่นต่ำกว่าศูนย์ก่อน ซึ่งวาดวันที่วิ่งติดลบ */
   const line = smoothPath(points.map((p, i) => ({ x: cx(i), y: lineY(p.trips) })))
+  /* พื้นจาง ๆ ใต้เส้น — เส้นลอย ๆ กลางที่ว่างไม่มีอะไรยึด ตาเลยอ่านไม่ออกว่ามันสูงจาก
+     อะไร พื้นที่ปิดลงถึงเส้นฐานทำให้เส้นมีน้ำหนักและมีที่ยืน */
+  const area = line
+    ? `${line} L${cx(points.length - 1)},${base} L${cx(0)},${base} Z`
+    : ''
+  /* เส้นแนวนอนจาง ๆ สามเส้น — ไม่มีตัวเลขกำกับเพราะตัวเลขอยู่บนหัวแท่งแล้ว
+     มีไว้ให้แท่งมีระดับอ้างอิง ไม่ใช่ลอยอยู่บนพื้นขาว */
+  const grid = [0.25, 0.5, 0.75].map((f) => base - (base - PAD_T) * f)
   const partial = points.find((p) => p.partial)
 
   return (
@@ -83,7 +91,13 @@ export function VolumeTrend({ data, grain, onGrain }: {
           role="img"
           aria-label={`ปริมาณงานราย${grain === 'day' ? 'วัน' : grain === 'month' ? 'เดือน' : 'ปี'}`}
         >
-          <line className="ops-chart-grid" x1={PAD_X} y1={base} x2={W - PAD_X} y2={base} />
+          {grid.map((y) => (
+            <line key={y} className="ops-chart-grid" x1={PAD_X} y1={y} x2={W - PAD_X} y2={y} />
+          ))}
+          <line className="ops-chart-base" x1={PAD_X} y1={base} x2={W - PAD_X} y2={base} />
+
+          {/* พื้นใต้เส้นวาดก่อนแท่ง ไม่งั้นสีจาง ๆ ไปเคลือบทับแท่งจนแท่งดูหม่นลง */}
+          {area && <path className="ops-varea" d={area} />}
 
           {points.map((p, i) => (
             <g key={p.key}>
@@ -95,9 +109,13 @@ export function VolumeTrend({ data, grain, onGrain }: {
                 height={barH(p.stops)}
                 rx={4}
               />
-              <text className="ops-vlabel" x={cx(i)} y={base - barH(p.stops) - 8}>
-                {fmtNum(p.stops)}
-              </text>
+              {/* วันที่ไม่มีงานไม่ต้องเขียนเลขศูนย์ — แท่งที่ไม่มีความสูงบอกอยู่แล้ว
+                  และเลขศูนย์เรียงกันห้าตัวคือสิ่งที่กินสายตาไปจากวันที่มีงานจริง */}
+              {p.stops > 0 && (
+                <text className="ops-vlabel" x={cx(i)} y={base - barH(p.stops) - 8}>
+                  {fmtNum(p.stops)}
+                </text>
+              )}
               <text className="ops-chart-axis is-x" x={cx(i)} y={base + 18}>
                 {volumeLabel(p.key, grain)}
               </text>

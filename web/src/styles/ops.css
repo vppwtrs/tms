@@ -1404,7 +1404,6 @@
   flex-wrap: wrap;
   margin-bottom: 6px;
 }
-.ops-chart-legend .sw-trips { background: var(--info); }
 .ops-lens {
   display: flex;
   gap: 2px;
@@ -1431,7 +1430,15 @@
   box-shadow: var(--shadow-sm);
 }
 .ops-lens button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
-.ops-vbar { fill: var(--accent); }
+/* ---- สีของกราฟ ----
+   เดิมแท่งเป็นม่วง 600 เส้นเป็นน้ำเงิน 600 ซึ่งเป็นสองสีที่ความเข้มเท่ากันและ
+   อยู่ติดกันบนวงล้อสี ตาอ่านเป็นโทนเดียวกันทั้งภาพ แล้วแยกไม่ออกว่าอันไหนคืออะไร
+   ถ้าไม่กลับไปอ่านคำอธิบาย
+
+   แก้ด้วยการให้สองชุด **หน้าที่ต่างกัน** ไม่ใช่แค่สีต่างกัน:
+   แท่ง = พื้นหลังของเรื่อง ม่วงอ่อนลงหนึ่งขั้น ถอยไปข้างหลัง
+   เส้น = ตัวเอก ใช้สีโทนอุ่นคนละครอบครัว จึงเด้งออกมาโดยไม่ต้องเพิ่มความหนา */
+.ops-vbar { fill: var(--violet-500); }
 /* ช่วงที่ยังไม่จบใช้ **เส้นขอบประ** ไม่ใช่สีจาง — สีที่จางพอจะอ่านว่า "ไม่แน่"
    ก็จางเกินเกณฑ์ contrast 3:1 ของวัตถุกราฟิกไปแล้ว และเส้นประแยกด้วยรูปทรง
    คนตาบอดสีจึงอ่านออกด้วย (บทเรียนเดียวกับแท่งประมาณการของ v5) */
@@ -1443,8 +1450,18 @@
 }
 .ops-vlabel { fill: var(--ink); font-size: 11px; font-weight: 700; text-anchor: middle; }
 .ops-chart-axis.is-x { text-anchor: middle; }
-.ops-vline { fill: none; stroke: var(--info); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-.ops-vdot { fill: var(--surface); stroke: var(--info); stroke-width: 2; }
+.ops-vline {
+  fill: none;
+  stroke: var(--rose-700);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ops-varea { fill: var(--rose-700); opacity: 0.09; stroke: none; }
+.ops-vdot { fill: var(--surface); stroke: var(--rose-700); stroke-width: 2; }
+.ops-chart-legend .sw-trips { background: var(--rose-700); }
+/* เส้นฐานเข้มกว่าเส้นกริด — แท่งต้องดูเหมือนวางอยู่บนพื้น ไม่ใช่ลอยกลางอากาศ */
+.ops-chart-base { stroke: var(--line-strong, var(--line)); stroke-width: 1.5; }
 
 /* ---- ใบสั่งงานประจำวัน ---- */
 .ops-job-id {
