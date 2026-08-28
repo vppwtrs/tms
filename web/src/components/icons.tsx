@@ -261,6 +261,19 @@ export const IconDownload = (p: IconProps) => (
   </svg>
 )
 
+/** ถาดรับของเข้า พร้อมลูกศรชี้ลงเข้าถาด — ใช้กับงานที่ **ไหลเข้ามาจากระบบอื่น**
+ *  ไม่ใช่ IconDownload ที่คนอ่านว่า "กดแล้วได้ไฟล์" และไม่ใช่ IconRoute ที่เมนู
+ *  แผนงานขนส่งใช้อยู่แล้ว — ไอคอนซ้ำในเมนูเดียวกันทำให้ตอนย่อแถบเหลือแต่รูป
+ *  แล้วแยกสองเมนูออกจากกันไม่ได้เลย */
+export const IconInbox = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M3 13h4l2 3h6l2-3h4" />
+    <path d="M4.5 7.5 3 13v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6l-1.5-5.5" />
+    <path d="M12 3v6" />
+    <path d="M9.5 6.5 12 9l2.5-2.5" />
+  </svg>
+)
+
 export const IconPrinter = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M6 9V3h12v6" />

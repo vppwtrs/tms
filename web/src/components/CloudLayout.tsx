@@ -4,7 +4,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { ROLE_LABEL } from '../utils/constants'
 import { fmtDate, fmtLongToday, initials } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { IconBox, IconBuilding, IconRoute, IconKey, IconLogout, IconMenu, IconMoon, IconPanelLeft, IconPin, IconChart, IconDashboard, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
+import { IconBox, IconBuilding, IconClipboard, IconInbox, IconRoute, IconKey, IconLogout, IconMenu, IconMoon, IconPanelLeft, IconPin, IconChart, IconDashboard, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
 import { ChangePasswordModal } from './ChangePasswordModal'
 import { OpsSearch } from './ops/OpsSearch'
 
@@ -49,10 +49,10 @@ const NAV: NavGroup[] = [
       /* หน้าแรกต้องมีบรรทัดของตัวเองในเมนู — ตอนที่มันเป็นแค่แผงลิงก์ การไม่มีทางกลับ
          ยังพอทน เพราะกลับไปก็ไม่มีอะไร ตอนนี้มันคือสรุปของทั้งวัน ทางกลับจึงต้องมี */
       { to: '/', label: 'ภาพรวมวันนี้', icon: IconDashboard },
-      { to: '/my-jobs', label: 'งานของฉัน', icon: IconTruckBig, perm: 'myjobs.view' },
+      { to: '/my-jobs', label: 'งานของฉัน', icon: IconClipboard, perm: 'myjobs.view' },
       /* หน้าเดียวจบ — รอบดึงข้อมูลเดินอยู่บนหน้านี้เอง แยกเป็นสองหน้าแล้วรอบดึงจะหยุด
          ทันทีที่คนสลับมาดูเที่ยว ซึ่งเป็นสิ่งที่เกิดตลอดวัน */
-      { to: '/tms-trips', label: 'งานจาก TMS', icon: IconRoute, perm: 'dispatch.view' },
+      { to: '/tms-trips', label: 'งานจาก TMS', icon: IconInbox, perm: 'dispatch.view' },
       { to: '/orders', label: 'ออเดอร์', icon: IconBox, perm: 'orders.view' },
       { to: '/dispatch', label: 'แผนงานขนส่ง', icon: IconRoute, perm: 'dispatch.view' },
       { to: '/tracking', label: 'ติดตามรถ', icon: IconPin, perm: 'myjobs.view' },
