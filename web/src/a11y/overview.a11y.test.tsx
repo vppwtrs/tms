@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { expectNoAxeViolations } from '../test/axe'
 import { DayProgress } from '../components/ops/DayProgress'
 import { CancelReasons } from '../components/ops/CancelReasons'
-import { FleetNow } from '../components/ops/FleetNow'
+import { FleetLine } from '../components/ops/FleetLine'
 import { TodayStats } from '../components/ops/TodayStats'
 import { FleetTable } from '../components/ops/FleetTable'
 import { VolumeTrend } from '../components/ops/VolumeTrend'
@@ -205,31 +205,36 @@ describe('CancelReasons', () => {
   })
 })
 
-describe('FleetNow', () => {
-  it('บอกรถว่างและคนขับว่าง ซึ่งเป็นคำถามที่ตามมาทันทีหลังเห็นว่างานเกินกำลัง', async () => {
-    const { container } = render(<FleetNow capacity={FULL_CAP} />)
-    expect(screen.getByText('วิ่งอยู่')).toBeTruthy()
-    expect(screen.getByText('คนขับว่าง')).toBeTruthy()
-    expect(container.querySelectorAll('.ops-fleet-row')).toHaveLength(4)
+describe('FleetLine', () => {
+  it('บอกรถว่างและคนขับว่าง ซึ่งเป็นคำถามที่ตามมาทันทีหลังเห็นว่ารถออกไปกี่คัน', async () => {
+    const { container } = render(<FleetLine capacity={FULL_CAP} />)
+    expect(screen.getByText(/วิ่งอยู่/)).toBeTruthy()
+    expect(screen.getByText(/คนขับว่าง/)).toBeTruthy()
     await expectNoAxeViolations(container)
   })
 
-  it('ประเภทงานที่ฐานไม่ส่งมา ต้องไม่ถูกวาดเป็นศูนย์', () => {
+  it('ไม่มีรถซ่อม/หยุด ต้องไม่เขียนบรรทัดที่เป็นศูนย์ทุกวัน', () => {
+    /* ศูนย์ที่เขียนไว้ทุกวันคือบรรทัดที่คนเลิกอ่านตั้งแต่สัปดาห์แรก */
+    render(<FleetLine capacity={{ ...FULL_CAP, vehicles_off: 0 }} />)
+    expect(screen.queryByText(/ซ่อม\/หยุด/)).toBeNull()
+  })
+
+  it('สิทธิ์ไม่ถึงข้อมูลรถ = ไม่แสดงอะไรเลย ไม่ใช่ศูนย์ที่อ่านว่ารถหมดอู่', () => {
+    const { container } = render(<FleetLine capacity={null} />)
+    expect(container.textContent).toBe('')
+  })
+})
+
+describe('TodayStats — หน่วยงานแยกประเภท', () => {
+  it('ประเภทที่ฐานไม่ส่งมา ต้องไม่ถูกวาดเป็นศูนย์', () => {
     /* วาดพาเรทเป็น 0 = บอกว่าวันนี้ไม่มีงานพาเรท ทั้งที่ระบบยังไม่มีข้อมูลประเภทนั้นเลย */
-    const { container } = render(<FleetNow capacity={FULL_CAP} units={TODAY().units} />)
-    expect(container.querySelectorAll('.ops-unitkeys span')).toHaveLength(2)
+    const { container } = render(<TodayStats data={TODAY()} />)
+    expect(container.querySelectorAll('.ops-unitbar i')).toHaveLength(2)
     expect(screen.getByText('BOX')).toBeTruthy()
   })
 
-  it('ไม่มีรถในระบบเลยต้องไม่หารด้วยศูนย์', () => {
-    const empty = { ...FULL_CAP, vehicles: 0, vehicles_running: 0, vehicles_free: 0, vehicles_off: 0, drivers: 0, drivers_free: 0 }
-    const { container } = render(<FleetNow capacity={empty} />)
-    const bars = [...container.querySelectorAll('.ops-meter i')] as HTMLElement[]
-    expect(bars.every((b) => b.style.width === '0%')).toBe(true)
-  })
-
-  it('สิทธิ์ไม่ถึงข้อมูลรถ = บอกตรง ๆ ไม่ใช่แถบว่างที่อ่านว่ารถหมดอู่', () => {
-    render(<FleetNow capacity={null} />)
-    expect(screen.getByText('สิทธิ์ไม่ถึงข้อมูลรถ')).toBeTruthy()
+  it('ไม่มีข้อมูลหน่วยงานเลย ต้องไม่วาดแถบเปล่า', () => {
+    const { container } = render(<TodayStats data={TODAY({ units: [] })} />)
+    expect(container.querySelector('.ops-band-units')).toBeNull()
   })
 })
