@@ -152,7 +152,7 @@ export default function CloudHome(): React.JSX.Element {
           <section className="ops-panel ops-fleetpanel">
             <div className="ops-panel-head">
               <h2 className="ops-panel-title" title="จุดที่คนขับกดปิดแล้ว ไม่ใช่ตำแหน่ง GPS — บนเว็บ ตำแหน่งหยุดส่งทันทีที่คนขับล็อกหน้าจอ">
-                รถแต่ละคันถึงไหนแล้ว
+                สถานะงานรายคัน
               </h2>
               <FleetLine capacity={now?.capacity ?? null} />
             </div>
