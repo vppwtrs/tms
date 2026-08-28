@@ -27,7 +27,6 @@ const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudData = lazy(() => import('./pages/CloudData'))
 const CloudUsage = lazy(() => import('./pages/CloudUsage'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
-const CloudTmsImport = lazy(() => import('./pages/CloudTmsImport'))
 const CloudTmsTrips = lazy(() => import('./pages/CloudTmsTrips'))
 const CloudVehicles = lazy(() => import('./pages/CloudVehicles'))
 const CloudDrivers = lazy(() => import('./pages/CloudDrivers'))
@@ -120,9 +119,15 @@ export default function AppCloud(): React.JSX.Element {
         <Route element={<Protected />}>
           <Route path="/" element={<Home />} />
           <Route path="/my-jobs" element={<RequirePermission permission="myjobs.view"><CloudMyJobs /></RequirePermission>} />
-          {/* หน้าดึงข้อมูลถูกยุบเข้าหน้าเที่ยวแล้ว — ลิงก์เก่าที่ใครบุ๊กมาร์กไว้ต้องไม่ตาย */}
+          {/* หน้าดึงข้อมูลกับหน้านำเข้าถูกยุบเข้าหน้าเที่ยวแล้ว
+              ลิงก์เก่าที่ใครบุ๊กมาร์กไว้ต้องไม่ตาย แต่ต้องไม่พาไปหน้าที่เลิกใช้แล้วด้วย
+
+              /tms-import เคยเป็นขั้นที่สอง "จับคู่ร้านแล้วนำเข้าเป็นออเดอร์" ซึ่งเลิกใช้
+              ตั้งแต่การนำเข้าย้ายไปอยู่ที่หน้าเที่ยว (auto_import_trips ตอนจบรอบดึง
+              และปุ่มนำเข้ารายเที่ยว) ตัวหน้าถูกถอดออกจากเมนูไปก่อนหน้านี้ แต่ route
+              ยังอยู่ คนที่รู้ URL จึงยังเปิดเจอหน้าที่ไม่มีใครดูแลแล้ว */}
           <Route path="/tms-pull" element={<Navigate to="/tms-trips" replace />} />
-          <Route path="/tms-import" element={<RequirePermission permission="orders.write"><CloudTmsImport /></RequirePermission>} />
+          <Route path="/tms-import" element={<Navigate to="/tms-trips" replace />} />
           <Route path="/tms-trips" element={<RequirePermission permission="dispatch.view"><CloudTmsTrips /></RequirePermission>} />
           <Route path="/orders" element={<RequirePermission permission="orders.view"><CloudOrders /></RequirePermission>} />
           <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
