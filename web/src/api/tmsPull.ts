@@ -220,10 +220,9 @@ interface PlHeader {
   details?: PlDetail[]
 }
 
-/* ต้องตรงกับ pageSize ของ op เดียวกันใน supabase/functions/tms-gateway/index.ts
-   ที่นี่ไม่ได้ส่งค่านี้ออกไปแล้ว (client กำหนดจำนวนต่อหน้าไม่ได้อีก) แต่ยังใช้ตัดสิน
-   ว่า "ได้ไม่ครบหน้า = หมดแล้ว" ตั้งไม่ตรงกันเมื่อไหร่ ตัวดึงจะหยุดกลางทางเงียบ ๆ */
-const PL_PAGE_SIZE = 500
+/* จำนวนต่อหน้าไม่อยู่ที่นี่แล้ว — ทั้งการวนและการตัดสินว่า "หมดแล้ว" ย้ายไปอยู่ใน
+   supabase/functions/tms-gateway/index.ts (op: scanPickingLists) ที่เดียว
+   เพดานจำนวนหน้ายังส่งไปจากที่นี่ได้ เพราะเป็นการตัดสินใจของคนเรียก ไม่ใช่ของ API */
 const PL_MAX_PAGES = 60
 
 /** รอบเฝ้าสถานะ: 5 นาที — TMS เป็นระบบที่คนทั้งบริษัทใช้ ถี่กว่านี้คือไปกินทรัพยากรเขา
@@ -259,29 +258,25 @@ export async function pullPickingLists(
   const headers: PlHeader[] = []
   let scanned = 0
 
-  for (let page = 1; page <= maxPages; page++) {
-    const r = await tmsOp<{ data?: PlHeader[]; items?: PlHeader[] }>('pickingLists', {
-      warehouse: opts.warehouse.code,
-      page,
-    })
-    const batch = r.data ?? r.items ?? []
-    scanned += batch.length
+  /* การวนทีละหน้าย้ายไปอยู่ใน Edge Function แล้ว — ที่นี่เหลือคำขอเดียว
+     กติกาหยุด (เจอของเก่ากว่าวันเริ่มต้น หรือหน้าไม่เต็ม) เหมือนเดิมทุกข้อ
+     ส่วน**การกรอง**ยังอยู่ที่นี่ที่เดียว ไม่ให้กฎธุรกิจแตกเป็นสองชุด */
+  const scan = await tmsOp<{ items: PlHeader[]; pages: number }>('scanPickingLists', {
+    warehouse: opts.warehouse.code,
+    from: opts.from,
+    maxPages,
+  })
 
-    let oldest = '9999-99-99'
-    for (const h of batch) {
-      const d = day(h.planDeliveryDate)
-      if (d && d < oldest) oldest = d
-      if (!d || d < opts.from || d > opts.to) continue
-      if (keep.size && !keep.has(s(h.status))) continue
-      headers.push(h)
-    }
+  scanned = scan.items.length
 
-    onProgress?.(`สแกน ${scanned} ใบ · เข้าเงื่อนไข ${headers.length} ใบ`)
-
-    /* เรียงจากใหม่ไปเก่า — หน้านี้เก่ากว่าวันเริ่มต้นแล้ว ที่เหลือก็เก่ากว่าทั้งหมด */
-    if (oldest !== '9999-99-99' && oldest < opts.from) break
-    if (batch.length < PL_PAGE_SIZE) break
+  for (const h of scan.items) {
+    const d = day(h.planDeliveryDate)
+    if (!d || d < opts.from || d > opts.to) continue
+    if (keep.size && !keep.has(s(h.status))) continue
+    headers.push(h)
   }
+
+  onProgress?.(`สแกน ${scanned} ใบ · เข้าเงื่อนไข ${headers.length} ใบ`)
 
   return {
     rows: plRowsOf(headers),
@@ -574,11 +569,6 @@ function toTripHeader(item: unknown): TripHeader {
   }
 }
 
-/* ต้องตรงกับ pageSize ของ op เดียวกันใน supabase/functions/tms-gateway/index.ts
-   ที่นี่ไม่ได้ส่งค่านี้ออกไปแล้ว (client กำหนดจำนวนต่อหน้าไม่ได้อีก) แต่ยังใช้ตัดสิน
-   ว่า "ได้ไม่ครบหน้า = หมดแล้ว" ตั้งไม่ตรงกันเมื่อไหร่ ตัวดึงจะหยุดกลางทางเงียบ ๆ */
-const TRIP_PAGE_SIZE = 200
-
 export interface TripPullResult {
   /** เที่ยวของกองรถเราเท่านั้น พร้อม pickingLists ที่ติดมา */
   trips: TripHeader[]
@@ -594,22 +584,6 @@ export interface TripPullResult {
 
 /** ดึงเที่ยวของกองรถเรา — ไม่ระบุวัน เพราะ API ไม่มีช่องรับช่วงวันที่ (เหมือนฝั่ง PL)
  *  เรียงจากวันใหม่ไปเก่า แล้วหยุดเมื่อพ้นช่วงที่ขอ */
-/** ใบทั้งหมดของเที่ยวหนึ่ง พร้อมรายการสินค้าและจำนวน
- *
- *  ถามไม่ได้ก็ถอยไปใช้ใบที่ติดมากับเที่ยว (ไม่มีจำนวน แต่ยังรู้ว่าไปส่งที่ไหน) —
- *  เที่ยวเดียวที่ถามไม่ผ่านต้องไม่ทำให้ทั้งรอบล้ม */
-async function tripPickingLists(trip: TripHeader): Promise<PlHeader[]> {
-  const embedded = trip.pickingLists ?? []
-  if (!trip.id) return embedded
-  try {
-    const r = await tmsOp<unknown>('tripPickingList', { id: trip.id })
-    const list = unwrap(r) as PlHeader[]
-    return list.length ? list : embedded
-  } catch {
-    return embedded
-  }
-}
-
 export async function pullTrips(
   opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
   onProgress?: (msg: string) => void,
@@ -622,36 +596,34 @@ export async function pullTrips(
   let outsourced = 0
   let complete = false
 
-  for (let page = 1; page <= maxPages; page++) {
-    const r = await tmsOp<unknown>('trips', { guid, page })
-    const batchRaw = unwrap(r)
-    const batch = batchRaw.map(toTripHeader)
-    scanned += batch.length
+  /* ลูปอ่านทีละหน้าอยู่ใน Edge Function — "ครบหรือไม่" ก็ตัดสินที่นั่นด้วย
+     (เจอของเก่ากว่าวันเริ่มต้น หรือชุดข้อมูลหมดก่อนชนเพดานหน้า = ครบ) */
+  const scan = await tmsOp<{ items: unknown[]; pages: number; complete: boolean }>('scanTrips', {
+    guid,
+    from: opts.from,
+    maxPages,
+  })
+  complete = scan.complete
 
-    let oldest = '9999-99-99'
-    for (const t of batch) {
-      const d = day(t.orderDate)
-      if (d && d < oldest) oldest = d
-      if (!d || d < opts.from || d > opts.to) continue
-      const carrierName = ourCarrier(s(t.carrierName))
-      if (!carrierName) {
-        outsourced++
-        continue
-      }
-      /* ส่งชื่อมาตรฐานให้ RPC เพราะฐานกรองด้วยชื่อ carrier แบบ exact
-         รหัสคลังต้องประทับเอง — payload ของ Trip ไม่มีมาให้ ทุกแถวใน tms_trips
-         จึงเคยมี warehouse_code เป็น null แยกไม่ออกว่าเที่ยวไหนออกจากคลังไหน
-         ซึ่งกลายเป็นปัญหาทันทีที่เลิกล็อกไว้แค่สองคลัง */
-      trips.push({ ...t, carrierName, warehouse: t.warehouse || opts.warehouse.code })
+  const batch = scan.items.map(toTripHeader)
+  scanned = batch.length
+
+  for (const t of batch) {
+    const d = day(t.orderDate)
+    if (!d || d < opts.from || d > opts.to) continue
+    const carrierName = ourCarrier(s(t.carrierName))
+    if (!carrierName) {
+      outsourced++
+      continue
     }
-
-    onProgress?.(`สแกน ${scanned} เที่ยว · ของกองรถเรา ${trips.length}`)
-
-    /* เจอวันที่เก่ากว่าช่วงที่ขอ = ผ่านของทั้งช่วงมาหมดแล้ว
-       ชุดข้อมูลหมดก่อนเพดานหน้า = อ่านครบทั้งที่มี ทั้งสองกรณีถือว่าครบ */
-    if (oldest !== '9999-99-99' && oldest < opts.from) { complete = true; break }
-    if (batch.length < TRIP_PAGE_SIZE) { complete = true; break }
+    /* ส่งชื่อมาตรฐานให้ RPC เพราะฐานกรองด้วยชื่อ carrier แบบ exact
+       รหัสคลังต้องประทับเอง — payload ของ Trip ไม่มีมาให้ ทุกแถวใน tms_trips
+       จึงเคยมี warehouse_code เป็น null แยกไม่ออกว่าเที่ยวไหนออกจากคลังไหน
+       ซึ่งกลายเป็นปัญหาทันทีที่เลิกล็อกไว้แค่สองคลัง */
+    trips.push({ ...t, carrierName, warehouse: t.warehouse || opts.warehouse.code })
   }
+
+  onProgress?.(`สแกน ${scanned} เที่ยว · ของกองรถเรา ${trips.length}`)
 
   /* ใบที่อยู่ในเที่ยวเราแปลงด้วยตัวเดียวกับฝั่ง PL — ที่อยู่ปลายทางที่ติดมากับ trip
      เป็นแบบเต็ม ("104 หมู่ที่ 7 บางกรวย นนทบุรี THA 11130") ต่างจาก PL search
@@ -660,10 +632,22 @@ export async function pullTrips(
      แต่ใบที่ติดมากับเที่ยว **ไม่มี details** จำนวนต่อรุ่นจึงว่างทั้งระบบ
      ต้องถามทีละเที่ยวที่ /v1/tripheaders/pickingList ซึ่งคืนใบพร้อมรายการครบ
      กองรถเราวิ่งวันละ 2–6 เที่ยว จำนวนคำขอต่อรอบจึงอยู่ในระดับที่ TMS ไม่รู้สึก */
+  /* เดิมถามทีละเที่ยวจากเบราว์เซอร์ = จำนวนคำขอเท่าจำนวนเที่ยว
+     ตอนนี้ส่ง id ไปทั้งก้อน ฝั่งโน้นยิงพร้อมกันทีละ 4 แล้วคืนมารอบเดียว
+     เที่ยวที่ถามไม่ผ่านคืน items ว่าง ซึ่งเรากลับไปใช้ใบที่ติดมากับเที่ยวเหมือนเดิม */
+  const withId = trips.filter((t) => t.id)
+  const detailed = withId.length
+    ? await tmsOp<{ lists: Array<{ id: string; items: PlHeader[] }> }>(
+        'scanTripPickingLists', { ids: withId.map((t) => String(t.id)) },
+      ).catch(() => ({ lists: [] as Array<{ id: string; items: PlHeader[] }> }))
+    : { lists: [] as Array<{ id: string; items: PlHeader[] }> }
+
+  const byTrip = new Map(detailed.lists.map((l) => [l.id, l.items]))
+
   const headers: PlHeader[] = []
   for (const t of trips) {
-    const detailed = await tripPickingLists(t)
-    headers.push(...detailed)
+    const fromScan = t.id ? byTrip.get(String(t.id)) : undefined
+    headers.push(...(fromScan?.length ? fromScan : (t.pickingLists ?? [])))
   }
 
   const rows = plRowsOf(headers)
