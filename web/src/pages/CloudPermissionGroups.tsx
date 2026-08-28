@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Button, ErrorBox, TableSkeleton } from '../components/ui'
 import { listPermissionAudit, listPermissionCatalog, listRolePermissions, saveRolePermission } from '../api/users'
-import { PERMISSION_INFO, ROLE_INFO } from '../utils/permissions'
+import { PERMISSION_INFO, ROLE_INFO, sectionedPermissions } from '../utils/permissions'
 import type { PermissionAuditRow, UserRole } from '../types/database'
 import { fmtDateTime } from '../utils/format'
 
@@ -14,17 +14,6 @@ const ROLES: UserRole[] = ['admin', 'dispatcher', 'viewer', 'driver']
  * ซึ่งตอบไม่ได้ถ้าดูแค่ด้านเดียว — กลุ่มคือค่าเริ่มต้น รายคนคือข้อยกเว้น
  * แยกเป็นสองหน้าแปลว่าต้องเด้งไปมาเพื่อตอบคำถามเดียว
  */
-/* ชั้นบนของหมวดสิทธิ์ — เรียงตามเมนูข้างซ้าย ไม่ได้ตั้งใหม่
-   เดิมหมวดทั้งเก้ากองอยู่ในตารางเดียวเรียงตามลำดับที่บังเอิญอยู่ใน PERMISSION_INFO
-   ความสูงไม่เท่ากันเลยเหลือช่องว่างเป็นหลุม ๆ และไม่มีอะไรบอกว่าหมวดไหนพวกเดียวกัน
-   คนที่เปิดหน้านี้คิดเป็นชั้น ("กลุ่มนี้แตะข้อมูลหลักได้ไหม") ไม่ได้คิดเป็นเก้ากล่อง */
-const SECTIONS: { label: string; hint: string; groups: string[] }[] = [
-  { label: 'ปฏิบัติการ', hint: 'งานประจำวันที่เกิดขึ้นบนหน้าจอ', groups: ['ภาพรวม', 'ออเดอร์', 'เที่ยวและการจัดส่ง', 'POD'] },
-  { label: 'ข้อมูลหลัก', hint: 'ทะเบียนที่งานประจำวันหยิบไปใช้', groups: ['ลูกค้า', 'รถยนต์', 'พนักงานขับรถ'] },
-  { label: 'งานของคนขับ', hint: 'สิทธิ์ที่ใช้ในแอปคนขับเท่านั้น', groups: ['งานของฉัน'] },
-  { label: 'ระบบ', hint: 'สงวนให้ผู้ดูแลระบบ', groups: ['ผู้ใช้และสิทธิ์'] },
-]
-
 export function RolePermissionsPanel(): React.JSX.Element {
   const [role, setRole] = useState<UserRole>('dispatcher')
   const [allowed, setAllowed] = useState<Set<string>>(new Set())
@@ -46,10 +35,9 @@ export function RolePermissionsPanel(): React.JSX.Element {
   }
   useEffect(() => { void load() }, [role])
 
-  const grouped = useMemo(() => {
-    const source = PERMISSION_INFO.filter((p) => available.length === 0 || available.includes(p.permission))
-    return source.reduce<Record<string, typeof source>>((acc, p) => { (acc[p.group] ??= []).push(p); return acc }, {})
-  }, [available])
+  /* ลำดับชั้น/หมวดมาจาก utils/permissions — หน้าสิทธิ์รายคนใช้ตัวเดียวกัน
+     สองหน้าจึงเรียงเหมือนกันเสมอ ไม่ต้องคอยไล่แก้ให้ตรงกันเอง */
+  const sections = useMemo(() => sectionedPermissions(available), [available])
 
   const toggle = async (permission: string): Promise<void> => {
     if (role === 'admin') return
@@ -84,21 +72,14 @@ export function RolePermissionsPanel(): React.JSX.Element {
         {role === 'admin' && <Badge label="กลุ่มป้องกันการแก้ไข" tone="pending" />}
       </div>
       {loading ? <TableSkeleton rows={8} cols={2} /> : <div className="pgroup-sections">
-      {/* หมวดที่ยังไม่ถูกจัดชั้น (สิทธิ์ใหม่ที่เพิ่มใน PERMISSION_INFO แล้วลืมมาต่อที่นี่)
-          ต้องยังโผล่ ไม่ใช่หายเงียบจนไม่มีใครรู้ว่ามันตั้งค่าไม่ได้ */}
-      {[...SECTIONS, { label: 'อื่น ๆ', hint: 'ยังไม่ได้จัดหมวด', groups: Object.keys(grouped).filter((g) => !SECTIONS.some((x) => x.groups.includes(g))) }].map((section) => {
-        /* หมวดที่ไม่มีสิทธิ์เหลือให้ตั้ง (catalog ตัดไปแล้ว) ต้องไม่เหลือหัวข้อลอยไว้ */
-        const groups = section.groups.filter((g) => grouped[g]?.length)
-        if (groups.length === 0) return null
-        return (
+      {sections.map((section) => (
         <section key={section.label} className="pgroup-band">
           <div className="pgroup-band-head">
             <h3 className="pgroup-band-title">{section.label}</h3>
             <span className="text-xs text-muted">{section.hint}</span>
           </div>
           <div className="pgroup-grid">
-          {groups.map((group) => {
-        const entries = grouped[group]!
+          {section.groups.map(({ group, entries }) => {
         /* จำนวนที่เปิดอยู่ต่อหมวด — คำถามที่หน้านี้ถูกเปิดมาถามคือ "กลุ่มนี้ทำอะไรได้บ้าง"
            ซึ่งเดิมตอบได้ทางเดียวคืออ่านทุกบรรทัดแล้วนับกล่องติ๊กเอาเอง สามสิบกว่าบรรทัด
            ตัวเลขต่อหมวดตอบโครงสร้างทั้งหน้าได้โดยไม่ต้องอ่านรายการเลย */
@@ -130,8 +111,7 @@ export function RolePermissionsPanel(): React.JSX.Element {
           })}
           </div>
         </section>
-        )
-      })}
+      ))}
       </div>}
       <p className="text-xs text-muted" style={{ margin: 0 }}>สิทธิ์ผู้ใช้และการเปลี่ยนกลุ่มจะถูกตรวจสอบซ้ำในระบบ ไม่ได้พึ่งเฉพาะหน้าจอนี้</p>
     </div>

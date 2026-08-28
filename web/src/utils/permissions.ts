@@ -37,3 +37,43 @@ export const PERMISSION_INFO: PermissionInfo[] = [
 
 export const permissionInfo = (permission: string): PermissionInfo =>
   PERMISSION_INFO.find((p) => p.permission === permission) ?? { permission, label: permission, group: 'อื่นๆ', description: 'สิทธิ์ระบบ' }
+
+/** ชั้นบนของหมวดสิทธิ์ — เรียงตามเมนูข้างซ้าย ไม่ได้ตั้งใหม่
+ *
+ *  อยู่ที่นี่เพราะมีสองหน้าจอที่ต้องเรียงเหมือนกัน: สิทธิ์เริ่มต้นของกลุ่ม กับสิทธิ์รายคน
+ *  ถ้าต่างหน้าต่างเรียง คนที่เปิดสองหน้าเทียบกันจะหาบรรทัดเดียวกันไม่เจอ
+ *  ซึ่งเป็นสิ่งที่ต้องทำทุกครั้งที่ตั้งข้อยกเว้นให้ใครสักคน */
+export const PERMISSION_SECTIONS: { label: string; hint: string; groups: string[] }[] = [
+  { label: 'ปฏิบัติการ', hint: 'งานประจำวันที่เกิดขึ้นบนหน้าจอ', groups: ['ภาพรวม', 'ออเดอร์', 'เที่ยวและการจัดส่ง', 'POD'] },
+  { label: 'ข้อมูลหลัก', hint: 'ทะเบียนที่งานประจำวันหยิบไปใช้', groups: ['ลูกค้า', 'รถยนต์', 'พนักงานขับรถ'] },
+  { label: 'งานของคนขับ', hint: 'สิทธิ์ที่ใช้ในแอปคนขับเท่านั้น', groups: ['งานของฉัน'] },
+  { label: 'ระบบ', hint: 'สงวนให้ผู้ดูแลระบบ', groups: ['ผู้ใช้และสิทธิ์'] },
+]
+
+/** จัดสิทธิ์เข้าหมวดแล้วเข้าชั้น ตามลำดับของ PERMISSION_SECTIONS
+ *
+ *  หมวดที่ยังไม่ถูกจัดชั้น (สิทธิ์ใหม่ที่เพิ่มใน PERMISSION_INFO แล้วลืมมาต่อที่นี่)
+ *  ต้องยังโผล่ในชั้น "อื่น ๆ" ไม่ใช่หายเงียบจนไม่มีใครรู้ว่ามันตั้งค่าไม่ได้
+ *
+ *  @param available รายการสิทธิ์ที่ตั้งได้จริงจาก catalog — ว่าง = ยังโหลดไม่เสร็จ ให้เอาทั้งหมด
+ */
+export function sectionedPermissions(
+  available: string[],
+): { label: string; hint: string; groups: { group: string; entries: PermissionInfo[] }[] }[] {
+  const source = PERMISSION_INFO.filter((p) => available.length === 0 || available.includes(p.permission))
+  const byGroup = source.reduce<Record<string, PermissionInfo[]>>((acc, p) => {
+    (acc[p.group] ??= []).push(p)
+    return acc
+  }, {})
+  const placed = new Set(PERMISSION_SECTIONS.flatMap((s) => s.groups))
+  const rest = Object.keys(byGroup).filter((g) => !placed.has(g))
+
+  return [...PERMISSION_SECTIONS, { label: 'อื่น ๆ', hint: 'ยังไม่ได้จัดหมวด', groups: rest }]
+    .map((section) => ({
+      label: section.label,
+      hint: section.hint,
+      /* หมวดที่ไม่มีสิทธิ์เหลือให้ตั้ง (catalog ตัดไปแล้ว) ต้องไม่เหลือหัวข้อลอยไว้ */
+      groups: section.groups.filter((g) => byGroup[g]?.length).map((g) => ({ group: g, entries: byGroup[g]! })),
+    }))
+    .filter((section) => section.groups.length > 0)
+}

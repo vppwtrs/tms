@@ -640,3 +640,102 @@
 }
 /* ในแถบเดียวการ์ดยืดเท่ากัน — ขอบล่างตรงกันทั้งแถวคือสิ่งที่อ่านออกว่า "เป็นพวกเดียวกัน" */
 .pgroup-band .pgroup-grid { align-items: stretch; }
+
+/* ---- สิทธิ์รายคน (กล่องในหน้าผู้ใช้และสิทธิ์) ----
+   ใช้โครง .pgroup-* ของแท็บสิทธิ์กลุ่มทั้งชุด เพิ่มเฉพาะส่วนที่ต่างกันจริง:
+   หัวกล่อง ตัวควบคุมสามสถานะ และแถบปุ่มล่างที่ต้องลอยอยู่กับที่ */
+
+.puser-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.puser-head-text {
+  margin: 0;
+  flex: 1;
+  min-width: 220px;
+  font-size: var(--font-sm);
+  color: var(--muted);
+}
+
+/* รายการเลื่อนได้ แต่ปุ่มบันทึกไม่เลื่อนหนี — กล่องนี้สูงกว่าจอเสมอเมื่อสิทธิ์ครบทุกหมวด
+   ปุ่มที่ต้องเลื่อนไปหาคือปุ่มที่คนกดผิดเพราะเลื่อนไม่สุด */
+.puser-sections {
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 0;
+}
+.puser-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* แถวสิทธิ์รายคนกดทั้งแถวไม่ได้ (มีสามปุ่มในตัว) จึงไม่ใช่ label และไม่ต้องเป็นมือชี้ */
+.puser-row { cursor: default; align-items: flex-start; flex-wrap: wrap; }
+/* การ์ดต้องกว้างกว่าของแท็บกลุ่ม เพราะแถวนี้มีปุ่มสามอันแทนสวิตช์อันเดียว
+   แคบกว่านี้ชื่อสิทธิ์หักเป็นสามบรรทัดจนอ่านเป็นคอลัมน์ไม่ได้ */
+.puser-sections .pgroup-grid { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+.puser-row .pmode { margin-left: auto; }
+/* ค่าที่กลุ่มให้ — เล็กและจาง อ่านเมื่อสงสัย ไม่ใช่สิ่งที่ต้องอ่านทุกแถว */
+.puser-base {
+  display: block;
+  margin-top: 3px;
+  font-style: normal;
+  font-size: var(--font-xs);
+  font-weight: 650;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.puser-base.is-yes { color: var(--success); opacity: 0.9; }
+.puser-row:hover { background: transparent; }
+/* ข้อที่ถูกตั้งพิเศษต้องเห็นได้จากการกวาดตา ไม่ใช่ต้องอ่านทีละแถว —
+   เส้นซ้ายคือสิ่งที่ทำให้ "คนนี้ต่างจากกลุ่มตรงไหน" ตอบได้ในวินาทีเดียว */
+.puser-row.is-override {
+  background: var(--surface);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.pmode {
+  display: flex;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--line);
+  background: var(--surface);
+}
+.pmode-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--font-xs);
+  font-weight: 650;
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--dur-snap) var(--spring-snap), color var(--dur-snap) var(--spring-snap);
+}
+.pmode-btn + .pmode-btn { box-shadow: inset 1px 0 0 var(--line); }
+.pmode-btn:hover { background: var(--surface-2); color: var(--ink); }
+.pmode-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+/* สามสถานะต่างกันด้วยสี **และ** น้ำหนักพื้นหลัง ไม่ใช่สีอย่างเดียว
+   คนตาบอดสีต้องแยกอนุญาตกับปฏิเสธออกได้จากตำแหน่งและความเข้ม */
+.pmode-btn.is-active { color: var(--ink); background: var(--surface-2); }
+.pmode-btn.is-allow.is-active { background: var(--success-bg); color: var(--success); }
+.pmode-btn.is-deny.is-active { background: var(--danger-bg); color: var(--danger); }
+.pmode-btn.is-inherit.is-active { background: var(--surface-2); color: var(--ink); }
+
+@media (max-width: 620px) {
+  /* จอแคบ ปุ่มสามช่องลงมาอยู่ใต้ชื่อสิทธิ์ ดีกว่าบีบจนอ่านคำบนปุ่มไม่ออก */
+  .puser-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .pmode { align-self: flex-start; }
+}

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, MoreMenu, PageHeader, Select, TableSkeleton, TabPanel, Tabs } from '../components/ui'
 import { PermissionAuditPanel, RolePermissionsPanel } from './CloudPermissionGroups'
-import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listUserPermissionOverrides, saveUserPermission, resetUserPermissions, seedRolePermissionPresets } from '../api/users'
+import { listUsers, approveUser, revokeUser, updateUserRole, listPermissionCatalog, listRolePermissions, listUserPermissionOverrides, saveUserPermission, resetUserPermissions, seedRolePermissionPresets } from '../api/users'
 import { createUser, resetPassword, deleteUserAccount, driversWithoutAccount, type NewAccount } from '../api/adminUsers'
 import { ChangePasswordModal } from '../components/ChangePasswordModal'
 import type { PermissionMode, UserRow, UserRole } from '../types/database'
-import { permissionInfo } from '../utils/permissions'
+import { sectionedPermissions } from '../utils/permissions'
 import { fmtDateTime } from '../utils/format'
 
 const displayUsername = (value: string): string => value.replace(/@tms\.local$/i, '')
@@ -86,6 +86,13 @@ export default function CloudUsers(): React.JSX.Element {
   const [permissionTarget, setPermissionTarget] = useState<UserRow | null>(null)
   const [permissionCatalog, setPermissionCatalog] = useState<{ permission: string; label: string }[]>([])
   const [permissionModes, setPermissionModes] = useState<Record<string, PermissionMode>>({})
+  /* สิทธิ์ที่กลุ่มให้อยู่แล้ว — ต้องรู้ ไม่งั้นหน้าจอบอกได้แค่ "ใช้ตามกลุ่ม"
+     โดยไม่บอกว่าตามกลุ่มแล้วได้หรือไม่ได้ ซึ่งเป็นคำตอบที่คนเปิดหน้านี้มาหา */
+  const [roleAllowed, setRoleAllowed] = useState<Set<string>>(new Set())
+  /* ค่าตอนเปิดกล่อง — ใช้เทียบตอนบันทึกเพื่อส่งเฉพาะข้อที่เปลี่ยน
+     เดิมส่งทุกข้อในแคตตาล็อกทุกครั้ง = ยิงยี่สิบกว่าคำขอเพื่อแก้ข้อเดียว
+     และทุกข้อที่ส่งไปจะถูกบันทึกลงประวัติการเปลี่ยนสิทธิ์ด้วย */
+  const [permissionInitial, setPermissionInitial] = useState<Record<string, PermissionMode>>({})
   const [permissionBusy, setPermissionBusy] = useState(false)
   const [roleBusy, setRoleBusy] = useState<number | null>(null)
   const [presetBusy, setPresetBusy] = useState(false)
@@ -95,9 +102,18 @@ export default function CloudUsers(): React.JSX.Element {
     setPermissionTarget(u)
     setPermissionBusy(true)
     try {
-      const [catalog, current] = await Promise.all([listPermissionCatalog(), listUserPermissionOverrides(u.id)])
+      const [catalog, current, ofRole] = await Promise.all([
+        listPermissionCatalog(),
+        listUserPermissionOverrides(u.id),
+        listRolePermissions(u.role),
+      ])
       setPermissionCatalog(catalog)
-      setPermissionModes(Object.fromEntries(current.map((p) => [p.permission, p.mode ?? (p.allowed ? 'allow' : 'deny')])) as Record<string, PermissionMode>)
+      const modes = Object.fromEntries(
+        current.map((p) => [p.permission, p.mode ?? (p.allowed ? 'allow' : 'deny')]),
+      ) as Record<string, PermissionMode>
+      setPermissionModes(modes)
+      setPermissionInitial(modes)
+      setRoleAllowed(new Set(ofRole))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'โหลดสิทธิ์ไม่สำเร็จ')
       setPermissionTarget(null)
@@ -108,9 +124,14 @@ export default function CloudUsers(): React.JSX.Element {
     if (!permissionTarget) return
     setPermissionBusy(true)
     try {
-      await Promise.all(permissionCatalog.map((p) => saveUserPermission(permissionTarget.id, p.permission, permissionModes[p.permission] ?? 'inherit')))
+      const changed = permissionCatalog.filter(
+        (p) => (permissionModes[p.permission] ?? 'inherit') !== (permissionInitial[p.permission] ?? 'inherit'),
+      )
+      await Promise.all(changed.map((p) => saveUserPermission(permissionTarget.id, p.permission, permissionModes[p.permission] ?? 'inherit')))
       setPermissionTarget(null)
-      setNotice(`บันทึกสิทธิ์ของ ${permissionTarget.name} แล้ว`)
+      setNotice(changed.length === 0
+        ? 'ไม่มีอะไรเปลี่ยน'
+        : `บันทึกสิทธิ์ของ ${permissionTarget.name} แล้ว · ${changed.length} ข้อ`)
       setError(null)
     } catch (e) { setError(e instanceof Error ? e.message : 'บันทึกสิทธิ์ไม่สำเร็จ') }
     finally { setPermissionBusy(false) }
@@ -312,23 +333,115 @@ export default function CloudUsers(): React.JSX.Element {
         onDone={() => setNotice('เปลี่ยนรหัสผ่านของบัญชีคุณสำเร็จแล้ว')}
       />
 
-      <Modal open={permissionTarget !== null} onClose={() => setPermissionTarget(null)} title={permissionTarget ? `สิทธิ์ของ ${permissionTarget.name}` : 'สิทธิ์ผู้ใช้'} size="md">
-        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)' }}>
-          ค่าเริ่มต้นมาจากกลุ่ม <b>{permissionTarget ? ROLE_LABEL[permissionTarget.role] : ''}</b> · เปลี่ยนเฉพาะคนนี้ได้เมื่อจำเป็น
-        </p>
-        {permissionBusy && permissionCatalog.length === 0 ? <TableSkeleton rows={6} cols={2} /> : (
-          <div style={{ display: 'grid', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
-            {permissionCatalog.map((p) => (
-              <div key={p.permission} style={{ display: 'grid', gridTemplateColumns: '1fr 150px', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
-                <span><b>{permissionInfo(p.permission).label}</b><small style={{ display: 'block', color: 'var(--muted)' }}>{permissionInfo(p.permission).description}</small></span>
-                <Select aria-label={`สถานะสิทธิ์ ${permissionInfo(p.permission).label}`} value={permissionModes[p.permission] ?? 'inherit'} onChange={(e) => setPermissionModes({ ...permissionModes, [p.permission]: e.target.value as PermissionMode })}>
-                  <option value="inherit">ใช้ตามกลุ่ม</option><option value="allow">อนุญาตเฉพาะคนนี้</option><option value="deny">ปฏิเสธเฉพาะคนนี้</option>
-                </Select>
-              </div>
-            ))}
-          </div>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+      {/* สิทธิ์รายคน — โครงเดียวกับแท็บ "สิทธิ์เริ่มต้นของกลุ่ม" โดยตั้งใจ
+          คนที่เปิดกล่องนี้เพิ่งดูหน้ากลุ่มมา ถ้าสองที่เรียงคนละแบบ เขาต้องหาบรรทัด
+          เดียวกันใหม่ทุกครั้ง ต่างกันแค่ตัวควบคุม: กลุ่มมีสองสถานะ (เปิด/ปิด)
+          รายคนมีสาม (ตามกลุ่ม/อนุญาต/ปฏิเสธ) จึงเป็นปุ่มสามช่องแทนสวิตช์
+
+          ทิ้ง <Select> เดิมเพราะมันซ่อนคำตอบ: ต้องกดเปิดถึงจะรู้ว่ามีตัวเลือกอะไร
+          และยี่สิบกว่าแถวที่เขียนว่า "อนุญาตเฉพาะคนนี้" เหมือนกันหมด อ่านไม่ออกว่า
+          ข้อไหนคือข้อยกเว้นจริง ๆ */}
+      <Modal
+        open={permissionTarget !== null}
+        onClose={() => setPermissionTarget(null)}
+        title={permissionTarget ? `สิทธิ์ของ ${permissionTarget.name}` : 'สิทธิ์ผู้ใช้'}
+        size="lg"
+      >
+        {permissionBusy && permissionCatalog.length === 0 ? <TableSkeleton rows={6} cols={2} /> : (() => {
+          const sections = sectionedPermissions(permissionCatalog.map((p) => p.permission))
+          const effective = (permission: string): boolean => {
+            const mode = permissionModes[permission] ?? 'inherit'
+            return mode === 'inherit' ? roleAllowed.has(permission) : mode === 'allow'
+          }
+          const overrides = permissionCatalog.filter((p) => (permissionModes[p.permission] ?? 'inherit') !== 'inherit').length
+          return <>
+            <div className="puser-head">
+              <p className="puser-head-text">
+                ค่าเริ่มต้นมาจากกลุ่ม <b>{permissionTarget ? ROLE_LABEL[permissionTarget.role] : ''}</b>
+                {' · '}เปลี่ยนเฉพาะคนนี้ได้เมื่อจำเป็น
+              </p>
+              {/* ตัวเลขนี้คือคำตอบของคำถามที่คนเปิดกล่องมาถามบ่อยที่สุด —
+                  "คนนี้ถูกตั้งพิเศษไว้ตรงไหนบ้าง" ซึ่งเดิมต้องกวาดอ่านทั้งยี่สิบกว่าแถว */}
+              <Badge
+                label={overrides === 0 ? 'ใช้ตามกลุ่มทั้งหมด' : `ต่างจากกลุ่ม ${overrides} ข้อ`}
+                tone={overrides === 0 ? 'available' : 'accent'}
+              />
+            </div>
+
+            <div className="pgroup-sections puser-sections">
+              {sections.map((section) => (
+                <section key={section.label} className="pgroup-band">
+                  <div className="pgroup-band-head">
+                    <h3 className="pgroup-band-title">{section.label}</h3>
+                    <span className="text-xs text-muted">{section.hint}</span>
+                  </div>
+                  <div className="pgroup-grid">
+                    {section.groups.map(({ group, entries }) => {
+                      /* นับ "ผลลัพธ์จริง" ไม่ใช่จำนวนข้อยกเว้น — คำถามคือคนนี้ทำอะไรได้
+                         ส่วนว่าได้เพราะกลุ่มให้หรือเพราะตั้งพิเศษ อ่านจากปุ่มในแถว */
+                      const on = entries.filter((p) => effective(p.permission)).length
+                      return (
+                        <section key={group} className="pgroup">
+                          <h3 className="pgroup-head">
+                            {group}
+                            <span className={`pgroup-count${on === 0 ? ' is-none' : on === entries.length ? ' is-all' : ''}`}>
+                              {on}/{entries.length}
+                            </span>
+                          </h3>
+                          <div className="pgroup-list">
+                            {entries.map((p) => {
+                              const mode = permissionModes[p.permission] ?? 'inherit'
+                              const fromGroup = roleAllowed.has(p.permission)
+                              return (
+                                <div
+                                  key={p.permission}
+                                  className={`pgroup-row puser-row${effective(p.permission) ? ' is-on' : ''}${mode === 'inherit' ? '' : ' is-override'}`}
+                                >
+                                  <span className="pgroup-text">
+                                    <b>{p.label}</b>
+                                    <small>{p.description}</small>
+                                    {/* ค่าของกลุ่มเขียนไว้ในแถว ไม่ได้ยัดลงในป้ายปุ่ม —
+                                        ปุ่มสามอันต้องกว้างเท่ากันทุกแถว ถึงจะกวาดเป็นคอลัมน์เดียวได้
+                                        และคำว่า "ตามกลุ่ม" ยาวไม่เท่ากันแต่ละแถวคือสิ่งที่ทำลายคอลัมน์นั้น */}
+                                    <em className={`puser-base${fromGroup ? ' is-yes' : ''}`}>
+                                      {fromGroup ? 'กลุ่มนี้ให้อยู่แล้ว' : 'กลุ่มนี้ไม่ให้'}
+                                    </em>
+                                  </span>
+                                  {/* ปุ่มสามช่อง ไม่ใช่ dropdown — สามตัวเลือกที่เห็นพร้อมกัน
+                                      กดครั้งเดียวจบ และช่องที่เลือกอยู่อ่านออกจากระยะไกล */}
+                                  <div className="pmode" role="radiogroup" aria-label={`สิทธิ์ ${p.label}`}>
+                                    {([
+                                      ['inherit', 'ตามกลุ่ม', 'ใช้ค่าของกลุ่ม เปลี่ยนกลุ่มเมื่อไหร่คนนี้เปลี่ยนตาม'],
+                                      ['allow', 'อนุญาต', 'ให้สิทธิ์เฉพาะคนนี้ แม้กลุ่มจะไม่ให้'],
+                                      ['deny', 'ปฏิเสธ', 'ตัดสิทธิ์เฉพาะคนนี้ แม้กลุ่มจะให้'],
+                                    ] as const).map(([value, label, help]) => (
+                                      <button
+                                        key={value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={mode === value}
+                                        title={help}
+                                        className={`pmode-btn is-${value}${mode === value ? ' is-active' : ''}`}
+                                        onClick={() => setPermissionModes({ ...permissionModes, [p.permission]: value })}
+                                      >
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </section>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </>
+        })()}
+        <div className="puser-actions">
           <Button variant="outline" onClick={() => void resetPermissions()} loading={permissionBusy}>คืนค่าเริ่มต้นกลุ่ม</Button>
           <Button variant="outline" onClick={() => setPermissionTarget(null)}>ยกเลิก</Button>
           <Button loading={permissionBusy} onClick={() => void savePermissions()}>บันทึกสิทธิ์</Button>
