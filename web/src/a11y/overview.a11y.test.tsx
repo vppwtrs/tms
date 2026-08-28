@@ -2,11 +2,12 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { expectNoAxeViolations } from '../test/axe'
 import { DayProgress } from '../components/ops/DayProgress'
-import { KpiTiles } from '../components/ops/KpiTiles'
-import { VolumeChart } from '../components/ops/VolumeChart'
 import { CancelReasons } from '../components/ops/CancelReasons'
 import { FleetNow } from '../components/ops/FleetNow'
-import type { KpiTrendPoint, OverviewChart, OverviewKpis } from '../api/opsOverview'
+import { TodayStats } from '../components/ops/TodayStats'
+import { FleetTable } from '../components/ops/FleetTable'
+import { VolumeTrend } from '../components/ops/VolumeTrend'
+import type { FleetRow, OpsToday, OpsVolume } from '../api/opsToday'
 
 /**
  * ชิ้นส่วนของหน้าภาพรวม — เรนเดอร์จริงด้วยข้อมูลที่หน้างานเจอได้จริง
@@ -16,37 +17,41 @@ import type { KpiTrendPoint, OverviewChart, OverviewKpis } from '../api/opsOverv
  * "ยังไม่มีอะไรเลย" ซึ่งเป็นสภาพของหน้าจอทุกเช้าก่อนเที่ยวแรกออก
  */
 
-const EMPTY_KPIS: OverviewKpis = {
-  same_day: null, stops_per_trip: null, cost_per_stop: null, cost_variance: null,
-}
-
-const FULL_KPIS: OverviewKpis = {
-  same_day: { pct: 96.8, base: 170 },
-  stops_per_trip: { value: 7.4, trips: 23 },
-  cost_per_stop: { value: 312, coverage_pct: 87, trips: 20 },
-  cost_variance: { total: 4180, per_trip: 209, coverage_pct: 62, trips: 14 },
-}
-
-const CHART: OverviewChart = {
-  actual: [{ day: '2026-08-26', stops: 168 }, { day: '2026-08-27', stops: 174 }],
-  planned: [{ day: '2026-08-29', stops: 152 }],
-  estimate: [
-    { day: '2026-08-29', stops: 150, low: 120, high: 190, samples: 4 },
-    { day: '2026-08-31', stops: 228, low: 190, high: 250, samples: 2 },
-  ],
-}
-
-const TREND: KpiTrendPoint[] = [
-  { day: '2026-08-24', same_day_pct: 94.1, stops_per_trip: 6.9, cost_per_stop: 340 },
-  /* วันหยุดที่ไม่มีงาน — ค่าเป็น null ไม่ใช่ 0 เส้นต้องข้าม ไม่ใช่ดิ่งลงพื้น */
-  { day: '2026-08-25', same_day_pct: null, stops_per_trip: null, cost_per_stop: null },
-  { day: '2026-08-26', same_day_pct: 95.5, stops_per_trip: 7.1, cost_per_stop: 325 },
-  { day: '2026-08-27', same_day_pct: 96.8, stops_per_trip: 7.4, cost_per_stop: 312 },
-]
-
 const FULL_CAP = {
   vehicles: 12, vehicles_running: 8, vehicles_free: 3, vehicles_off: 1,
   drivers: 11, drivers_free: 2, sample_days: 22, stops_per_vehicle_day: 18.5, max_stops_per_day: 204,
+}
+
+const ROW = (over: Partial<FleetRow> = {}): FleetRow => ({
+  vehicle_id: 1, plate: '4ฒญ9845', crew: 'จิรวิรัฐ + ฉัตรชัย', crew_size: 2,
+  trips: 2, stops: 9, stops_done: 7, over_free: true,
+  last_stop: 'เซเว่น สาขาบางกรวย', last_at: new Date().toISOString(),
+  cost_plan: 2400, cost_actual: 2900, cost_open: 0, bonus: 200,
+  ...over,
+})
+
+const TODAY = (over: Partial<OpsToday> = {}): OpsToday => ({
+  date: '2026-08-28',
+  money: true,
+  today: {
+    vehicles_used: 6, vehicles_usable: 9, vehicles_free: 3,
+    trips: 14, shipments: 87, stops: 96, stops_done: 68,
+    cost_plan: 9000, cost_actual: 10600, trips_open_cost: 0,
+    bonus_total: 1725, bonus_trips: 4,
+  },
+  units: [{ kind: 'vehicle', orders: 68, units: 68 }, { kind: 'box', orders: 5, units: 19 }],
+  fleet: [ROW()],
+  bonus_rule: { free_stops: 5, rate: 50 },
+  ...over,
+})
+
+const VOLUME: OpsVolume = {
+  grain: 'month',
+  points: [
+    { key: '2026-06-01', stops: 2486, trips: 310, partial: false },
+    { key: '2026-07-01', stops: 2205, trips: 288, partial: false },
+    { key: '2026-08-01', stops: 1284, trips: 170, partial: true },
+  ],
 }
 
 describe('DayProgress', () => {
@@ -69,68 +74,94 @@ describe('DayProgress', () => {
   })
 })
 
-describe('KpiTiles', () => {
-  it('สิทธิ์ไม่ถึงหรือไม่มีข้อมูล ต้องขึ้นขีด ไม่ใช่เลขศูนย์', async () => {
-    /* ศูนย์บาทกับ "ยังไม่มีตัวเลข" เป็นคนละเรื่อง แสดงเป็น 0 แล้วผู้บริหาร
-       จะอ่านว่าไม่มีส่วนต่าง ทั้งที่ความจริงคือยังไม่มีใครปิดตัวเลข */
-    const { container } = render(<KpiTiles kpis={EMPTY_KPIS} prev={null} trend={[]} />)
-    expect(container.querySelectorAll('.ops-kpi')).toHaveLength(4)
-    expect(screen.getAllByText('—').length).toBe(4)
+describe('TodayStats', () => {
+  it('แสดงตัวเลขงานวันนี้ครบ และไม่พังตอนยังไม่มีข้อมูล', async () => {
+    const { container } = render(<TodayStats data={null} />)
+    expect(container.querySelector('[aria-busy="true"]')).toBeTruthy()
     await expectNoAxeViolations(container)
   })
 
-  it('ไม่มีช่วงก่อนให้เทียบ ต้องบอกตรง ๆ ไม่ใช่แสดงลูกศรมั่ว', () => {
-    render(<KpiTiles kpis={FULL_KPIS} prev={null} trend={TREND} />)
-    expect(screen.getAllByText('ยังไม่มีช่วงก่อนให้เทียบ')).toHaveLength(4)
+  it('สิทธิ์ไม่ถึงตัวเลขเงิน = ไม่แสดงช่องเงินเลย ไม่ใช่แสดงเป็นขีด', () => {
+    /* ขีดแปลว่า "ไม่มีข้อมูล" ซึ่งคนละเรื่องกับ "คุณดูไม่ได้" — คนที่เห็นขีด
+       จะไปตามหาว่าใครลืมกรอก ทั้งที่ตัวเลขมีอยู่ครบ */
+    const { container } = render(<TodayStats data={TODAY({ money: false })} />)
+    expect(container.querySelectorAll('.ops-tstat.is-money')).toHaveLength(0)
+    expect(screen.getByText('ใช้รถ')).toBeTruthy()
   })
 
-  it('ค่าเหมาต่อจุดที่ถูกลง = ข่าวดี ต้องเป็นสีดี ไม่ใช่สีตามทิศลูกศร', () => {
-    const prev: OverviewKpis = {
-      ...FULL_KPIS,
-      /* ค่าเหมาแพงกว่าเดิม (ลดลงมา = ดี) และเคยจบครบมากกว่าเดิม (ลดลงมา = แย่)
-         ใบเดียวกันสองทิศ พิสูจน์ว่าสีตามความหมาย ไม่ใช่ตามทิศลูกศร */
-      cost_per_stop: { value: 330, coverage_pct: 90, trips: 21 },
-      same_day: { pct: 98.2, base: 165 },
-    }
-    const { container } = render(<KpiTiles kpis={FULL_KPIS} prev={prev} trend={TREND} />)
-    const cheaper = screen.getByText(/คุ้มขึ้น 18/)
-    expect(cheaper.className).toContain('is-good')
-    expect(container.querySelector('.ops-kpi-delta.is-bad')).toBeTruthy()
+  it('ยังปิดตัวเลขไม่ครบ ต้องบอกก่อน ไม่ใช่โชว์ว่าถูกกว่าแผน', () => {
+    /* วันที่ยังไม่จบมีค่าจริงต่ำกว่าแผนเสมอ เพราะยังไม่ปิด ไม่ใช่เพราะประหยัด */
+    render(<TodayStats data={TODAY({
+      today: { ...TODAY().today, cost_actual: 4000, trips_open_cost: 5 },
+    })} />)
+    expect(screen.getByText(/ยังไม่ปิด 5 เที่ยว/)).toBeTruthy()
   })
 
-  it('เขียนกำกับว่าคิดจากกี่ % ของเที่ยว', () => {
-    render(<KpiTiles kpis={FULL_KPIS} prev={null} trend={TREND} />)
-    expect(screen.getByText('จาก 87% ของเที่ยว')).toBeTruthy()
-    expect(screen.getByText('จาก 62% ที่ปิดตัวเลข')).toBeTruthy()
+  it('ปิดครบแล้วจึงบอกส่วนต่าง พร้อมทิศทาง', async () => {
+    const { container } = render(<TodayStats data={TODAY()} />)
+    expect(screen.getByText(/เกินแผน 1,600/)).toBeTruthy()
+    await expectNoAxeViolations(container)
   })
 })
 
-describe('VolumeChart', () => {
-  it('วันที่ TMS ยืนยันแล้ว ต้องไม่ถูกวาดซ้ำด้วยแท่งประมาณการ', async () => {
-    const { container } = render(
-      <VolumeChart chart={CHART} capacity={FULL_CAP} />,
-    )
-    /* 29 ส.ค. มีทั้งใน planned และ estimate — ของจริงต้องชนะ */
-    expect(container.querySelectorAll('.ops-bar')).toHaveLength(4)
-    expect(container.querySelectorAll('.ops-bar.is-planned')).toHaveLength(1)
+describe('FleetTable', () => {
+  it('บอกจุดล่าสุดและความคืบหน้าเป็นแถวเดียวจบ', async () => {
+    const { container } = render(<FleetTable data={TODAY()} />)
+    expect(screen.getByText('4ฒญ9845')).toBeTruthy()
+    expect(screen.getByText(/เซเว่น สาขาบางกรวย/)).toBeTruthy()
+    expect((container.querySelector('.ops-rowbar i') as HTMLElement).style.width).toBe('77.77777777777779%')
     await expectNoAxeViolations(container)
   })
 
-  it('วันที่คาดว่าเกินกำลังรับงานต้องถูกเตือน', () => {
-    render(
-      <VolumeChart chart={CHART} capacity={FULL_CAP} />,
+  it('เที่ยวที่ขึ้นสองคน ต้องเขียนว่าคนละเท่าไร ไม่ให้คนคิดเอง', () => {
+    render(<FleetTable data={TODAY()} />)
+    expect(screen.getByText('คนละ 100')).toBeTruthy()
+  })
+
+  it('เที่ยวที่ยังไม่ปิดตัวเลข ต้องเขียนว่ารอปิดเที่ยว ไม่ใช่ 0', () => {
+    /* ศูนย์แปลว่าไม่มีค่าใช้จ่าย ซึ่งคนละเรื่องกับยังไม่รู้ */
+    render(<FleetTable data={TODAY({ fleet: [ROW({ cost_actual: null, cost_open: 2 })] })} />)
+    expect(screen.getByText('รอปิดเที่ยว')).toBeTruthy()
+  })
+
+  it('รถที่ยังไม่เกินเกณฑ์ ต้องไม่มีป้ายเบี้ยและไม่มียอด', () => {
+    const { container } = render(
+      <FleetTable data={TODAY({ fleet: [ROW({ stops: 4, stops_done: 3, over_free: false, bonus: 0 })] })} />,
     )
-    expect(screen.getByText(/2026-08-31.*เกินกำลังรับงาน/)).toBeTruthy()
+    expect(container.querySelector('.ops-over')).toBeNull()
+    expect(container.querySelector('.ops-money.is-zero')).toBeTruthy()
   })
 
-  it('ประมาณการที่ข้อมูลไม่ถึง 4 สัปดาห์ ถูกทำเครื่องหมายไว้', () => {
-    const { container } = render(<VolumeChart chart={CHART} capacity={null} />)
-    expect(container.querySelectorAll('.ops-bar.is-estimate.is-thin')).toHaveLength(1)
+  it('สิทธิ์ไม่ถึงตัวเลขเงิน = ไม่มีคอลัมน์เงินทั้งสองคอลัมน์', () => {
+    const { container } = render(<FleetTable data={TODAY({ money: false })} />)
+    expect(container.querySelectorAll('thead th')).toHaveLength(4)
   })
 
-  it('ไม่มีข้อมูลเลยต้องไม่พัง', () => {
-    render(<VolumeChart chart={{ actual: [], planned: [], estimate: [] }} capacity={null} />)
-    expect(screen.getByText('ยังไม่มีข้อมูลปริมาณงานในช่วงนี้')).toBeTruthy()
+  it('ยังไม่มีรถออกงาน ต้องบอกว่าต้องไปทำอะไรต่อ', () => {
+    render(<FleetTable data={TODAY({ fleet: [] })} />)
+    expect(screen.getByText(/ยังไม่มีรถออกงาน/)).toBeTruthy()
+  })
+})
+
+describe('VolumeTrend', () => {
+  it('วาดแท่งครบทุกช่วง พร้อมตัวเลขบนแท่ง และไม่มีแกนตัวเลขซ้าย', async () => {
+    const { container } = render(<VolumeTrend data={VOLUME} grain="month" onGrain={() => {}} />)
+    expect(container.querySelectorAll('.ops-vbar')).toHaveLength(3)
+    expect(container.querySelectorAll('.ops-vlabel')).toHaveLength(3)
+    /* แกนซ้ายถูกตัดออกโดยตั้งใจ — ตัวเลขอยู่บนแท่งแล้ว */
+    expect(container.querySelectorAll('.ops-chart-axis:not(.is-x)')).toHaveLength(0)
+    await expectNoAxeViolations(container)
+  })
+
+  it('ช่วงที่ยังไม่จบต้องถูกทำเครื่องหมายและเขียนกำกับ', () => {
+    const { container } = render(<VolumeTrend data={VOLUME} grain="month" onGrain={() => {}} />)
+    expect(container.querySelectorAll('.ops-vbar.is-partial')).toHaveLength(1)
+    expect(screen.getByText(/ยังไม่จบ/)).toBeTruthy()
+  })
+
+  it('ยังไม่มีข้อมูลต้องไม่พังและไม่ลากเส้น', () => {
+    const { container } = render(<VolumeTrend data={null} grain="day" onGrain={() => {}} />)
+    expect(container.querySelector('.ops-vline')).toBeNull()
   })
 })
 
@@ -165,29 +196,6 @@ describe('CancelReasons', () => {
   })
 })
 
-describe('เส้นกำลังรับงาน', () => {
-  /* ยิงกับฐานจริงครั้งแรกเจอเคสนี้: 5 เที่ยวใน 30 วัน เส้นแดงตกที่ 3 จุด/วัน
-     ซึ่งต่ำกว่าแท่งประมาณการเกือบทุกวัน หน้าจอจะเตือนทุกวันทั้งที่รถว่างทั้งอู่ */
-  const THIN = { vehicles: 6, vehicles_running: 4, vehicles_free: 2, vehicles_off: 0,
-                 drivers: 6, drivers_free: 2, sample_days: 5, stops_per_vehicle_day: 0.47, max_stops_per_day: 3 }
-
-  it('ฐานบางเกิน = ไม่วาดเส้น และไม่เตือนว่าเกินกำลัง', () => {
-    const { container } = render(<VolumeChart chart={CHART} capacity={THIN} />)
-    expect(container.querySelector('.ops-cap-line')).toBeNull()
-    expect(container.querySelector('.ops-chart-warn')).toBeNull()
-    expect(screen.getByText(/ยังไม่แสดงเส้นกำลังรับงาน/)).toBeTruthy()
-  })
-
-  it('ฐานพอแล้วจึงวาดเส้น พร้อมบอกว่าเฉลี่ยจากกี่วัน', () => {
-    const { container } = render(
-      <VolumeChart chart={CHART} capacity={{ ...THIN, sample_days: 22, max_stops_per_day: 204 }} />,
-    )
-    expect(container.querySelector('.ops-cap-line')).toBeTruthy()
-    expect(screen.getByText(/จาก 22 วันที่มีงาน/)).toBeTruthy()
-  })
-})
-
-
 describe('FleetNow', () => {
   it('บอกรถว่างและคนขับว่าง ซึ่งเป็นคำถามที่ตามมาทันทีหลังเห็นว่างานเกินกำลัง', async () => {
     const { container } = render(<FleetNow capacity={FULL_CAP} />)
@@ -195,6 +203,13 @@ describe('FleetNow', () => {
     expect(screen.getByText('คนขับว่าง')).toBeTruthy()
     expect(container.querySelectorAll('.ops-fleet-row')).toHaveLength(4)
     await expectNoAxeViolations(container)
+  })
+
+  it('ประเภทงานที่ฐานไม่ส่งมา ต้องไม่ถูกวาดเป็นศูนย์', () => {
+    /* วาดพาเรทเป็น 0 = บอกว่าวันนี้ไม่มีงานพาเรท ทั้งที่ระบบยังไม่มีข้อมูลประเภทนั้นเลย */
+    const { container } = render(<FleetNow capacity={FULL_CAP} units={TODAY().units} />)
+    expect(container.querySelectorAll('.ops-unitkeys span')).toHaveLength(2)
+    expect(screen.getByText('BOX')).toBeTruthy()
   })
 
   it('ไม่มีรถในระบบเลยต้องไม่หารด้วยศูนย์', () => {
