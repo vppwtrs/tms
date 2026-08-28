@@ -245,3 +245,26 @@ describe('storeKey — ตัวระบุร้านฝั่งออฟฟ
     expect(sameByStoreKey).toBe(sameByGroupStops)
   })
 })
+
+/**
+ * ค่าคงที่ที่ฝั่งฐานต้องได้เท่ากัน — app.stop_key ใน
+ * supabase/migrations/20260828010000_ops_overview.sql
+ *
+ * หน้าภาพรวมนับจุดส่งฝั่งฐาน หน้าออเดอร์กับกระดานจัดคิวนับฝั่งเบราว์เซอร์
+ * ถ้าสองฝั่งคิดคีย์ไม่เหมือนกัน เลขจำนวนจุดของสองหน้าจะไม่ตรงกันโดยไม่มีอะไรฟ้อง
+ * ชุดนี้ต้องเหมือนกับ supabase/tests/stop_key_parity.sql เป๊ะ ๆ เพิ่มที่ไหนเพิ่มอีกที่
+ */
+describe('storeKey — ค่าที่ฝั่งฐานต้องได้ตรงกัน', () => {
+  const cases: [number | null, string, string][] = [
+    [12, 'ร้าน ก · 1/1 จ.ชลบุรี', 'c12'],
+    [null, 'ร้าน ก · 1/1 จ.ชลบุรี', 'ร้าน ก|ชลบุรี'],
+    [null, '  ร้าน  ก   · คุณสมชาย 081 จ.ระยอง', 'ร้าน ก|ระยอง'],
+    [null, 'ร้าน ข', 'ร้าน ข|'],
+    [null, ' · 9/9 จ.ชลบุรี', '· 9/9 จ.ชลบุรี|ชลบุรี'],
+    [null, 'ABC Shop · 5 จ.Chonburi', 'abc shop|chonburi'],
+  ]
+
+  it.each(cases)('customer_id=%s destination=%s', (customer_id, destination, want) => {
+    expect(storeKey({ customer_id, destination })).toBe(want)
+  })
+})

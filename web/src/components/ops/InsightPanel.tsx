@@ -20,10 +20,13 @@ export function InsightPanel({
   return (
     <section className="ops-panel ops-insights" aria-label="สรุปประจำวัน">
       <div className="ops-panel-head">
-        <h2 className="ops-panel-title">
-          <IconSparkle size={16} /> สรุปประจำวัน
+        {/* ชื่อบนจอบอกสิ่งที่ต้องทำ ไม่ใช่ชื่อของกลไก — และไม่เรียกว่า AI
+            ตามที่มันเป็นจริง ๆ: เป็นกฎที่เขียนไว้ใน api/opsInsights.ts
+            ที่มายังบอกไว้ที่ title ให้คนที่สงสัยชี้เมาส์ดูได้ */}
+        <h2 className="ops-panel-title" title="คำนวณจากข้อมูลจริงด้วยกฎที่เขียนไว้ตรง ๆ ไม่ใช้บริการภายนอก">
+          <IconSparkle size={16} /> ต้องจัดการตอนนี้
         </h2>
-        <span className="ops-panel-count">คำนวณจากข้อมูลจริง ไม่ใช้บริการภายนอก</span>
+        {items.length > 0 && <span className="ops-panel-count is-alert">{items.length} เรื่อง</span>}
       </div>
       <div className="ops-panel-body">
         {loading ? (
