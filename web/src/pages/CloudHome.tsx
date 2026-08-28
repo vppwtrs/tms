@@ -7,6 +7,7 @@ import { opsToday, opsVolume, type OpsToday, type OpsVolume, type VolumeGrain } 
 import { ErrorBox } from '../components/ui'
 import { DayProgress } from '../components/ops/DayProgress'
 import { FleetLine } from '../components/ops/FleetLine'
+import { DayPicker } from '../components/ops/DayPicker'
 import { TodayStats } from '../components/ops/TodayStats'
 import { FleetTable } from '../components/ops/FleetTable'
 import { VolumeTrend } from '../components/ops/VolumeTrend'
@@ -52,6 +53,10 @@ export default function CloudHome(): React.JSX.Element {
   /* ช่วงเวลาของกราฟอยู่ใน state ของหน้า ไม่ใช่ใน URL — เป็นการมองชั่วคราว
      ไม่ใช่ที่ที่ต้องส่งลิงก์ให้กัน ต่างจากแท็บของหน้าผู้ใช้ */
   const [grain, setGrain] = useState<VolumeGrain>('day')
+  /* วันที่กำลังดู — ค่าเริ่มต้นคือวันนี้ ย้อนหลังได้จากปุ่มบนหัวหน้า
+     เก็บใน state ของหน้า ไม่ใช่ใน URL: เป็นการมองชั่วคราวของคนคนเดียว
+     ถ้าวันไหนต้องส่งลิงก์ให้กันดูวันเดียวกัน ค่อยย้ายขึ้น URL */
+  const [day, setDay] = useState<string>(() => todayIso())
   const [at, setAt] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -61,7 +66,7 @@ export default function CloudHome(): React.JSX.Element {
 
   const load = useCallback(async (): Promise<void> => {
     if (!wantsSummary) { setLoading(false); return }
-    const iso = todayIso()
+    const iso = day
     try {
       /* ช่วงก่อนหน้าเป็นแค่ตัวเทียบ พังแล้วไม่ควรทำให้ทั้งหน้าพัง — ไทล์จะขึ้นว่า
          "ยังไม่มีช่วงก่อนให้เทียบ" แทน ซึ่งตรงกับความจริงมากกว่าหน้าว่าง */
@@ -84,13 +89,16 @@ export default function CloudHome(): React.JSX.Element {
     } finally {
       setLoading(false)
     }
-  }, [wantsSummary, grain])
+  }, [wantsSummary, grain, day])
 
   useEffect(() => {
     void load()
+    /* รีเฟรชเองเฉพาะตอนดูวันนี้ — วันที่ผ่านไปแล้วไม่ขยับ การยิงซ้ำทุกนาที
+       เพื่อได้ตัวเลขเดิมคือการกวนฐานเปล่า ๆ และทำให้หน้ากะพริบโดยไม่มีเหตุ */
+    if (day !== todayIso()) return
     const timer = window.setInterval(() => { void load() }, REFRESH_MS)
     return () => window.clearInterval(timer)
-  }, [load])
+  }, [load, day])
 
   const actions = [
     can('dispatch.view') && { to: '/tms-trips', icon: IconTable, title: 'งานจาก TMS', desc: 'ไหลเข้าเองทุก 5 นาที' },
@@ -106,9 +114,14 @@ export default function CloudHome(): React.JSX.Element {
       <div className="ops-overview-head">
         <div>
           <h1>ภาพรวมงานขนส่ง</h1>
-          <span className="ops-overview-date">{fmtLongToday()}</span>
+          <span className="ops-overview-date">{fmtLongToday(new Date(`${day}T00:00:00`))}</span>
         </div>
-        {at && <span className="ops-fresh"><i />อัปเดต {at} น.</span>}
+        <div className="ops-head-right">
+          {/* ตัวบอกเวลาอัปเดตมีความหมายเฉพาะตอนดูวันนี้ — วันที่ผ่านไปแล้วไม่มี
+              อะไรให้รอ ขึ้นเวลาไว้จะอ่านเหมือนว่ามันยังขยับอยู่ */}
+          {at && day === todayIso() && <span className="ops-fresh"><i />อัปเดต {at} น.</span>}
+          <DayPicker value={day} onChange={setDay} />
+        </div>
       </div>
 
       {error && <ErrorBox message={error} onRetry={() => { void load() }} />}

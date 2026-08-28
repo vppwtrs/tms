@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { expectNoAxeViolations } from '../test/axe'
 import { DayProgress } from '../components/ops/DayProgress'
@@ -7,6 +7,8 @@ import { FleetLine } from '../components/ops/FleetLine'
 import { TodayStats } from '../components/ops/TodayStats'
 import { FleetTable } from '../components/ops/FleetTable'
 import { VolumeTrend } from '../components/ops/VolumeTrend'
+import { DayPicker } from '../components/ops/DayPicker'
+import { todayIso } from '../utils/format'
 import type { FleetRow, OpsToday, OpsVolume } from '../api/opsToday'
 
 /**
@@ -243,5 +245,47 @@ describe('TodayStats — หน่วยงานแยกประเภท', (
   it('ไม่มีข้อมูลหน่วยงานเลย ต้องไม่วาดแถบเปล่า', () => {
     const { container } = render(<TodayStats data={TODAY({ units: [] })} />)
     expect(container.querySelector('.ops-band-units')).toBeNull()
+  })
+})
+
+describe('DayPicker', () => {
+  it('ปุ่มบอกว่ากำลังดูวันไหน และเปิดกล่องกลางจอได้', async () => {
+    const { container } = render(<DayPicker value={todayIso()} onChange={() => {}} />)
+    const btn = screen.getByRole('button', { name: /วันนี้/ })
+    await expectNoAxeViolations(container)
+    fireEvent.click(btn)
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByText('เลือกวันที่ดูข้อมูล')).toBeTruthy()
+  })
+
+  it('ดูย้อนหลังอยู่ต้องมีเครื่องหมายบอก ไม่ใช่เปลี่ยนแค่คำ', () => {
+    /* "เมื่อวาน" กับ "วันนี้" ยาวพอ ๆ กัน กวาดตาผ่านแล้วไม่ทันสังเกต */
+    const y = new Date()
+    y.setDate(y.getDate() - 1)
+    const { container } = render(<DayPicker value={todayIso(y)} onChange={() => {}} />)
+    expect(container.querySelector('.ops-daybtn-mark')).toBeTruthy()
+  })
+
+  it('วันในอนาคตกดไม่ได้', () => {
+    render(<DayPicker value={todayIso()} onChange={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /วันนี้/ }))
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    /* พรุ่งนี้อาจข้ามเดือนไป ซึ่งกรณีนั้นมันไม่อยู่ในตะแกรงเลย ก็ถือว่าเลือกไม่ได้เหมือนกัน */
+    const cell = screen.queryByRole('button', { name: String(tomorrow.getDate()) })
+    if (cell && tomorrow.getMonth() === new Date().getMonth()) {
+      expect((cell as HTMLButtonElement).disabled).toBe(true)
+    }
+  })
+
+  it('กดทางลัดแล้วส่งวันกลับไปและปิดกล่อง', () => {
+    const seen: string[] = []
+    render(<DayPicker value={todayIso()} onChange={(d) => seen.push(d)} />)
+    fireEvent.click(screen.getByRole('button', { name: /วันนี้/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'เมื่อวาน' }))
+    const y = new Date()
+    y.setDate(y.getDate() - 1)
+    expect(seen).toEqual([todayIso(y)])
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

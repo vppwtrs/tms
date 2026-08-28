@@ -1688,3 +1688,118 @@
   .ops-band-row > .ops-band-item:nth-child(2n + 1) { box-shadow: none; }
   .ops-fleetpanel .ops-panel-body { max-height: none; }
 }
+
+/* ---- ปุ่มเลือกวัน + ปฏิทินในกล่อง ---- */
+.ops-head-right { display: flex; align-items: center; gap: var(--space-3); }
+
+.ops-daybtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--panel-bg);
+  box-shadow: var(--sh-1);
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 650;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--dur-snap) var(--spring-snap), background-color var(--dur-snap) var(--spring-snap);
+}
+.ops-daybtn:hover { border-color: var(--line-strong, var(--line)); background: var(--surface-2); }
+.ops-daybtn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.ops-daybtn svg { color: var(--muted); }
+/* จุดบอกว่ากำลังดูของย้อนหลัง — ไม่ใช่แค่เปลี่ยนคำในปุ่ม เพราะคำว่า "เมื่อวาน"
+   กับ "วันนี้" ยาวพอ ๆ กัน ตากวาดผ่านแล้วไม่ทันสังเกตว่าเปลี่ยนไป */
+.ops-daybtn-mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+.daypick { display: grid; gap: 14px; }
+.daypick-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; }
+.daypick-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 99px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 650;
+  color: var(--ink-2, var(--ink));
+  cursor: pointer;
+}
+.daypick-chip:hover { background: var(--surface-2); }
+.daypick-chip.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.daypick-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.daypick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-soft, var(--line));
+}
+.daypick-head b { font-size: var(--font-md); font-weight: 700; }
+.daypick-nav {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  cursor: pointer;
+}
+.daypick-nav:hover:not(:disabled) { background: var(--surface-2); }
+.daypick-nav:disabled { opacity: 0.35; cursor: not-allowed; }
+.daypick-nav:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.daypick-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.daypick-dow {
+  text-align: center;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 2px;
+}
+/* ช่องเป็นสี่เหลี่ยมกว้างกว่าสูง ไม่ใช่จัตุรัส — จัตุรัสในกล่องกว้าง 480px
+   ทำให้ปฏิทินสูงเกือบ 400px โดยไม่ได้อ่านง่ายขึ้นเลย */
+.daypick-empty { height: 40px; }
+.daypick-day {
+  appearance: none;
+  border: 0;
+  background: none;
+  height: 40px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: var(--font-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--dur-snap) var(--spring-snap);
+}
+.daypick-day:hover:not(:disabled) { background: var(--surface-2); }
+/* วันนี้มีวงรอบ วันที่เลือกเป็นสีทึบ — สองสถานะนี้เกิดพร้อมกันได้และต้องแยกออกจากกัน */
+.daypick-day.is-today { box-shadow: inset 0 0 0 1.5px var(--line-strong, var(--line)); font-weight: 700; }
+.daypick-day.is-on { background: var(--accent); color: #fff; font-weight: 700; box-shadow: none; }
+.daypick-day:disabled { color: var(--muted); opacity: 0.32; cursor: not-allowed; }
+.daypick-day:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+.daypick-note { margin: 0; font-size: var(--font-xs); color: var(--muted); }
+
+@media (max-width: 700px) {
+  .ops-head-right { width: 100%; justify-content: space-between; }
+}
