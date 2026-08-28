@@ -1509,9 +1509,12 @@
   gap: var(--space-3);
 }
 
+/* สองฝั่ง: ซ้ายคือของที่ดูเป็นภาพ (ความคืบหน้า กราฟ สาเหตุ) ขวาคือของที่ต้องลงมือ
+   (ใบสั่งงาน กองรถ ตารางรถ) — แบ่งตามสิ่งที่คนทำกับมัน ไม่ใช่ตามชนิดข้อมูล
+   ฝั่งขวากว้างเกือบเท่าซ้ายเพราะตารางรถมีหกคอลัมน์ ต้องการที่จริง ๆ */
 .ops-deck {
   display: grid;
-  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
   gap: var(--space-3);
   min-height: 0;
 }
@@ -1521,8 +1524,12 @@
    ถ้าไม่กันไว้ มันจะกินที่จนตารางเหลือความสูงสองสามสิบพิกเซล ซึ่งใช้งานไม่ได้เลย
    (วัดที่ 1280x800 ก่อนกัน: เหลือ 36px) ยอมให้หน้าเลื่อนนิดหน่อยดีกว่าตารางที่อ่านไม่ได้ */
 .ops-col.is-main { grid-template-rows: auto minmax(210px, 1fr); }
-.ops-col.is-mid { grid-template-rows: minmax(0, 1fr) auto; }
-.ops-col.is-rail { grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr); }
+/* ซ้าย: แถบความคืบหน้า (สูงตามเนื้อ) · กราฟกินที่เหลือทั้งหมด · Issues สูงคงที่
+   กราฟเป็นตัวหลักของฝั่งนี้ จึงเป็นตัวเดียวที่ได้ 1fr */
+.ops-col.is-main { grid-template-rows: auto minmax(180px, 1fr) minmax(0, 0.62fr); }
+/* ขวา: ใบสั่งงานอยู่บนสุดเพราะเป็นของที่ต้องตามก่อน · กองรถเป็นแถบเตี้ยคั่น
+   · ตารางรถกินที่เหลือ เพราะเป็นของที่ยาวที่สุดและต้องเลื่อนดูจริง */
+.ops-col.is-side { grid-template-rows: minmax(0, 0.85fr) auto minmax(190px, 1.25fr); }
 
 /* ตารางในโหมดจอเดียวต้องแคบลงกว่าตอนที่มันกินความกว้างทั้งหน้า
    ที่ยาวที่สุดคือชื่อร้านกับชื่อคนขับ ซึ่งตัดได้โดยยังบอกได้ว่าใคร/ที่ไหน
@@ -1596,27 +1603,36 @@
   border-radius: var(--panel-radius);
   box-shadow: var(--sh-1);
 }
-.ops-mini .ops-fleet { padding: 0; }
+/* ในโหมดจอเดียว การ์ดนี้ต้องเตี้ย — วางหน่วยงานกับกองรถเป็นสองคอลัมน์เคียงกัน
+   แทนที่จะเรียงลงมา ประหยัดความสูงไปครึ่งหนึ่งโดยไม่ตัดข้อมูลออกสักตัว
+   (ก่อนแก้ การ์ดนี้กินที่จนใบสั่งงานเหลือสูง 60px ซึ่งอ่านไม่ได้) */
+.ops-mini .ops-fleet {
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 18px;
+  row-gap: 7px;
+  align-items: center;
+}
+.ops-mini .ops-units { grid-column: 1; grid-row: 1 / span 5; margin-bottom: 0; align-self: start; }
+.ops-mini .ops-units-fig b { font-size: 24px; }
+.ops-mini > .ops-fleet > .ops-progress-label { grid-column: 2; }
+.ops-mini .ops-fleet-row { grid-column: 2; }
 
 /* แคบกว่า 1320 สามคอลัมน์ทำให้ตารางอ่านไม่ออก — ยุบเหลือสองคอลัมน์
    แล้วเอากราฟกับกองรถลงไปเป็นแถวล่างที่สูงคงที่ ยังจบในจอเดียวเหมือนเดิม
    (จอ 1366x768 ของออฟฟิศอยู่ในช่วงนี้ ปล่อยให้เลื่อนคือแพ้ตั้งแต่เครื่องที่ใช้จริง) */
 @media (max-width: 1320px) {
-  .ops-deck {
-    grid-template-columns: minmax(0, 1.4fr) 320px;
-    grid-template-rows: minmax(260px, 1fr) 218px;
-  }
-  .ops-col.is-mid {
-    grid-column: 1 / -1;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    grid-template-rows: minmax(0, 1fr);
-  }
+  /* แคบลงแล้วตารางหกคอลัมน์อยู่ในครึ่งจอไม่ไหว — ฝั่งซ้ายบีบให้แคบลง
+     ให้ตารางได้ที่เพิ่ม ยังจบในจอเดียวเหมือนเดิม */
+  .ops-deck { grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr); }
 }
 /* จอเล็กกว่านี้บังคับให้จบในจอเดียวไม่ได้แล้ว — บีบต่อคือทำให้ทุกกล่องเล็กจนไม่มี
    กล่องไหนอ่านได้ ยอมให้หน้าเลื่อนตามปกติ */
 @media (max-width: 900px) {
   .ops-screen { height: auto; }
-  .ops-deck { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
-  .ops-col.is-mid { grid-column: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: 240px auto; }
+  .ops-deck { grid-template-columns: minmax(0, 1fr); }
+  .ops-col.is-main { grid-template-rows: auto 260px auto; }
+  .ops-col.is-side { grid-template-rows: auto auto auto; }
   .ops-screen .ops-panel-body { overflow-y: visible; max-height: 62vh; }
 }

@@ -120,8 +120,41 @@ export default function CloudHome(): React.JSX.Element {
           <TodayStats data={today} />
 
           <div className="ops-deck">
+            {/* ซ้าย = ของที่ดูเป็นภาพ: ความคืบหน้าวันนี้ แล้วกราฟปริมาณงานเป็นตัวหลัก
+                ปิดท้ายด้วย Issues ซึ่งเป็นสาเหตุที่ทำให้เส้นในกราฟไม่ขึ้น */}
             <div className="ops-col is-main">
               <DayProgress data={now?.progress ?? null} strip />
+
+              <section className="ops-panel">
+                <div className="ops-panel-head">
+                  <h2 className="ops-panel-title">ปริมาณงาน</h2>
+                </div>
+                <div className="ops-panel-body ops-chart-fit">
+                  <VolumeTrend data={volume} grain={grain} onGrain={setGrain} />
+                </div>
+              </section>
+
+              <section className="ops-panel">
+                <div className="ops-panel-head">
+                  <h2 className="ops-panel-title" title="เหตุผลที่คนขับเลือกจากรายการที่มีอยู่จริง ไม่ใช่หมวดที่คิดขึ้นเอง">
+                    Issues
+                  </h2>
+                </div>
+                <div className="ops-panel-body">
+                  <CancelReasons rows={now?.cancel_reasons ?? []} />
+                </div>
+              </section>
+            </div>
+
+            {/* ขวา = ของที่ต้องลงมือ เรียงตามลำดับที่ลงมือจริง:
+                ใบสั่งงานบอกว่าต้องตามอะไร · หน่วยงานบอกว่างานวันนี้เป็นแบบไหนและรถพอไหม
+                · ตารางรถบอกว่าตอนนี้ใครถึงไหน ซึ่งเป็นที่ที่ไปตามต่อ */}
+            <aside className="ops-col is-side">
+              <InsightPanel headline={sum?.headline ?? ''} items={sum?.items ?? []} loading={loading} />
+
+              <div className="ops-mini">
+                <FleetNow capacity={now?.capacity ?? null} units={today?.units} />
+              </div>
 
               <section className="ops-panel">
                 <div className="ops-panel-head">
@@ -132,36 +165,6 @@ export default function CloudHome(): React.JSX.Element {
                 </div>
                 <div className="ops-panel-body">
                   <FleetTable data={today} />
-                </div>
-              </section>
-            </div>
-
-            <div className="ops-col is-mid">
-              <section className="ops-panel">
-                <div className="ops-panel-head">
-                  <h2 className="ops-panel-title">ปริมาณงาน</h2>
-                </div>
-                <div className="ops-panel-body ops-chart-fit">
-                  <VolumeTrend data={volume} grain={grain} onGrain={setGrain} />
-                </div>
-              </section>
-
-              <div className="ops-mini">
-                <FleetNow capacity={now?.capacity ?? null} units={today?.units} />
-              </div>
-            </div>
-
-            <aside className="ops-col is-rail">
-              <InsightPanel headline={sum?.headline ?? ''} items={sum?.items ?? []} loading={loading} />
-
-              <section className="ops-panel">
-                <div className="ops-panel-head">
-                  <h2 className="ops-panel-title" title="เหตุผลที่คนขับเลือกจากรายการที่มีอยู่จริง ไม่ใช่หมวดที่คิดขึ้นเอง">
-                    Issues
-                  </h2>
-                </div>
-                <div className="ops-panel-body">
-                  <CancelReasons rows={now?.cancel_reasons ?? []} />
                 </div>
               </section>
             </aside>
