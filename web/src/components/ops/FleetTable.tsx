@@ -71,8 +71,8 @@ export function FleetTable({ data }: { data: OpsToday | null }): React.JSX.Eleme
             <th className="r">เที่ยว</th>
             <th className="r">จุดส่ง</th>
             <th className="ops-fleettab-progress">ความคืบหน้า · จุดล่าสุด</th>
-            {money && <th className="r">ค่าขนส่ง แผน → จริง</th>}
-            {money && <th className="r" title={`จ่ายเฉพาะจุดที่เกิน ${data.bonus_rule.free_stops} จุดละ ${data.bonus_rule.rate} บาท ถ้าขึ้นหลายคนหารกัน`}>เบี้ยจุดส่ง</th>}
+            {money && <th className="r" title="ค่าเหมาที่ตกลงไว้ → ยอดที่ปิดจริง">ค่าขนส่ง</th>}
+            {money && <th className="r" title={`จ่ายเฉพาะจุดที่เกิน ${data.bonus_rule.free_stops} จุดละ ${data.bonus_rule.rate} บาท ถ้าขึ้นหลายคนหารกัน`}>เบี้ย</th>}
           </tr>
         </thead>
         <tbody>

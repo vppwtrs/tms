@@ -13,7 +13,13 @@ import { progressRatio, type OverviewProgress } from '../../api/opsOverview'
  * รวมสองอันเป็นช่องเดียวคือการซ่อนคำถามที่ต้องตัดสินใจ
  */
 
-export function DayProgress({ data }: { data: OverviewProgress | null }): React.JSX.Element {
+export function DayProgress({ data, strip }: {
+  data: OverviewProgress | null
+  /** วางเป็นแถบแนวนอนบรรทัดเดียว สำหรับหน้าที่ต้องจบในจอเดียว
+   *  เนื้อเหมือนกันทุกตัว ต่างแค่ทิศทางการวาง จึงไม่แยกเป็นคอมโพเนนต์ที่สอง
+   *  ที่ต้องคอยแก้ให้ตรงกันสองที่ */
+  strip?: boolean
+}): React.JSX.Element {
   const total = data?.stops_total ?? 0
   const done = data?.stops_done ?? 0
   const running = data?.stops_running ?? 0
@@ -27,7 +33,7 @@ export function DayProgress({ data }: { data: OverviewProgress | null }): React.
   const pct = (n: number): string => `${(n / all) * 100}%`
 
   return (
-    <section className="ops-progress" aria-label="ความคืบหน้าของวันนี้">
+    <section className={`ops-progress${strip ? ' is-strip' : ''}`} aria-label="ความคืบหน้าของวันนี้">
       <div className="ops-progress-head">
         <span className="ops-progress-label">ความคืบหน้าวันนี้</span>
         {total > 0 && <span className="ops-progress-pct num">{(ratio * 100).toFixed(1)}%</span>}

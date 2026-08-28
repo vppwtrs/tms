@@ -72,6 +72,15 @@ describe('DayProgress', () => {
     expect(screen.getByText(/ยกเลิก 4/)).toBeTruthy()
     await expectNoAxeViolations(container)
   })
+
+  it('แบบแถบแนวนอนต้องมีเนื้อเท่ากับแบบการ์ด ต่างแค่การวาง', async () => {
+    /* หน้าที่ต้องจบในจอเดียวใช้แบบแถบ ถ้าตัดข้อมูลออกไปด้วยจะกลายเป็นสองความจริง */
+    const data = { stops_done: 68, stops_total: 96, stops_running: 15, stops_waiting: 11, stops_cancelled: 2 }
+    const { container } = render(<DayProgress data={data} strip />)
+    expect(container.querySelector('.ops-progress.is-strip')).toBeTruthy()
+    expect(container.querySelectorAll('.ops-progress-legend span')).toHaveLength(4)
+    await expectNoAxeViolations(container)
+  })
 })
 
 describe('TodayStats', () => {

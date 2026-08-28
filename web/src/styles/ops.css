@@ -1484,3 +1484,139 @@
   .ops-today { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ops-fleettab-progress { width: auto; }
 }
+
+/* ================= v7 — จบในจอเดียว =================
+ *
+ * v6 ถูกเรื่องเนื้อหา แต่วางเป็นแถวซ้อนลงมา ซึ่งยาวเกินจอทันทีที่รถเกินสี่คัน
+ * v7 เปลี่ยน **วิธีวาง** ไม่ได้เปลี่ยนเนื้อ: หน้าเป็นตะแกรงสูงเท่าที่เหลือในจอพอดี
+ * ของที่ยาวไม่จำกัด (ตารางรถ ใบสั่งงาน Issues) เลื่อนอยู่ในกล่องของตัวเอง
+ *
+ * ทำไมให้กล่องเลื่อน ไม่ใช่ให้หน้าเลื่อน: สิ่งที่คนเปิดหน้านี้มาดูคือตัวเลขสรุปของวัน
+ * ซึ่งอยู่แถวบน ถ้าเลื่อนทั้งหน้า พอไล่ดูรถคันที่แปด ตัวเลขสรุปหลุดจอไปแล้ว
+ * ต้องเลื่อนกลับขึ้นมาทุกครั้งที่อยากเทียบ */
+
+.ops-screen {
+  /* dvh ไม่ใช่ vh — แถบ URL ของมือถือกินความสูงแบบไม่คงที่ ใช้ vh แล้วท้ายหน้า
+     จะโดนบังตลอด
+
+     --ops-chrome คือทุกอย่างที่อยู่เหนือ/ใต้ตะแกรงนี้ วัดจากค่าจริงใน layout:
+     แถบบน 68 + ระยะขอบของ .content บนล่าง 32+32 + หัวหน้าพร้อมระยะห่าง
+     วัดกับหน้าจริงที่ 1440x900 แล้วปรับจนหน้าไม่เหลือแถบเลื่อนของตัวเอง */
+  height: calc(100dvh - var(--ops-chrome, 192px));
+  min-height: 520px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.ops-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr) 300px;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.ops-col { display: grid; gap: var(--space-3); min-height: 0; }
+/* ตารางรถต้องได้ความสูงขั้นต่ำเสมอ — แถบความคืบหน้าด้านบนขึ้นบรรทัดได้เมื่อจอแคบ
+   ถ้าไม่กันไว้ มันจะกินที่จนตารางเหลือความสูงสองสามสิบพิกเซล ซึ่งใช้งานไม่ได้เลย
+   (วัดที่ 1280x800 ก่อนกัน: เหลือ 36px) ยอมให้หน้าเลื่อนนิดหน่อยดีกว่าตารางที่อ่านไม่ได้ */
+.ops-col.is-main { grid-template-rows: auto minmax(210px, 1fr); }
+.ops-col.is-mid { grid-template-rows: minmax(0, 1fr) auto; }
+.ops-col.is-rail { grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr); }
+
+/* ตารางในโหมดจอเดียวต้องแคบลงกว่าตอนที่มันกินความกว้างทั้งหน้า
+   ที่ยาวที่สุดคือชื่อร้านกับชื่อคนขับ ซึ่งตัดได้โดยยังบอกได้ว่าใคร/ที่ไหน
+   ตัวเลขห้ามตัด จึงบีบสองช่องนี้ก่อนเสมอ */
+.ops-screen .ops-fleettab td,
+.ops-screen .ops-fleettab thead th,
+.ops-screen .ops-fleettab tfoot td { padding-left: 8px; padding-right: 8px; }
+.ops-screen .ops-at { max-width: 172px; }
+.ops-screen .ops-crew { max-width: 118px; }
+
+/* แผงในตะแกรงนี้ไม่ยืดตามเนื้อ — หัวข้ออยู่กับที่ เนื้อเลื่อนในตัวเอง */
+.ops-screen .ops-panel { min-height: 0; }
+.ops-screen .ops-panel-body {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.ops-screen .ops-panel-head { padding-top: 10px; padding-bottom: 10px; }
+
+/* หัวตารางต้องค้างไว้ ไม่งั้นเลื่อนถึงแถวที่แปดแล้วจำไม่ได้ว่าคอลัมน์ไหนคืออะไร
+   แถวรวมก็ค้าง เพราะยอดรวมคือสิ่งที่คนเงยหน้ามาดูบ่อยที่สุดระหว่างไล่ตาราง */
+.ops-screen .ops-fleettab thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel-bg);
+  padding-top: 8px;
+}
+.ops-screen .ops-fleettab tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel-bg);
+}
+
+/* แถบสรุปเตี้ยลงกว่า v6 — ทุกพิกเซลที่ประหยัดตรงนี้กลายเป็นแถวของตารางรถ
+   ซึ่งเป็นของที่ต้องเลื่อนดูจริง */
+.ops-screen .ops-today { margin-bottom: 0; gap: var(--space-2, 8px); }
+.ops-screen .ops-tstat { padding: 8px 11px; }
+.ops-screen .ops-tstat-value b { font-size: 21px; }
+.ops-screen .ops-tstat-value b.is-sm { font-size: 18px; }
+.ops-screen .ops-tstat-foot { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ความคืบหน้าเป็นแถบแนวนอนบรรทัดเดียว ไม่ใช่การ์ดสูงเหมือน v6 */
+.ops-progress.is-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--sh-1);
+}
+.ops-progress.is-strip .ops-progress-head { margin: 0; }
+.ops-progress.is-strip .ops-progress-figure { margin: 0; }
+.ops-progress.is-strip .ops-progress-figure b { font-size: 24px; }
+.ops-progress.is-strip .ops-progress-bar { flex: 1; min-width: 150px; margin: 0; }
+.ops-progress.is-strip .ops-progress-legend { margin: 0; gap: 12px; }
+
+/* กราฟย่อให้พอดีช่อง ไม่ใช่ดันคอลัมน์ให้สูงขึ้น */
+.ops-chart-fit { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; }
+.ops-chart-fit .ops-chart-wrap { min-height: 0; }
+.ops-chart-fit svg { width: 100%; height: 100%; min-height: 0; }
+
+/* กองรถย่อเป็นการ์ดเตี้ยใต้กราฟ */
+.ops-mini {
+  padding: 10px 12px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--sh-1);
+}
+.ops-mini .ops-fleet { padding: 0; }
+
+/* แคบกว่า 1320 สามคอลัมน์ทำให้ตารางอ่านไม่ออก — ยุบเหลือสองคอลัมน์
+   แล้วเอากราฟกับกองรถลงไปเป็นแถวล่างที่สูงคงที่ ยังจบในจอเดียวเหมือนเดิม
+   (จอ 1366x768 ของออฟฟิศอยู่ในช่วงนี้ ปล่อยให้เลื่อนคือแพ้ตั้งแต่เครื่องที่ใช้จริง) */
+@media (max-width: 1320px) {
+  .ops-deck {
+    grid-template-columns: minmax(0, 1.4fr) 320px;
+    grid-template-rows: minmax(260px, 1fr) 218px;
+  }
+  .ops-col.is-mid {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+}
+/* จอเล็กกว่านี้บังคับให้จบในจอเดียวไม่ได้แล้ว — บีบต่อคือทำให้ทุกกล่องเล็กจนไม่มี
+   กล่องไหนอ่านได้ ยอมให้หน้าเลื่อนตามปกติ */
+@media (max-width: 900px) {
+  .ops-screen { height: auto; }
+  .ops-deck { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .ops-col.is-mid { grid-column: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: 240px auto; }
+  .ops-screen .ops-panel-body { overflow-y: visible; max-height: 62vh; }
+}

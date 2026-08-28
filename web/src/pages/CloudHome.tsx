@@ -114,54 +114,46 @@ export default function CloudHome(): React.JSX.Element {
       {error && <ErrorBox message={error} onRetry={() => { void load() }} />}
 
       {wantsSummary ? (
-        <div className="ops-board">
-          <div className="ops-board-main">
-            <TodayStats data={today} />
+        /* ตะแกรงสูงเท่าจอ — ของที่ยาวไม่จำกัดเลื่อนอยู่ในกล่องของตัวเอง
+           ตัวเลขสรุปของวันจึงอยู่ในสายตาตลอดเวลาที่ไล่ดูรถทีละคัน */
+        <div className="ops-screen">
+          <TodayStats data={today} />
 
-            <div className="ops-hero">
-              <DayProgress data={now?.progress ?? null} />
-              <FleetNow capacity={now?.capacity ?? null} units={today?.units} />
+          <div className="ops-deck">
+            <div className="ops-col is-main">
+              <DayProgress data={now?.progress ?? null} strip />
+
+              <section className="ops-panel">
+                <div className="ops-panel-head">
+                  <h2 className="ops-panel-title" title="จุดที่คนขับกดปิดแล้ว ไม่ใช่ตำแหน่ง GPS — บนเว็บ ตำแหน่งหยุดส่งทันทีที่คนขับล็อกหน้าจอ">
+                    รถแต่ละคันถึงไหนแล้ว
+                  </h2>
+                  <span className="ops-panel-sub">อัปเดตจากที่คนขับกดปิดจุด</span>
+                </div>
+                <div className="ops-panel-body">
+                  <FleetTable data={today} />
+                </div>
+              </section>
             </div>
 
-            <section className="ops-panel">
-              <div className="ops-panel-head">
-                <h2 className="ops-panel-title" title="จุดที่คนขับกดปิดแล้ว ไม่ใช่ตำแหน่ง GPS — บนเว็บ ตำแหน่งหยุดส่งทันทีที่คนขับล็อกหน้าจอ">
-                  รถแต่ละคันถึงไหนแล้ว
-                </h2>
-                <span className="ops-panel-sub">อัปเดตจากที่คนขับกดปิดจุด</span>
-              </div>
-              <div className="ops-panel-body">
-                <FleetTable data={today} />
-              </div>
-            </section>
+            <div className="ops-col is-mid">
+              <section className="ops-panel">
+                <div className="ops-panel-head">
+                  <h2 className="ops-panel-title">ปริมาณงาน</h2>
+                </div>
+                <div className="ops-panel-body ops-chart-fit">
+                  <VolumeTrend data={volume} grain={grain} onGrain={setGrain} />
+                </div>
+              </section>
 
-            <section className="ops-panel">
-              <div className="ops-panel-head">
-                <h2 className="ops-panel-title">ปริมาณงาน</h2>
+              <div className="ops-mini">
+                <FleetNow capacity={now?.capacity ?? null} units={today?.units} />
               </div>
-              <div className="ops-panel-body">
-                <VolumeTrend data={volume} grain={grain} onGrain={setGrain} />
-              </div>
-            </section>
+            </div>
 
-            <nav className="ops-shortcuts" aria-label="งานหลัก">
-              {actions.map((a) => {
-                const Icon = a.icon
-                return (
-                  <Link key={a.to} to={a.to} className="ops-shortcut">
-                    <Icon size={17} />
-                    <b>{a.title}</b>
-                    <span>{a.desc}</span>
-                  </Link>
-                )
-              })}
-            </nav>
-          </div>
+            <aside className="ops-col is-rail">
+              <InsightPanel headline={sum?.headline ?? ''} items={sum?.items ?? []} loading={loading} />
 
-          <aside className="ops-board-rail">
-            <InsightPanel headline={sum?.headline ?? ''} items={sum?.items ?? []} loading={loading} />
-
-            {now && (
               <section className="ops-panel">
                 <div className="ops-panel-head">
                   <h2 className="ops-panel-title" title="เหตุผลที่คนขับเลือกจากรายการที่มีอยู่จริง ไม่ใช่หมวดที่คิดขึ้นเอง">
@@ -169,11 +161,11 @@ export default function CloudHome(): React.JSX.Element {
                   </h2>
                 </div>
                 <div className="ops-panel-body">
-                  <CancelReasons rows={now.cancel_reasons} />
+                  <CancelReasons rows={now?.cancel_reasons ?? []} />
                 </div>
               </section>
-            )}
-          </aside>
+            </aside>
+          </div>
         </div>
       ) : (
         <nav className="ops-shortcuts" aria-label="งานหลัก">
