@@ -257,14 +257,31 @@ export function PodViewModal({
               {pod.photos.map((ph) => (
                 /* เปิดเต็มจอในแท็บใหม่ได้ — ข้อโต้แย้งเรื่องสภาพของต้องซูมดูของจริง
                    ลิงก์มีอายุจำกัด หมดอายุแล้วเปิดหน้าต่างนี้ใหม่จะได้ลิงก์ใหม่ */
-                <a key={ph.path} href={ph.url} target="_blank" rel="noreferrer">
-                  <img
-                    src={ph.url}
-                    alt={kindLabel(ph.kind)}
-                    style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)' }}
-                  />
-                  <span className="text-xs text-muted">{kindLabel(ph.kind)}</span>
-                </a>
+                /* ใบที่ขอลิงก์ไม่ผ่านยังขึ้นเป็นช่องว่าง ไม่หายไปเฉย ๆ — จำนวนรูป
+                   ที่เห็นต้องเท่าจำนวนที่คนขับถ่ายไว้จริงเสมอ */
+                ph.url ? (
+                  <a key={ph.path} href={ph.url} target="_blank" rel="noreferrer">
+                    <img
+                      src={ph.url}
+                      alt={kindLabel(ph.kind)}
+                      style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)' }}
+                    />
+                    <span className="text-xs text-muted">{kindLabel(ph.kind)}</span>
+                  </a>
+                ) : (
+                  <div key={ph.path}>
+                    <div
+                      className="job-sub"
+                      style={{
+                        width: '100%', aspectRatio: '4 / 3', borderRadius: 10,
+                        border: '1px dashed var(--line)', display: 'grid', placeItems: 'center',
+                      }}
+                    >
+                      เปิดรูปไม่ได้
+                    </div>
+                    <span className="text-xs text-muted">{kindLabel(ph.kind)}</span>
+                  </div>
+                )
               ))}
             </div>
           )}

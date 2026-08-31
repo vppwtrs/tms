@@ -88,16 +88,13 @@ function html(c: ConsignmentData, logo: string): string {
       <td class="mid">${l.qty}</td>
     </tr>`).join('')
   return `<!doctype html><html lang="th"><head><meta charset="utf-8">
-<title>&#8203;</title>
+<title>Consignment ${esc(c.tripNo)} ${esc(c.consignee)}</title>
 <style>
   /* ขอบกระดาษเป็นศูนย์ แล้วเว้นขอบเองด้วย padding ของ body — หัวกระดาษกับ
      ท้ายกระดาษที่เบราว์เซอร์เติมให้ (วันที่ · URL · เลขหน้า) ถูกวาดในพื้นที่ขอบ
      ไม่มีขอบก็ไม่มีที่ให้วาด เป็นทางเดียวที่โค้ดสั่งซ่อนมันได้ CSS แตะมันตรง ๆ ไม่ได้ */
   @page { size: A4; margin: 0; }
-  /* กระดาษเต็มความสูงเสมอ แล้วดันบรรทัดที่มาของเอกสารลงไปติดขอบล่าง —
-     ของเดิมทุกอย่างกองอยู่ครึ่งบน เหลือครึ่งล่างว่างเปล่าจนใบดูเอียงขึ้นข้างบน */
-  body { padding: 14mm; min-height: 297mm; display: flex; flex-direction: column; }
-  .foot { margin-top: auto; padding-top: 10px; }
+  body { padding: 14mm; }
   * { box-sizing: border-box; }
   body { font-family: "Sarabun", "Tahoma", sans-serif; font-size: 11px; color: #000; margin: 0; }
   .head { display: flex; justify-content: center; position: relative; font-weight: 700; font-size: 13px; margin-bottom: 14px; }
@@ -140,7 +137,6 @@ function html(c: ConsignmentData, logo: string): string {
   .sign img { max-height: 58px; max-width: 100%; object-fit: contain; margin-bottom: 3px; }
   .sign .who { margin-top: 4px; line-height: 1.6; }
   .note { border: 1px solid #000; margin-top: 12px; padding: 6px 8px; min-height: 32px; }
-  .foot { font-size: 10px; text-align: center; }
   /* รูปอยู่หน้าเดียวกับใบ ไม่ดันขึ้นหน้าใหม่ — รอบก่อนบังคับขึ้นหน้าใหม่แล้วได้
      กระดาษสองแผ่นที่ว่างครึ่งใบทั้งคู่ ทั้งที่ของทั้งหมดใส่หน้าเดียวพอดี
      avoid กันไม่ให้บล็อกรูปถูกผ่ากลางเมื่อใบยาวจนต้องขึ้นหน้าจริง ๆ */
@@ -150,8 +146,14 @@ function html(c: ConsignmentData, logo: string): string {
      จะเหลือช่องว่างค้างฝั่งขวาหนึ่งช่อง ซึ่งอ่านเหมือนรูปหายไปหนึ่งใบ */
   .grid { display: grid; gap: 6px; }
   .grid figure { margin: 0; break-inside: avoid; }
-  .grid img { width: 100%; height: 42mm; object-fit: cover; border: 1px solid #000; background: #fff; }
+  /* contain ไม่ใช่ cover — รูปที่มีค่าที่สุดคือใบเซ็นรับ ซึ่งเป็นกระดาษแนวตั้ง
+     ครอบให้เต็มกรอบแล้วตัวหนังสือหายไปกับขอบ เหลือแต่พื้นกระดาษเปล่า
+     ยอมให้มีพื้นที่ว่างข้างรูปดีกว่าพิมพ์หลักฐานที่อ่านไม่ออก */
+  .grid img { width: 100%; height: 52mm; object-fit: contain; border: 1px solid #000; background: #fff; }
   .grid figcaption { font-size: 9px; margin-top: 2px; }
+  /* ช่องที่เปิดรูปไม่ได้ยังกินที่เท่ารูปจริง — ใบที่หายไปเฉย ๆ อ่านเหมือนคนขับ
+     ถ่ายไม่ครบ ซึ่งกล่าวหาคนผิดคน */
+  .lost { height: 52mm; border: 1px dashed #000; display: flex; align-items: center; justify-content: center; font-size: 10px; }
 </style></head><body>
 <div class="head">Consignment<span class="no">${esc(c.tripNo)}</span></div>
 <div class="top">
@@ -191,19 +193,17 @@ function html(c: ConsignmentData, logo: string): string {
 <div class="note"><b>หมายเหตุ</b> : ${esc(c.notes)}</div>
 ${c.photos.length ? `<section class="shots">
   <h2>รูปหลักฐานการส่งมอบ (${c.photos.length})</h2>
-  <div class="grid" style="grid-template-columns:repeat(${Math.min(c.photos.length, 4)},1fr)">${c.photos.map((ph) => `<figure><img src="${ph.url}" alt=""><figcaption>${esc(ph.label)}</figcaption></figure>`).join('')}</div>
+  <div class="grid" style="grid-template-columns:repeat(${Math.min(c.photos.length, 4)},1fr)">${c.photos.map((ph) => `<figure>${ph.url ? `<img src="${ph.url}" alt="">` : '<div class="lost">เปิดรูปไม่ได้</div>'}<figcaption>${esc(ph.label)}</figcaption></figure>`).join('')}</div>
 </section>` : ''}
-<div class="foot">พิมพ์จากระบบบริหารจัดการขนส่ง VPPW — ลายเซ็นและพิกัดบันทึกจากเครื่องของพนักงานขับรถ ณ เวลาที่ส่งมอบ</div>
 <script>
   /* สั่งพิมพ์จากในเอกสารเอง ไม่ใช่จากหน้าต่างที่เปิดมัน — onload ของฝั่งผู้เปิด
      ยิงไปแล้วตั้งแต่ก่อน document.write บางเบราว์เซอร์ กล่องพิมพ์จึงเปิดมาพร้อม
      ช่องรูปว่าง ทั้งที่ลายเซ็นกับรูปหลักฐานโหลดทันอยู่แล้ว */
   addEventListener('load', function () {
     focus()
-    /* title เป็นช่องว่างศูนย์ความกว้าง (U+200B) ไม่ใช่ค่าว่าง — ปล่อยว่างจริง
-       เบราว์เซอร์จะถอยไปใช้ URL แทน แล้วได้คำว่า about:blank ขึ้นหัวกระดาษ
-       ซึ่งแย่กว่าเดิม และห้ามตั้ง title ใหม่ระหว่างนี้ Chrome เรนเดอร์ตัวอย่าง
-       พิมพ์ใหม่ทุกครั้งที่ title เปลี่ยน ชื่อจึงโผล่กลับมาทั้งที่ตั้งหลัง print() */
+    /* title เป็นชื่อไฟล์ที่กล่อง "บันทึกเป็น PDF" เติมให้ ไม่ใช่แค่ชื่อแท็บ
+       เคยตัดทิ้งเพื่อไม่ให้ขึ้นหัวกระดาษ แล้วได้ไฟล์ชื่อ _.pdf ตอนนี้ไม่ต้อง
+       แลกแล้ว หัวกระดาษถูกตัดด้วย @page margin:0 ซึ่งไม่เกี่ยวกับ title เลย */
     print()
   })
 </script>
