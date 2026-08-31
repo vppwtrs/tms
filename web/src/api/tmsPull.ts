@@ -179,7 +179,7 @@ export type PlStatus = (typeof PL_STATUS)[number]
  *  ถ้ากรองตอนดึง ใบที่ส่งจบจะหายจากตารางเงียบ ๆ แล้วไม่มีใครรู้ว่ามันไปไหน */
 export const PL_PLANNABLE: PlStatus[] = ['New', 'AssignTrip', 'OnTruck']
 
-interface PlDetail {
+export interface PlDetail {
   itemNo?: string
   description?: string
   qty?: number
@@ -193,7 +193,7 @@ interface PlDetail {
   splitQuantity?: number
 }
 
-interface PlHeader {
+export interface PlHeader {
   pickingListNo?: string
   status?: string
   tripStatus?: string
@@ -308,8 +308,12 @@ function scanQty(d: PlDetail): number | null {
 }
 
 /** แปลง PL header เป็นแถวละ item — ใช้ทั้งเส้น PL และใบที่ติดมากับเที่ยว
- *  ใบที่ไม่มี item ยังได้แถวหนึ่งแถว ไม่ใช่หายไปเงียบ ๆ */
-function plRowsOf(headers: PlHeader[]): PlRow[] {
+ *  ใบที่ไม่มี item ยังได้แถวหนึ่งแถว ไม่ใช่หายไปเงียบ ๆ
+ *
+ *  export ให้หน้ารายงานใช้ด้วย (api/tmsReports.ts) — กติกาอ่านจำนวนต่อรุ่นในนี้
+ *  ผ่านการวัดกับใบจริงมาแล้ว 64 ใบ (ดูคอมเมนต์ข้างล่าง) เขียนตัวแปลงชุดที่สอง
+ *  ที่อื่นแปลว่ามีสองที่ให้ผิดไม่ตรงกันได้ */
+export function plRowsOf(headers: PlHeader[]): PlRow[] {
   const rows: PlRow[] = []
   for (const h of headers) {
     const common = {

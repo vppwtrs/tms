@@ -121,6 +121,14 @@ const seg = (v: unknown): string => {
   return encodeURIComponent(s)
 }
 
+/** วันที่ล้วน — ค่าที่ไม่ใช่รูปแบบ YYYY-MM-DD ถูกปฏิเสธ ไม่ใช่ตัดให้พอผ่าน
+ *  ค่าที่เพี้ยนแล้วยังยิงต่อ = ได้ลิสต์ว่างกลับมาโดยไม่มีใครรู้ว่าเพราะวันที่ผิด */
+const dateOnly = (v: unknown): string => {
+  const s = String(v ?? '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new Error('bad date')
+  return s
+}
+
 const OPS: Record<string, (p: Record<string, unknown>) => Op> = {
   /** คลังทั้งหมดที่บัญชีนี้เห็น
    *  ชื่อพารามิเตอร์ต้องเป็น pageNumber/pageSize — เคยส่ง page/keyword ตามที่เดาเอง
@@ -146,6 +154,35 @@ const OPS: Record<string, (p: Record<string, unknown>) => Op> = {
     },
   }),
 
+  /** ค้นใบเดียวด้วยเลขใบ — ใช้ตอนต้องการรายการสินค้าของใบที่ไม่อยู่ในช่วงที่ไล่มา
+   *
+   *  ต่างจาก pickingLists ตรงที่ส่ง keyword ไปด้วย TMS รับเลขที่มีหาง -C-04 ได้ตรง ๆ
+   *  (ทดสอบกับของจริงมาแล้วสมัยใช้ actualshipment เป็นแหล่งหลัก)
+   *
+   *  keyword ยาวจำกัดไว้ 64 ตัว และตัดอักขระที่ไม่ใช่เลขใบทิ้ง — ช่องค้นหาที่ส่ง
+   *  อะไรก็ได้เข้าไปในระบบบริษัทคือของที่ไม่ควรเปิดให้ client กำหนดอิสระ
+   *  pageSize เล็กเพราะคำตอบที่ต้องการคือใบเดียว ไม่ใช่รายการ */
+  pickingListByNo: p => ({
+    path: `/v1/pickinglistheaders/${seg(p.warehouse)}/search`,
+    method: 'POST',
+    body: {
+      orderBy: ['planDeliveryDate Descending'],
+      pageNumber: 1,
+      pageSize: 20,
+      keyword: seg(p.no),
+    },
+  }),
+
+  /** ใบเดียวเต็มใบพร้อมรายการสินค้า — เส้นที่หน้า "Picking List Detail" ของ TMS ใช้
+   *  (จับมาจากหน้าจริง 31 ส.ค. 2569: GET /v1/pickinglistheaders/{คลัง}/{guid})
+   *
+   *  ต้องมีเพราะเส้น search บางใบส่ง header มาโดยไม่มี details ติดมาด้วย
+   *  รายการสินค้าของใบพวกนั้นอยู่ที่เส้นนี้เท่านั้น */
+  pickingListById: p => ({
+    path: `/v1/pickinglistheaders/${seg(p.warehouse)}/${seg(p.id)}`,
+    method: 'GET',
+  }),
+
   /** เที่ยวของคลังหนึ่ง — อ้างคลังด้วย GUID ไม่ใช่รหัส ต่างจาก pickingLists ข้างบน */
   trips: p => ({
     path: `/v1/tripheaders/${seg(p.guid)}/search`,
@@ -165,7 +202,36 @@ const OPS: Record<string, (p: Record<string, unknown>) => Op> = {
     method: 'POST',
     body: { Id: seg(p.id) },
   }),
+
+  /** รายงาน Actual Shipment ของช่วงวัน — เคยใช้เป็นแหล่งข้อมูลหลักแล้วเลิกไป
+   *  (ดู tmsPull.ts) แต่ในฐานะ **รายงาน** มันยังเป็นเส้นเดียวที่ TMS ให้ยอดส่งจริง
+   *  ต่อบรรทัดมาเป็นก้อนเดียว
+   *
+   *  อ้างคลังด้วย GUID ไม่ใช่รหัส ส่งรหัสไปได้ลิสต์ว่างแบบไม่มี error
+   *  วันส่งเป็น UTC เที่ยงคืนเสมอ ส่ง local time แล้วคนที่ +07 จะได้ข้อมูลเหลื่อมวัน */
+  actualShipment: p => ({
+    path: '/v1/reports/actualshipment',
+    method: 'POST',
+    body: {
+      planDeliveryDate: [`${dateOnly(p.from)}T00:00:00.000Z`, `${dateOnly(p.to)}T00:00:00.000Z`],
+      warehouseId: seg(p.warehouseId),
+    },
+  }),
+
+  /** รายงาน Plan Simulate — แผนที่ระบบ TMS จำลองไว้ ก่อนที่เที่ยวจริงจะถูกยืนยัน
+   *  เส้นทางและ body จับมาจากหน้า TMS จริง (Report > Plan Simulate > Search)
+   *  รูปแบบเดียวกับ actualshipment เป๊ะ ทั้งช่วงวันและการอ้างคลังด้วย GUID */
+  planSimulate: p => ({
+    path: '/v1/reports/plansimulate',
+    method: 'POST',
+    body: {
+      planDeliveryDate: [`${dateOnly(p.from)}T00:00:00.000Z`, `${dateOnly(p.to)}T00:00:00.000Z`],
+      warehouseId: seg(p.warehouseId),
+    },
+  }),
 }
+
+
 
 /* ---------- งานแบบวนหลายรอบ ----------
  *
@@ -184,6 +250,9 @@ const OPS: Record<string, (p: Record<string, unknown>) => Op> = {
 /** เพดานที่ยอมให้ขอได้ต่อหนึ่งคำขอ — กันไม่ให้ใครสั่งให้เรายิงหา TMS รัวไม่จำกัด */
 const SCAN_MAX_PAGES = 60
 const SCAN_MAX_IDS = 60
+/** ไล่ค้นข้ามคลังได้ไม่เกินเท่านี้ต่อหนึ่งเลขใบ — กันไม่ให้รายชื่อคลังยาว ๆ
+    กลายเป็นตัวคูณจำนวนคำขอที่ยิงไปหา TMS */
+const SCAN_MAX_WAREHOUSES = 4
 /** ยิงพร้อมกันได้เท่านี้ตอนถามรายละเอียดทีละเที่ยว — มากกว่านี้คือกดดัน TMS
     โดยไม่ได้อะไรเพิ่ม เพราะคอขวดคือฝั่งเขา ไม่ใช่ฝั่งเรา */
 const SCAN_CONCURRENCY = 4
@@ -302,6 +371,114 @@ const SCANS: Record<
           return { id, items }
         } catch {
           return { id, items: [] as unknown[] }
+        }
+      }))
+      out.push(...done)
+    }
+
+    return { lists: out }
+  },
+
+  /** ค้นใบทีละเลข หลายเลขในคำขอเดียว — ใช้เติมรายการสินค้าของใบที่ไล่ตามช่วงวันไม่เจอ
+   *
+   *  ทำไมต้องวนฝั่งนี้: หน้ารายงานหนึ่งรอบมีใบที่หาไม่เจอเป็นสิบถึงร้อยใบ ถ้าปล่อยให้
+   *  เบราว์เซอร์ยิงทีละใบ ทุกใบต้องเดินทาง เบราว์เซอร์ → โซล → ไทย → กลับ ครบรอบ
+   *  เหตุผลเดียวกับ scanTripPickingLists ข้างบน
+   *
+   *  เพดานและการยิงทีละ 4 คู่ขนานเหมือนกัน — นี่คือ TMS ที่คนทั้งบริษัทใช้อยู่
+   *  ใบที่ค้นไม่ผ่านคืนลิสต์ว่างของใบนั้น ไม่ล้มทั้งรอบ */
+  scanPickingListsByNo: async (p, token) => {
+    /* คลังที่จะไล่ค้น: คลังที่เลือกก่อน แล้วค่อยคลังอื่นที่บัญชีนี้เห็น
+       ใบที่ปรากฏในรายงานของคลังหนึ่ง ไม่ได้แปลว่าทะเบียนใบอยู่ที่คลังนั้น
+       ค้นแค่คลังเดียวจึงได้ "ไม่เจอ" ทั้งที่ใบมีอยู่จริงอีกคลัง */
+    const whs = [
+      ...new Set(
+        [String(p.warehouse ?? ''), ...(Array.isArray(p.warehouses) ? p.warehouses.map(String) : [])]
+          .map(w => w.trim())
+          .filter(Boolean),
+      ),
+    ].slice(0, SCAN_MAX_WAREHOUSES)
+    const nos = Array.isArray(p.nos) ? p.nos.slice(0, SCAN_MAX_IDS).map(String) : []
+    /* found = จำนวนใบที่ตรงกับเลขที่ถาม · 0 แปลว่า "ไม่มีใบนี้ในระบบ" ซึ่งต่างจาก
+       "มีใบแต่ไม่มีรายการสินค้า" — หน้าจอต้องเขียนสองอย่างนี้ต่างกัน
+       via บอกว่าเจอที่คลังไหนด้วยคีย์เวิร์ดอะไร ไว้ไล่ตอนตัวเลขไม่ตรงกับที่คาด */
+    const out: Array<{ no: string; found: number; items: unknown[]; via?: string }> = []
+
+    /** เลขใบแบบตัดหางท้าย (-C-04) — ทะเบียนใบบางใบเก็บเลขต้นทางไว้ ไม่ได้เก็บเลขที่ถูกแบ่งแล้ว */
+    const baseNo = (no: string): string => no.replace(/-[A-Za-z]+-\d+$/, '')
+
+    /** header ใบนี้คือใบที่ถามหรือเปล่า — เส้น search เป็นการค้นแบบ "มีคำนี้อยู่"
+        ไม่ใช่ค้นตรงตัว คำตอบจึงมีใบอื่นปนมาได้ ถ้าไม่กรองคือเอาสินค้าใบอื่นมาแปะ */
+    const isSame = (h: Record<string, unknown>, no: string): boolean => {
+      const v = String(h.pickingListNo ?? h.no ?? h.documentNo ?? '').trim()
+      return v !== '' && (v === no || baseNo(v) === baseNo(no))
+    }
+
+    const search = async (wh: string, keyword: string): Promise<Record<string, unknown>[]> => {
+      const spec = OPS.pickingListByNo({ warehouse: wh, no: keyword })
+      const r = await fetch(TMS_BASE + spec.path, {
+        method: spec.method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(spec.body ?? {}),
+      })
+      if (!r.ok) return []
+      const body = await r.json().catch(() => null)
+      const rows: unknown[] = Array.isArray(body) ? body
+        : Array.isArray(body?.data) ? body.data
+        : Array.isArray(body?.items) ? body.items
+        : []
+      return rows.map(x => (x ?? {}) as Record<string, unknown>)
+    }
+
+    /* เส้น search บางใบส่ง header มาโดยไม่มี details ติดมา รายการสินค้าของใบ
+       พวกนั้นอยู่ที่เส้นรายใบ (เส้นเดียวกับหน้า Picking List Detail ของ TMS)
+       ถามต่อเฉพาะใบที่ยังไม่มีรายการ ไม่ใช่ถามทุกใบ — ใบที่ search ส่งครบมาแล้ว
+       การถามซ้ำคือคำขอที่ไม่ได้อะไรเพิ่ม */
+    const withDetails = async (wh: string, heads: Record<string, unknown>[]): Promise<unknown[]> => {
+      const items: unknown[] = []
+      for (const head of heads) {
+        const det = head.details
+        if (Array.isArray(det) && det.length) { items.push(head); continue }
+
+        const id = head.id ?? head.pickingListHeaderId
+        if (!id) { items.push(head); continue }
+        try {
+          const one = OPS.pickingListById({ warehouse: wh, id })
+          const rr = await fetch(TMS_BASE + one.path, {
+            method: one.method,
+            headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+          })
+          if (!rr.ok) { items.push(head); continue }
+          const full = await rr.json().catch(() => null)
+          items.push(full ?? head)
+        } catch {
+          items.push(head)
+        }
+      }
+      return items
+    }
+
+    for (let i = 0; i < nos.length; i += SCAN_CONCURRENCY) {
+      const chunk = nos.slice(i, i + SCAN_CONCURRENCY)
+      const done = await Promise.all(chunk.map(async (no) => {
+        /* ไล่คีย์เวิร์ดจากตรงตัวไปหาหลวม และคลังที่เลือกไปหาคลังอื่น
+           หยุดทันทีที่เจอ — ทางที่เหลือเป็นคำขอที่ไม่ได้อะไรเพิ่ม */
+        const keys = [...new Set([no.trim(), baseNo(no.trim())].filter(Boolean))]
+        try {
+          for (const wh of whs) {
+            for (const key of keys) {
+              const hits = (await search(wh, key)).filter(h => isSame(h, no))
+              if (!hits.length) continue
+              return { no, found: hits.length, items: await withDetails(wh, hits), via: `${wh}/${key}` }
+            }
+          }
+          return { no, found: 0, items: [] as unknown[] }
+        } catch {
+          return { no, found: 0, items: [] as unknown[] }
         }
       }))
       out.push(...done)

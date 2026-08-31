@@ -53,6 +53,14 @@ export const IconClipboard = (p: IconProps) => (
   </svg>
 )
 
+export const IconReport = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M6 2h8l4 4v16H6z" />
+    <path d="M14 2v4h4" />
+    <path d="M9 13h6M9 17h6M9 9h3" />
+  </svg>
+)
+
 export const IconPencil = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
