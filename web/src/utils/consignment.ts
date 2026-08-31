@@ -195,18 +195,6 @@ ${c.photos.length ? `<section class="shots">
   <h2>รูปหลักฐานการส่งมอบ (${c.photos.length})</h2>
   <div class="grid" style="grid-template-columns:repeat(${Math.min(c.photos.length, 4)},1fr)">${c.photos.map((ph) => `<figure>${ph.url ? `<img src="${ph.url}" alt="">` : '<div class="lost">เปิดรูปไม่ได้</div>'}<figcaption>${esc(ph.label)}</figcaption></figure>`).join('')}</div>
 </section>` : ''}
-<script>
-  /* สั่งพิมพ์จากในเอกสารเอง ไม่ใช่จากหน้าต่างที่เปิดมัน — onload ของฝั่งผู้เปิด
-     ยิงไปแล้วตั้งแต่ก่อน document.write บางเบราว์เซอร์ กล่องพิมพ์จึงเปิดมาพร้อม
-     ช่องรูปว่าง ทั้งที่ลายเซ็นกับรูปหลักฐานโหลดทันอยู่แล้ว */
-  addEventListener('load', function () {
-    focus()
-    /* title เป็นชื่อไฟล์ที่กล่อง "บันทึกเป็น PDF" เติมให้ ไม่ใช่แค่ชื่อแท็บ
-       เคยตัดทิ้งเพื่อไม่ให้ขึ้นหัวกระดาษ แล้วได้ไฟล์ชื่อ _.pdf ตอนนี้ไม่ต้อง
-       แลกแล้ว หัวกระดาษถูกตัดด้วย @page margin:0 ซึ่งไม่เกี่ยวกับ title เลย */
-    print()
-  })
-</script>
 </body></html>`
 }
 
@@ -224,5 +212,30 @@ export function printConsignment(c: ConsignmentData, logoUrl: string): boolean {
   if (!w) return false
   w.document.write(html(c, logoUrl))
   w.document.close()
+
+  /* สั่งพิมพ์จากฝั่งนี้ ไม่ใช่จาก <script> ในเอกสาร — หน้าต่างที่เปิดจาก
+     about:blank รับ CSP ของหน้าที่เปิดมันมาทั้งดุ้น และ production ฝัง
+     `script-src 'self' <hash>` ไว้ใน index.html สคริปต์ inline ที่ไม่มีแฮชจึง
+     ถูกบล็อกเงียบ ๆ เอกสารขึ้นครบแต่กล่องพิมพ์ไม่เด้ง — เห็นเฉพาะบนเว็บจริง
+     เพราะ dev server ไม่ได้ฝัง CSP นั้น
+
+     รอรูปให้โหลดจบก่อน ไม่งั้นกระดาษออกมาพร้อมช่องรูปว่าง */
+  const shoot = (): void => { w.focus(); w.print() }
+  const imgs = [...w.document.images]
+  const pending = imgs.filter((im) => !im.complete)
+  if (!pending.length) { shoot(); return true }
+
+  let left = pending.length
+  /* กันค้าง: รูปที่โหลดไม่ขึ้นต้องไม่ทำให้พิมพ์ไม่ได้ทั้งใบ */
+  const timer = w.setTimeout(shoot, 5000)
+  const done = (): void => {
+    if (--left > 0) return
+    w.clearTimeout(timer)
+    shoot()
+  }
+  for (const im of pending) {
+    im.addEventListener('load', done, { once: true })
+    im.addEventListener('error', done, { once: true })
+  }
   return true
 }
