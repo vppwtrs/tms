@@ -3,7 +3,9 @@ import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow, t
 import { forceDeleteTrip } from '../api/trips'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
 import { useRealtime } from '../hooks/useRealtime'
-import type { ConsignmentLine } from '../utils/consignment'
+import { printConsignment, type ConsignmentLine } from '../utils/consignment'
+import { podOfOrder } from '../api/pod'
+import { POD_PHOTO_KINDS } from '../api/myjobs'
 import { PodViewModal } from '../components/PodViewModal'
 import { listAllCustomers } from '../api/customers'
 import { listDrivers } from '../api/vehicles'
@@ -86,6 +88,9 @@ interface PodSheet {
   sender: string
   lines: ConsignmentLine[]
 }
+
+const podKindLabel = (kind: string): string =>
+  POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? 'อื่น ๆ'
 
 /** ไซซ์กล่องอยู่ท้ายรหัสสินค้า ไม่ใช่คอลัมน์ของตัวเอง — `FSBOX04 M` คือกล่อง M
  *  ตรวจกับของจริงแล้ว 19 รหัสที่ใช้อยู่เข้ารูปนี้ทั้งหมด (S / M / L / XL / XXL)
@@ -293,7 +298,38 @@ export default function CloudOrders(): React.JSX.Element {
   /* ข้อมูลใบส่งของของจุดที่กำลังเปิด — ประกอบจากแถวที่หน้านี้มีอยู่แล้ว
      ไม่ใช่ให้หน้าต่างหลักฐานไปดึงซ้ำ */
   const [podSheet, setPodSheet] = useState<PodSheet | null>(null)
+  /* จุดที่กำลังเตรียมใบส่งของอยู่ — ต้องอ่านลายเซ็นกับรูปจากฐานก่อนถึงจะพิมพ์ได้
+     ปุ่มจึงมีจังหวะรอ ต่างจากปุ่มอื่นในแถวนี้ที่ทำงานทันที */
+  const [printing, setPrinting] = useState<string | null>(null)
   const [cancelLoading, setCancelLoading] = useState(false)
+
+  /* พิมพ์ใบส่งของจากแถวร้านตรง ๆ ไม่ต้องเปิดหน้าต่างหลักฐานก่อน — คนที่จะพิมพ์
+     รู้อยู่แล้วว่าจะพิมพ์จุดไหน การบังคับให้เปิดหน้าต่างดูลายเซ็นก่อนคือขั้นที่
+     ไม่ได้ตอบอะไรเลย ตัวหน้าต่างยังพิมพ์ได้เหมือนเดิมสำหรับคนที่เปิดดูอยู่แล้ว */
+  const printStore = useCallback(async (trip: TripGroup, store: StoreGroup): Promise<void> => {
+    const row = store.podRow
+    if (!row) return
+    setPrinting(store.key)
+    try {
+      const pod = await podOfOrder(row.id)
+      if (!pod) { push('error', 'จุดนี้ยังไม่มีหลักฐานการส่งมอบ'); return }
+      const ok = printConsignment({
+        ...sheetOf(trip, store),
+        lat: pod.lat,
+        lng: pod.lng,
+        recipient: pod.recipient_name,
+        signature: pod.signature_data,
+        collectedAt: pod.collected_at,
+        notes: pod.notes ?? '',
+        photos: pod.photos.map((ph) => ({ url: ph.url, label: podKindLabel(ph.kind) })),
+      }, new URL(`${import.meta.env.BASE_URL}vppw-mark.png`, window.location.href).href)
+      if (!ok) push('error', 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาตป๊อปอัปของเว็บนี้ก่อน')
+    } catch (e) {
+      push('error', (e as Error).message)
+    } finally {
+      setPrinting(null)
+    }
+  }, [push])
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -569,6 +605,7 @@ export default function CloudOrders(): React.JSX.Element {
                         และปุ่มซ้อนในปุ่มเป็นสิ่งที่ HTML ไม่ยอมรับตั้งแต่แรก */}
                     {store.delivered > 0 && (
                       store.podRow ? (
+                        <>
                         <button
                           type="button"
                           className="pod-badge-btn"
@@ -585,6 +622,18 @@ export default function CloudOrders(): React.JSX.Element {
                             dot={store.verified < store.delivered}
                           />
                         </button>
+                        {/* อยู่ข้างป้ายหลักฐาน ไม่ใช่ในหน้าต่าง — ใบส่งของออกได้ก็ต่อเมื่อ
+                            จุดนี้มีลายเซ็นแล้ว ป้ายกับปุ่มจึงอยู่ด้วยกันเสมอ */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="พิมพ์ใบส่งของของจุดนี้"
+                          loading={printing === store.key}
+                          onClick={() => void printStore(trip, store)}
+                        >
+                          PDF
+                        </Button>
+                        </>
                       ) : (
                         <Badge label="ไม่มี POD" tone="pending" />
                       )
