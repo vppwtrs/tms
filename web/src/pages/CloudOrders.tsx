@@ -1,8 +1,9 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
-import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow } from '../api/orders'
+import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow, type OrderItem } from '../api/orders'
 import { forceDeleteTrip } from '../api/trips'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
 import { useRealtime } from '../hooks/useRealtime'
+import type { ConsignmentLine } from '../utils/consignment'
 import { PodViewModal } from '../components/PodViewModal'
 import { listAllCustomers } from '../api/customers'
 import { listDrivers } from '../api/vehicles'
@@ -73,6 +74,56 @@ const emptyForm: OrderForm = {
  */
 function billNo(o: OrderListRow): string {
   return o.tms_picking_list_no ?? o.order_no
+}
+
+interface PodSheet {
+  tripNo: string
+  scheduledAt: string
+  warehouse: string
+  area: string
+  consignee: string
+  address: string[]
+  sender: string
+  lines: ConsignmentLine[]
+}
+
+/** ไซซ์กล่องอยู่ท้ายรหัสสินค้า ไม่ใช่คอลัมน์ของตัวเอง — `FSBOX04 M` คือกล่อง M
+ *  ตรวจกับของจริงแล้ว 19 รหัสที่ใช้อยู่เข้ารูปนี้ทั้งหมด (S / M / L / XL / XXL)
+ *  รหัสที่ไม่ใช่กล่องจะไม่มี token ท้ายที่เข้ารูป จึงคืนค่าว่างแทนการเดา */
+function boxSizeOf(itemNo: string): string {
+  const last = itemNo.trim().split(/\s+/).pop() ?? ''
+  return /^(XXL|XL|[SML])\+?$/i.test(last) ? last.toUpperCase() : ''
+}
+
+/** สรุปไซซ์กล่องของใบเดียวเป็น `S (5) / M (3)` — รูปแบบเดียวกับใบที่ TMS บริษัทออก */
+function boxSummary(items: OrderItem[]): string {
+  const by = new Map<string, number>()
+  for (const it of items) {
+    const size = boxSizeOf(it.item_no)
+    if (size) by.set(size, (by.get(size) ?? 0) + it.qty)
+  }
+  return [...by].map(([size, n]) => `${size} (${n})`).join(' / ')
+}
+
+/** ใบส่งของออกทั้งจุดเสมอ ไม่ใช่ทีละใบ — คนขับยื่นกระดาษแผ่นเดียวที่หน้าร้าน
+ *  แล้วให้เซ็นครั้งเดียวครอบทุกใบของร้านนั้น เอกสารจึงต้องลิสต์ให้ครบทุกใบ
+ *  จำนวนนับจากรายการของในใบ ใบที่ TMS ไม่ส่งรายการมาให้จะนับเป็น 0 ไม่ใช่เดา */
+function sheetOf(trip: TripGroup, store: StoreGroup): PodSheet {
+  return {
+    tripNo: trip.tripNo,
+    scheduledAt: trip.scheduled,
+    warehouse: trip.warehouse ?? '',
+    area: trip.area ?? '',
+    consignee: store.store,
+    address: store.spots,
+    sender: trip.driver ?? '—',
+    lines: store.rows.map((r) => ({
+      shipmentId: billNo(r),
+      items: r.items.map((it) => ({ itemNo: it.item_no, itemName: it.item_name ?? '', qty: it.qty })),
+      boxSize: boxSummary(r.items),
+      qty: r.items.reduce((n, it) => n + it.qty, 0),
+    })),
+  }
 }
 
 interface StoreGroup {
@@ -239,6 +290,9 @@ export default function CloudOrders(): React.JSX.Element {
   /* ลายเซ็นชุดเดียวถูกบันทึกลงทุกใบของร้าน หน้าต่างจึงต้องบอกว่ามันครอบกี่ใบ
      ไม่งั้นคนเปิดจากใบเดียวจะเข้าใจว่าใบอื่นยังไม่มีหลักฐาน */
   const [podCovers, setPodCovers] = useState(1)
+  /* ข้อมูลใบส่งของของจุดที่กำลังเปิด — ประกอบจากแถวที่หน้านี้มีอยู่แล้ว
+     ไม่ใช่ให้หน้าต่างหลักฐานไปดึงซ้ำ */
+  const [podSheet, setPodSheet] = useState<PodSheet | null>(null)
   const [cancelLoading, setCancelLoading] = useState(false)
 
   const load = useCallback(async (): Promise<void> => {
@@ -518,7 +572,11 @@ export default function CloudOrders(): React.JSX.Element {
                         <button
                           type="button"
                           className="pod-badge-btn"
-                          onClick={() => { setPodOrder(store.podRow); setPodCovers(store.withPod) }}
+                          onClick={() => {
+                            setPodOrder(store.podRow)
+                            setPodCovers(store.withPod)
+                            setPodSheet(sheetOf(trip, store))
+                          }}
                           title="ดูลายเซ็นและรูปหลักฐานของจุดนี้"
                         >
                           <Badge
@@ -558,7 +616,13 @@ export default function CloudOrders(): React.JSX.Element {
                             <button
                               type="button"
                               className="pod-badge-btn"
-                              onClick={() => { setPodOrder(o); setPodCovers(1) }}
+                              onClick={() => {
+                                setPodOrder(o)
+                                setPodCovers(1)
+                                /* เปิดจากใบเดียวก็ยังพิมพ์ทั้งจุด — กระดาษที่ลิสต์ใบเดียว
+                                   ทั้งที่ลายเซ็นครอบทั้งร้าน อ่านแล้วเข้าใจว่าส่งไม่ครบ */
+                                setPodSheet(sheetOf(trip, store))
+                              }}
                               title="ดูลายเซ็นและรูปหลักฐาน"
                             >
                               <Badge
@@ -693,7 +757,13 @@ export default function CloudOrders(): React.JSX.Element {
       </Modal>
 
       {podOrder && (
-        <PodViewModal orderId={podOrder.id} billNo={billNo(podOrder)} covers={podCovers} onClose={() => setPodOrder(null)} />
+        <PodViewModal
+          orderId={podOrder.id}
+          billNo={billNo(podOrder)}
+          covers={podCovers}
+          consignment={podSheet ?? undefined}
+          onClose={() => { setPodOrder(null); setPodSheet(null) }}
+        />
       )}
 
       <ConfirmDialog

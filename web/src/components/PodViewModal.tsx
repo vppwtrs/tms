@@ -5,6 +5,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import { POD_PHOTO_KINDS } from '../api/myjobs'
 import { fmtDateTime } from '../utils/format'
+import { printConsignment, type ConsignmentLine } from '../utils/consignment'
 
 const kindLabel = (kind: string): string =>
   POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? 'อื่น ๆ'
@@ -28,6 +29,7 @@ export function PodViewModal({
   orderId,
   billNo,
   covers = 1,
+  consignment,
   onClose,
 }: {
   orderId: number
@@ -36,6 +38,19 @@ export function PodViewModal({
   /** จำนวนใบที่ลายเซ็นชุดนี้ครอบอยู่ — คนขับเซ็นครั้งเดียวที่หน้าร้าน แล้วลายเซ็น
    *  ชุดนั้นถูกบันทึกลงทุกใบของร้านนั้น เปิดจากใบเดียวโดยไม่บอกจะเข้าใจว่าใบอื่นยังว่าง */
   covers?: number
+  /** ข้อมูลจุดส่งสำหรับพิมพ์ใบส่งของ — ไม่ส่งมา ปุ่มพิมพ์ก็ไม่ขึ้น
+   *  หน้าต่างนี้อ่านได้แค่ตัวหลักฐาน ส่วนร้าน ที่อยู่ และใบทั้งชุดของจุดนั้น
+   *  อยู่ที่หน้าที่เปิดมันขึ้นมา ดึงซ้ำที่นี่คือยิงคิวรีที่ผู้เรียกมีคำตอบอยู่แล้ว */
+  consignment?: {
+    tripNo: string
+    scheduledAt: string
+    warehouse: string
+    area: string
+    consignee: string
+    address: string[]
+    sender: string
+    lines: ConsignmentLine[]
+  }
   onClose: () => void
 }): React.JSX.Element {
   const { can } = useCloudAuth()
@@ -50,6 +65,22 @@ export function PodViewModal({
   const [reason, setReason] = useState('')
 
   const canVerify = can('pod.verify')
+
+  const printSheet = (): void => {
+    if (!pod || !consignment) return
+    const ok = printConsignment({
+      ...consignment,
+      lat: pod.lat,
+      lng: pod.lng,
+      recipient: pod.recipient_name,
+      signature: pod.signature_data,
+      collectedAt: pod.collected_at,
+      notes: pod.notes ?? '',
+      /* ลิงก์ที่ขอไว้ตอนเปิดหน้าต่างนี้ ใช้ต่อได้ทันทีในหน้าต่างพิมพ์ ไม่ต้องขอใหม่ */
+      photos: pod.photos.map((ph) => ({ url: ph.url, label: kindLabel(ph.kind) })),
+    }, new URL(`${import.meta.env.BASE_URL}vppw-mark.png`, window.location.href).href)
+    if (!ok) toast.push('error', 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาตป๊อปอัปของเว็บนี้ก่อน')
+  }
 
   const verify = async (): Promise<void> => {
     if (!pod) return
@@ -101,6 +132,10 @@ export function PodViewModal({
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>ปิด</Button>
+          {/* พิมพ์ได้เฉพาะใบที่มีหลักฐานจริง — ใบส่งของที่ไม่มีลายเซ็นคือกระดาษเปล่า */}
+          {pod && consignment && (
+            <Button variant="ghost" onClick={printSheet}>พิมพ์ใบส่งของ (PDF)</Button>
+          )}
           {/* ขึ้นเฉพาะใบที่ยังยืนยันไม่ได้ยืนยัน และเฉพาะคนที่ถือสิทธิ์นั้นจริง
               ปุ่มที่กดแล้วฐานปฏิเสธ สอนให้คนเลิกเชื่อสิ่งที่หน้าจอบอก */}
           {pod && pod.status === 'collected' && canVerify && (
