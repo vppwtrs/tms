@@ -165,6 +165,7 @@ export function PlanSimulateReport({ range }: { range: { from: string; to: strin
                       <th>คลัง</th>
                       <th>เที่ยว</th>
                       <th>เลข PL</th>
+                      <th>ประเภทใบ</th>
                       <th>นัดรับของ</th>
                       <th>ร้าน</th>
                       <th>จังหวัด</th>
@@ -187,6 +188,7 @@ export function PlanSimulateReport({ range }: { range: { from: string; to: strin
                           <td>{r.warehouse || <span className="text-muted">—</span>}</td>
                           <td>{r.tripNo || <span className="text-muted">ยังไม่มีเที่ยว</span>}</td>
                           <td><b>{r.pickingListNo}</b></td>
+                          <td>{r.pickingListType || <span className="text-muted">—</span>}</td>
                           <td>{r.planPickupDate || <span className="text-muted">—</span>}</td>
                           <td>{r.dealerName || <span className="text-muted">—</span>}</td>
                           <td>{r.province || <span className="text-muted">—</span>}</td>
@@ -199,7 +201,7 @@ export function PlanSimulateReport({ range }: { range: { from: string; to: strin
                           <td><ItemCell lookup={lookup} no={r.pickingListNo} rowKey={key} /></td>
                         </tr>,
                         isOpen && its?.length ? (
-                          <tr key={`${key}-items`}><ItemRows items={its} colSpan={13} /></tr>
+                          <tr key={`${key}-items`}><ItemRows items={its} colSpan={14} /></tr>
                         ) : null,
                       ]
                     })}
