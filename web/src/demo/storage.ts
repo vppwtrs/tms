@@ -15,7 +15,7 @@ export async function uploadPodPhoto(
   return path
 }
 
-export async function podPhotoUrl(path: string): Promise<string> {
+export async function podPhotoUrl(_orderId: number, path: string): Promise<string> {
   return blobs.get(path) ?? ''
 }
 

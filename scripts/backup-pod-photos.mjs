@@ -29,6 +29,7 @@ import { mkdir, writeFile, readdir, access } from 'node:fs/promises'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { r2Client } from './r2-sigv4.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -51,11 +52,12 @@ const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const OUT = process.env.BACKUP_DIR
 
 if (!URL_BASE || !KEY || !OUT) {
-  console.error(`ยังตั้งค่าไม่ครบ — ต้องมีทั้งสามค่าใน scripts/backup.env
+  console.error(`ยังตั้งค่าไม่ครบ — ต้องมีค่าเหล่านี้ใน scripts/backup.env
 
   SUPABASE_URL=https://xxxx.supabase.co
   SUPABASE_SERVICE_ROLE_KEY=...        (Project Settings > API > service_role)
-  BACKUP_DIR=G:\\My Drive\\TMS-POD      (โฟลเดอร์ที่ Google Drive sync อยู่)
+  BACKUP_DIR=G:\\My Drive\\TMS-POD      (โฟลเดอร์ปลายทางในเครื่อง)
+  R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET   (ต้นฉบับรูป)
 
 service_role key ข้าม RLS ทั้งหมด เก็บไว้ในเครื่องเท่านั้น ห้าม commit
 (.gitignore ครอบ .env อยู่แล้ว และไฟล์นี้ชื่อ backup.env จึงถูกครอบด้วย)`)
@@ -63,6 +65,21 @@ service_role key ข้าม RLS ทั้งหมด เก็บไว้ใ
 }
 
 const headers = { apikey: KEY, Authorization: `Bearer ${KEY}` }
+
+/* ต้นฉบับรูปอยู่บน R2 แล้ว (ไม่ใช่ Supabase Storage) — ตาราง pod ยังอ่านจาก Supabase ตามเดิม
+   ลายเซ็นก็ยังเป็น data URL ในคอลัมน์ signature_data ไม่เกี่ยวกับ R2 */
+let r2
+try {
+  r2 = r2Client({
+    accountId: process.env.R2_ACCOUNT_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    bucket: process.env.R2_BUCKET,
+  })
+} catch (e) {
+  console.error(e.message + ' (ดู scripts/backup.env)')
+  process.exit(1)
+}
 
 /** ดึงหลักฐานทุกใบพร้อมรูปและข้อมูลรอบตัว — ครั้งเดียวจบ ไม่ยิงรายใบ
  *  PostgREST ฝังตารางที่เกี่ยวข้องมาให้ในคำขอเดียวได้ ซึ่งเร็วกว่าวนลูปหลายพันรอบมาก */
@@ -89,9 +106,7 @@ async function fetchPods() {
 }
 
 async function download(path) {
-  const res = await fetch(`${URL_BASE}/storage/v1/object/pod-photos/${path.split('/').map(encodeURIComponent).join('/')}`, { headers })
-  if (!res.ok) throw new Error(`โหลดรูปไม่สำเร็จ (${res.status}) ${path}`)
-  return Buffer.from(await res.arrayBuffer())
+  return r2.get(path)
 }
 
 const exists = async (p) => { try { await access(p); return true } catch { return false } }

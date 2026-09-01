@@ -1,67 +1,83 @@
-import { supabase, toDataError } from './supabase.js'
+import { supabase, DataError } from './supabase.js'
 
 /**
- * รูปหลักฐาน POD — แทน server/data/pod ที่เคยเก็บบนดิสก์ของเครื่อง server
+ * รูปหลักฐาน POD — เก็บบน Cloudflare R2
  *
- * bucket ตั้งเป็น private ห้ามเปลี่ยนเป็น public เด็ดขาด
- * รูปพวกนี้มีลายเซ็นลูกค้า หน้าร้าน และบางทีติดหน้าคน — public เมื่อไหร่คือหลุดถาวร
- * เพราะ URL ของ bucket สาธารณะเดาได้จากชื่อไฟล์ ไม่ต้องมี key อะไรเลย
+ * เดิมอยู่ใน Supabase Storage (bucket pod-photos) อ่าน/เขียนตรงจากเบราว์เซอร์
+ * ตอนนี้ไปผ่าน Edge Function ที่ถือ R2 credential เป็น secret:
+ *   - อัป   -> pod-photo-upload   (proxy ไฟล์เข้า R2, เช็ค pod_can_write + ชนิด/ขนาด)
+ *   - อ่าน  -> pod-photo-url      (เซ็น GET URL อายุ 10 นาที, เช็คผ่าน pod_of_order)
+ *   - ลบ    -> pod-photo-delete   (เฉพาะ pod.write, ใช้ตอนลบเที่ยวถาวร)
  *
- * การอ่านจึงต้องผ่าน signed URL ที่มีอายุจำกัดเสมอ
+ * รูปพวกนี้มีลายเซ็นลูกค้าและหน้าร้าน — R2 bucket ต้องไม่เปิด public
+ * การอ่านจึงผ่าน signed URL อายุจำกัดเสมอ เหมือนเดิมทุกอย่าง แค่ย้ายที่เก็บ
+ *
+ * object key คงรูปเดิม  <orderId>/<uuid>.<ext>  (ฝั่ง Edge Function เป็นคนตั้ง)
  */
 
-const BUCKET = 'pod-photos'
+const FUNCTIONS_BASE = `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1`
+const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-/** อายุ signed URL — สั้นพอที่ลิงก์หลุดไปแล้วหมดอายุก่อนใครเอาไปใช้ต่อ
- *  แต่ยาวพอให้เปิดดูรูปในหน้ารายการโดยไม่ต้องขอใหม่ทุกครั้งที่ scroll */
-const SIGNED_URL_TTL = 60 * 10
+async function callFn<T>(name: string, init: { body: BodyInit; contentType?: string }): Promise<T> {
+  const { data: s } = await supabase.auth.getSession()
+  const token = s.session?.access_token
+  if (!token) throw new DataError('401', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่')
 
-/** path ในถัง — แยกโฟลเดอร์ตามออเดอร์ ไม่ใช้ชื่อไฟล์ที่ผู้ใช้ตั้งเอง
- *  เพราะชื่อไฟล์จากมือถือมีอักขระแปลก ๆ และเดาชื่อกันได้ง่าย */
-export function podPhotoPath(orderId: number, ext = 'jpg'): string {
-  return `${orderId}/${crypto.randomUUID()}.${ext}`
+  const headers: Record<string, string> = { apikey: ANON, Authorization: `Bearer ${token}` }
+  if (init.contentType) headers['Content-Type'] = init.contentType
+
+  const res = await fetch(`${FUNCTIONS_BASE}/${name}`, { method: 'POST', headers, body: init.body })
+  const text = await res.text()
+  let data: unknown = null
+  try { data = text ? JSON.parse(text) : null } catch { /* ปล่อยเป็น null */ }
+  if (!res.ok) {
+    const msg = (data as { error?: string } | null)?.error ?? 'เรียกบริการรูปไม่สำเร็จ'
+    throw new DataError(String(res.status), `${msg} (${res.status})`)
+  }
+  return data as T
 }
 
-/** นามสกุลกับชนิดต้องมาจากตัวบีบรูป ไม่ใช่เดาเอง — เครื่องที่เข้ารหัส WebP ได้จะได้
- *  ไฟล์เล็กกว่ามาก ส่วนเครื่องที่ไม่ได้ตกมาเป็น JPEG เขียนตายตัวว่า jpeg ทั้งคู่แล้ว
- *  ไฟล์ WebP จะถูกป้ายชนิดผิด ซึ่งเบราว์เซอร์บางตัวไม่ยอมแสดงตอนเปิดดูย้อนหลัง */
+/** อัปรูปขึ้น R2 ผ่าน Edge Function — คืน object key ที่เก็บลง pod_photos.path
+ *  ชนิดกับนามสกุลมาจากตัวบีบรูป ไม่เดาเอง เครื่องที่เข้ารหัส WebP ได้จะได้ไฟล์เล็กกว่ามาก */
 export async function uploadPodPhoto(
   orderId: number,
   file: Blob,
   kind: { ext: string; type: string } = { ext: 'jpg', type: 'image/jpeg' },
 ): Promise<string> {
-  const path = podPhotoPath(orderId, kind.ext)
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: kind.type,
-    /* ห้าม upsert — หลักฐานเดิมต้องไม่ถูกเขียนทับด้วยรูปใหม่เงียบ ๆ */
-    upsert: false,
+  const form = new FormData()
+  form.append('order_id', String(orderId))
+  /* kind ที่ส่งไปเป็นชื่อมุม (goods/shopfront/document/other) — Edge Function ส่งกลับมาเฉย ๆ
+     ไม่ได้ใช้ในชื่อไฟล์ ผู้เรียกเป็นคนจับคู่ path กับ kind เอง */
+  form.append('kind', kind.ext)
+  form.append('file', new Blob([file], { type: kind.type }), `photo.${kind.ext}`)
+  const out = await callFn<{ path: string }>('pod-photo-upload', { body: form })
+  return out.path
+}
+
+/** ขอลิงก์อ่านรูป — ต้องมี orderId ด้วย เพราะฝั่ง Edge Function เช็คสิทธิ์ผ่าน pod_of_order */
+export async function podPhotoUrl(orderId: number, path: string): Promise<string> {
+  const out = await callFn<{ url: string }>('pod-photo-url', {
+    body: JSON.stringify({ order_id: orderId, path }),
+    contentType: 'application/json',
   })
-  if (error) throw toDataError(error)
-  return path
+  return out.url
 }
 
-export async function podPhotoUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL)
-  if (error) throw toDataError(error)
-  return data.signedUrl
-}
-
-/** ลบรูปที่ไม่มีหลักฐานใบไหนอ้างถึงแล้ว
+/** ลบรูปที่ไม่มีหลักฐานใบไหนอ้างถึงแล้ว — คืนจำนวนที่ลบสำเร็จ
  *
- * แถวใน pod_photos หายตาม pod แบบ cascade อยู่แล้ว แต่ไฟล์จริงในถังไม่หายตาม
- * และไม่มีอะไรในระบบเคยลบมันเลย รูปหน้าร้าน ใบเซ็นรับ และของลูกค้าจึงค้างสะสม
- * อยู่ในถังไปเรื่อย ๆ โดยไม่มีใครรู้ว่ามีอะไรอยู่บ้าง
- *
- * ลบจากฝั่ง SQL ไม่ได้ผล — แถวใน storage.objects หายแต่ไฟล์ไม่หาย ต้องสั่งผ่าน
- * storage API ด้วย session ของผู้ใช้เท่านั้น
- *
- * ล้มแล้วไม่โยนต่อ: ของในฐานถูกลบไปเรียบร้อยแล้วตั้งแต่ก่อนถึงบรรทัดนี้ การขึ้น
- * error ตรงนี้จะอ่านได้ว่า "ลบเที่ยวไม่สำเร็จ" ทั้งที่มันสำเร็จไปแล้ว สิ่งที่เหลือ
- * คือไฟล์กำพร้าเท่าเดิม ซึ่งเป็นสภาพก่อนหน้านี้อยู่แล้ว
+ * ล้มแล้วไม่โยนต่อ: ของในฐานถูกลบไปเรียบร้อยแล้วตั้งแต่ก่อนถึงบรรทัดนี้ การขึ้น error
+ * ตรงนี้จะอ่านได้ว่า "ลบเที่ยวไม่สำเร็จ" ทั้งที่มันสำเร็จไปแล้ว สิ่งที่เหลือคือไฟล์
+ * กำพร้าเท่าเดิม ซึ่งเป็นสภาพก่อนหน้านี้อยู่แล้ว
  */
 export async function removePodPhotos(paths: string[]): Promise<number> {
   if (paths.length === 0) return 0
-  const { data, error } = await supabase.storage.from(BUCKET).remove(paths)
-  if (error) return 0
-  return data?.length ?? 0
+  try {
+    const out = await callFn<{ deleted: number }>('pod-photo-delete', {
+      body: JSON.stringify({ paths }),
+      contentType: 'application/json',
+    })
+    return out.deleted ?? 0
+  } catch {
+    return 0
+  }
 }

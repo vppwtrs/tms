@@ -221,6 +221,10 @@ export interface Database {
         }
         Returns: number
       }
+      /* เช็คสิทธิ์แนบรูป POD — Edge Function pod-photo-upload เรียกก่อนแตะ R2 */
+      pod_can_write: { Args: { p_order_id: number }; Returns: boolean }
+      /* ถือ pod.write ไหม — Edge Function pod-photo-delete เรียกก่อนลบไฟล์กำพร้า */
+      pod_photo_admin: { Args: Record<string, never>; Returns: boolean }
       /* ฝั่งออฟฟิศ — 0007 อธิบายว่าทำไมงานพวกนี้ต้องเป็นฟังก์ชัน ไม่ใช่ยิงตารางเรียงกัน */
       create_trip: {
         Args: { p_vehicle_id: number; p_driver_id: number; p_order_ids: number[]; p_notes?: string | null }

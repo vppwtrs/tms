@@ -45,8 +45,9 @@ const cspPlugin = (): Plugin => ({
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       /* data:/blob: คือรูปกับลายเซ็นที่คนขับเพิ่งถ่าย ยังไม่ได้อัปขึ้นถัง
-         longdo กับ openstreetmap คือ tile ของแผนที่ติดตามรถ */
-      "img-src 'self' data: blob: https://*.supabase.co https://tile.openstreetmap.org https://ms.longdo.com",
+         longdo กับ openstreetmap คือ tile ของแผนที่ติดตามรถ
+         r2.cloudflarestorage.com คือรูปหลักฐาน POD เปิดผ่าน signed URL อายุ 10 นาที */
+      "img-src 'self' data: blob: https://*.supabase.co https://*.r2.cloudflarestorage.com https://tile.openstreetmap.org https://ms.longdo.com",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
       "worker-src 'self'",
       "manifest-src 'self'",

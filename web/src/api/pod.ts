@@ -53,7 +53,7 @@ export async function podOfOrder(orderId: number): Promise<PodView | null> {
   const photos: PodPhotoView[] = []
   for (const p of raw.photos) {
     try {
-      photos.push({ ...p, url: await podPhotoUrl(p.path) })
+      photos.push({ ...p, url: await podPhotoUrl(raw.order_id, p.path) })
     } catch {
       photos.push({ ...p, url: '' })
     }
