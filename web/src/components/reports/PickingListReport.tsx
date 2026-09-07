@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button, ErrorBox } from '../ui'
-import { useWarehouses, WarehouseNote } from './useWarehouses'
+import { useWarehouses, WarehouseNote, WarehouseFilter } from './useWarehouses'
 import { Stat, statGrid, downloadCsv } from './shared'
 import { pullPickingLists, PL_STATUS, type PlRow, type PlStatus } from '../../api/tmsPull'
 import { fmtNum } from '../../utils/format'
@@ -27,6 +27,9 @@ export function PickingListReport({ range }: { range: { from: string; to: string
   const [note, setNote] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  /* กรองคลังหลังดึง เหมือนแท็บ Plan Simulate — ของมาครบทุกคลังแล้วตั้งแต่กดครั้งเดียว
+     สลับดูได้ทันทีโดยไม่ต้องยิงหา TMS ใหม่ ยอดรวมและไฟล์ CSV เดินตามตัวกรองนี้ */
+  const [only, setOnly] = useState('')
 
   const load = async (): Promise<void> => {
     if (!wh.list.length) return
@@ -58,10 +61,12 @@ export function PickingListReport({ range }: { range: { from: string; to: string
   const toggle = (st: PlStatus): void =>
     setStatuses((cur) => (cur.includes(st) ? cur.filter((x) => x !== st) : [...cur, st]))
 
+  const shown = (rows ?? []).filter((r) => !only || r.warehouse === only)
+
   const exportCsv = (): void => {
-    if (!rows?.length) return
+    if (!shown.length) return
     const head = ['คลัง', 'เลข PL', 'วันที่วางแผนส่ง', 'เที่ยว', 'สถานะใบ', 'สถานะเที่ยว', 'รหัสร้าน', 'ร้าน', 'จังหวัด', 'หน่วย', 'จำนวนรวม', 'รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'แบ่งส่ง']
-    const body: (string | number)[][] = rows.map((r) => [
+    const body: (string | number)[][] = shown.map((r) => [
       r.warehouse, r.pickingListNo, r.planDeliveryDate, r.tripNo, r.plStatus, r.tripStatus,
       r.dealerCode, r.dealerName, r.province,
       r.unit ?? '', r.totalQty ?? '', r.itemNo, r.itemName, r.itemQty ?? '', r.itemSplitQty ?? '',
@@ -69,14 +74,20 @@ export function PickingListReport({ range }: { range: { from: string; to: string
     downloadCsv(`picking-list-${range.from}-${range.to}.csv`, [head, ...body])
   }
 
-  const pls = rows ? new Set(rows.map((r) => r.pickingListNo)).size : 0
-  const trips = rows ? new Set(rows.map((r) => r.tripNo).filter(Boolean)).size : 0
-  const dealers = rows ? new Set(rows.map((r) => r.dealerCode).filter(Boolean)).size : 0
+  const pls = new Set(shown.map((r) => r.pickingListNo)).size
+  const trips = new Set(shown.map((r) => r.tripNo).filter(Boolean)).size
+  const dealers = new Set(shown.map((r) => r.dealerCode).filter(Boolean)).size
 
   return (
     <>
       <div className="card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <WarehouseNote {...wh} />
+        {(wh.loading || wh.error) && <WarehouseNote {...wh} />}
+        <WarehouseFilter
+          list={wh.list}
+          value={only}
+          onChange={setOnly}
+          total={(code) => (rows ? (code ? rows.filter((r) => r.warehouse === code).length : rows.length) : null)}
+        />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {PL_STATUS.map((st) => (
             <label key={st} className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -89,7 +100,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
         <span className="text-xs text-muted">ไม่เลือก = ทุกสถานะ</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <Button onClick={() => void load()} loading={loading} disabled={!wh.list.length}>ดึงจาก TMS</Button>
-          <Button variant="ghost" onClick={exportCsv} disabled={!rows?.length}>ออกไฟล์ CSV</Button>
+          <Button variant="ghost" onClick={exportCsv} disabled={!shown.length}>ออกไฟล์ CSV</Button>
         </div>
       </div>
 
@@ -102,14 +113,14 @@ export function PickingListReport({ range }: { range: { from: string; to: string
       ) : (
         <>
           <div style={statGrid}>
-            <Stat label="บรรทัดรายการ" value={fmtNum(rows.length)} foot={note} />
+            <Stat label="บรรทัดรายการ" value={fmtNum(shown.length)} foot={note} />
             <Stat label="ใบ (PL)" value={fmtNum(pls)} />
             <Stat label="เที่ยว" value={fmtNum(trips)} />
             <Stat label="ร้าน" value={fmtNum(dealers)} />
           </div>
 
           <div className="card" style={{ padding: 0 }}>
-            {rows.length === 0 ? (
+            {shown.length === 0 ? (
               <div className="ops-empty">ช่วงนี้ไม่มีใบที่เข้าเงื่อนไข</div>
             ) : (
               <div className="table-wrap">
@@ -130,7 +141,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
                   <tbody>
                     {/* จำกัดที่ 500 บรรทัดบนจอ ไฟล์ CSV ยังได้ครบทุกบรรทัด — ตารางหมื่นแถว
                         ทำให้เบราว์เซอร์หนืดจนเลื่อนไม่ลง ซึ่งไม่ได้ช่วยใครอ่านอะไรเพิ่ม */}
-                    {rows.slice(0, 500).map((r, i) => (
+                    {shown.slice(0, 500).map((r, i) => (
                       <tr key={`${r.pickingListNo}-${r.itemNo}-${i}`}>
                         <td><b>{r.pickingListNo}</b></td>
                         <td>{r.planDeliveryDate}</td>
@@ -145,9 +156,9 @@ export function PickingListReport({ range }: { range: { from: string; to: string
                     ))}
                   </tbody>
                 </table>
-                {rows.length > 500 && (
+                {shown.length > 500 && (
                   <div className="text-xs text-muted" style={{ padding: '10px 16px' }}>
-                    แสดง 500 บรรทัดแรกจาก {fmtNum(rows.length)} — ออกไฟล์ CSV เพื่อดูทั้งหมด
+                    แสดง 500 บรรทัดแรกจาก {fmtNum(shown.length)} — ออกไฟล์ CSV เพื่อดูทั้งหมด
                   </div>
                 )}
               </div>
