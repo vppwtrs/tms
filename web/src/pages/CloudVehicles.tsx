@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   listVehicles, createVehicle, updateVehicle, setVehicleStatus, removeVehicle,
+  latestOdometerByVehicle, totalTollByVehicle, type LatestOdometer,
 } from '../api/vehicles'
 import type { Paged } from '../api/customers'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
@@ -9,7 +10,7 @@ import { useToast } from '../context/ToastContext'
 import type { VehicleRow } from '../types/database'
 import type { VehicleStatus, VehicleType } from '../types'
 import { VEHICLE_STATUS_LABEL, VEHICLE_TONE, VEHICLE_TYPE_LABEL } from '../utils/constants'
-import { fmtWeight } from '../utils/format'
+import { fmtWeight, fmtMoney } from '../utils/format'
 import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
@@ -46,6 +47,8 @@ export default function CloudVehicles(): React.JSX.Element {
   const canDelete = can('vehicles.delete')
 
   const [data, setData] = useState<Paged<VehicleRow> | null>(null)
+  const [odometers, setOdometers] = useState<Map<number, LatestOdometer>>(new Map())
+  const [tolls, setTolls] = useState<Map<number, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
@@ -69,7 +72,13 @@ export default function CloudVehicles(): React.JSX.Element {
     setLoading(true)
     setError('')
     try {
-      setData(await listVehicles({ q, status: (status || undefined) as VehicleStatus | undefined, page, limit: PAGE_SIZE }))
+      const paged = await listVehicles({ q, status: (status || undefined) as VehicleStatus | undefined, page, limit: PAGE_SIZE })
+      setData(paged)
+      const ids = paged.rows.map((v) => v.id)
+      /* เลขไมล์กับค่าทางด่วนแค่ของหน้าที่กำลังดู ไม่ต้องดึงรถทั้งบริษัททุกครั้ง */
+      const [odo, toll] = await Promise.all([latestOdometerByVehicle(ids), totalTollByVehicle(ids)])
+      setOdometers(odo)
+      setTolls(toll)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'โหลดข้อมูลรถไม่สำเร็จ')
     } finally {
@@ -180,7 +189,7 @@ export default function CloudVehicles(): React.JSX.Element {
       {error ? (
         <ErrorBox message={error} onRetry={() => void load()} />
       ) : loading || !data ? (
-        <TableSkeleton rows={8} cols={6} />
+        <TableSkeleton rows={8} cols={8} />
       ) : data.rows.length === 0 ? (
         <div className="card">
           <EmptyState
@@ -199,6 +208,8 @@ export default function CloudVehicles(): React.JSX.Element {
                 <th>ยี่ห้อ / รุ่น</th>
                 <th>ประเภท</th>
                 <th className="num">ความจุ</th>
+                <th className="num">เลขไมล์ล่าสุด</th>
+                <th className="num">ค่าทางด่วนสะสม</th>
                 <th>สถานะ</th>
                 <th className="actions">การจัดการ</th>
               </tr>
@@ -213,6 +224,13 @@ export default function CloudVehicles(): React.JSX.Element {
                   </td>
                   <td>{VEHICLE_TYPE_LABEL[v.vehicle_type]}</td>
                   <td className="num">{fmtWeight(v.capacity_kg)}</td>
+                  <td className="num">
+                    {odometers.has(v.id)
+                      ? <>{odometers.get(v.id)!.reading_km.toLocaleString('th-TH')} กม.
+                        <span className="text-muted"> ({odometers.get(v.id)!.kind === 'start' ? 'ออกรถ' : 'จบงาน'})</span></>
+                      : <span className="text-muted">—</span>}
+                  </td>
+                  <td className="num">{fmtMoney(tolls.get(v.id) ?? 0)}</td>
                   <td>
                     {canEdit ? (
                       <Select

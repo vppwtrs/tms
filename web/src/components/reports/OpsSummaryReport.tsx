@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, ErrorBox, TableSkeleton } from '../ui'
 import { opsToday, unitLabel, type OpsToday } from '../../api/opsToday'
+import { latestOdometerByVehicle, tollByVehicle, type LatestOdometer } from '../../api/vehicles'
 import { fmtNum } from '../../utils/format'
 import { Money, Stat, statGrid, downloadCsv } from './shared'
 
@@ -19,6 +20,8 @@ import { Money, Stat, statGrid, downloadCsv } from './shared'
  */
 export function OpsSummaryReport({ range }: { range: { from: string; to: string } }): React.JSX.Element {
   const [data, setData] = useState<OpsToday | null>(null)
+  const [odometers, setOdometers] = useState<Map<number, LatestOdometer>>(new Map())
+  const [tolls, setTolls] = useState<Map<number, number>>(new Map())
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
@@ -27,7 +30,16 @@ export function OpsSummaryReport({ range }: { range: { from: string; to: string 
     let alive = true
     setLoading(true)
     opsToday(range.from, range.to)
-      .then((d) => { if (alive) { setData(d); setError(null) } })
+      .then(async (d) => {
+        if (!alive) return
+        setData(d)
+        setError(null)
+        const ids = d.fleet.map((r) => r.vehicle_id)
+        /* เลขไมล์เอาค่าล่าสุดจริง ไม่ผูกกับช่วงที่เลือกดู — ค่าทางด่วนผูกกับช่วงที่เลือก
+           เพราะเป็นตัวเลข "ทำได้เท่าไรช่วงนี้" เหมือนตัวเลขอื่นในรายงานนี้ */
+        const [odo, toll] = await Promise.all([latestOdometerByVehicle(ids), tollByVehicle(ids, range)])
+        if (alive) { setOdometers(odo); setTolls(toll) }
+      })
       .catch((e: unknown) => { if (alive) setError(e instanceof Error ? e.message : 'อ่านรายงานไม่สำเร็จ') })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
@@ -43,8 +55,8 @@ export function OpsSummaryReport({ range }: { range: { from: string; to: string 
   const exportCsv = (): void => {
     if (!data) return
     const head = [
-      'ทะเบียน', 'คนขับ', 'เที่ยว', 'จุดส่ง', 'จุดที่ปิด',
-      ...(money ? ['ค่าขนส่งแผน', 'ค่าขนส่งจริง', 'เที่ยวที่ยังไม่ปิดยอด', 'เบี้ยจุดส่ง'] : []),
+      'ทะเบียน', 'คนขับ', 'เที่ยว', 'จุดส่ง', 'จุดที่ปิด', 'เลขไมล์ล่าสุด',
+      ...(money ? ['ค่าขนส่งแผน', 'ค่าขนส่งจริง', 'เที่ยวที่ยังไม่ปิดยอด', 'เบี้ยจุดส่ง', 'ค่าทางด่วน (ช่วงนี้)'] : []),
     ]
     const rows: (string | number)[][] = data.fleet.map((r) => [
       r.plate,
@@ -52,7 +64,10 @@ export function OpsSummaryReport({ range }: { range: { from: string; to: string 
       r.trips,
       r.stops,
       r.stops_done,
-      ...(money ? [r.cost_plan ?? '', r.cost_actual ?? '', r.cost_open, r.bonus ?? ''] : []),
+      odometers.get(r.vehicle_id)?.reading_km ?? '',
+      ...(money
+        ? [r.cost_plan ?? '', r.cost_actual ?? '', r.cost_open, r.bonus ?? '', tolls.get(r.vehicle_id) ?? 0]
+        : []),
     ])
     downloadCsv(`report-${range.from}-${range.to}.csv`, [head, ...rows])
   }
@@ -138,9 +153,11 @@ export function OpsSummaryReport({ range }: { range: { from: string; to: string 
                       <th className="r">เที่ยว</th>
                       <th className="r">จุดส่ง</th>
                       <th className="r">ปิดแล้ว</th>
+                      <th className="r">เลขไมล์ล่าสุด</th>
                       {money && <th className="r">ค่าขนส่งแผน</th>}
                       {money && <th className="r">ค่าขนส่งจริง</th>}
                       {money && <th className="r">เบี้ย</th>}
+                      {money && <th className="r">ค่าทางด่วน (ช่วงนี้)</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -151,6 +168,11 @@ export function OpsSummaryReport({ range }: { range: { from: string; to: string 
                         <td className="r">{fmtNum(r.trips)}</td>
                         <td className="r">{fmtNum(r.stops)}</td>
                         <td className="r">{fmtNum(r.stops_done)}</td>
+                        <td className="r">
+                          {odometers.has(r.vehicle_id)
+                            ? `${odometers.get(r.vehicle_id)!.reading_km.toLocaleString('th-TH')} กม.`
+                            : <span className="text-muted">—</span>}
+                        </td>
                         {money && <td className="r"><Money value={r.cost_plan} /></td>}
                         {money && (
                           <td className="r">
@@ -160,6 +182,7 @@ export function OpsSummaryReport({ range }: { range: { from: string; to: string 
                           </td>
                         )}
                         {money && <td className="r"><Money value={r.bonus} /></td>}
+                        {money && <td className="r"><Money value={tolls.get(r.vehicle_id) ?? 0} /></td>}
                       </tr>
                     ))}
                   </tbody>

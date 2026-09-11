@@ -40,6 +40,52 @@ export async function listAvailableVehicles(): Promise<VehicleRow[]> {
   return unwrap(supabase.from('vehicles').select('*').eq('status', 'available').order('plate_no'))
 }
 
+export interface LatestOdometer {
+  reading_km: number
+  kind: 'start' | 'end'
+  reading_date: string
+}
+
+/** เลขไมล์ล่าสุดต่อคัน — ดึงมาทั้งก้อนแล้วหาแถวแรกของแต่ละคันเอง
+ *  (จำนวนรถน้อย ไม่คุ้มจะยิง query แยกทีละคัน) */
+export async function latestOdometerByVehicle(vehicleIds: number[]): Promise<Map<number, LatestOdometer>> {
+  const map = new Map<number, LatestOdometer>()
+  if (vehicleIds.length === 0) return map
+  const rows = await unwrap(
+    supabase.from('vehicle_odometer')
+      .select('vehicle_id, reading_km, kind, reading_date')
+      .in('vehicle_id', vehicleIds)
+      .order('reading_date', { ascending: false })
+      .order('id', { ascending: false }),
+  )
+  for (const r of rows as { vehicle_id: number; reading_km: number; kind: 'start' | 'end'; reading_date: string }[]) {
+    if (!map.has(r.vehicle_id)) map.set(r.vehicle_id, { reading_km: r.reading_km, kind: r.kind, reading_date: r.reading_date })
+  }
+  return map
+}
+
+/** ค่าทางด่วนสะสมต่อคัน — รวมทุกเที่ยวที่เคยวิ่ง ไม่ใช่แค่เที่ยวปัจจุบัน */
+export async function totalTollByVehicle(vehicleIds: number[]): Promise<Map<number, number>> {
+  return tollByVehicle(vehicleIds)
+}
+
+/** ค่าทางด่วนต่อคัน ในช่วงวันที่กำหนด (ไม่ใส่ range = รวมทั้งหมด) — คัดจาก created_at
+ *  ของเที่ยว ให้ตรงกับช่วงที่หน้ารายงานเลือกดู ไม่ใช่ตรงกับวันที่รายงานค่าทางด่วน */
+export async function tollByVehicle(
+  vehicleIds: number[],
+  range?: { from: string; to: string },
+): Promise<Map<number, number>> {
+  const map = new Map<number, number>()
+  if (vehicleIds.length === 0) return map
+  let q = supabase.from('trips').select('vehicle_id, toll_cost').in('vehicle_id', vehicleIds)
+  if (range) q = q.gte('created_at', range.from).lt('created_at', `${range.to}T23:59:59.999`)
+  const rows = await unwrap(q)
+  for (const r of rows as { vehicle_id: number; toll_cost: number | null }[]) {
+    map.set(r.vehicle_id, (map.get(r.vehicle_id) ?? 0) + (r.toll_cost ?? 0))
+  }
+  return map
+}
+
 export type VehicleInput = Omit<VehicleRow, 'id' | 'created_at'>
 
 export async function createVehicle(input: Partial<VehicleInput> & { plate_no: string }): Promise<VehicleRow> {
