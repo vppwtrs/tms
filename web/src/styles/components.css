@@ -1176,6 +1176,12 @@
 .app-shell.is-collapsed {
   --sidebar-width: 78px;
 }
+/* เมนูย่อคืนพื้นที่ 190px (268 - 78) ให้แถบข้าง — เนื้อหาต้องกินพื้นที่นั้นต่อ
+   ไม่งั้น .content ที่จำกัดความกว้างไว้ตายตัว (บรรทัดล่าง) จะเหลือช่องว่างขวามือ
+   เพิ่มขึ้นมาเฉย ๆ ตอนย่อเมนู ทั้งที่จอกว้างเท่าเดิม */
+.app-shell.is-collapsed .content {
+  max-width: 1750px;
+}
 .sidebar,
 .main {
   transition: width var(--motion-enter) var(--ease-emphasized), margin-left var(--motion-enter) var(--ease-emphasized), transform var(--motion-enter) var(--ease-emphasized);
@@ -3434,6 +3440,15 @@
 .cam-shutter span { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--ink); }
 .cam-shutter:active:not(:disabled) span { transform: scale(.9); }
 .cam-shutter:disabled { opacity: .35; cursor: default; }
+
+/* ทางเลือกสำรอง เจตนาให้เบากว่าชัตเตอร์มาก — ทางหลักคือถ่ายในแอปเสมอ
+   ปุ่มนี้แค่มีไว้ให้เห็นตอนจำเป็นจริง ๆ ไม่ใช่ตัวเลือกที่ชวนกดแทน */
+.cam-attach {
+  font-size: var(--font-xs);
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 /* ฟิล์มใต้กล้อง — ว่างอยู่ก็ยังกินที่เท่าเดิม เพื่อไม่ให้ปุ่มขยับตอนถ่ายรูปแรก */
 .pod-strip {

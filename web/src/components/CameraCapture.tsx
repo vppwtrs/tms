@@ -178,6 +178,21 @@ export function CameraCapture({
     }
   }
 
+  /* แนบรูปที่ถ่ายไว้ก่อนหน้าจากเครื่อง — สำหรับจุดส่งที่พื้นที่ไม่เอื้อให้ยืนถือจอ
+     เปิดแอปถ่ายตรงนั้น (เช่นต้องอ้อมไปอีกมุมของรถ) ถ่ายด้วยกล้องเครื่องแล้วมาแนบทีหลัง
+     เลือกได้หลายรูปพร้อมกัน ใส่ทีละใบเข้าฟิล์มเดียวกับที่ถ่ายผ่านแอป */
+  const pickFiles = async (files: FileList | null): Promise<void> => {
+    if (!files || files.length === 0) return
+    setBusy(true)
+    try {
+      for (const file of Array.from(files)) onCapture(await compressFile(file, stampNow()))
+    } catch (e) {
+      setProblem((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   /* ---- โหมดกล้องค้าง ---- */
   if (stage) {
     return (
@@ -252,6 +267,19 @@ export function CameraCapture({
         >
           <span />
         </button>
+
+        {/* ทางเลือกสำรอง — จุดที่ยืนถือจอถ่ายไม่ได้ ถ่ายด้วยกล้องเครื่องไว้ก่อนแล้วมาแนบ */}
+        <label className="cam-attach">
+          แนบรูปจากอุปกรณ์
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            disabled={busy || disabled}
+            onChange={(e) => { void pickFiles(e.target.files); e.target.value = '' }}
+          />
+        </label>
       </div>
     )
   }
