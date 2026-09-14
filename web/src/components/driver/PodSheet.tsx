@@ -148,6 +148,11 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
     )
   }, [])
 
+  /* กันอัปโหลดซ้ำตอนกด "บันทึก" ใหม่หลังบางใบอัปสำเร็จแล้วแต่ใบถัดไปพลาด —
+     คีย์ด้วย backupId (คงที่ต่อรูป ไม่เปลี่ยนตาม shots array ที่ setShots ทำสำเนาใหม่)
+     ไม่ใช่ state เพราะไม่ต้องให้ re-render ตาม แค่ให้ retry รอบถัดไปอ่านได้ */
+  const uploadedRef = useRef<Map<string, PodPhoto>>(new Map())
+
   /* หน้าแรก: ชื่อผู้รับ + รูป → อัปรูปขึ้นถังทันทีที่กดบันทึก แล้วไปหน้าลายเซ็น
      งานหนักทั้งหมด (อัปโหลด) จบตั้งแต่ตอนที่มือถือยังอยู่ในมือคนขับ */
   const submitPhotos = async (): Promise<void> => {
@@ -172,14 +177,23 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
          กลับกัน ถ้าอัปรูปสำเร็จแต่บันทึกพลาด ก็แค่มีรูปกำพร้าค้างในถัง ซึ่งไม่ทำใครเดือดร้อน */
       const uploaded: PodPhoto[] = []
       for (const shot of shots) {
-        uploaded.push({
+        /* รอบก่อนอัปใบนี้สำเร็จไปแล้วแต่ล้มที่ใบถัดไป — ใช้ path เดิม ไม่อัปซ้ำ */
+        const already = uploadedRef.current.get(shot.backupId)
+        if (already) {
+          uploaded.push(already)
+          continue
+        }
+        const done: PodPhoto = {
           path: await uploadPodPhoto(order.id, shot.img.blob, { ext: shot.img.ext, type: shot.img.type }),
           kind: shot.kind,
-        })
+        }
+        uploadedRef.current.set(shot.backupId, done)
+        uploaded.push(done)
         /* ใบนี้ขึ้นระบบแล้ว ลบสำเนาในเครื่องทิ้ง — ใบที่เหลือ (ถ้ายังไม่ถึงคิว)
            ยังอยู่ในเครื่องต่อ เผื่อเน็ตหลุดกลางลูป */
         void removeShotBackup(shot.backupId)
       }
+      uploadedRef.current.clear()
       setPhotos(uploaded)
       /* เซ็นมาก่อนแล้ว = ครบทั้งคู่ บันทึกจบตรงนี้เลย ไม่ต้องพาไปหน้าเซ็นซ้ำ
          ซึ่งจะกลายเป็นการขอลายเซ็นคนที่เดินกลับเข้าร้านไปแล้ว */

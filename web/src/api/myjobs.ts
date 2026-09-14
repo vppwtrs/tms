@@ -123,14 +123,13 @@ export async function undoDeliverOrder(orderId: number): Promise<void> {
  * คือเอาของที่ใช้ได้ดีอยู่แล้วไปเสี่ยง โดยผู้ใช้ไม่ได้อะไรเพิ่มเลย
  */
 
-export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
+export async function listMyJobs(): Promise<MyJob[]> {
   const trips = await listMyTrips()
-  /* ปกติเอาเฉพาะงานที่ยังไม่จบ — คนขับเปิดมาเพื่อดูว่า "ตอนนี้ต้องทำอะไร"
-     ไม่ใช่เพื่อทบทวนงานเมื่อวาน ประวัติอยู่หลังปุ่มอีกที */
-  const visible = includeDone ? trips : trips.filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
-  if (visible.length === 0) return []
+  /* งานที่จบแล้วรวมมาด้วยเสมอ — หน้าจอเดียวแยกเป็นแท็บงาน/ประวัติเองฝั่ง client
+     (utils/jobs: liveJobs/doneJobs) ไม่มีผู้เรียกรายไหนต้องการแค่ที่ยังไม่จบแล้ว */
+  if (trips.length === 0) return []
 
-  const orders = await listMyOrders(visible.map((t) => t.id))
+  const orders = await listMyOrders(trips.map((t) => t.id))
   /* ลำดับที่คนขับจัดเองมาก่อนกำหนดส่งเสมอ — เขาเรียงตามถนนจริง ไม่ใช่ตามเวลาในเอกสาร
      ใบที่ยังไม่ถูกจัด (seq ว่าง) ไปต่อท้าย เรียงตามกำหนดส่งเหมือนเดิม */
   orders.sort((a, b) => {
@@ -176,7 +175,7 @@ export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
     byTrip.set(o.trip_id, list)
   }
 
-  return visible.map((t) => {
+  return trips.map((t) => {
     const list = byTrip.get(t.id) ?? []
     return {
       id: t.id,
@@ -213,8 +212,8 @@ export async function saveStopOrder(tripId: number, orderIds: number[]): Promise
   if (error) throw toDataError(error)
 }
 
-export async function reloadJob(tripId: number, includeDone: boolean): Promise<MyJob | null> {
-  const jobs = await listMyJobs(includeDone)
+export async function reloadJob(tripId: number): Promise<MyJob | null> {
+  const jobs = await listMyJobs()
   return jobs.find((j) => j.id === tripId) ?? null
 }
 

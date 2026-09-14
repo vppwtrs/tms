@@ -23,17 +23,12 @@ export const POD_PHOTO_KINDS = [
 
 export interface PodPhoto { path: string; kind: string }
 
-function visible(includeDone: boolean): MyJob[] {
-  const list = allJobs()
-  return includeDone ? list : list.filter((j) => j.status !== 'completed' && j.status !== 'cancelled')
+export async function listMyJobs(): Promise<MyJob[]> {
+  return delay(clone(allJobs()))
 }
 
-export async function listMyJobs(includeDone = false): Promise<MyJob[]> {
-  return delay(clone(visible(includeDone)))
-}
-
-export async function reloadJob(tripId: number, includeDone: boolean): Promise<MyJob | null> {
-  const jobs = await listMyJobs(includeDone)
+export async function reloadJob(tripId: number): Promise<MyJob | null> {
+  const jobs = await listMyJobs()
   return jobs.find((j) => j.id === tripId) ?? null
 }
 

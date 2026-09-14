@@ -45,9 +45,6 @@ export default function CloudMyJobs(): React.JSX.Element {
   const [jobs, setJobs] = useState<MyJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  /* โหลดงานที่จบแล้วมาด้วยเสมอ — เดิมเป็นสวิตช์ "ดูงานที่จบแล้วด้วย" ที่คนขับต้องไปหาเจอก่อน
-     ตอนนี้มันคือแท็บ "ประวัติ" ที่ล่างจอ ซึ่งเห็นตลอดเวลา */
-  const showDone = true
   /* แท็บล่างจอ — โครงของแอปที่ใช้งานจริงบนมือถือ นิ้วโป้งถึงทุกอันโดยไม่ต้องขยับมือ */
   /* แท็บเริ่มต้นปกติคือ 'jobs' — ค่าจาก env มีไว้ให้ CI เปิดตรงไปแท็บที่จะถ่ายรูป
      ตั้งได้เฉพาะตอน build โหมดสาธิต ของจริงไม่เคยมีค่านี้จึงได้ 'jobs' เสมอ */
@@ -102,9 +99,9 @@ export default function CloudMyJobs(): React.JSX.Element {
   const [issueNote, setIssueNote] = useState('')
   const [sendingIssue, setSendingIssue] = useState(false)
 
-  const load = (all: boolean): void => {
+  const load = (): void => {
     setLoading(true)
-    listMyJobs(all)
+    listMyJobs()
       .then((d) => {
         setJobs(d)
         setError('')
@@ -113,13 +110,13 @@ export default function CloudMyJobs(): React.JSX.Element {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => load(showDone), [])
+  useEffect(() => load(), [])
 
   /* โหลดใหม่แบบไม่ล้างจอ — ท่าลากลงต้องเห็นของเดิมค้างอยู่ระหว่างรอ
      ถ้าสลับไปเป็นโครงร่างเปล่าทุกครั้ง คนขับจะเสียตำแหน่งที่กำลังอ่านอยู่ */
   const refresh = async (): Promise<void> => {
     try {
-      setJobs(await listMyJobs(showDone))
+      setJobs(await listMyJobs())
       setError('')
     } catch (e) {
       toast.push('error', (e as Error).message)
@@ -132,7 +129,7 @@ export default function CloudMyJobs(): React.JSX.Element {
 
   /* คนขับถือมือถือวิ่งอยู่ ฝ่ายจัดรถแก้เที่ยวให้ระหว่างทางได้ — งานที่ถูกเพิ่ม/ถอด
      ต้องขึ้นเองโดยไม่ต้องบอกให้คนขับดึงหน้าจอรีเฟรชกลางถนน */
-  useRealtime(['trips', 'orders'], () => load(showDone))
+  useRealtime(['trips', 'orders'], () => load())
 
   /* เที่ยวที่ควรโชว์เป็นค่าเริ่มต้น: กำลังวิ่งก่อน แล้วค่อยเที่ยวที่วางแผนไว้
      คนขับมีเที่ยวที่ยังไม่จบพร้อมกันได้หลายใบ แต่ "กำลังวิ่ง" มีความหมายชัดที่สุด */
@@ -289,12 +286,12 @@ export default function CloudMyJobs(): React.JSX.Element {
         : completeTrip(job.id))
       if (action === 'finish') {
         const ids = new Set(closing.map((j) => j.id))
-        const fresh = await listMyJobs(showDone)
+        const fresh = await listMyJobs()
         setJobs(fresh)
         /* เที่ยวที่เพิ่งปิดไม่มีอะไรให้กางอีกแล้ว ปล่อยให้จอเลือกงานถัดไปเอง */
         if (activeId !== null && activeId !== -1 && ids.has(activeId)) setActiveId(-1)
       } else {
-        const updated = await reloadJob(job.id, showDone)
+        const updated = await reloadJob(job.id)
         setJobs((list) => (updated ? list.map((j) => (j.id === job.id ? updated : j)) : list.filter((j) => j.id !== job.id)))
       }
       /* รับแล้วกางทันที — การกดรับงานคือการบอกว่า "งานนี้แหละที่ฉันกำลังจะทำ"
@@ -320,7 +317,7 @@ export default function CloudMyJobs(): React.JSX.Element {
     setSendingIssue(true)
     try {
       await reportIssue(issueFor.id, issueNote.trim())
-      const updated = await reloadJob(issueFor.id, showDone)
+      const updated = await reloadJob(issueFor.id)
       setJobs((list) => (updated ? list.map((j) => (j.id === issueFor.id ? updated : j)) : list))
       toast.push('success', 'ส่งให้ฝ่ายวางแผนแล้ว')
       setIssueFor(null)
@@ -340,7 +337,7 @@ export default function CloudMyJobs(): React.JSX.Element {
          ยิงขนานกันแล้วจะแย่งกันเขียนสถานะเดียวกัน */
       for (const order of stop.pending) await deliverOrder(order.id)
       const tripId = stop.orders[0]?.trip_id
-      const updated = tripId ? await reloadJob(tripId, showDone) : null
+      const updated = tripId ? await reloadJob(tripId) : null
       if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
       toast.push('success', `ส่ง ${stop.customer_name ?? stop.destination} เรียบร้อย`)
       if (can('myjobs.pod')) {
@@ -370,7 +367,7 @@ export default function CloudMyJobs(): React.JSX.Element {
       if (ids.length === 0) throw new Error('ร้านนี้ไม่มีใบที่ยกเลิกได้แล้ว')
       await cancelStop(ids, reason)
       const tripId = stop.orders[0]?.trip_id
-      const updated = tripId ? await reloadJob(tripId, showDone) : null
+      const updated = tripId ? await reloadJob(tripId) : null
       if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
       toast.push('success', `ยกเลิก ${stop.customer_name ?? stop.destination} แล้ว — แจ้งออฟฟิศให้ทราบแล้ว`)
     } catch (e) {
@@ -388,7 +385,7 @@ export default function CloudMyJobs(): React.JSX.Element {
     try {
       await undoCancelStop(stop.orders.filter((o) => o.status === 'cancelled').map((o) => o.id))
       const tripId = stop.orders[0]?.trip_id
-      const updated = tripId ? await reloadJob(tripId, showDone) : null
+      const updated = tripId ? await reloadJob(tripId) : null
       if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
       toast.push('success', `ถอนการยกเลิก ${stop.customer_name ?? stop.destination} แล้ว`)
     } catch (e) {
@@ -411,7 +408,7 @@ export default function CloudMyJobs(): React.JSX.Element {
         await undoDeliverOrder(order.id)
       }
       const tripId = stop.orders[0]?.trip_id
-      const updated = tripId ? await reloadJob(tripId, showDone) : null
+      const updated = tripId ? await reloadJob(tripId) : null
       if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
       toast.push('success', `ยกเลิกการส่ง ${stop.customer_name ?? stop.destination} แล้ว`)
     } catch (e) {
@@ -432,13 +429,13 @@ export default function CloudMyJobs(): React.JSX.Element {
     try {
       await saveStopOrder(job.id, orderIds)
     } catch (e) {
-      const updated = await reloadJob(job.id, showDone)
+      const updated = await reloadJob(job.id)
       if (updated) setJobs((list) => list.map((j) => (j.id === updated.id ? updated : j)))
       toast.push('error', (e as Error).message)
     }
   }
 
-  if (error) return <ErrorBox message={error} onRetry={() => load(showDone)} />
+  if (error) return <ErrorBox message={error} onRetry={() => load()} />
 
   return (
     <div className="driver-scope">
@@ -483,7 +480,8 @@ export default function CloudMyJobs(): React.JSX.Element {
                       <span className="hist-text">
                         <span className="hist-no">{jobTripNo(j)}</span>
                         <span className="hist-meta">
-                          {j.vehicle_plate} · {groupStops(j.orders).length} จุดส่ง · {j.orders.length} ใบ
+                          {/* ร้านที่ยกเลิกทั้งร้านไม่นับเป็นจุดส่ง — รถไม่ได้วิ่งไปถึงจริง */}
+                          {j.vehicle_plate} · {groupStops(j.orders).filter((s) => !s.cancelled).length} จุดส่ง · {j.orders.length} ใบ
                           {j.arrived_at ? ` · ปิดงาน ${fmtTime(j.arrived_at)}` : ''}
                         </span>
                       </span>
@@ -759,7 +757,7 @@ export default function CloudMyJobs(): React.JSX.Element {
               loading={finishing !== null && busy === finishing.id}
               disabled={tollHas === null
                 || (tollHas && !(Number(tollAmount.replace(/[^0-9.]/g, '')) > 0))
-                || !(Number(finishOdo.replace(/[^0-9]/g, '')) > 0)}
+                || parseKm(finishOdo) === null}
               onClick={() => { if (finishing) void act(finishing, 'finish') }}
             >
               กลับถึงคลังแล้ว
@@ -1006,7 +1004,7 @@ export default function CloudMyJobs(): React.JSX.Element {
             setPodFor(null)
             setPodStop(null)
             toast.push('success', 'บันทึกหลักฐานการส่งมอบแล้ว')
-            load(showDone)
+            load()
           }}
           /* ปิดฟอร์มก่อนแล้วค่อยถาม — กล่องยืนยันซ้อนบนแผ่นที่เปิดอยู่
              อ่านยากบนจอมือถือ และคนกำลังจะตัดสินใจถอยของจริง */

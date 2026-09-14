@@ -50,14 +50,17 @@ export async function podOfOrder(orderId: number): Promise<PodView | null> {
      แต่เก็บใบที่พลาดไว้ในรายการด้วย url ว่าง ไม่ทิ้งเงียบ ๆ — ของเดิมทิ้งไปเลย
      หน้าจอกับใบส่งของจึงบอกว่ามีรูป 3 ใบทั้งที่คนขับถ่ายไว้ 4 ซึ่งอ่านได้ว่า
      คนขับถ่ายไม่ครบ ทั้งที่ความจริงคือลิงก์ของเราขอไม่ผ่าน */
-  const photos: PodPhotoView[] = []
-  for (const p of raw.photos) {
-    try {
-      photos.push({ ...p, url: await podPhotoUrl(raw.order_id, p.path) })
-    } catch {
-      photos.push({ ...p, url: '' })
-    }
-  }
+  /* ยิงขอลิงก์พร้อมกันทุกใบ ไม่ใช่ทีละใบ — แต่ละใบเป็น Edge Function คนละ round trip
+     รอทีละใบจึงช้ากว่าที่ควรตรงตัวจำนวนรูป ความล้มเหลวยังแยกรายใบเหมือนเดิม */
+  const photos: PodPhotoView[] = await Promise.all(
+    raw.photos.map(async (p) => {
+      try {
+        return { ...p, url: await podPhotoUrl(raw.order_id, p.path) }
+      } catch {
+        return { ...p, url: '' }
+      }
+    }),
+  )
   return { ...raw, photos }
 }
 

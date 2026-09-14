@@ -129,10 +129,13 @@ export default function CloudTracking(): React.JSX.Element {
     return () => clearInterval(t)
   }, [])
 
+  /* ผูกกับ selected เท่านั้น — เดิมมี trips ใน deps ด้วย ซึ่ง trackingBoard()
+     ให้ array อ้างอิงใหม่ทุก 30 วิ (REFRESH_MS) ทำให้ดึงเส้นทางซ้ำทุกรอบ poll
+     ทั้งที่เที่ยวที่เลือกไว้ไม่ได้เปลี่ยนเลย */
   useEffect(() => {
     if (selected == null) { setTrack([]); return }
     tripTrack(selected).then(setTrack).catch(() => setTrack([]))
-  }, [selected, trips])
+  }, [selected])
 
   /* สร้างแผนที่ครั้งเดียว ตอนกล่องของมันโผล่มาจริง — สร้างใหม่ทุกครั้งที่ข้อมูลเปลี่ยน
      คือจอกระพริบและเสียตำแหน่งที่คนเลื่อนไว้
