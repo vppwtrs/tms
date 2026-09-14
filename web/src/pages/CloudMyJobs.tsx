@@ -362,7 +362,11 @@ export default function CloudMyJobs(): React.JSX.Element {
   const doCancelStop = async (stop: StopGroup, reason: string): Promise<void> => {
     setDelivering(stop.key)
     try {
-      const ids = stop.orders.filter((o) => o.status !== 'delivered' && !o.has_pod).map((o) => o.id)
+      /* ตัดใบที่ยกเลิกไปแล้วออกด้วย — ไม่ใช่แค่ delivered ร้านที่มีหลายใบและ
+         ยกเลิกไปแล้วบางใบ ไม่ควรส่งใบเดิมกลับเข้า cancel_stop ซ้ำ */
+      const ids = stop.orders
+        .filter((o) => o.status !== 'delivered' && o.status !== 'cancelled' && !o.has_pod)
+        .map((o) => o.id)
       if (ids.length === 0) throw new Error('ร้านนี้ไม่มีใบที่ยกเลิกได้แล้ว')
       await cancelStop(ids, reason)
       const tripId = stop.orders[0]?.trip_id
