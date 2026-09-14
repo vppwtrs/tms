@@ -114,8 +114,13 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
   }
 
   /* กู้รูปที่ถ่ายค้างไว้จากรอบก่อนของร้านนี้ — เน็ตหลุดหรือแอปถูกปิดกลางคันตอน
-     อัปโหลด รูปไม่หาย เปิดฟอร์มร้านเดิมอีกครั้งจึงเจอกลับมาโดยไม่ต้องถ่ายใหม่ */
+     อัปโหลด รูปไม่หาย เปิดฟอร์มร้านเดิมอีกครั้งจึงเจอกลับมาโดยไม่ต้องถ่ายใหม่
+     StrictMode รัน effect ตอน mount สองรอบ (dev เท่านั้น) — กันด้วย ref ไม่งั้น
+     รูปที่กู้มาจะถูกเพิ่มเข้า shots ซ้ำสองชุด */
+  const restoredRef = useRef(false)
   useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
     void listShotBackups(order.id).then((found) => {
       if (found.length === 0) return
       setShots((prev) => [...prev, ...found.map((f) => ({ img: f.img, kind: f.kind, backupId: f.backupId }))])
@@ -124,8 +129,13 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id])
 
-  // ปล่อย object URL ของรูปเมื่อปิดฟอร์ม — ไม่งั้นค้างใน memory ทั้งวัน
-  useEffect(() => () => { shots.forEach((s) => URL.revokeObjectURL(s.img.url)) }, [shots])
+  /* ปล่อย object URL ของรูปเมื่อปิดฟอร์มเท่านั้น (unmount) — ไม่งั้นค้างใน memory ทั้งวัน
+     deps ต้องว่าง ไม่ใช่ [shots]: ของเดิมผูกกับ shots แล้ว cleanup ยิงทุกครั้งที่ shots
+     เปลี่ยน (เช่นถ่ายรูปใหม่) ซึ่ง revoke URL ของรูปที่ยังอยู่ในจอ ทำให้รูปก่อนหน้ากลายเป็น
+     ภาพแตกทันทีที่ถ่ายใบถัดไป — ใช้ ref เก็บ shots ล่าสุดไว้ให้ cleanup ตอน unmount อ่านแทน */
+  const shotsRef = useRef(shots)
+  useEffect(() => { shotsRef.current = shots }, [shots])
+  useEffect(() => () => { shotsRef.current.forEach((s) => URL.revokeObjectURL(s.img.url)) }, [])
 
   useEffect(() => {
     if (!navigator.geolocation) return
