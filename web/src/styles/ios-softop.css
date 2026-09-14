@@ -431,10 +431,13 @@
 }
 .is-native-app .hist-rows { list-style: none; display: flex; flex-direction: column; gap: 9px; }
 .is-native-app .hist-row {
-  display: flex; align-items: center; gap: 12px;
-  background: var(--surface); border-radius: var(--r-lg);
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: var(--surface); border: 0; border-radius: var(--r-lg);
   padding: 14px 15px; box-shadow: var(--shadow-card);
+  font: inherit; text-align: left; cursor: pointer; color: inherit;
 }
+.is-native-app .hist-row:active { background: var(--surface-2); }
+.is-native-app .hist-row > svg:last-child { flex: 0 0 auto; color: var(--faint); }
 .is-native-app .hist-ic {
   width: 37px; height: 37px; flex: 0 0 auto; border-radius: 12px;
   display: grid; place-items: center;

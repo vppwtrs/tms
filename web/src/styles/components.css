@@ -2929,6 +2929,18 @@
 }
 .stop-bill-pod:hover { color: var(--brand-ink, var(--brand)); }
 
+/* รายละเอียดเที่ยวที่ปิดแล้ว เปิดจากแถวในหน้าประวัติ — อ่านอย่างเดียว
+   ต่างจาก stop-bills ตรงที่ไม่มีสถานะรอส่ง ทุกร้านจบแล้วทั้งหมด */
+.hist-detail-stops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.hist-detail-stop { border-top: 1px solid var(--line); padding-top: 10px; }
+.hist-detail-stop:first-child { border-top: 0; padding-top: 0; }
+.hist-detail-stop-head { display: flex; gap: var(--space-2); align-items: center; justify-content: space-between; font-weight: 600; }
+.hist-detail-pod {
+  display: block; width: fit-content; margin-top: 6px; background: none; border: 0; padding: 0 2px; cursor: pointer;
+  font: inherit; font-size: var(--font-xs); color: var(--brand); text-decoration: underline; white-space: nowrap;
+}
+.hist-detail-pod:hover { color: var(--brand-ink, var(--brand)); }
+
 /* ป้าย "มี POD" ที่กดได้ — ตัวป้ายคุมหน้าตาเองอยู่แล้ว ปุ่มที่ห่อจึงต้องโปร่งสนิท
    เหลือไว้แค่ตัวชี้เมาส์กับกรอบโฟกัสสำหรับคนที่ใช้คีย์บอร์ด */
 .pod-badge-btn {

@@ -76,6 +76,8 @@ export default function CloudMyJobs(): React.JSX.Element {
   const [finishing, setFinishing] = useState<MyJob | null>(null)
   /* ใบที่กำลังเปิดดูหลักฐานย้อนหลัง — คนละอย่างกับ podFor ที่เป็นการเก็บใหม่ */
   const [podView, setPodView] = useState<MyJobOrder | null>(null)
+  /* เที่ยวที่กดดูรายละเอียดจากประวัติ — แสดงจุดส่งกับปุ่มเปิดรูปหลักฐานของแต่ละร้าน */
+  const [historyJob, setHistoryJob] = useState<MyJob | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
   /* เที่ยวใหม่ที่กางพรีวิวอยู่ — อ่านอย่างเดียว ไม่มีปุ่มสั่งงานสักปุ่ม
      คนละอย่างกับ activeId ซึ่งเป็นการ์ดของงานที่รับแล้วและกดสั่งงานได้ */
@@ -473,7 +475,7 @@ export default function CloudMyJobs(): React.JSX.Element {
               <ul className="hist-rows">
                 {group.jobs.map((j) => (
                   <li key={j.id}>
-                    <div className="hist-row">
+                    <button type="button" className="hist-row" onClick={() => setHistoryJob(j)}>
                       <span className={`hist-ic${j.issue_note ? ' is-flag' : ''}`} aria-hidden>
                         {j.issue_note ? <IconAlert size={17} /> : <IconCheck size={17} />}
                       </span>
@@ -486,7 +488,8 @@ export default function CloudMyJobs(): React.JSX.Element {
                         </span>
                       </span>
                       <Badge label={TRIP_STATUS_LABEL[j.status]} tone={j.status} />
-                    </div>
+                      <IconChevronRight size={16} aria-hidden />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -737,6 +740,40 @@ export default function CloudMyJobs(): React.JSX.Element {
           billNo={podView.tms_picking_list_no ?? podView.order_no}
           onClose={() => setPodView(null)}
         />
+      )}
+
+      {historyJob && (
+        <Modal open onClose={() => setHistoryJob(null)} title={jobTripNo(historyJob)}>
+          <p className="text-xs text-muted" style={{ marginBottom: 12 }}>
+            {historyJob.vehicle_plate}
+            {historyJob.arrived_at ? ` · ปิดงาน ${fmtDateTime(historyJob.arrived_at)}` : ''}
+          </p>
+          <ul className="hist-detail-stops">
+            {groupStops(historyJob.orders).map((stop) => (
+              <li key={stop.key} className="hist-detail-stop">
+                <div className="hist-detail-stop-head">
+                  <span>{stop.customer_name ?? stop.destination}</span>
+                  {stop.cancelled && <Badge label="ยกเลิก" tone="cancelled" />}
+                </div>
+                {stop.customer_address && (
+                  <p className="text-xs text-muted">{stop.customer_address}</p>
+                )}
+                {/* ร้านเดียวอาจมีหลายใบ แต่ละใบมีหลักฐานแยกกัน — เปิดของบิลไหน
+                    ต้องดูของบิลนั้น ไม่ใช่เดาว่าทุกใบเหมือนกัน */}
+                {stop.orders.filter((o) => o.has_pod > 0).map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className="hist-detail-pod"
+                    onClick={() => setPodView(o)}
+                  >
+                    ดูหลักฐาน — {o.tms_picking_list_no ?? o.order_no}
+                  </button>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </Modal>
       )}
 
       {/* ถามชื่อร้านกลับไปให้เห็นเต็ม ๆ — คนที่กดผิดร้านหนึ่งครั้งแล้ว กำลังจะ

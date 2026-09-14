@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext'
 import { POD_PHOTO_KINDS } from '../api/myjobs'
 import { fmtDateTime } from '../utils/format'
 import { printConsignment, type ConsignmentLine } from '../utils/consignment'
+import { IconDownload } from './icons'
 
 const kindLabel = (kind: string): string =>
   POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? 'อื่น ๆ'
@@ -80,6 +81,26 @@ export function PodViewModal({
       photos: pod.photos.map((ph) => ({ url: ph.url, label: kindLabel(ph.kind) })),
     }, new URL(`${import.meta.env.BASE_URL}vppw-mark.png`, window.location.href).href)
     if (!ok) toast.push('error', 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาตป๊อปอัปของเว็บนี้ก่อน')
+  }
+
+  /* ลิงก์รูปเป็น URL เซ็นชั่วคราวของ R2 คนละโดเมนกับเว็บ — attribute download
+     บน <a> เฉย ๆ ใช้ไม่ได้ข้ามโดเมน เบราว์เซอร์จะเปิดแท็บใหม่แทนการเซฟ ต้องโหลด
+     เป็น blob ก่อนแล้วสร้างลิงก์ blob: (โดเมนเดียวกับหน้าเว็บ) ถึงจะเซฟลงเครื่องได้จริง */
+  const savePhoto = async (ph: PodView['photos'][number]): Promise<void> => {
+    if (!ph.url) return
+    try {
+      const res = await fetch(ph.url)
+      if (!res.ok) throw new Error('โหลดรูปไม่สำเร็จ')
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = `${billNo}-${ph.kind}.jpg`
+      a.click()
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      toast.push('error', 'บันทึกรูปไม่สำเร็จ — ลองเปิดรูปแล้วกดบันทึกเองแทน')
+    }
   }
 
   const verify = async (): Promise<void> => {
@@ -260,14 +281,26 @@ export function PodViewModal({
                 /* ใบที่ขอลิงก์ไม่ผ่านยังขึ้นเป็นช่องว่าง ไม่หายไปเฉย ๆ — จำนวนรูป
                    ที่เห็นต้องเท่าจำนวนที่คนขับถ่ายไว้จริงเสมอ */
                 ph.url ? (
-                  <a key={ph.path} href={ph.url} target="_blank" rel="noreferrer">
-                    <img
-                      src={ph.url}
-                      alt={kindLabel(ph.kind)}
-                      style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)' }}
-                    />
-                    <span className="text-xs text-muted">{kindLabel(ph.kind)}</span>
-                  </a>
+                  <div key={ph.path}>
+                    <a href={ph.url} target="_blank" rel="noreferrer">
+                      <img
+                        src={ph.url}
+                        alt={kindLabel(ph.kind)}
+                        style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)' }}
+                      />
+                    </a>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 2 }}>
+                      <span className="text-xs text-muted">{kindLabel(ph.kind)}</span>
+                      <button
+                        type="button"
+                        onClick={() => void savePhoto(ph)}
+                        aria-label={`บันทึกรูป ${kindLabel(ph.kind)}`}
+                        style={{ background: 'none', border: 0, padding: 2, cursor: 'pointer', color: 'var(--faint)', display: 'inline-flex' }}
+                      >
+                        <IconDownload size={15} />
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div key={ph.path}>
                     <div
