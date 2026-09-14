@@ -17,6 +17,7 @@ import { Button, Field, Input, Modal, Textarea } from '../ui'
 import { SignaturePad } from '../SignaturePad'
 import { CameraCapture } from '../CameraCapture'
 import type { CompressedImage } from '../../utils/image'
+import { saveShotBackup, listShotBackups, removeShotBackup, clearOrderBackup } from '../../utils/podBackup'
 
 const podKindLabel = (kind: string): string =>
   POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? kind
@@ -71,7 +72,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
   const [noteOpen, setNoteOpen] = useState(false)
   /* หลายมุมต่อหนึ่งใบ — ข้อโต้แย้งเรื่องการส่งของถามหลายอย่างพร้อมกัน
      ของที่ส่ง สภาพหน้าร้าน และใบเซ็นรับ รูปเดียวตอบได้ข้อเดียว */
-  const [shots, setShots] = useState<{ img: CompressedImage; kind: string }[]>([])
+  const [shots, setShots] = useState<{ img: CompressedImage; kind: string; backupId: string }[]>([])
   const [kind, setKind] = useState<string>(POD_STEPS[0].kind)
   /* ถ่ายมุมที่ขาดไม่ได้จริง ๆ (ร้านไม่มีป้าย ไม่มีใบให้เซ็น) — เปิดทางออกไว้
      แต่ต้องกดเอง ไม่ใช่ปล่อยผ่านเงียบ ๆ ทุกครั้งที่ขี้เกียจถ่าย */
@@ -94,8 +95,12 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
   /* ถ่ายเสร็จแล้วเลื่อนไปมุมถัดไปที่ยังขาดเอง — คนขับถือของอยู่ ไม่ควรต้องกลับมา
      กดชิปเปลี่ยนมุมเองทุกใบ ครบสามมุมแล้วค้างไว้ที่ "อื่น ๆ" สำหรับรูปเสริม */
   const capture = (img: CompressedImage): void => {
-    const next = [...shots, { img, kind }]
+    const backupId = crypto.randomUUID()
+    const next = [...shots, { img, kind, backupId }]
     setShots(next)
+    /* เซฟลงเครื่องทันที ไม่รอผล — รูปต้องปลอดภัยตั้งแต่วินาทีที่กดชัตเตอร์
+       ไม่ใช่รอให้อัปโหลดขึ้นระบบสำเร็จก่อน เน็ตหลุดตอนนั้นไม่ควรทำรูปหาย */
+    void saveShotBackup(order.id, backupId, kind, img)
     const have = new Set(next.map((s) => s.kind))
     const left = POD_STEPS.filter((s) => !have.has(s.kind))
     const nextKind = left[0]?.kind ?? 'other'
@@ -107,6 +112,17 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
         : 'ครบทั้งสามมุมแล้ว — บันทึกได้เลย',
     )
   }
+
+  /* กู้รูปที่ถ่ายค้างไว้จากรอบก่อนของร้านนี้ — เน็ตหลุดหรือแอปถูกปิดกลางคันตอน
+     อัปโหลด รูปไม่หาย เปิดฟอร์มร้านเดิมอีกครั้งจึงเจอกลับมาโดยไม่ต้องถ่ายใหม่ */
+  useEffect(() => {
+    void listShotBackups(order.id).then((found) => {
+      if (found.length === 0) return
+      setShots((prev) => [...prev, ...found.map((f) => ({ img: f.img, kind: f.kind, backupId: f.backupId }))])
+      toast.push('success', `กู้รูปที่ถ่ายค้างไว้กลับมาแล้ว ${found.length} รูป — เน็ตหลุดตอนอัปโหลดครั้งก่อน`)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id])
 
   // ปล่อย object URL ของรูปเมื่อปิดฟอร์ม — ไม่งั้นค้างใน memory ทั้งวัน
   useEffect(() => () => { shots.forEach((s) => URL.revokeObjectURL(s.img.url)) }, [shots])
@@ -150,6 +166,9 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
           path: await uploadPodPhoto(order.id, shot.img.blob, { ext: shot.img.ext, type: shot.img.type }),
           kind: shot.kind,
         })
+        /* ใบนี้ขึ้นระบบแล้ว ลบสำเนาในเครื่องทิ้ง — ใบที่เหลือ (ถ้ายังไม่ถึงคิว)
+           ยังอยู่ในเครื่องต่อ เผื่อเน็ตหลุดกลางลูป */
+        void removeShotBackup(shot.backupId)
       }
       setPhotos(uploaded)
       /* เซ็นมาก่อนแล้ว = ครบทั้งคู่ บันทึกจบตรงนี้เลย ไม่ต้องพาไปหน้าเซ็นซ้ำ
@@ -177,6 +196,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
         lng: coords?.lng ?? null,
       })
     }
+    void clearOrderBackup(order.id)
     onSaved()
   }
 
@@ -392,6 +412,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
                 aria-label={`ลบรูป${podKindLabel(shot.kind)}`}
                 onClick={() => {
                   URL.revokeObjectURL(shot.img.url)
+                  void removeShotBackup(shot.backupId)
                   setShots(shots.filter((_, x) => x !== i))
                 }}
               >
