@@ -2865,7 +2865,7 @@
 }
 .stop-item.is-done .stop-item-seq { background: var(--ok); border-color: var(--ok); color: var(--surface); }
 .stop-item.is-open .stop-item-seq { background: var(--info); border-color: var(--info); color: var(--surface); }
-.stop-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stop-item-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .stop-item-dest { font-size: var(--font-base); font-weight: 700; line-height: 1.25; }
 .stop-item-sub { font-size: var(--font-sm); color: var(--muted); }
 .stop-item.is-done .stop-item-dest { color: var(--muted); font-weight: 600; }
@@ -3591,6 +3591,11 @@
   width: 100%;
   min-height: 44px;
   color: var(--danger);
+  /* ปุ่มนี้เป็น ghost ไม่มีขอบ/พื้นของตัวเอง — ไม่มีเส้นคั่นจะดูเหมือนข้อความลอย
+     หลุดจากการ์ด ทั้งที่อยู่ใน .stop-item-body เดียวกับปุ่มด้านบนจริง ๆ */
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding-top: var(--space-3);
 }
 .stop-item-cancelled {
   display: flex;

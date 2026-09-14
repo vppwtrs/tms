@@ -314,31 +314,6 @@ export function JobFocus({
       )}
       {job.issue_note && <p className="job-alert is-warn">แจ้งปัญหาไว้: {job.issue_note}</p>}
 
-      {/* อยู่ในร้าน — บอกให้ชัดว่าทำไมร้านอื่นหายไปจากจอ ไม่ใช่ปล่อยให้คิดว่าแอปเจ๊ง
-          และทางออกอยู่ตรงนี้ที่เดียว กดสองครั้ง */}
-      {lockedStop && (
-        <div className="stop-lock-bar">
-          <span className="stop-lock-text">
-            <strong>กำลังส่งที่ {lockedStop.customer_name ?? lockedStop.destination}</strong>
-            <span>ร้านอื่นถูกซ่อนไว้จนกว่าร้านนี้จะเสร็จ</span>
-          </span>
-          <Button
-            variant="outline"
-            className={`stop-lock-exit${confirmSwitch ? ' is-armed' : ''}`}
-            onClick={() => {
-              if (!confirmSwitch) {
-                setConfirmSwitch(true)
-                return
-              }
-              setLockedKey(null)
-              setConfirmSwitch(false)
-            }}
-          >
-            {confirmSwitch ? 'แตะอีกครั้งเพื่อออก' : 'เปลี่ยนร้าน'}
-          </Button>
-        </div>
-      )}
-
       {stops.length === 0 ? (
         <p className="job-sub">เที่ยวนี้ยังไม่มีจุดส่ง</p>
       ) : (
@@ -356,6 +331,19 @@ export function JobFocus({
                 canProgress={stopsLive}
                 canPod={canPod}
                 locked={lockedKey === s.key}
+                switchArmed={confirmSwitch}
+                onExitLock={
+                  lockedKey === s.key
+                    ? () => {
+                        if (!confirmSwitch) {
+                          setConfirmSwitch(true)
+                          return
+                        }
+                        setLockedKey(null)
+                        setConfirmSwitch(false)
+                      }
+                    : undefined
+                }
                 onOpen={() => {
                   if (lockedKey) return
                   setOpenKey(s.key === openKey ? null : s.key)

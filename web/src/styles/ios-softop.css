@@ -324,7 +324,9 @@
   display: grid; place-items: center;
   font-size: 19px; font-weight: 800;
 }
-.is-native-app .driver-me-name { font-size: 18.5px; font-weight: 800; letter-spacing: -0.02em; margin-top: 10px; }
+/* .driver-me-name ตั้ง color: var(--ink) ไว้เป็นค่าพื้นฐาน (สำหรับการ์ดพื้นขาว)
+   การ์ดเขียวนี้ต้องทับเป็นขาวเอง ไม่งั้นธีมสว่างจะได้ตัวอักษรเกือบดำบนพื้นเขียวเข้ม */
+.is-native-app .driver-me-name { font-size: 18.5px; font-weight: 800; letter-spacing: -0.02em; margin-top: 10px; color: #fff; }
 .is-native-app .driver-me-sub { font-size: 11.5px; color: #bfe5d4; margin-top: 3px; }
 .is-native-app .driver-me-action {
   display: flex; align-items: center; min-height: 48px; width: 100%;
@@ -580,7 +582,7 @@
 /* ระยะซ้ายขวาปล่อยให้กล่องแม่จัดการ — บอร์ดวาง hero กับการ์ดจุดส่งไว้ที่ระยะขอบ
    เดียวกัน ถ้าใส่ margin ข้างซ้ำตรงนี้ hero จะแคบกว่าการ์ดที่อยู่ใต้มัน */
 .is-native-app .job-hero {
-  margin: 0 0 2px; padding: 17px; border-radius: var(--r-xl);
+  margin: 0 0 2px; padding: 14px; border-radius: var(--r-xl);
   background: var(--grad-hero); color: #fff;
   position: relative; overflow: hidden;
 }
@@ -597,7 +599,8 @@
 .is-native-app .job-hero .job-bar::after { content: none; }
 .is-native-app .job-hero .job-meter,
 .is-native-app .job-hero .job-chips { position: relative; z-index: 1; padding: 0; }
-.is-native-app .job-hero .job-meter { margin-top: 13px; }
+/* ระยะห่างจาก job-bar มาจาก gap ของ .job-hero (flex column) อยู่แล้ว —
+   margin-top ซ้ำตรงนี้เคยบวกทับกัน ทำให้ช่องว่างเหนือแถบคืบหน้ากว้างเกิน */
 
 /* แถบล็อกร้าน — ข้อความกับปุ่มเบียดกันจนอ่านยากบนจอ 375
    ให้ข้อความได้บรรทัดเต็ม แล้วปุ่มลงไปอยู่ใต้ข้อความเมื่อที่ไม่พอ */

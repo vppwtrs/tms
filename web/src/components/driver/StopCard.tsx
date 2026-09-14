@@ -31,6 +31,8 @@ export function StopItem({
   canProgress,
   canPod,
   locked = false,
+  switchArmed = false,
+  onExitLock,
   onOpen,
   onEnter,
   onPod,
@@ -52,6 +54,10 @@ export function StopItem({
   canPod: boolean
   /** จุดนี้คือจุดที่คนขับ "เข้าไป" อยู่ — ปุ่มปิดจุดขึ้นเฉพาะตอนนี้เท่านั้น */
   locked?: boolean
+  /** กดออกครั้งแรกแล้วรออีกครั้ง — ปุ่มออกเปลี่ยนเป็นสีเตือนระหว่างรอ */
+  switchArmed?: boolean
+  /** ออกจากร้านที่ล็อกอยู่ (กดสองครั้ง) — ไม่ส่งมา = ปุ่มออกไม่ขึ้น */
+  onExitLock?: () => void
   onOpen: () => void
   /* เข้าร้านนี้ (ล็อกจอไว้ที่ร้านเดียว) — ไม่ส่งมา = เข้าไม่ได้ตอนนี้
      (ยังไม่ออกจากคลัง อยู่ในร้านอื่นอยู่ หรือเป็นจอที่ดูอย่างเดียว) */
@@ -77,30 +83,58 @@ export function StopItem({
 
   return (
     <li className={`stop-item ${state}${open ? ' is-open' : ''}${locked ? ' is-locked' : ''}`}>
-      <button
-        type="button"
-        className="stop-item-head"
-        onClick={onOpen}
-        /* อยู่ในร้านนี้แล้ว หัวการ์ดยุบไม่ได้ — ยุบได้คือเปิดทางให้จอว่างเปล่า
-           ทั้งที่คนขับยืนอยู่หน้าร้าน */
-        disabled={locked}
-        aria-expanded={open}
-        aria-label={`จุดที่ ${index} ${stop.destination}`}
-      >
-        <span className="stop-item-seq" aria-hidden="true">
-          {stop.done ? <IconCheck size={15} /> : index}
-        </span>
-        <span className="stop-item-text">
-          <span className="stop-item-dest">{stop.customer_name ?? stop.destination}</span>
-          <span className="stop-item-sub">
-            {fmtTime(stop.scheduled_at)}
-            {/* บอกจำนวนใบตั้งแต่ตอนย่อ — คนขับต้องรู้ว่าร้านนี้ต้องยกของกี่กอง */}
-            {bills > 1 ? ` · ${bills} ใบ` : ''}
-            {stop.unit_count ? ` · ${stop.unit_count} หน่วย` : ''}
-            {stop.done && (stop.needPod.length === 0 ? ' · เก็บหลักฐานแล้ว' : ' · ยังไม่เก็บหลักฐาน')}
+      {/* อยู่ในร้านนี้แล้ว หัวการ์ดยุบไม่ได้ (ปุ่มเปิด/ปิดจึงไม่มีความหมาย) และร้านอื่น
+          ถูกซ่อนไปหมดจากจอ — แถบ "กำลังส่งที่ + เปลี่ยนร้าน" ที่เคยลอยแยกอยู่เหนือ
+          การ์ด ย้ายเข้ามาเป็นหัวการ์ดเองแทน จะได้ไม่ใช่กล่องซ้อนกล่อง
+          ปุ่มเปลี่ยนร้านเป็นปุ่มจริง เอาไปไว้ในปุ่ม head เดิมไม่ได้ (ปุ่มซ้อนปุ่มผิดกติกา
+          HTML) หัวการ์ดโหมดล็อกจึงเป็น div ธรรมดา ไม่ใช่ button */}
+      {locked ? (
+        <div className="stop-item-head" aria-label={`จุดที่ ${index} ${stop.destination}`}>
+          <span className="stop-item-seq" aria-hidden="true">
+            {stop.done ? <IconCheck size={15} /> : index}
           </span>
-        </span>
-      </button>
+          <span className="stop-item-text">
+            <span className="stop-item-dest">กำลังส่งที่ {stop.customer_name ?? stop.destination}</span>
+            <span className="stop-item-sub">
+              {fmtTime(stop.scheduled_at)}
+              {bills > 1 ? ` · ${bills} ใบ` : ''}
+              {stop.unit_count ? ` · ${stop.unit_count} หน่วย` : ''}
+            </span>
+          </span>
+          {onExitLock && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={`stop-lock-exit${switchArmed ? ' is-armed' : ''}`}
+              onClick={onExitLock}
+            >
+              {switchArmed ? 'แตะอีกครั้งเพื่อออก' : 'เปลี่ยนร้าน'}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="stop-item-head"
+          onClick={onOpen}
+          aria-expanded={open}
+          aria-label={`จุดที่ ${index} ${stop.destination}`}
+        >
+          <span className="stop-item-seq" aria-hidden="true">
+            {stop.done ? <IconCheck size={15} /> : index}
+          </span>
+          <span className="stop-item-text">
+            <span className="stop-item-dest">{stop.customer_name ?? stop.destination}</span>
+            <span className="stop-item-sub">
+              {fmtTime(stop.scheduled_at)}
+              {/* บอกจำนวนใบตั้งแต่ตอนย่อ — คนขับต้องรู้ว่าร้านนี้ต้องยกของกี่กอง */}
+              {bills > 1 ? ` · ${bills} ใบ` : ''}
+              {stop.unit_count ? ` · ${stop.unit_count} หน่วย` : ''}
+              {stop.done && (stop.needPod.length === 0 ? ' · เก็บหลักฐานแล้ว' : ' · ยังไม่เก็บหลักฐาน')}
+            </span>
+          </span>
+        </button>
+      )}
 
       {open && (
         <div className="stop-item-body">
