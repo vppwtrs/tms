@@ -15,7 +15,7 @@ import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { groupStops, jobTripNo, type StopGroup } from '../utils/stops'
 import { activeJob, autoOpenJob, doneJobs, dutyVehicle, groupHistory, liveJobs } from '../utils/jobs'
-import { closingJobs, finishGate, needsOdometer, parseKm, podGapsOf, tollFor } from '../utils/driverActions'
+import { closingJobs, finishGate, needsOdometer, parseKm, podGapsOf, podRowsOf, tollFor } from '../utils/driverActions'
 import { CANCEL_STOP_REASONS, TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtDateTime, fmtLongToday, fmtTime } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
@@ -95,6 +95,9 @@ export default function CloudMyJobs(): React.JSX.Element {
      null = ยังไม่ตอบ ต่างจาก false ที่แปลว่าตอบแล้วว่าไม่มี */
   const [tollHas, setTollHas] = useState<boolean | null>(null)
   const [tollAmount, setTollAmount] = useState('')
+  /* พับไว้ก่อนเสมอ — คนขับส่วนใหญ่เชื่อระบบและกดผ่านไปเลย เห็นรายการทุกครั้งคือ
+     ความยาวที่ต้องเลื่อนผ่านโดยไม่ได้ใช้ เปิดเองเมื่ออยากตรวจจริง ๆ เท่านั้น */
+  const [podListOpen, setPodListOpen] = useState(false)
   const [issueFor, setIssueFor] = useState<MyJob | null>(null)
   const [issueNote, setIssueNote] = useState('')
   const [sendingIssue, setSendingIssue] = useState(false)
@@ -173,6 +176,9 @@ export default function CloudMyJobs(): React.JSX.Element {
      แต่ระหว่างที่รถวิ่งกลับ ออฟฟิศถอนตรวจหรือลบรูปได้ และคนวางแผนเพิ่มใบเข้าเที่ยวได้
      เที่ยวที่ผ่านด่านนั้นมาแล้วจึงกลับมาขาดหลักฐานได้อีก ตรวจซ้ำตอนจบงาน */
   const podGaps = podGapsOf(returningJobs)
+  /* ร้านที่ส่งครบของทุกเที่ยวขากลับ — ให้คนขับตรวจด้วยตาก่อนกดจบงานจริง
+     ไม่ใช่ด่านใหม่ ด่านจริงคือ podGaps ด้านบน ถึงตรงนี้ได้แปลว่าครบทุกร้านแล้ว */
+  const podRows = podRowsOf(returningJobs)
   const unfinishedOthers = (job: MyJob): number =>
     live.filter((j) =>
       j.id !== job.id
@@ -229,6 +235,7 @@ export default function CloudMyJobs(): React.JSX.Element {
         setTollHas(null)
         setTollAmount('')
         setFinishOdo('')
+        setPodListOpen(false)
         return
       }
     }
@@ -821,6 +828,35 @@ export default function CloudMyJobs(): React.JSX.Element {
               <p className="finish-toll-note">
                 บันทึกกับเที่ยว <b>{jobTripNo(finishing)}</b> เที่ยวเดียว — ทางด่วนที่วิ่งคือขากลับเส้นเดียว
               </p>
+            )}
+
+            {/* ตรวจ POD ทั้งหมด — ระบบกันร้านที่ขาดหลักฐานไว้ตั้งแต่ก่อนกล่องนี้จะเปิดแล้ว
+                (ดู podGaps ด้านบน) รายการนี้จึงไม่ใช่ด่านใหม่ แค่ให้คนขับเห็นด้วยตาเอง
+                ก่อนกดจบงานจริง ว่าร้านไหนของเที่ยวไหนมีหลักฐานครบแล้วบ้าง */}
+            {podRows.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="pod-check-toggle"
+                  aria-expanded={podListOpen}
+                  onClick={() => setPodListOpen((v) => !v)}
+                >
+                  <span>✓ ตรวจ POD ทั้งหมด · {podRows.length} ร้าน ครบทุกร้าน</span>
+                  <span className="pod-check-chev">{podListOpen ? 'ซ่อน ▲' : 'ดู ▼'}</span>
+                </button>
+                {podListOpen && (
+                  <div className="pod-check-list">
+                    {podRows.map((r, i) => (
+                      <div className="pod-check-row" key={`${r.trip}-${r.name}-${i}`}>
+                        <span className="pod-check-name">
+                          {r.name} <span className="pod-check-trip">{r.trip}</span>
+                        </span>
+                        <Badge label="ครบ" tone="success" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

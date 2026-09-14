@@ -3624,6 +3624,25 @@
 .finish-toll-pick .pod-kind { flex: 1; min-height: 48px; justify-content: center; }
 .finish-toll-note, .odo-last { font-size: var(--font-sm); color: var(--muted); line-height: 1.6; }
 
+/* ตรวจ POD ทั้งหมด — พับไว้ก่อนเสมอ เขียวเพราะถึงตรงนี้ได้แปลว่าครบแล้ว
+   (ร้านที่ขาดถูกกันไว้ตั้งแต่ก่อนกล่องนี้เปิด) ไม่ใช่ด่านที่ต้องเตือน */
+.pod-check-toggle {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm);
+  border: 1px solid var(--line); background: var(--success-bg); color: var(--success);
+  font-size: var(--font-sm); font-weight: 600; text-align: left;
+}
+.pod-check-chev { color: var(--muted); font-weight: 400; }
+.pod-check-list { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+.pod-check-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); background: var(--surface-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.pod-check-row:last-child { border-bottom: none; }
+.pod-check-name { font-size: var(--font-sm); color: var(--ink); }
+.pod-check-trip { font-size: var(--font-xs); color: var(--faint); }
+
 /* แถบเตือนว่ายังไม่ได้กรอกเลขไมล์ — เตือนอย่างเดียว ไม่ขวางงาน
    ใช้สีเตือนไม่ใช่สีอันตราย เพราะยังไม่กรอกไม่ได้แปลว่ามีอะไรเสียหาย */
 .odo-bar {

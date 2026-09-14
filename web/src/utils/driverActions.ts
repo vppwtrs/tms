@@ -1,4 +1,5 @@
 import type { MyJob, MyJobOrder, OdometerStatus } from '../types'
+import { jobTripNo } from './stops'
 
 /**
  * กติกาของปุ่มบนจอคนขับ — แยกออกจากตัวที่ลงมือทำ
@@ -46,6 +47,15 @@ export const podGapsOf = (jobs: MyJob[]): string[] =>
     j.orders
       .filter((o: MyJobOrder) => o.status === 'delivered' && !o.has_pod)
       .map((o) => o.customer_name ?? o.destination))
+
+/** ร้านที่ส่งครบของทุกเที่ยวขากลับ — สำหรับรายการให้คนขับตรวจก่อนกดจบงาน
+ *  ถึงตรงนี้แปลว่าผ่านด่าน podGapsOf มาแล้วทั้งหมด รายการนี้จึงเป็นของ "ครบ" ล้วน
+ *  ไม่ใช่ด่านใหม่ — ด่านจริงยังอยู่ที่ finishGate เหมือนเดิม */
+export const podRowsOf = (jobs: MyJob[]): { name: string; trip: string }[] =>
+  jobs.flatMap((j) =>
+    j.orders
+      .filter((o: MyJobOrder) => o.status === 'delivered' && o.has_pod)
+      .map((o) => ({ name: o.customer_name ?? o.destination, trip: jobTripNo(j) })))
 
 /* ---------- ด่านเลขไมล์ ---------- */
 
