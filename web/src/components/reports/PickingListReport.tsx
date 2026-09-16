@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, ErrorBox } from '../ui'
+import { Button, ErrorBox, Select } from '../ui'
 import { useWarehouses, WarehouseNote, WarehouseFilter } from './useWarehouses'
 import { Stat, statGrid, downloadCsv } from './shared'
 import { pullPickingLists, PL_STATUS, type PlRow, type PlStatus } from '../../api/tmsPull'
@@ -30,6 +30,9 @@ export function PickingListReport({ range }: { range: { from: string; to: string
   /* กรองคลังหลังดึง เหมือนแท็บ Plan Simulate — ของมาครบทุกคลังแล้วตั้งแต่กดครั้งเดียว
      สลับดูได้ทันทีโดยไม่ต้องยิงหา TMS ใหม่ ยอดรวมและไฟล์ CSV เดินตามตัวกรองนี้ */
   const [only, setOnly] = useState('')
+  /* กรองตามประเภท PL หลังดึงเหมือนตัวกรองคลัง — ประเภทเป็นค่าจาก TMS จริง
+     ไม่ใช่รายการคงที่ในโค้ด รายการตัวเลือกจึงมาจากข้อมูลที่ดึงมาแล้วเท่านั้น */
+  const [onlyType, setOnlyType] = useState('')
 
   const load = async (): Promise<void> => {
     if (!wh.list.length) return
@@ -61,13 +64,15 @@ export function PickingListReport({ range }: { range: { from: string; to: string
   const toggle = (st: PlStatus): void =>
     setStatuses((cur) => (cur.includes(st) ? cur.filter((x) => x !== st) : [...cur, st]))
 
-  const shown = (rows ?? []).filter((r) => !only || r.warehouse === only)
+  const shown = (rows ?? []).filter((r) => (!only || r.warehouse === only) && (!onlyType || r.plType === onlyType))
+  /* รายชื่อประเภท PL ที่มีจริงในรอบที่ดึงมา — เรียงตามตัวอักษร กันตัวเลือกสลับที่ทุกครั้งที่ดึงใหม่ */
+  const types = [...new Set((rows ?? []).map((r) => r.plType).filter(Boolean))].sort()
 
   const exportCsv = (): void => {
     if (!shown.length) return
-    const head = ['คลัง', 'เลข PL', 'วันที่วางแผนส่ง', 'เที่ยว', 'สถานะใบ', 'สถานะเที่ยว', 'รหัสร้าน', 'ร้าน', 'จังหวัด', 'หน่วย', 'จำนวนรวม', 'รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'แบ่งส่ง']
+    const head = ['คลัง', 'เลข PL', 'ประเภท PL', 'วันที่วางแผนส่ง', 'เที่ยว', 'สถานะใบ', 'สถานะเที่ยว', 'รหัสร้าน', 'ร้าน', 'จังหวัด', 'หน่วย', 'จำนวนรวม', 'รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'แบ่งส่ง']
     const body: (string | number)[][] = shown.map((r) => [
-      r.warehouse, r.pickingListNo, r.planDeliveryDate, r.tripNo, r.plStatus, r.tripStatus,
+      r.warehouse, r.pickingListNo, r.plType, r.planDeliveryDate, r.tripNo, r.plStatus, r.tripStatus,
       r.dealerCode, r.dealerName, r.province,
       r.unit ?? '', r.totalQty ?? '', r.itemNo, r.itemName, r.itemQty ?? '', r.itemSplitQty ?? '',
     ])
@@ -88,6 +93,14 @@ export function PickingListReport({ range }: { range: { from: string; to: string
           onChange={setOnly}
           total={(code) => (rows ? (code ? rows.filter((r) => r.warehouse === code).length : rows.length) : null)}
         />
+        {rows !== null && types.length > 1 && (
+          <Select value={onlyType} onChange={(e) => setOnlyType(e.target.value)} aria-label="กรองตามประเภท PL">
+            <option value="">ทุกประเภท PL</option>
+            {types.map((t) => (
+              <option key={t} value={t}>{t} ({rows.filter((r) => r.plType === t && (!only || r.warehouse === only)).length})</option>
+            ))}
+          </Select>
+        )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {PL_STATUS.map((st) => (
             <label key={st} className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -128,6 +141,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
                   <thead>
                     <tr>
                       <th>เลข PL</th>
+                      <th>ประเภท PL</th>
                       <th>วันที่วางแผนส่ง</th>
                       <th>เที่ยว</th>
                       <th>สถานะใบ</th>
@@ -144,6 +158,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
                     {shown.slice(0, 500).map((r, i) => (
                       <tr key={`${r.pickingListNo}-${r.itemNo}-${i}`}>
                         <td><b>{r.pickingListNo}</b></td>
+                        <td>{r.plType || <span className="text-muted">—</span>}</td>
                         <td>{r.planDeliveryDate}</td>
                         <td>{r.tripNo || <span className="text-muted">ยังไม่มีเที่ยว</span>}</td>
                         <td>{r.plStatus}</td>
