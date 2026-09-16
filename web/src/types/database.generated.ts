@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -118,6 +118,8 @@ export type Database = {
           credit_terms: number | null
           email: string | null
           id: number
+          lat: number | null
+          lng: number | null
           name: string
           phone: string | null
           price_note: string | null
@@ -132,6 +134,8 @@ export type Database = {
           credit_terms?: number | null
           email?: string | null
           id?: never
+          lat?: number | null
+          lng?: number | null
           name: string
           phone?: string | null
           price_note?: string | null
@@ -146,6 +150,8 @@ export type Database = {
           credit_terms?: number | null
           email?: string | null
           id?: never
+          lat?: number | null
+          lng?: number | null
           name?: string
           phone?: string | null
           price_note?: string | null
@@ -1616,6 +1622,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           customer_address: string | null
+          customer_lat: number | null
+          customer_lng: number | null
           customer_name: string | null
           customer_phone: string | null
           delivered_at: string | null
@@ -1827,7 +1835,15 @@ export type Database = {
       merge_drivers: { Args: { p_drop: number; p_keep: number }; Returns: Json }
       my_account: { Args: never; Returns: Json }
       odometer_status: { Args: { p_vehicle_id: number }; Returns: Json }
+      ops_overview: { Args: { p_from?: string; p_to?: string }; Returns: Json }
+      ops_today:
+        | { Args: { p_date?: string }; Returns: Json }
+        | { Args: { p_from?: string; p_to?: string }; Returns: Json }
+      ops_volume: { Args: { p_grain?: string }; Returns: Json }
+      pod_can_write: { Args: { p_order_id: number }; Returns: boolean }
       pod_of_order: { Args: { p_order_id: number }; Returns: Json }
+      pod_orphan_paths: { Args: { p_paths: string[] }; Returns: string[] }
+      pod_photo_admin: { Args: never; Returns: boolean }
       pod_photos_of_order: { Args: { p_order_id: number }; Returns: Json }
       preview_tms_import: { Args: { p_date: string }; Returns: Json }
       preview_tms_trips: { Args: { p_date?: string }; Returns: Json }
@@ -1944,12 +1960,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1973,11 +1989,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1998,11 +2014,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2023,11 +2039,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2040,11 +2056,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

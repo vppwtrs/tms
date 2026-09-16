@@ -4,9 +4,16 @@ import { fmtTime } from '../../utils/format'
 import type { StopGroup } from '../../utils/stops'
 import type { MyJobOrder } from '../../types'
 
-/** ลิงก์นำทาง — ใช้ที่อยู่ลูกค้าก่อน ถ้าไม่มีค่อยใช้ชื่อปลายทาง */
+/** ลิงก์นำทาง — ใช้พิกัดที่ปักไว้ก่อนถ้ามี (แม่นเป๊ะ ไม่ต้องเดา geocode) ไม่มีค่อยใช้
+ *  ที่อยู่ลูกค้า ไม่มีอีกค่อยใช้ชื่อปลายทาง
+ *
+ *  พิกัดมาจาก GPS ตอนคนขับคนก่อนปิดงานร้านนี้ครั้งแรก (ดู save_pod) — ร้านที่ยังไม่มี
+ *  ใครไปส่งเลยจะยังไม่มีพิกัด ใช้ที่อยู่เป็นข้อความไปก่อนตามเดิม */
 function mapsUrl(stop: StopGroup): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.customer_address ?? stop.destination)}`
+  const query = stop.customer_lat != null && stop.customer_lng != null
+    ? `${stop.customer_lat},${stop.customer_lng}`
+    : (stop.customer_address ?? stop.destination)
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
 /**

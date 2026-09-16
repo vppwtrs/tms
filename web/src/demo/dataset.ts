@@ -43,6 +43,8 @@ function order(o: Partial<MyJobOrder> & { destination: string; customer_name: st
     notes: null,
     customer_phone: '02-000-0000',
     customer_address: o.destination,
+    customer_lat: null,
+    customer_lng: null,
     has_pod: 0,
     tms_trip_no: null,
     tms_picking_list_no: null,

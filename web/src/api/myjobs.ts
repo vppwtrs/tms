@@ -162,6 +162,8 @@ export async function listMyJobs(): Promise<MyJob[]> {
       customer_name: o.customer_name ?? o.destination?.split(' · ')[0] ?? null,
       customer_phone: o.customer_phone,
       customer_address: o.customer_address,
+      customer_lat: o.customer_lat,
+      customer_lng: o.customer_lng,
       /* ระบบเดิมส่ง has_pod มาเป็น 0/1 ไม่ใช่ boolean — คงรูปเดิมไว้
          เพื่อไม่ต้องแก้ทุกที่ในหน้าจอที่เช็คค่านี้ */
       has_pod: o.has_pod ? 1 : 0,

@@ -26,6 +26,8 @@ function makeOrder(over: Partial<MyJobOrder> = {}): MyJobOrder {
     customer_name: 'บริษัท ไทยฟู้ดส์ จำกัด',
     customer_phone: '081-234-5678',
     customer_address: 'ถนนมิตรภาพ นครราชสีมา',
+    customer_lat: null,
+    customer_lng: null,
     has_pod: 0,
     cancel_reason: null,
     cancelled_at: null,

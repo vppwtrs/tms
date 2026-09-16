@@ -35,6 +35,8 @@ function order(o: Partial<MyJobOrder> = {}): MyJobOrder {
     customer_name: null,
     customer_phone: null,
     customer_address: null,
+    customer_lat: null,
+    customer_lng: null,
     has_pod: 0,
     tms_trip_no: null,
     tms_picking_list_no: null,

@@ -27,6 +27,9 @@ export interface StopGroup {
   customer_name: string | null
   customer_phone: string | null
   customer_address: string | null
+  /** พิกัดร้าน — มีค่าแล้วปุ่มนำทางใช้พิกัดตรงแทนที่อยู่เป็นข้อความ (ดู mapsUrl) */
+  customer_lat: number | null
+  customer_lng: number | null
   /** เวลานัดที่เร็วที่สุดในบรรดาใบของร้านนี้ */
   scheduled_at: string
   /** ส่งครบทุกใบแล้ว (ใบที่ถูกยกเลิกไม่นับว่าค้าง) */
@@ -82,6 +85,10 @@ export function groupStops(orders: MyJobOrder[]): StopGroup[] {
       /* ใบแรกอาจไม่มีเบอร์ ใบอื่นของร้านเดียวกันอาจมี — เอาอันที่มีก่อน */
       customer_phone: list.find((o) => o.customer_phone)?.customer_phone ?? null,
       customer_address: list.find((o) => o.customer_address)?.customer_address ?? null,
+      /* ใบไหนของร้านนี้มีพิกัดก็ใช้ได้ — ทุกใบชี้ลูกค้าเดียวกัน พิกัดจึงเหมือนกันเสมอ
+         ที่ต้อง find เพราะบางใบยังไม่ได้จับคู่ลูกค้า (customer_id ว่าง) จึงไม่มีพิกัดติดมา */
+      customer_lat: list.find((o) => o.customer_lat != null)?.customer_lat ?? null,
+      customer_lng: list.find((o) => o.customer_lng != null)?.customer_lng ?? null,
       scheduled_at: list.reduce((min, o) => (o.scheduled_at < min ? o.scheduled_at : min), first.scheduled_at),
       done: pending.length === 0 && delivered.length > 0,
       cancelled: pending.length === 0 && delivered.length === 0,

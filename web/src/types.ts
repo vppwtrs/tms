@@ -53,6 +53,10 @@ export interface MyJobOrder {
   customer_name: string | null
   customer_phone: string | null
   customer_address: string | null
+  /* พิกัดร้าน — ปักครั้งแรกจากพิกัด GPS ตอนคนขับปิดงาน (ดู save_pod) มีค่าแล้วปุ่ม
+     นำทางใช้พิกัดตรง ไม่ต้องเดาจากที่อยู่เป็นข้อความ */
+  customer_lat: number | null
+  customer_lng: number | null
   has_pod: number
   /* เลขที่ TMS ใช้ — คนขับอ้างเลขนี้เวลาโทรหาคลังหรือร้าน */
   tms_trip_no: string | null

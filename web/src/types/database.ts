@@ -157,6 +157,9 @@ export type MyOrderRow = {
   customer_name: string | null
   customer_phone: string | null
   customer_address: string | null
+  /* พิกัดร้าน — ปักครั้งแรกจาก GPS ตอนคนขับปิดงาน (ดู save_pod) */
+  customer_lat: number | null
+  customer_lng: number | null
   has_pod: boolean
 }
 
