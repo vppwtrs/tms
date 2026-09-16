@@ -81,20 +81,21 @@ function groupByStore(
   }))
 }
 
-/** ผ่านด่าน Confirm ของ TMS มาแล้วหรือยัง
+/** ออกวิ่งแล้วที่ TMS หรือยัง (OnDelivery ขึ้นไป)
  *
- * "ผ่านมาแล้ว" ไม่ใช่ "ตอนนี้ต้องเป็น Confirm" — TMS เดินสถานะต่อเป็น OnDelivery
- * แล้ว Completed เที่ยวที่วิ่งไปแล้วก็ยังต้องนำเข้าได้ ไม่งั้นยิ่งมาช้ายิ่งสั่งงานไม่ได้
- * ต้องตรงกับด่านฝั่งฐานใน import_tms_trip
- */
-function confirmedAtTms(status: string | null, statusId: number | null): boolean {
+ * "ออกวิ่งแล้ว" ไม่ใช่ "ตอนนี้ต้องเป็น OnDelivery" — TMS เดินสถานะต่อเป็น Completed
+ * เที่ยวที่วิ่งจบไปแล้วก็ยังต้องนำเข้าได้ ไม่งั้นยิ่งมาช้ายิ่งสั่งงานไม่ได้
+ * ต้องตรงกับด่านฝั่งฐานใน import_tms_trip (16 ก.ย. 2569 — ขยับจาก Confirm มาเป็น
+ * OnDelivery ตามที่เจ้าของงานสั่ง เดิมฟังก์ชันนี้ชื่อ confirmedAtTms เช็ค statusId 2-5
+ * ซึ่งหลุดไม่ตรงกับด่านฐานที่แก้ไปแล้ว ทำให้ปุ่มเปิดให้กดทั้งที่ฐานปฏิเสธ) */
+function readyForImport(status: string | null, statusId: number | null): boolean {
   /* บันไดของ TMS: 2 Confirm -> 3 Handling -> 4 OnDelivery -> 5 Completed (6 = ยกเลิก)
      ตัวเลขเป็นลำดับจริง อ่านจากมันก่อนเสมอ ข้อความมาจากระบบคนอื่นซึ่งเพิ่มคำใหม่
      เมื่อไหร่ก็ได้ — รายชื่อเดิมตกคำว่า handling ไปคำเดียว เที่ยวที่คลังกำลังจัดของ
      จึงขึ้นว่า "รอ TMS Confirm" ทั้งที่ยืนยันไปแล้ว */
-  if (statusId !== null) return statusId >= 2 && statusId <= 5
+  if (statusId !== null) return statusId >= 4 && statusId <= 5
   const s = (status ?? '').trim().toLowerCase()
-  return ['confirm', 'confirmed', 'handling', 'ondelivery', 'on delivery',
+  return ['ondelivery', 'on delivery',
     'delivering', 'delivered', 'complete', 'completed'].includes(s)
 }
 
@@ -425,9 +426,10 @@ export default function CloudTmsTrips(): React.JSX.Element {
                    เที่ยวที่ไปสองคนต้องจับคู่ให้ครบทั้งคู่ ไม่ใช่แค่คนแรกที่จับคู่ไปแล้ว */
                 const waitingTms = !t.driver_name
                 const unmapped = t.unmapped_driver_names ?? []
-                /* นำเข้าได้เฉพาะเที่ยวที่ TMS Confirm แล้ว — ก่อนหน้านั้นแผนยังเปลี่ยนได้
-                   ทั้งรถ คนขับ และรายการของ ฐานปฏิเสธอยู่แล้ว ตรงนี้คือไม่ให้กดแล้วเด้ง error */
-                const confirmed = confirmedAtTms(t.status, t.status_id)
+                /* นำเข้าได้เฉพาะเที่ยวที่ TMS ออกวิ่งแล้ว (OnDelivery ขึ้นไป) — ก่อนหน้านั้น
+                   แผนยังเปลี่ยนได้ทั้งรถ คนขับ และรายการของ ฐานปฏิเสธอยู่แล้ว ตรงนี้คือไม่ให้
+                   กดแล้วเด้ง error */
+                const confirmed = readyForImport(t.status, t.status_id)
                 const blocked = unmapped.length > 0 || !t.driver_id
                 return (
                   <tr key={t.tms_id}>
@@ -554,9 +556,9 @@ export default function CloudTmsTrips(): React.JSX.Element {
                             สั่งงานเที่ยวนี้
                           </Button>
                           {!confirmed ? (
-                            /* จับคู่คนขับล่วงหน้าได้ แต่สั่งงานจริงต้องรอ TMS Confirm ก่อน */
+                            /* จับคู่คนขับล่วงหน้าได้ แต่สั่งงานจริงต้องรอ TMS ออกวิ่งก่อน */
                             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                              รอ TMS Confirm ก่อนถึงจะสั่งงานได้
+                              รอ TMS ออกวิ่ง (OnDelivery) ก่อนถึงจะสั่งงานได้
                             </span>
                           ) : !(assign[t.tms_id] ?? []).some((id) => id > 0) ? (
                             /* บอกเหตุผลที่ปุ่มกดไม่ได้ให้ตรงกับเงื่อนไขจริงของปุ่ม
@@ -613,7 +615,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
                         </div>
                       ) : !confirmed ? (
                         <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                          รอ TMS Confirm
+                          รอ TMS ออกวิ่ง
                         </span>
                       ) : (
                         <Button
