@@ -120,8 +120,11 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
     .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}, trip_drivers(drivers(name)), tms_trips(warehouse_code, area)${driverFilterJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
   if (f.driverId) q = q.eq('trips.filter_drivers.driver_id', f.driverId)
   /* ค้นด้วยเลข PL ได้ด้วย — เลขที่คลัง ร้าน และคนขับใช้อ้างถึงใบจริงคือ PL
-     ส่วน ORD เป็นเลขที่ระบบเราสร้างเอง ไม่มีใครนอกระบบรู้จัก */
-  if (f.q) q = q.or(`order_no.ilike.%${f.q}%,tms_picking_list_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
+     ส่วน ORD เป็นเลขที่ระบบเราสร้างเอง ไม่มีใครนอกระบบรู้จัก
+     ต้องมี tms_trip_no ด้วย — เป็นตัวเลขหัวกลุ่มตัวหนาที่จอนี้โชว์เอง (ดู tripNo ใน
+     CloudOrders.tsx) คนที่เห็นเลขนั้นบนจอแล้วมาพิมพ์ค้นย่อมคาดว่าเจอ เดิมหลุดไป
+     ค้นแล้วขึ้น "ไม่พบ" ทั้งที่แถวอยู่ตรงหน้า */
+  if (f.q) q = q.or(`order_no.ilike.%${f.q}%,tms_picking_list_no.ilike.%${f.q}%,tms_trip_no.ilike.%${f.q}%,origin.ilike.%${f.q}%,destination.ilike.%${f.q}%,goods_desc.ilike.%${f.q}%`)
   if (f.status) q = q.eq('status', f.status)
   if (f.priority) q = q.eq('priority', f.priority)
   if (f.customerId) q = q.eq('customer_id', f.customerId)
