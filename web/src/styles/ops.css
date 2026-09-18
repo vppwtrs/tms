@@ -1463,6 +1463,29 @@
 /* เส้นฐานเข้มกว่าเส้นกริด — แท่งต้องดูเหมือนวางอยู่บนพื้น ไม่ใช่ลอยกลางอากาศ */
 .ops-chart-base { stroke: var(--line-strong, var(--line)); stroke-width: 1.5; }
 
+/* ---- รายละเอียดรถ: กราฟการใช้งาน (VehicleUsagePanel) ---- */
+.vu-panel-head { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.vu-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.vu-chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r, 10px); padding: 12px; }
+.vu-chart-head { display: flex; align-items: center; gap: 7px; font-size: var(--font-xs); color: var(--ink-2, var(--ink)); font-weight: 600; margin-bottom: 4px; }
+.vu-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.vu-total { margin-left: auto; font-size: var(--font-xs); font-weight: 600; color: var(--ink); }
+.vu-grid { stroke: var(--line-soft); stroke-width: 1; }
+.vu-axis-label { fill: var(--muted); font-size: 9px; }
+.vu-rank { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r, 10px); padding: 12px 14px; }
+.vu-rank-head { font-size: var(--font-sm); font-weight: 600; margin-bottom: 8px; }
+.vu-rank-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line-soft); }
+.vu-rank-row:first-of-type { border-top: none; }
+.vu-rank-no { width: 16px; font-size: var(--font-xs); color: var(--muted); text-align: center; flex-shrink: 0; }
+.vu-rank-name { width: 140px; font-size: var(--font-sm); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vu-rank-bar { flex: 1; height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.vu-rank-bar i { display: block; height: 100%; background: var(--blue-500); border-radius: 999px; }
+.vu-rank-hr { font-size: var(--font-xs); color: var(--ink-2, var(--ink)); white-space: nowrap; }
+@media (max-width: 640px) {
+  .vu-charts { grid-template-columns: 1fr; }
+  .vu-rank-name { width: 96px; }
+}
+
 /* ---- ใบสั่งงานประจำวัน ---- */
 .ops-job-id {
   display: block;

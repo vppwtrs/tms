@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   listVehicles, createVehicle, updateVehicle, setVehicleStatus, removeVehicle,
-  latestOdometerByVehicle, totalTollByVehicle, updateOdometerReading, type LatestOdometer,
+  latestOdometerByVehicle, totalTollByVehicle, updateOdometerReading, vehicleUsage,
+  type LatestOdometer, type VehicleUsage, type VehicleUsageGrain,
 } from '../api/vehicles'
+import { VehicleUsagePanel } from '../components/vehicles/VehicleUsagePanel'
 import type { Paged } from '../api/customers'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
 import { useCloudAuth } from '../context/CloudAuthContext'
@@ -72,6 +74,12 @@ export default function CloudVehicles(): React.JSX.Element {
   const [odoEditing, setOdoEditing] = useState<{ vehicle: VehicleRow; odo: LatestOdometer } | null>(null)
   const [odoValue, setOdoValue] = useState('')
   const [odoSaving, setOdoSaving] = useState(false)
+
+  const [usageVehicle, setUsageVehicle] = useState<VehicleRow | null>(null)
+  const [usageGrain, setUsageGrain] = useState<VehicleUsageGrain>('day')
+  const [usageData, setUsageData] = useState<VehicleUsage | null>(null)
+  const [usageLoading, setUsageLoading] = useState(false)
+  const [usageError, setUsageError] = useState('')
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -193,6 +201,30 @@ export default function CloudVehicles(): React.JSX.Element {
     }
   }
 
+  const loadUsage = useCallback(async (vehicleId: number, grain: VehicleUsageGrain): Promise<void> => {
+    setUsageLoading(true)
+    setUsageError('')
+    try {
+      setUsageData(await vehicleUsage(vehicleId, grain))
+    } catch (e) {
+      setUsageError(e instanceof Error ? e.message : 'โหลดข้อมูลการใช้รถไม่สำเร็จ')
+    } finally {
+      setUsageLoading(false)
+    }
+  }, [])
+
+  const openUsage = (v: VehicleRow): void => {
+    setUsageVehicle(v)
+    setUsageData(null)
+    setUsageGrain('day')
+    void loadUsage(v.id, 'day')
+  }
+
+  const changeUsageGrain = (g: VehicleUsageGrain): void => {
+    setUsageGrain(g)
+    if (usageVehicle) void loadUsage(usageVehicle.id, g)
+  }
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1
 
   return (
@@ -244,7 +276,16 @@ export default function CloudVehicles(): React.JSX.Element {
             <tbody>
               {data.rows.map((v) => (
                 <tr key={v.id}>
-                  <td className="text-strong">{v.plate_no}</td>
+                  <td className="text-strong">
+                    <button
+                      type="button"
+                      className="link-button"
+                      title="ดูรายละเอียดการใช้งาน"
+                      onClick={() => openUsage(v)}
+                    >
+                      {v.plate_no}
+                    </button>
+                  </td>
                   <td>
                     {v.brand ?? '—'}
                     {v.model && <span className="text-muted"> {v.model}</span>}
@@ -369,6 +410,23 @@ export default function CloudVehicles(): React.JSX.Element {
               แก้ได้เฉพาะค่าล่าสุดของวันนั้น ระบบยังกันไม่ให้เลขย้อนหลังน้อยกว่าครั้งก่อนหน้า
             </p>
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={usageVehicle !== null}
+        onClose={() => setUsageVehicle(null)}
+        title={usageVehicle ? `รายละเอียดการใช้งาน — ${usageVehicle.plate_no}` : 'รายละเอียดการใช้งาน'}
+        size="lg"
+      >
+        {usageVehicle && (
+          <VehicleUsagePanel
+            data={usageData}
+            grain={usageGrain}
+            onGrain={changeUsageGrain}
+            loading={usageLoading}
+            error={usageError}
+          />
         )}
       </Modal>
 

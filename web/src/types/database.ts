@@ -198,6 +198,7 @@ export interface Database {
       log_odometer: { Args: { p_vehicle_id: number; p_reading_km: number; p_kind: 'start' | 'end' }; Returns: { vehicle_id: number; reading_km: number; kind: string; date: string } }
       odometer_status: { Args: { p_vehicle_id: number }; Returns: { logged_today: boolean; start_km: number | null; end_km: number | null; reading_km: number | null; last_km: number | null } }
       admin_update_odometer: { Args: { p_odometer_id: number; p_reading_km: number }; Returns: { id: number; vehicle_id: number; reading_km: number; kind: string; date: string } }
+      vehicle_usage: { Args: { p_vehicle_id: number; p_grain: string }; Returns: unknown }
       undo_deliver_order: {
         Args: { p_order_id: number }
         Returns: { order_id: number; order_no: string; pl_no: string | null }

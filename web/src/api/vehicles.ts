@@ -73,6 +73,36 @@ export async function updateOdometerReading(odometerId: number, readingKm: numbe
   if (error) throw toDataError(error)
 }
 
+export type VehicleUsageGrain = 'day' | 'month' | 'year'
+
+export interface VehicleUsagePoint {
+  key: string
+  distance_km: number
+  toll_cost: number
+  partial: boolean
+}
+
+export interface VehicleUsageDriver {
+  driver_id: number
+  driver_name: string
+  hours: number
+  trips: number
+}
+
+export interface VehicleUsage {
+  grain: VehicleUsageGrain
+  points: VehicleUsagePoint[]
+  drivers: VehicleUsageDriver[]
+}
+
+/** กราฟระยะทาง/ค่าทางด่วนย้อนหลัง + อันดับคนขับตามชั่วโมงใช้รถ (ดู vehicle_usage)
+ *  ระยะทางนับเฉพาะเที่ยวที่มีเลขไมล์ออกรถ+จบงานครบ ชั่วโมงนับเฉพาะเที่ยวที่มีเวลาออกรถ+คืนรถครบ */
+export async function vehicleUsage(vehicleId: number, grain: VehicleUsageGrain = 'day'): Promise<VehicleUsage> {
+  const { data, error } = await supabase.rpc('vehicle_usage', { p_vehicle_id: vehicleId, p_grain: grain })
+  if (error) throw toDataError(error)
+  return data as unknown as VehicleUsage
+}
+
 /** ค่าทางด่วนสะสมต่อคัน — รวมทุกเที่ยวที่เคยวิ่ง ไม่ใช่แค่เที่ยวปัจจุบัน */
 export async function totalTollByVehicle(vehicleIds: number[]): Promise<Map<number, number>> {
   return tollByVehicle(vehicleIds)
