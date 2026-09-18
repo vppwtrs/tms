@@ -10,13 +10,16 @@ import { IconClock } from '../icons'
  *
  * กราฟทั้งสองสเกลด้วยค่าสูงสุดของตัวเอง ไม่ใช้แกนร่วม เพราะหน่วยคนละอย่าง (กม./บาท)
  * ใช้ monotone cubic เดียวกับ VolumeTrend กันเส้นเหวี่ยงเกินค่าจริงตอนข้อมูลเป็นศูนย์ติดกัน
+ *
+ * ตัวเลขกำกับบนจุด: ใส่เฉพาะจุดที่ไม่ใช่ศูนย์ (เหมือน ops-vlabel) — วันที่ไม่มีงาน
+ * ไม่ต้องเขียนเลขศูนย์ซ้ำ ตัวเลขห้าหกตัวติดกันจะกินสายตาไปจากวันที่มีของจริง
  */
 
-const W = 340
-const H = 110
-const PAD_T = 10
-const PAD_B = 20
-const PAD_X = 6
+const W = 480
+const H = 190
+const PAD_T = 30
+const PAD_B = 24
+const PAD_X = 10
 
 const GRAINS: { key: VehicleUsageGrain; label: string }[] = [
   { key: 'day', label: 'วัน' },
@@ -24,11 +27,12 @@ const GRAINS: { key: VehicleUsageGrain; label: string }[] = [
   { key: 'year', label: 'ปี' },
 ]
 
-function LineChart({ points, grain, color, value }: {
+function LineChart({ points, grain, color, value, fmt }: {
   points: VehicleUsagePoint[]
   grain: VehicleUsageGrain
   color: string
   value: (p: VehicleUsagePoint) => number
+  fmt: (n: number) => string
 }): React.JSX.Element {
   const max = Math.max(1, ...points.map(value))
   const base = H - PAD_B
@@ -36,18 +40,25 @@ function LineChart({ points, grain, color, value }: {
   const cx = (i: number): number => points.length === 1 ? W / 2 : PAD_X + span * i
   const cy = (n: number): number => base - ((base - PAD_T) * n) / max
   const line = smoothPath(points.map((p, i) => ({ x: cx(i), y: cy(value(p)) })))
-  const last = points[points.length - 1]
 
-  const axisStep = Math.max(1, Math.ceil(points.length / 5))
+  /* ป้ายแกนวันขึ้นชิดกันเกินไปถ้าเขียนทุกจุด — ข้ามให้เหลือ ~6 ป้ายพอ */
+  const axisStep = Math.max(1, Math.ceil(points.length / 6))
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label="กราฟย้อนหลัง">
       {[0.25, 0.5, 0.75].map((f) => (
         <line key={f} x1={PAD_X} y1={base - (base - PAD_T) * f} x2={W - PAD_X} y2={base - (base - PAD_T) * f} className="vu-grid" />
       ))}
       {line && <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />}
-      {points.map((p, i) => (
-        <circle key={p.key} cx={cx(i)} cy={cy(value(p))} r={i === points.length - 1 ? 3.5 : 2} fill={color} opacity={i === points.length - 1 ? 1 : 0.5} />
-      ))}
+      {points.map((p, i) => {
+        const v = value(p)
+        if (v <= 0) return null
+        return (
+          <g key={p.key}>
+            <circle cx={cx(i)} cy={cy(v)} r={i === points.length - 1 ? 3.5 : 2.5} fill={color} />
+            <text x={cx(i)} y={cy(v) - 8} className="vu-point-label" textAnchor="middle">{fmt(v)}</text>
+          </g>
+        )
+      })}
       {points.map((p, i) => (
         i % axisStep === 0 || i === points.length - 1 ? (
           <text key={`ax-${p.key}`} x={cx(i)} y={H - 4} className="vu-axis-label" textAnchor="middle">
@@ -55,7 +66,6 @@ function LineChart({ points, grain, color, value }: {
           </text>
         ) : null
       ))}
-      {last && <title>{`${volumeLabel(last.key, grain)}: ${fmtNum(value(last))}`}</title>}
     </svg>
   )
 }
@@ -98,7 +108,7 @@ export function VehicleUsagePanel({ data, grain, onGrain, loading, error }: {
                 ระยะทางวิ่ง (กม.)
                 <b className="vu-total">รวม {fmtKm(totalKm)}</b>
               </div>
-              <LineChart points={points} grain={grain} color="var(--blue-500)" value={(p) => p.distance_km} />
+              <LineChart points={points} grain={grain} color="var(--blue-500)" value={(p) => p.distance_km} fmt={(n) => fmtNum(Math.round(n))} />
             </div>
             <div className="vu-chart">
               <div className="vu-chart-head">
@@ -106,7 +116,7 @@ export function VehicleUsagePanel({ data, grain, onGrain, loading, error }: {
                 ค่าทางด่วน (บาท)
                 <b className="vu-total">รวม {fmtMoney(totalToll)}</b>
               </div>
-              <LineChart points={points} grain={grain} color="var(--warn)" value={(p) => p.toll_cost} />
+              <LineChart points={points} grain={grain} color="var(--warn)" value={(p) => p.toll_cost} fmt={(n) => fmtMoney(n)} />
             </div>
           </div>
 

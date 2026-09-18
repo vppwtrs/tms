@@ -280,14 +280,15 @@ interface ModalProps {
   /* sheet = แผ่นเต็มความสูงบนมือถือ หัวกับท้ายตรึงอยู่กับที่ เนื้อในเลื่อนเอง
      ใช้กับฟอร์มที่คนกรอกยืนอยู่หน้าร้าน ไม่ได้นั่งจ้องจอ — ปุ่มบันทึกต้องอยู่
      ในระยะนิ้วโป้งเสมอ ไม่ใช่ต้องเลื่อนลงไปหา */
-  size?: 'md' | 'lg' | 'sheet'
+  size?: 'md' | 'lg' | 'xl' | 'sheet'
   /* คลาสเสริมบนแผ่น — ใช้เปลี่ยนผิวเฉพาะแผ่น เช่นจอถ่ายรูปที่บอร์ดกำหนดให้เป็นพื้นเข้ม */
   className?: string
 }
 
-const MODAL_SIZE_CLASS: Record<'md' | 'lg' | 'sheet', string> = {
+const MODAL_SIZE_CLASS: Record<'md' | 'lg' | 'xl' | 'sheet', string> = {
   md: '',
   lg: 'modal-lg',
+  xl: 'modal-xl',
   sheet: 'modal-sheet',
 }
 

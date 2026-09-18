@@ -672,6 +672,9 @@
 .modal-panel.modal-lg {
   max-width: 780px;
 }
+.modal-panel.modal-xl {
+  max-width: 1080px;
+}
 .modal-header {
   display: flex;
   align-items: center;

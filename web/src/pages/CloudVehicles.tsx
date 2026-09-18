@@ -417,7 +417,7 @@ export default function CloudVehicles(): React.JSX.Element {
         open={usageVehicle !== null}
         onClose={() => setUsageVehicle(null)}
         title={usageVehicle ? `รายละเอียดการใช้งาน — ${usageVehicle.plate_no}` : 'รายละเอียดการใช้งาน'}
-        size="lg"
+        size="xl"
       >
         {usageVehicle && (
           <VehicleUsagePanel
