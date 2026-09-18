@@ -25,6 +25,7 @@ import {
 import { IconBox, IconClock, IconDownload, IconEdit, IconPlus, IconTrash } from '../components/icons'
 import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { shipToName, storeKey as storeKeyOf } from '../utils/stops'
+import { xlsxSafe } from '../utils/xlsxSafe'
 
 /**
  * จัดการออเดอร์ ฉบับคลาวด์ — คู่ขนานกับ Orders.tsx บน LAN
@@ -236,12 +237,6 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
       }),
     }
   })
-}
-
-/** กัน Excel formula injection — ค่าพวกเลขทริป/คลัง/เขต/คนขับมาจาก TMS import ที่เราไม่คุม
- *  ถ้าขึ้นต้นด้วย =+-@ ให้เติม ' นำหน้า ไม่งั้น Excel จะตีความเป็นสูตรตอนเปิดไฟล์ */
-function xlsxSafe(value: string): string {
-  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
 }
 
 /** ดาวน์โหลดไทม์ไลน์เป็น .xlsx จริง สองชีต — หน้าตาเดียวกับไฟล์ที่เคยส่งให้ดูก่อนหน้านี้

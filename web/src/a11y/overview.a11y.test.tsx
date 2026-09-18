@@ -26,7 +26,7 @@ const FULL_CAP = {
 
 const ROW = (over: Partial<FleetRow> = {}): FleetRow => ({
   vehicle_id: 1, plate: '4ฒญ9845', crew: 'จิรวิรัฐ + ฉัตรชัย', crew_size: 2,
-  trips: 2, stops: 9, stops_done: 7, over_free: true,
+  trips: 2, stops: 9, stops_done: 7, max_trip_stops: 6, over_free: true,
   last_stop: 'เซเว่น สาขาบางกรวย', last_at: new Date().toISOString(),
   cost_plan: 2400, cost_actual: 2900, cost_open: 0, bonus: 200,
   ...over,
@@ -46,6 +46,7 @@ const TODAY = (over: Partial<OpsToday> = {}): OpsToday => ({
   },
   units: [{ kind: 'vehicle', orders: 68, units: 68 }, { kind: 'box', orders: 5, units: 19 }],
   fleet: [ROW()],
+  trip_rows: [],
   bonus_rule: { free_stops: 5, rate: 50 },
   ...over,
 })

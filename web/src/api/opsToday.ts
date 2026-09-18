@@ -47,6 +47,9 @@ export interface FleetRow {
   trips: number
   stops: number
   stops_done: number
+  /** จุดส่งสูงสุดในเที่ยวเดียวของคันนี้ในช่วงที่เลือก — เบี้ยคิดจากตัวนี้ ไม่ใช่ `stops`
+   *  ซึ่งเป็นผลรวมทั้งช่วง (เคยทำให้เข้าใจผิดว่าเที่ยวเยอะ = เบี้ยเยอะ) */
+  max_trip_stops: number
   over_free: boolean
   /** ร้านของจุดที่ปิดล่าสุด — ไม่ใช่ตำแหน่ง GPS (ดูหมายเหตุใน FleetTable) */
   last_stop: string | null
@@ -56,6 +59,20 @@ export interface FleetRow {
   /** เที่ยวของคันนี้ที่ยังไม่ปิดตัวเลขจริง */
   cost_open: number
   bonus: number | null
+}
+
+/** เที่ยวเดียว พร้อมจุดส่ง/เบี้ยของเที่ยวนั้นโดยเฉพาะ — เห็นได้เฉพาะคนมีสิทธิ์เงิน
+ *  (`trip_rows` เป็น [] เสมอถ้าไม่มีสิทธิ์ ไม่ใช่ null เพื่อให้ฝั่งเว็บวนลูปได้โดยไม่ต้องเช็คก่อน) */
+export interface TripRow {
+  plate: string
+  trip_no: string
+  trip_date: string
+  stops: number
+  stops_done: number
+  paid_stops: number
+  bonus: number
+  cost_plan: number | null
+  cost_actual: number | null
 }
 
 export interface OpsToday {
@@ -69,6 +86,7 @@ export interface OpsToday {
   today: TodayStats
   units: UnitKind[]
   fleet: FleetRow[]
+  trip_rows: TripRow[]
   bonus_rule: { free_stops: number; rate: number }
 }
 
