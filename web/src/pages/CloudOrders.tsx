@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow, type OrderItem } from '../api/orders'
 import { forceDeleteTrip } from '../api/trips'
+import { tripTrack, type TrackPoint } from '../api/tracking'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
 import { useRealtime } from '../hooks/useRealtime'
 import { printConsignment, type ConsignmentLine } from '../utils/consignment'
@@ -16,12 +17,13 @@ import type { CustomerRow, DriverRow, OrderPriority, OrderStatus } from '../type
 import {
   ORDER_STATUS_LABEL, ORDER_STATUS_ORDER, ORDER_TONE,
 } from '../utils/constants'
-import { dateInputToIso, daysAgoIso, fmtDate, fmtMoney, fmtRoute, isoToDateInput, todayIso } from '../utils/format'
+import { dateInputToIso, daysAgoIso, fmtDate, fmtDateTime, fmtMoney, fmtRoute, isoToDateInput, todayIso } from '../utils/format'
 import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
-import { IconBox, IconEdit, IconPlus, IconTrash } from '../components/icons'
+import { IconBox, IconClock, IconEdit, IconPlus, IconTrash } from '../components/icons'
+import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { shipToName, storeKey as storeKeyOf } from '../utils/stops'
 
 /**
@@ -236,6 +238,17 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
   })
 }
 
+/** จุด GPS ดิบเรียงเป็นขั้นไทม์ไลน์ — จุดแรกกับจุดสุดท้ายเน้นเป็น "ออกรถ"/"จุดล่าสุด" */
+function timelineToSteps(track: TrackPoint[]): TimelineStep[] {
+  return track.map((p, i) => ({
+    key: `${p.recorded_at}-${i}`,
+    title: i === 0 ? 'ออกรถ' : i === track.length - 1 ? 'จุดล่าสุด' : `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`,
+    time: fmtDateTime(p.recorded_at),
+    note: i === 0 || i === track.length - 1 ? `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` : null,
+    state: i === track.length - 1 ? 'current' : 'done',
+  }))
+}
+
 export default function CloudOrders(): React.JSX.Element {
   const { can } = useCloudAuth()
   const { push } = useToast()
@@ -262,6 +275,24 @@ export default function CloudOrders(): React.JSX.Element {
      กับจำนวนใบที่จะหายไปด้วย ไม่ใช่แค่ id */
   const [purging, setPurging] = useState<TripGroup | null>(null)
   const [purgeLoading, setPurgeLoading] = useState(false)
+  /* เที่ยวที่กำลังเปิดดูไทม์ไลน์ — เก็บทั้งก้อนไว้เพราะหัวหน้าต่างต้องขึ้นเลขเที่ยว
+     กับชื่อคนขับ ไม่ใช่แค่ id เหมือนกับ purging ข้างบน */
+  const [timelineTrip, setTimelineTrip] = useState<TripGroup | null>(null)
+  const [timelineTrack, setTimelineTrack] = useState<TrackPoint[]>([])
+  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [timelineError, setTimelineError] = useState('')
+
+  const openTimeline = useCallback((trip: TripGroup): void => {
+    if (trip.tripId === null) return
+    setTimelineTrip(trip)
+    setTimelineTrack([])
+    setTimelineError('')
+    setTimelineLoading(true)
+    tripTrack(trip.tripId)
+      .then(setTimelineTrack)
+      .catch((e: unknown) => setTimelineError(e instanceof Error ? e.message : 'โหลดไทม์ไลน์ไม่สำเร็จ'))
+      .finally(() => setTimelineLoading(false))
+  }, [])
   const [q, setQ] = useState('')
   /* ตัวกรองที่นาน ๆ ใช้ที ถูกพับไว้ ปิดตอนเข้าหน้าเสมอเพราะค่าทั้งหมดเริ่มที่ว่าง
      ถ้าวันหลังทำให้ตัวกรองจำค่าข้ามการเข้าหน้า ต้องเปิดค้างไว้ให้เองด้วย
@@ -569,6 +600,18 @@ export default function CloudOrders(): React.JSX.Element {
                 <span className="text-xs text-muted">
                   {trip.driver ?? 'ยังไม่จัดคิว'}
                 </span>
+                {/* จุดพิกัดมีก็ต่อเมื่อเที่ยวถูกจัดแล้วและมีคนขับกดรับงานแล้ว
+                    ใบที่ยังไม่เข้าเที่ยว (tripId เป็น null) จึงไม่มีอะไรให้ดู */}
+                {trip.tripId !== null && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="ดูไทม์ไลน์โลเคชั่นของเที่ยวนี้"
+                    onClick={() => openTimeline(trip)}
+                  >
+                    <IconClock size={14} /> ไทม์ไลน์
+                  </Button>
+                )}
                 {/* ทางเดียวที่ลบเที่ยวได้หลังมันจบและข้ามวัน — กระดานจัดคิวโหลดเฉพาะ
                     เที่ยวที่ยังไม่จบกับที่จบวันนี้ ปุ่มบนนั้นจึงหายไปพร้อมการ์ด
                     ขณะที่หน้านี้เก็บประวัติทั้งหมด เงื่อนไขสิทธิ์เดียวกับกระดาน */}
@@ -814,6 +857,48 @@ export default function CloudOrders(): React.JSX.Element {
           onClose={() => { setPodOrder(null); setPodSheet(null) }}
         />
       )}
+
+      <Modal
+        open={timelineTrip !== null}
+        onClose={() => setTimelineTrip(null)}
+        title={timelineTrip ? `ไทม์ไลน์เที่ยว ${timelineTrip.tripNo}` : 'ไทม์ไลน์'}
+        size="lg"
+        footer={
+          timelineTrack.length > 0 && (
+            <a
+              className="btn btn-ghost btn-sm"
+              href={`https://www.google.com/maps/dir/${timelineTrack.map((p) => `${p.lat},${p.lng}`).join('/')}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              เปิดใน Google Maps
+            </a>
+          )
+        }
+      >
+        {timelineTrip && (
+          <>
+            <div className="text-xs text-muted" style={{ marginBottom: 12 }}>
+              {timelineTrip.driver ?? 'ยังไม่จัดคิว'}
+              {timelineTrip.warehouse && <> · {timelineTrip.warehouse}</>}
+              {timelineTrip.area && <> · เขต {timelineTrip.area}</>}
+            </div>
+            {timelineLoading ? (
+              <TableSkeleton rows={5} cols={1} />
+            ) : timelineError ? (
+              <ErrorBox message={timelineError} onRetry={() => openTimeline(timelineTrip)} />
+            ) : timelineTrack.length === 0 ? (
+              <EmptyState
+                icon={<IconClock size={32} />}
+                title="ยังไม่มีจุดบันทึก"
+                desc="เที่ยวนี้ยังไม่มีคนขับกดรับงาน หรือยังไม่ได้ส่งตำแหน่งเข้ามา"
+              />
+            ) : (
+              <Timeline steps={timelineToSteps(timelineTrack)} />
+            )}
+          </>
+        )}
+      </Modal>
 
       <ConfirmDialog
         open={cancelling !== null}
