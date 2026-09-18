@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   listVehicles, createVehicle, updateVehicle, setVehicleStatus, removeVehicle,
-  latestOdometerByVehicle, totalTollByVehicle, type LatestOdometer,
+  latestOdometerByVehicle, totalTollByVehicle, updateOdometerReading, type LatestOdometer,
 } from '../api/vehicles'
 import type { Paged } from '../api/customers'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
@@ -16,6 +16,7 @@ import {
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
 import { IconEdit, IconPlus, IconTrash, IconTruck } from '../components/icons'
+import { fmtDate } from '../utils/format'
 
 /**
  * จัดการรถยนต์ ฉบับคลาวด์ — คู่ขนานกับ Vehicles.tsx ที่ยังคุยกับ Express บน LAN
@@ -67,6 +68,10 @@ export default function CloudVehicles(): React.JSX.Element {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<VehicleRow | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const [odoEditing, setOdoEditing] = useState<{ vehicle: VehicleRow; odo: LatestOdometer } | null>(null)
+  const [odoValue, setOdoValue] = useState('')
+  const [odoSaving, setOdoSaving] = useState(false)
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -166,6 +171,28 @@ export default function CloudVehicles(): React.JSX.Element {
     }
   }
 
+  const openOdoEdit = (v: VehicleRow, odo: LatestOdometer): void => {
+    setOdoEditing({ vehicle: v, odo })
+    setOdoValue(String(odo.reading_km))
+  }
+
+  const saveOdo = async (): Promise<void> => {
+    if (!odoEditing) return
+    const km = Number(odoValue)
+    if (!odoValue.trim() || !Number.isFinite(km) || km < 0) { push('warning', 'กรอกเลขไมล์เป็นตัวเลข'); return }
+    setOdoSaving(true)
+    try {
+      await updateOdometerReading(odoEditing.odo.id, km)
+      push('success', `แก้เลขไมล์ ${odoEditing.vehicle.plate_no} เป็น ${km.toLocaleString('th-TH')} กม. แล้ว`)
+      setOdoEditing(null)
+      await load()
+    } catch (e) {
+      push('error', e instanceof Error ? e.message : 'แก้เลขไมล์ไม่สำเร็จ')
+    } finally {
+      setOdoSaving(false)
+    }
+  }
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1
 
   return (
@@ -227,7 +254,17 @@ export default function CloudVehicles(): React.JSX.Element {
                   <td className="num">
                     {odometers.has(v.id)
                       ? <>{odometers.get(v.id)!.reading_km.toLocaleString('th-TH')} กม.
-                        <span className="text-muted"> ({odometers.get(v.id)!.kind === 'start' ? 'ออกรถ' : 'จบงาน'})</span></>
+                        <span className="text-muted"> ({odometers.get(v.id)!.kind === 'start' ? 'ออกรถ' : 'จบงาน'})</span>
+                        {canEdit && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="แก้เลขไมล์"
+                            onClick={() => openOdoEdit(v, odometers.get(v.id)!)}
+                          >
+                            <IconEdit size={12} />
+                          </Button>
+                        )}</>
                       : <span className="text-muted">—</span>}
                   </td>
                   <td className="num">{fmtMoney(tolls.get(v.id) ?? 0)}</td>
@@ -301,6 +338,38 @@ export default function CloudVehicles(): React.JSX.Element {
             <Input type="number" min={1} value={form.capacity_kg} onChange={set('capacity_kg')} placeholder="1500" />
           </Field>
         </div>
+      </Modal>
+
+      <Modal
+        open={odoEditing !== null}
+        onClose={() => setOdoEditing(null)}
+        title={odoEditing ? `แก้เลขไมล์ — ${odoEditing.vehicle.plate_no}` : 'แก้เลขไมล์'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setOdoEditing(null)}>ยกเลิก</Button>
+            <Button variant="accent" onClick={() => void saveOdo()} loading={odoSaving}>บันทึก</Button>
+          </>
+        }
+      >
+        {odoEditing && (
+          <div className="form-grid">
+            <p className="text-muted" style={{ margin: 0 }}>
+              ค่าปัจจุบัน: <b>{odoEditing.odo.reading_km.toLocaleString('th-TH')} กม.</b>
+              {' '}({odoEditing.odo.kind === 'start' ? 'ออกรถ' : 'จบงาน'} · {fmtDate(odoEditing.odo.reading_date)})
+            </p>
+            <Field label="เลขไมล์ที่ถูกต้อง (กม.)" required>
+              <Input
+                type="number"
+                min={0}
+                value={odoValue}
+                onChange={(e) => setOdoValue(e.target.value)}
+              />
+            </Field>
+            <p className="text-muted" style={{ fontSize: 12, margin: 0 }}>
+              แก้ได้เฉพาะค่าล่าสุดของวันนั้น ระบบยังกันไม่ให้เลขย้อนหลังน้อยกว่าครั้งก่อนหน้า
+            </p>
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

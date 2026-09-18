@@ -41,6 +41,7 @@ export async function listAvailableVehicles(): Promise<VehicleRow[]> {
 }
 
 export interface LatestOdometer {
+  id: number
   reading_km: number
   kind: 'start' | 'end'
   reading_date: string
@@ -53,15 +54,23 @@ export async function latestOdometerByVehicle(vehicleIds: number[]): Promise<Map
   if (vehicleIds.length === 0) return map
   const rows = await unwrap(
     supabase.from('vehicle_odometer')
-      .select('vehicle_id, reading_km, kind, reading_date')
+      .select('id, vehicle_id, reading_km, kind, reading_date')
       .in('vehicle_id', vehicleIds)
       .order('reading_date', { ascending: false })
       .order('id', { ascending: false }),
   )
-  for (const r of rows as { vehicle_id: number; reading_km: number; kind: 'start' | 'end'; reading_date: string }[]) {
-    if (!map.has(r.vehicle_id)) map.set(r.vehicle_id, { reading_km: r.reading_km, kind: r.kind, reading_date: r.reading_date })
+  for (const r of rows as { id: number; vehicle_id: number; reading_km: number; kind: 'start' | 'end'; reading_date: string }[]) {
+    if (!map.has(r.vehicle_id)) map.set(r.vehicle_id, { id: r.id, reading_km: r.reading_km, kind: r.kind, reading_date: r.reading_date })
   }
   return map
+}
+
+/** ออฟฟิศแก้เลขไมล์ที่คนขับกรอกผิด — เฉพาะแถวที่ระบุ id ตรง ๆ ฐานเช็คสิทธิ์ vehicles.write
+ *  และกันเลขถอยหลัง/สลับด้านออกรถ-จบงานเองอยู่แล้ว (ดู admin_update_odometer) */
+export async function updateOdometerReading(odometerId: number, readingKm: number): Promise<void> {
+  const { error } = await supabase.rpc('admin_update_odometer',
+    { p_odometer_id: odometerId, p_reading_km: readingKm })
+  if (error) throw toDataError(error)
 }
 
 /** ค่าทางด่วนสะสมต่อคัน — รวมทุกเที่ยวที่เคยวิ่ง ไม่ใช่แค่เที่ยวปัจจุบัน */
