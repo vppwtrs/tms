@@ -73,6 +73,42 @@ export async function updateOdometerReading(odometerId: number, readingKm: numbe
   if (error) throw toDataError(error)
 }
 
+export interface VehicleTrip {
+  id: number
+  /** เลขทริปของ TMS บริษัท (เช่น 20260917005) ถ้ามี — ไม่งั้น fallback เป็นเลขภายในของเรา
+   *  ออฟฟิศเทียบเลขกับ TMS เป็นหลัก ไม่ใช่เลข TRP-2026-xxxx ของเรา */
+  trip_no: string
+  trip_date: string
+  toll_cost: number
+}
+
+/** เที่ยวล่าสุดของรถคันหนึ่ง — ให้เลือกเที่ยวที่ยอดค่าทางด่วนผิดมาแก้เป็นเที่ยว ๆ ไป
+ *  ยอดสะสมในตารางหลักเป็นผลรวมหลายเที่ยว แก้ที่ยอดรวมตรง ๆ ไม่ได้ว่าเที่ยวไหนผิด */
+export async function recentTripsByVehicle(vehicleId: number, limit = 10): Promise<VehicleTrip[]> {
+  const trips = await unwrap(
+    supabase.from('trips')
+      .select('id, trip_no, departed_at, created_at, toll_cost')
+      .eq('vehicle_id', vehicleId)
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  ) as { id: number; trip_no: string; departed_at: string | null; created_at: string; toll_cost: number | null }[]
+
+  const ids = trips.map((t) => t.id)
+  const orders = ids.length === 0 ? [] : await unwrap(
+    supabase.from('orders').select('trip_id, tms_trip_no').in('trip_id', ids).not('tms_trip_no', 'is', null),
+  ) as { trip_id: number; tms_trip_no: string }[]
+  const tmsByTrip = new Map<number, string>()
+  for (const o of orders) if (!tmsByTrip.has(o.trip_id)) tmsByTrip.set(o.trip_id, o.tms_trip_no)
+
+  return trips.map((t) => ({
+    id: t.id,
+    trip_no: tmsByTrip.get(t.id) ?? t.trip_no,
+    trip_date: t.departed_at ?? t.created_at,
+    toll_cost: t.toll_cost ?? 0,
+  }))
+}
+
 export type VehicleUsageGrain = 'day' | 'month' | 'year'
 
 export interface VehicleUsagePoint {

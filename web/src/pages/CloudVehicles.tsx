@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   listVehicles, createVehicle, updateVehicle, setVehicleStatus, removeVehicle,
   latestOdometerByVehicle, totalTollByVehicle, updateOdometerReading, vehicleUsage,
-  type LatestOdometer, type VehicleUsage, type VehicleUsageGrain,
+  recentTripsByVehicle, type LatestOdometer, type VehicleUsage, type VehicleUsageGrain, type VehicleTrip,
 } from '../api/vehicles'
+import { updateTripCosts } from '../api/trips'
 import { VehicleUsagePanel } from '../components/vehicles/VehicleUsagePanel'
 import type { Paged } from '../api/customers'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
@@ -48,6 +49,9 @@ export default function CloudVehicles(): React.JSX.Element {
   const { push } = useToast()
   const canEdit = can('vehicles.write')
   const canDelete = can('vehicles.delete')
+  /* ค่าทางด่วนอยู่ในตาราง trips ไม่ใช่ vehicles — ฐานเช็คสิทธิ์แก้เป็น dispatch.write
+     (ดู trips_update policy) คนละสิทธิ์กับ vehicles.write ที่ใช้แก้เลขไมล์ แม้จะอยู่หน้าเดียวกัน */
+  const canEditToll = can('dispatch.write')
 
   const [data, setData] = useState<Paged<VehicleRow> | null>(null)
   const [odometers, setOdometers] = useState<Map<number, LatestOdometer>>(new Map())
@@ -80,6 +84,13 @@ export default function CloudVehicles(): React.JSX.Element {
   const [usageData, setUsageData] = useState<VehicleUsage | null>(null)
   const [usageLoading, setUsageLoading] = useState(false)
   const [usageError, setUsageError] = useState('')
+
+  const [tollVehicle, setTollVehicle] = useState<VehicleRow | null>(null)
+  const [tollTrips, setTollTrips] = useState<VehicleTrip[]>([])
+  const [tollLoading, setTollLoading] = useState(false)
+  const [tollError, setTollError] = useState('')
+  const [tollDrafts, setTollDrafts] = useState<Map<number, string>>(new Map())
+  const [tollSavingId, setTollSavingId] = useState<number | null>(null)
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -225,6 +236,38 @@ export default function CloudVehicles(): React.JSX.Element {
     if (usageVehicle) void loadUsage(usageVehicle.id, g)
   }
 
+  const openTollEdit = (v: VehicleRow): void => {
+    setTollVehicle(v)
+    setTollTrips([])
+    setTollDrafts(new Map())
+    setTollError('')
+    setTollLoading(true)
+    recentTripsByVehicle(v.id)
+      .then((trips) => {
+        setTollTrips(trips)
+        setTollDrafts(new Map(trips.map((t) => [t.id, String(t.toll_cost)])))
+      })
+      .catch((e: unknown) => setTollError(e instanceof Error ? e.message : 'โหลดรายการเที่ยวไม่สำเร็จ'))
+      .finally(() => setTollLoading(false))
+  }
+
+  const saveToll = async (tripId: number): Promise<void> => {
+    const raw = tollDrafts.get(tripId) ?? ''
+    const km = Number(raw)
+    if (!raw.trim() || !Number.isFinite(km) || km < 0) { push('warning', 'กรอกค่าทางด่วนเป็นตัวเลข'); return }
+    setTollSavingId(tripId)
+    try {
+      await updateTripCosts(tripId, { toll_cost: km })
+      setTollTrips((prev) => prev.map((t) => t.id === tripId ? { ...t, toll_cost: km } : t))
+      push('success', `แก้ค่าทางด่วนเป็น ${km.toLocaleString('th-TH')} บาท แล้ว`)
+      await load()
+    } catch (e) {
+      push('error', e instanceof Error ? e.message : 'แก้ค่าทางด่วนไม่สำเร็จ')
+    } finally {
+      setTollSavingId(null)
+    }
+  }
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1
 
   return (
@@ -308,7 +351,14 @@ export default function CloudVehicles(): React.JSX.Element {
                         )}</>
                       : <span className="text-muted">—</span>}
                   </td>
-                  <td className="num">{fmtMoney(tolls.get(v.id) ?? 0)}</td>
+                  <td className="num">
+                    {fmtMoney(tolls.get(v.id) ?? 0)}
+                    {canEditToll && (
+                      <Button variant="ghost" size="sm" title="แก้ค่าทางด่วน" onClick={() => openTollEdit(v)}>
+                        <IconEdit size={12} />
+                      </Button>
+                    )}
+                  </td>
                   <td>
                     {canEdit ? (
                       <Select
@@ -427,6 +477,57 @@ export default function CloudVehicles(): React.JSX.Element {
             loading={usageLoading}
             error={usageError}
           />
+        )}
+      </Modal>
+
+      <Modal
+        open={tollVehicle !== null}
+        onClose={() => setTollVehicle(null)}
+        title={tollVehicle ? `แก้ค่าทางด่วน — ${tollVehicle.plate_no}` : 'แก้ค่าทางด่วน'}
+        size="lg"
+      >
+        {tollVehicle && (
+          <>
+            <p className="text-muted" style={{ margin: '0 0 12px' }}>
+              ยอดสะสมปัจจุบัน: <b>{fmtMoney(tolls.get(tollVehicle.id) ?? 0)}</b> — เลือกเที่ยวที่ยอดผิดแล้วแก้เฉพาะเที่ยวนั้น
+            </p>
+            {tollError ? (
+              <ErrorBox message={tollError} onRetry={() => openTollEdit(tollVehicle)} />
+            ) : tollLoading ? (
+              <TableSkeleton rows={4} cols={1} />
+            ) : tollTrips.length === 0 ? (
+              <EmptyState icon={<IconTruck size={28} />} title="ยังไม่มีเที่ยว" desc="คันนี้ยังไม่มีประวัติเที่ยววิ่ง" />
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {tollTrips.map((t) => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <b>{t.trip_no}</b>
+                      <span className="text-muted"> · {fmtDate(t.trip_date)}</span>
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      style={{ width: 100 }}
+                      value={tollDrafts.get(t.id) ?? ''}
+                      onChange={(e) => setTollDrafts((prev) => new Map(prev).set(t.id, e.target.value))}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      loading={tollSavingId === t.id}
+                      onClick={() => void saveToll(t.id)}
+                    >
+                      บันทึก
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-muted" style={{ fontSize: 12, marginTop: 12 }}>
+              แสดง 10 เที่ยวล่าสุดของคันนี้ — แก้ทีละเที่ยว กดบันทึกแยกแถว ไม่กระทบยอดของเที่ยวอื่น
+            </p>
+          </>
         )}
       </Modal>
 
