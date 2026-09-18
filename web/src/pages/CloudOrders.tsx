@@ -22,7 +22,7 @@ import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
-import { IconBox, IconClock, IconEdit, IconPlus, IconTrash } from '../components/icons'
+import { IconBox, IconClock, IconDownload, IconEdit, IconPlus, IconTrash } from '../components/icons'
 import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { shipToName, storeKey as storeKeyOf } from '../utils/stops'
 
@@ -236,6 +236,32 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
       }),
     }
   })
+}
+
+/** ครอบค่าที่มีจุลภาค เครื่องหมายคำพูด หรือขึ้นบรรทัดใหม่ด้วย "" ตามสเปก CSV */
+function csvCell(v: string): string {
+  return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+}
+
+/** ดาวน์โหลดไทม์ไลน์เป็น CSV — เปิดด้วย Excel ได้ตรง ๆ ไม่ต้องพึ่งไลบรารี xlsx
+ *  ใส่ BOM (﻿) นำหน้า ไม่งั้น Excel เดาว่าเป็น ANSI แล้วภาษาไทยเพี้ยน */
+function downloadTimelineCsv(trip: TripGroup, track: TrackPoint[]): void {
+  const header = ['ลำดับ', 'เวลา', 'Latitude', 'Longitude', 'Accuracy (m)']
+  const rows = track.map((p, i) => [
+    String(i + 1),
+    fmtDateTime(p.recorded_at),
+    p.lat.toFixed(7),
+    p.lng.toFixed(7),
+    p.accuracy_m != null ? p.accuracy_m.toFixed(2) : '',
+  ])
+  const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')
+  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `ไทม์ไลน์-${trip.tripNo}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /** จุด GPS ดิบเรียงเป็นขั้นไทม์ไลน์ — จุดแรกกับจุดสุดท้ายเน้นเป็น "ออกรถ"/"จุดล่าสุด" */
@@ -865,14 +891,23 @@ export default function CloudOrders(): React.JSX.Element {
         size="lg"
         footer={
           timelineTrack.length > 0 && (
-            <a
-              className="btn btn-ghost btn-sm"
-              href={`https://www.google.com/maps/dir/${timelineTrack.map((p) => `${p.lat},${p.lng}`).join('/')}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              เปิดใน Google Maps
-            </a>
+            <>
+              <a
+                className="btn btn-ghost btn-sm"
+                href={`https://www.google.com/maps/dir/${timelineTrack.map((p) => `${p.lat},${p.lng}`).join('/')}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                เปิดใน Google Maps
+              </a>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => timelineTrip && downloadTimelineCsv(timelineTrip, timelineTrack)}
+              >
+                <IconDownload size={14} /> ดาวน์โหลด CSV
+              </Button>
+            </>
           )
         }
       >
