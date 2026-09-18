@@ -238,28 +238,72 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
   })
 }
 
-/** ครอบค่าที่มีจุลภาค เครื่องหมายคำพูด หรือขึ้นบรรทัดใหม่ด้วย "" ตามสเปก CSV */
-function csvCell(v: string): string {
-  return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
-}
+/** ดาวน์โหลดไทม์ไลน์เป็น .xlsx จริง สองชีต — หน้าตาเดียวกับไฟล์ที่เคยส่งให้ดูก่อนหน้านี้
+ *  โหลด exceljs แบบ dynamic import เพราะหนักและใช้แค่ตอนกดปุ่มนี้ปุ่มเดียว
+ *  ไม่ต้องแบกเข้า bundle หลักของทั้งหน้าออเดอร์ */
+async function downloadTimelineXlsx(trip: TripGroup, track: TrackPoint[]): Promise<void> {
+  const { Workbook } = await import('exceljs')
+  const wb = new Workbook()
 
-/** ดาวน์โหลดไทม์ไลน์เป็น CSV — เปิดด้วย Excel ได้ตรง ๆ ไม่ต้องพึ่งไลบรารี xlsx
- *  ใส่ BOM (﻿) นำหน้า ไม่งั้น Excel เดาว่าเป็น ANSI แล้วภาษาไทยเพี้ยน */
-function downloadTimelineCsv(trip: TripGroup, track: TrackPoint[]): void {
-  const header = ['ลำดับ', 'เวลา', 'Latitude', 'Longitude', 'Accuracy (m)']
-  const rows = track.map((p, i) => [
-    String(i + 1),
-    fmtDateTime(p.recorded_at),
-    p.lat.toFixed(7),
-    p.lng.toFixed(7),
-    p.accuracy_m != null ? p.accuracy_m.toFixed(2) : '',
-  ])
-  const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')
-  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const fontNormal = { name: 'Arial', size: 11 }
+  const fontBold = { name: 'Arial', size: 11, bold: true }
+  const fontTitle = { name: 'Arial', size: 14, bold: true }
+  const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF1F4E78' } }
+  const headerFont = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+  const thin = { style: 'thin' as const, color: { argb: 'FFD9D9D9' } }
+  const border = { top: thin, bottom: thin, left: thin, right: thin }
+
+  const ws1 = wb.addWorksheet('ข้อมูลทริป')
+  ws1.mergeCells('A1:B1')
+  ws1.getCell('A1').value = `สรุปทริป ${trip.tripNo}`
+  ws1.getCell('A1').font = fontTitle
+
+  const info: [string, string][] = [
+    ['เลขทริป', trip.tripNo],
+    ['คลัง', trip.warehouse ?? '—'],
+    ['เขต', trip.area ?? '—'],
+    ['คนขับ', trip.driver ?? 'ยังไม่จัดคิว'],
+    ['ร้าน / ใบ', `${trip.stores.length} ร้าน · ${trip.bills} ใบ`],
+    ['กำหนดส่ง', fmtDate(trip.scheduled)],
+    ['จุดที่บันทึกได้', `${track.length} จุด`],
+  ]
+  info.forEach(([label, value], i) => {
+    const r = i + 3
+    ws1.getCell(r, 1).value = label
+    ws1.getCell(r, 1).font = fontBold
+    ws1.getCell(r, 2).value = value
+    ws1.getCell(r, 2).font = fontNormal
+  })
+  ws1.getColumn(1).width = 22
+  ws1.getColumn(2).width = 50
+
+  const ws2 = wb.addWorksheet('ไทม์ไลน์โลเคชั่น')
+  const headerRow = ws2.addRow(['ลำดับ', 'เวลา', 'Latitude', 'Longitude', 'Accuracy (m)', 'หมายเหตุ'])
+  headerRow.eachCell((cell) => {
+    cell.font = headerFont
+    cell.fill = headerFill
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+  })
+
+  track.forEach((p, i) => {
+    const note = i === 0 ? 'ออกรถ' : i === track.length - 1 ? 'จุดล่าสุด' : ''
+    const row = ws2.addRow([i + 1, fmtDateTime(p.recorded_at), p.lat, p.lng, p.accuracy_m, note])
+    row.eachCell((cell, col) => {
+      cell.font = fontNormal
+      cell.border = border
+      if (col === 3 || col === 4) cell.numFmt = '0.0000000'
+      if (col === 1) cell.alignment = { horizontal: 'center' }
+    })
+  })
+  ws2.columns = [{ width: 8 }, { width: 20 }, { width: 14 }, { width: 14 }, { width: 12 }, { width: 16 }]
+  ws2.views = [{ state: 'frozen', ySplit: 1 }]
+
+  const buf = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `ไทม์ไลน์-${trip.tripNo}.csv`
+  a.download = `ไทม์ไลน์-${trip.tripNo}.xlsx`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -903,9 +947,9 @@ export default function CloudOrders(): React.JSX.Element {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => timelineTrip && downloadTimelineCsv(timelineTrip, timelineTrack)}
+                onClick={() => timelineTrip && void downloadTimelineXlsx(timelineTrip, timelineTrack)}
               >
-                <IconDownload size={14} /> ดาวน์โหลด CSV
+                <IconDownload size={14} /> ดาวน์โหลด Excel
               </Button>
             </>
           )

@@ -101,6 +101,9 @@ export default defineConfig(({ mode }) => ({
           /* แผนที่แยกก้อนของตัวเอง — หนักกว่าครึ่งของ vendor เดิม และมีหน้าเดียวที่ใช้
              รวมไว้ใน vendor เท่ากับบังคับให้คนขับโหลดแผนที่ทุกครั้งที่เปิดแอปในรถ */
           if (id.includes('node_modules/leaflet')) return 'map'
+          /* เหตุผลเดียวกับ leaflet ข้างบน — โหลดแค่ตอนกดดาวน์โหลด Excel ในไทม์ไลน์
+             ทริป รวมเข้า vendor เท่ากับให้ทุกคนที่เปิดแอปโหลดของหนัก ~1MB ที่ไม่ได้ใช้ */
+          if (id.includes('node_modules/exceljs')) return 'xlsx'
           if (id.includes('node_modules')) return 'vendor'
           return undefined
         }
