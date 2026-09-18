@@ -238,6 +238,12 @@ function groupOrders(rows: OrderListRow[]): TripGroup[] {
   })
 }
 
+/** กัน Excel formula injection — ค่าพวกเลขทริป/คลัง/เขต/คนขับมาจาก TMS import ที่เราไม่คุม
+ *  ถ้าขึ้นต้นด้วย =+-@ ให้เติม ' นำหน้า ไม่งั้น Excel จะตีความเป็นสูตรตอนเปิดไฟล์ */
+function xlsxSafe(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+}
+
 /** ดาวน์โหลดไทม์ไลน์เป็น .xlsx จริง สองชีต — หน้าตาเดียวกับไฟล์ที่เคยส่งให้ดูก่อนหน้านี้
  *  โหลด exceljs แบบ dynamic import เพราะหนักและใช้แค่ตอนกดปุ่มนี้ปุ่มเดียว
  *  ไม่ต้องแบกเข้า bundle หลักของทั้งหน้าออเดอร์ */
@@ -255,14 +261,14 @@ async function downloadTimelineXlsx(trip: TripGroup, track: TrackPoint[]): Promi
 
   const ws1 = wb.addWorksheet('ข้อมูลทริป')
   ws1.mergeCells('A1:B1')
-  ws1.getCell('A1').value = `สรุปทริป ${trip.tripNo}`
+  ws1.getCell('A1').value = xlsxSafe(`สรุปทริป ${trip.tripNo}`)
   ws1.getCell('A1').font = fontTitle
 
   const info: [string, string][] = [
-    ['เลขทริป', trip.tripNo],
-    ['คลัง', trip.warehouse ?? '—'],
-    ['เขต', trip.area ?? '—'],
-    ['คนขับ', trip.driver ?? 'ยังไม่จัดคิว'],
+    ['เลขทริป', xlsxSafe(trip.tripNo)],
+    ['คลัง', xlsxSafe(trip.warehouse ?? '—')],
+    ['เขต', xlsxSafe(trip.area ?? '—')],
+    ['คนขับ', xlsxSafe(trip.driver ?? 'ยังไม่จัดคิว')],
     ['ร้าน / ใบ', `${trip.stores.length} ร้าน · ${trip.bills} ใบ`],
     ['กำหนดส่ง', fmtDate(trip.scheduled)],
     ['จุดที่บันทึกได้', `${track.length} จุด`],
@@ -303,7 +309,7 @@ async function downloadTimelineXlsx(trip: TripGroup, track: TrackPoint[]): Promi
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `ไทม์ไลน์-${trip.tripNo}.xlsx`
+  a.download = `ไทม์ไลน์-${trip.tripNo.replace(/[/\\]/g, '_')}.xlsx`
   a.click()
   URL.revokeObjectURL(url)
 }
