@@ -195,7 +195,7 @@ export interface Database {
       start_trip: { Args: { p_trip_id: number }; Returns: void }
       deliver_order: { Args: { p_order_id: number }; Returns: void }
       finish_return: { Args: { p_trip_id: number; p_toll_cost: number | null }; Returns: { trip_id: number; trip_no: string } }
-      log_odometer: { Args: { p_vehicle_id: number; p_reading_km: number; p_kind: 'start' | 'end' }; Returns: { vehicle_id: number; reading_km: number; kind: string; date: string } }
+      log_odometer: { Args: { p_vehicle_id: number; p_reading_km: number; p_kind: 'start' | 'end'; p_force?: boolean }; Returns: { vehicle_id: number; reading_km: number; kind: string; date: string; needs_review: boolean } }
       odometer_status: { Args: { p_vehicle_id: number }; Returns: { logged_today: boolean; start_km: number | null; end_km: number | null; reading_km: number | null; last_km: number | null } }
       admin_update_odometer: { Args: { p_odometer_id: number; p_reading_km: number }; Returns: { id: number; vehicle_id: number; reading_km: number; kind: string; date: string } }
       vehicle_usage: { Args: { p_vehicle_id: number; p_grain: string }; Returns: unknown }

@@ -45,22 +45,29 @@ export interface LatestOdometer {
   reading_km: number
   kind: 'start' | 'end'
   reading_date: string
+  /** คนขับยืนยันเลขที่ระบบมองว่าผิดปกติ — รอแอดมินตรวจ แก้เลขแล้วธงหายเอง */
+  needs_review: boolean
+  review_note: string | null
 }
 
 /** เลขไมล์ล่าสุดต่อคัน — ดึงมาทั้งก้อนแล้วหาแถวแรกของแต่ละคันเอง
- *  (จำนวนรถน้อย ไม่คุ้มจะยิง query แยกทีละคัน) */
+ *  (จำนวนรถน้อย ไม่คุ้มจะยิง query แยกทีละคัน)
+ *  คันที่มีแถวรอตรวจ ให้แถวนั้นขึ้นมาแทนแถวล่าสุด — ไม่งั้นเลขตอนกลับที่กรอกทับ
+ *  ทีหลังจะบังแถวผิดไว้ แอดมินไม่เห็นว่ามีอะไรต้องแก้ */
 export async function latestOdometerByVehicle(vehicleIds: number[]): Promise<Map<number, LatestOdometer>> {
   const map = new Map<number, LatestOdometer>()
   if (vehicleIds.length === 0) return map
   const rows = await unwrap(
     supabase.from('vehicle_odometer')
-      .select('id, vehicle_id, reading_km, kind, reading_date')
+      .select('id, vehicle_id, reading_km, kind, reading_date, needs_review, review_note')
       .in('vehicle_id', vehicleIds)
       .order('reading_date', { ascending: false })
       .order('id', { ascending: false }),
   )
-  for (const r of rows as { id: number; vehicle_id: number; reading_km: number; kind: 'start' | 'end'; reading_date: string }[]) {
-    if (!map.has(r.vehicle_id)) map.set(r.vehicle_id, { id: r.id, reading_km: r.reading_km, kind: r.kind, reading_date: r.reading_date })
+  for (const r of rows as (LatestOdometer & { vehicle_id: number })[]) {
+    const { vehicle_id, ...odo } = r
+    const cur = map.get(vehicle_id)
+    if (!cur || (odo.needs_review && !cur.needs_review)) map.set(vehicle_id, odo)
   }
   return map
 }

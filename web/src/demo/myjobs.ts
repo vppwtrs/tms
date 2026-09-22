@@ -95,18 +95,23 @@ function lastBefore(vehicleId: number): number | null {
   return last
 }
 
+export const ODOMETER_SUSPECT = 'OD001'
+
 export async function logOdometer(
-  vehicleId: number, readingKm: number, kind: 'start' | 'end' = 'start',
+  vehicleId: number, readingKm: number, kind: 'start' | 'end' = 'start', force = false,
 ): Promise<void> {
-  /* ของจริงปฏิเสธเลขที่ถอยหลัง โหมดสาธิตต้องปฏิเสธเหมือนกัน ไม่งั้นคนลอง
-     จะไม่เห็นด่านนี้จนกว่าจะเจอของจริงหน้างาน */
-  const prev = lastBefore(vehicleId)
-  if (prev != null && readingKm < prev) {
-    throw new Error(`เลขไมล์น้อยกว่าครั้งก่อน (${prev.toLocaleString('th-TH')}) — อ่านเลขบนหน้าปัดอีกครั้ง`)
-  }
+  /* ของจริงตรวจเฉพาะตอนจบงาน แล้วถามยืนยันเลขที่ผิดปกติ โหมดสาธิตต้องทำเหมือนกัน
+     ไม่งั้นคนลองจะไม่เห็นด่านนี้จนกว่าจะเจอของจริงหน้างาน */
   const start = demoOdometer.get(dayKey(vehicleId, 'start'))
-  if (kind === 'end' && start != null && readingKm < start) {
-    throw new Error(`เลขไมล์ตอนกลับ (${readingKm.toLocaleString('th-TH')}) น้อยกว่าตอนออกรถ (${start.toLocaleString('th-TH')}) — อ่านเลขอีกครั้ง`)
+  const base = start ?? lastBefore(vehicleId)
+  const label = start != null ? 'ตอนออกรถ' : 'ครั้งก่อน'
+  const fmt = (n: number): string => n.toLocaleString('th-TH')
+  const note = kind !== 'end' || base == null ? null
+    : readingKm < base ? `ตอนกลับน้อยกว่า${label} (${fmt(base)})`
+    : readingKm > base + 2000 ? `ตอนกลับมากกว่า${label} (${fmt(base)}) เกิน 2,000 กม.`
+    : null
+  if (note && !force) {
+    throw Object.assign(new Error(`เลขไมล์${note} — อ่านเลขบนหน้าปัดอีกครั้ง`), { code: ODOMETER_SUSPECT })
   }
   demoOdometer.set(dayKey(vehicleId, kind), readingKm)
   await delay(null)

@@ -1523,9 +1523,11 @@ export type Database = {
           driver_id: number
           id: number
           kind: string
+          needs_review: boolean
           reading_date: string
           reading_km: number
           taken_at: string
+          review_note: string | null
           trip_id: number | null
           vehicle_id: number
         }
@@ -1534,9 +1536,11 @@ export type Database = {
           driver_id: number
           id?: number
           kind?: string
+          needs_review?: boolean
           reading_date?: string
           reading_km: number
           taken_at?: string
+          review_note?: string | null
           trip_id?: number | null
           vehicle_id: number
         }
@@ -1545,9 +1549,11 @@ export type Database = {
           driver_id?: number
           id?: number
           kind?: string
+          needs_review?: boolean
           reading_date?: string
           reading_km?: number
           taken_at?: string
+          review_note?: string | null
           trip_id?: number | null
           vehicle_id?: number
         }
@@ -1806,7 +1812,7 @@ export type Database = {
       }
       link_tms_orders_to_customers: { Args: never; Returns: Json }
       log_odometer: {
-        Args: { p_kind?: string; p_reading_km: number; p_vehicle_id: number }
+        Args: { p_force?: boolean; p_kind?: string; p_reading_km: number; p_vehicle_id: number }
         Returns: Json
       }
       log_tms_pull_run: {

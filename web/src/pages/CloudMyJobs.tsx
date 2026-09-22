@@ -3,7 +3,7 @@ import {
   listMyJobs, reloadJob, startTrip, completeTrip, finishReturn, deliverOrder, undoDeliverOrder,
   cancelStop, undoCancelStop,
   acceptTrip, reportIssue, saveStopOrder,
-  logOdometer, odometerStatus,
+  logOdometer, odometerStatus, ODOMETER_SUSPECT,
 } from '../api/myjobs'
 import { useRealtime } from '../hooks/useRealtime'
 import { useTripTracking } from '../hooks/useTripTracking'
@@ -90,6 +90,9 @@ export default function CloudMyJobs(): React.JSX.Element {
   /* เลขไมล์ที่กรอกในกล่องจบงาน — คนละช่องกับช่องของ useOdometer
      เพราะสองกล่องเปิดพร้อมกันได้ และค่าที่ค้างจากกล่องหนึ่งต้องไม่ไหลไปอีกกล่อง */
   const [finishOdo, setFinishOdo] = useState('')
+  /* ฐานมองว่าเลขตอนกลับผิดปกติ — กดอีกครั้ง = ยืนยัน ส่งให้แอดมินตรวจ
+     ไม่มีทางนี้ คนขับที่เลขตอนออกรถผิดจะจบงานไม่ได้เลย (เหตุการณ์ 22 ก.ย. 69) */
+  const [finishSuspect, setFinishSuspect] = useState<string | null>(null)
   /* ค่าทางด่วนของวัน — ถามตอนกดจบงาน จังหวะเดียวที่ใบเสร็จยังอยู่ในมือ
      null = ยังไม่ตอบ ต่างจาก false ที่แปลว่าตอบแล้วว่าไม่มี */
   const [tollHas, setTollHas] = useState<boolean | null>(null)
@@ -234,6 +237,7 @@ export default function CloudMyJobs(): React.JSX.Element {
         setTollHas(null)
         setTollAmount('')
         setFinishOdo('')
+        setFinishSuspect(null)
         setPodListOpen(false)
         return
       }
@@ -259,6 +263,7 @@ export default function CloudMyJobs(): React.JSX.Element {
       return
     }
     setBusy(job.id)
+    let keepOpen = false
     try {
       /* ฟังก์ชันฝั่ง DB คืน void ไม่ใช่เที่ยวที่อัปเดตแล้ว — ต้องโหลดกลับมาเอง
          ตั้งใจให้เป็นแบบนั้น: สถานะจริงถูกคำนวณจากออเดอร์ในเที่ยว การให้ฟังก์ชัน
@@ -275,7 +280,7 @@ export default function CloudMyJobs(): React.JSX.Element {
          ค่อยรู้ว่าเลขผิด เที่ยวจะปิดไปโดยไม่มีเลขไมล์ และแก้ทีหลังจากจอคนขับไม่ได้แล้ว */
       if (action === 'finish') {
         const km = parseKm(finishOdo)
-        if (km !== null) await logOdometer(job.vehicle_id, km, 'end')
+        if (km !== null) await logOdometer(job.vehicle_id, km, 'end', finishSuspect !== null)
       }
       await (action === 'accept' ? acceptTrip(job.id)
         : action === 'start' ? startTrip(job.id)
@@ -306,10 +311,16 @@ export default function CloudMyJobs(): React.JSX.Element {
             ? (closing.length > 1 ? `จบงานแล้ว ${closing.length} เที่ยว` : `จบงาน ${jobTripNo(job)} เรียบร้อย`)
             : `ปิดงาน ${jobTripNo(job)} เรียบร้อย`)
     } catch (e) {
-      toast.push('error', (e as Error).message)
+      /* เลขผิดปกติไม่ใช่ความล้มเหลว — ค้างกล่องไว้ให้แก้เลขหรือกดยืนยัน */
+      if (action === 'finish' && (e as { code?: string }).code === ODOMETER_SUSPECT) {
+        setFinishSuspect((e as Error).message)
+        keepOpen = true
+      } else {
+        toast.push('error', (e as Error).message)
+      }
     } finally {
       setBusy(0)
-      setFinishing(null)
+      if (!keepOpen) setFinishing(null)
     }
   }
 
@@ -797,7 +808,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                 || parseKm(finishOdo) === null}
               onClick={() => { if (finishing) void act(finishing, 'finish') }}
             >
-              กลับถึงคลังแล้ว
+              {finishSuspect ? 'ยืนยันเลขนี้ · ส่งให้แอดมินตรวจ' : 'กลับถึงคลังแล้ว'}
             </Button>
           </div>
         }
@@ -820,11 +831,12 @@ export default function CloudMyJobs(): React.JSX.Element {
                 autoFocus
                 value={finishOdo}
                 placeholder="เช่น 128400"
-                onChange={(e) => setFinishOdo(e.target.value)}
+                onChange={(e) => { setFinishOdo(e.target.value); setFinishSuspect(null) }}
               />
             </Field>
             {/* เลขตอนออกรถของวันนี้มีค่ามากกว่าเลขของเมื่อวาน เพราะคนขับกำลังจะ
                 กรอกเลขที่ต้องมากกว่ามัน และผลต่างคือระยะของวันที่เขาเพิ่งวิ่งจบ */}
+            {finishSuspect && <OdoSuspect message={finishSuspect} />}
             {odometer.vehicle?.id === finishing.vehicle_id && odometer.status?.start_km != null && (
               <p className="odo-last">
                 ตอนออกรถ {odometer.status.start_km.toLocaleString('th-TH')} กม.
@@ -1080,6 +1092,17 @@ export default function CloudMyJobs(): React.JSX.Element {
           />
         </Field>
       </Modal>
+    </div>
+  )
+}
+
+/** เลขที่ฐานมองว่าผิดปกติ — บอกเหตุผลกับทางไปต่อ ไม่ใช่แค่บอกว่าผิด
+ *  คนขับที่มั่นใจว่าอ่านหน้าปัดถูกต้องมีทางบันทึกได้ ไม่งั้นเขาจะไปหาเลขอื่นมากรอกให้ผ่าน */
+function OdoSuspect({ message }: { message: string }): React.JSX.Element {
+  return (
+    <div className="odo-suspect" role="alert">
+      <p>{message}</p>
+      <p>ถ้าตรวจหน้าปัดแล้วเลขถูกต้อง กดปุ่มยืนยันด้านล่าง ระบบจะบันทึกและแจ้งแอดมินให้ตรวจ</p>
     </div>
   )
 }

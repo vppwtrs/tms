@@ -339,6 +339,9 @@ export default function CloudVehicles(): React.JSX.Element {
                     {odometers.has(v.id)
                       ? <>{odometers.get(v.id)!.reading_km.toLocaleString('th-TH')} กม.
                         <span className="text-muted"> ({odometers.get(v.id)!.kind === 'start' ? 'ออกรถ' : 'จบงาน'})</span>
+                        {odometers.get(v.id)!.needs_review && (
+                          <span className="odo-review-tag" title={odometers.get(v.id)!.review_note ?? undefined}>รอตรวจ</span>
+                        )}
                         {canEdit && (
                           <Button
                             variant="ghost"
@@ -448,6 +451,12 @@ export default function CloudVehicles(): React.JSX.Element {
               ค่าปัจจุบัน: <b>{odoEditing.odo.reading_km.toLocaleString('th-TH')} กม.</b>
               {' '}({odoEditing.odo.kind === 'start' ? 'ออกรถ' : 'จบงาน'} · {fmtDate(odoEditing.odo.reading_date)})
             </p>
+            {odoEditing.odo.needs_review && (
+              <p className="odo-suspect" style={{ margin: 0 }}>
+                คนขับยืนยันเลขนี้ทั้งที่ระบบเตือนว่า{odoEditing.odo.review_note ?? 'ผิดปกติ'} — ตรวจหน้าปัดจริงแล้วบันทึก
+                (บันทึกเลขเดิมได้ถ้าถูกต้องแล้ว ป้ายรอตรวจจะหายไป)
+              </p>
+            )}
             <Field label="เลขไมล์ที่ถูกต้อง (กม.)" required>
               <Input
                 type="number"

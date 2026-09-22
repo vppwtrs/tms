@@ -3643,6 +3643,17 @@
 .finish-toll-pick { display: flex; gap: 8px; }
 .finish-toll-pick .pod-kind { flex: 1; min-height: 48px; justify-content: center; }
 .finish-toll-note, .odo-last { font-size: var(--font-sm); color: var(--muted); line-height: 1.6; }
+.odo-suspect {
+  font-size: var(--font-sm); line-height: 1.6;
+  padding: 10px 12px; border-radius: 10px;
+  background: var(--warning-bg); color: var(--warning);
+}
+.odo-suspect p { margin: 0; }
+.odo-suspect p + p { margin-top: 4px; }
+.odo-review-tag {
+  display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; background: var(--warning-bg); color: var(--warning);
+}
 
 /* ตรวจ POD ทั้งหมด — พับไว้ก่อนเสมอ เขียวเพราะถึงตรงนี้ได้แปลว่าครบแล้ว
    (ร้านที่ขาดถูกกันไว้ตั้งแต่ก่อนกล่องนี้เปิด) ไม่ใช่ด่านที่ต้องเตือน */

@@ -65,13 +65,17 @@ export async function finishReturn(tripId: number, tollCost?: number | null): Pr
   if (error) throw toDataError(error)
 }
 
-/** เลขไมล์ประจำวัน — บันทึกได้เฉพาะรถที่คนขับมีงานอยู่ และเลขต้องไม่ถอยหลัง
- *  ทั้งสองด่านอยู่ฝั่งฐาน หน้าจอแค่ถามให้ถูกจังหวะ */
+/** รหัสที่ฐานใช้บอกว่า "เลขดูผิดปกติ แต่ยืนยันได้" — ไม่ใช่ error ตาย */
+export const ODOMETER_SUSPECT = 'OD001'
+
+/** เลขไมล์ประจำวัน — บันทึกได้เฉพาะรถที่คนขับมีงานอยู่
+ *  เลขที่ถอยหลังหรือกระโดดผิดปกติ ฐานปฏิเสธด้วย ODOMETER_SUSPECT ก่อน
+ *  ส่ง force = true เมื่อคนขับยืนยันแล้ว → บันทึกแบบรอแอดมินตรวจ */
 export async function logOdometer(
-  vehicleId: number, readingKm: number, kind: 'start' | 'end' = 'start',
+  vehicleId: number, readingKm: number, kind: 'start' | 'end' = 'start', force = false,
 ): Promise<void> {
   const { error } = await supabase.rpc('log_odometer',
-    { p_vehicle_id: vehicleId, p_reading_km: readingKm, p_kind: kind })
+    { p_vehicle_id: vehicleId, p_reading_km: readingKm, p_kind: kind, p_force: force })
   if (error) throw toDataError(error)
 }
 
