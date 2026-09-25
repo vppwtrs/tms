@@ -70,9 +70,9 @@ export function PickingListReport({ range }: { range: { from: string; to: string
 
   const exportCsv = (): void => {
     if (!shown.length) return
-    const head = ['คลัง', 'เลข PL', 'ประเภท PL', 'วันที่วางแผนส่ง', 'เที่ยว', 'สถานะใบ', 'สถานะเที่ยว', 'รหัสร้าน', 'ร้าน', 'จังหวัด', 'หน่วย', 'จำนวนรวม', 'รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'แบ่งส่ง']
+    const head = ['คลัง', 'เลข PL', 'ประเภท PL', 'วันที่วางแผนส่ง', 'เที่ยว', 'วันที่ของเที่ยว', 'สถานะใบ', 'สถานะเที่ยว', 'รหัสร้าน', 'ร้าน', 'จังหวัด', 'หน่วย', 'จำนวนรวม', 'รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'แบ่งส่ง']
     const body: (string | number)[][] = shown.map((r) => [
-      r.warehouse, r.pickingListNo, r.plType, r.planDeliveryDate, r.tripNo, r.plStatus, r.tripStatus,
+      r.warehouse, r.pickingListNo, r.plType, r.planDeliveryDate, r.tripNo, r.tripDate, r.plStatus, r.tripStatus,
       r.dealerCode, r.dealerName, r.province,
       r.unit ?? '', r.totalQty ?? '', r.itemNo, r.itemName, r.itemQty ?? '', r.itemSplitQty ?? '',
     ])
@@ -144,6 +144,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
                       <th>ประเภท PL</th>
                       <th>วันที่วางแผนส่ง</th>
                       <th>เที่ยว</th>
+                      <th>วันที่ของเที่ยว</th>
                       <th>สถานะใบ</th>
                       <th>ร้าน</th>
                       <th>จังหวัด</th>
@@ -161,6 +162,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
                         <td>{r.plType || <span className="text-muted">—</span>}</td>
                         <td>{r.planDeliveryDate}</td>
                         <td>{r.tripNo || <span className="text-muted">ยังไม่มีเที่ยว</span>}</td>
+                        <td>{r.tripNo ? r.tripDate : <span className="text-muted">—</span>}</td>
                         <td>{r.plStatus}</td>
                         <td>{r.dealerName || r.shipToName}</td>
                         <td>{r.province || r.shipToProvince}</td>
