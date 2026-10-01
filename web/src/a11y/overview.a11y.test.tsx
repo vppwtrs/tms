@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { expectNoAxeViolations } from '../test/axe'
 import { DayProgress } from '../components/ops/DayProgress'
 import { CancelReasons } from '../components/ops/CancelReasons'
@@ -254,6 +254,15 @@ describe('TodayStats — หน่วยงานแยกประเภท', (
 
 describe('DayPicker', () => {
   const one = (iso: string): { from: string; to: string } => ({ from: iso, to: iso })
+
+  /* เทสต์กดวันที่ 2/3/5 ของเดือนนี้ แต่ปฏิทินห้ามเลือกวันในอนาคต — รันวันที่ 1–4
+     ของเดือนแล้วพังทุกครั้ง ล็อกนาฬิกาไว้กลางเดือนให้ผลไม่ขึ้นกับวันที่รัน
+     ปลอมแค่ Date ไม่แตะ timer เพราะ axe กับ findBy* ยังต้องใช้ setTimeout จริง */
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 10, 0))
+  })
+  afterEach(() => { vi.useRealTimers() })
 
   it('ปุ่มบอกว่ากำลังดูช่วงไหน และเปิดกล่องกลางจอได้', async () => {
     const { container } = render(<DayPicker value={one(todayIso())} onChange={() => {}} />)
