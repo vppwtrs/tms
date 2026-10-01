@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react'
+﻿import { Fragment, useCallback, useEffect, useState } from 'react'
 import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow, type OrderItem } from '../api/orders'
 import { forceDeleteTrip } from '../api/trips'
 import { tripTrack, type TrackPoint } from '../api/tracking'
@@ -22,7 +22,8 @@ import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
-import { IconBox, IconClock, IconDownload, IconEdit, IconPlus, IconTrash } from '../components/icons'
+import { IconBox, IconClock, IconDownload, IconEdit, IconPlus, IconPrinter, IconTrash } from '../components/icons'
+import { buildLabels, printLabels, type LabelSource, type LabelStoreSummary } from '../utils/storeLabel'
 import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { shipToName, storeKey as storeKeyOf } from '../utils/stops'
 import { xlsxSafe } from '../utils/xlsxSafe'
@@ -160,6 +161,18 @@ function podStopLabel(store: { delivered: number; withPod: number; verified: num
      เหลือเลขไว้เฉพาะตอนที่ยังไม่ครบ ซึ่งเป็นตอนเดียวที่ตัวเลขบอกอะไรใหม่ */
   if (store.withPod === store.delivered) return 'POD'
   return `POD ${store.withPod}/${store.delivered}`
+}
+
+/** ข้อมูลฉลากของเที่ยว — ใช้ทั้งตอนตัดสินว่าจะโชว์ปุ่มพิมพ์ และตอนพิมพ์ */
+function tripLabelSources(trip: TripGroup): LabelSource[] {
+  return trip.stores.map((s) => ({
+    store: s.store,
+    /* ที่อยู่เต็มจาก TMS ยาวเกินร้อยตัวอักษร — ฉลากใช้แค่จังหวัด (ท้ายข้อความ "จ.…") */
+    address: s.destination.match(/จ\.\s*(\S+)\s*$/)?.[1] ?? trip.area ?? '',
+    rows: s.rows.map((r) => ({
+      pl: r.tms_picking_list_no, orderNo: r.order_no, goods: r.goods_desc, units: r.tms_unit_count, kind: r.work_kind, items: r.items,
+    })),
+  }))
 }
 
 interface TripGroup {
@@ -404,6 +417,16 @@ export default function CloudOrders(): React.JSX.Element {
      ปุ่มจึงมีจังหวะรอ ต่างจากปุ่มอื่นในแถวนี้ที่ทำงานทันที */
   const [printing, setPrinting] = useState<string | null>(null)
   const [cancelLoading, setCancelLoading] = useState(false)
+  const [labelSummary, setLabelSummary] = useState<{ tripNo: string; stores: LabelStoreSummary[] } | null>(null)
+
+  /* ฉลากหนึ่งดวงต่อของหนึ่งชิ้น เลขนับต่อร้าน (1/6 … 6/6) — เปิดสรุปทันทีหลังสั่งพิมพ์ */
+  const printTripLabels = (trip: TripGroup): void => {
+    const { units, summary } = buildLabels(trip.tripNo, fmtDate(trip.scheduled), tripLabelSources(trip))
+    if (units.length === 0) { push('error', 'เที่ยวนี้ไม่มีรถ — พิมพ์ฉลากได้เฉพาะงานรถ ไม่รวมกล่อง'); return }
+    const ok = printLabels(units, new URL(`${import.meta.env.BASE_URL}vppw-mark.png`, window.location.href).href)
+    if (!ok) { push('error', 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาตป๊อปอัปของเว็บนี้ก่อน'); return }
+    setLabelSummary({ tripNo: trip.tripNo, stores: summary })
+  }
 
   /* พิมพ์ใบส่งของจากแถวร้านตรง ๆ ไม่ต้องเปิดหน้าต่างหลักฐานก่อน — คนที่จะพิมพ์
      รู้อยู่แล้วว่าจะพิมพ์จุดไหน การบังคับให้เปิดหน้าต่างดูลายเซ็นก่อนคือขั้นที่
@@ -673,6 +696,19 @@ export default function CloudOrders(): React.JSX.Element {
                 </span>
                 {/* จุดพิกัดมีก็ต่อเมื่อเที่ยวถูกจัดแล้วและมีคนขับกดรับงานแล้ว
                     ใบที่ยังไม่เข้าเที่ยว (tripId เป็น null) จึงไม่มีอะไรให้ดู */}
+                {/* เฉพาะเที่ยวที่มีงานรถ — เที่ยวกล่องล้วนไม่มีปุ่ม */}
+                {/* นับจากผลจริง ไม่ใช่ work_kind อย่างเดียว — เที่ยว 20260915001 มีใบ "vehicle"
+                    ที่ข้างในเป็น PLAIN BOX ล้วน กดแล้วได้ 0 ดวง */}
+                {buildLabels(trip.tripNo, '', tripLabelSources(trip)).units.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="พิมพ์ฉลาก 50×35 มม. หนึ่งดวงต่อรถหนึ่งคัน (TSC TX300)"
+                    onClick={() => printTripLabels(trip)}
+                  >
+                    <IconPrinter size={14} /> พิมพ์ฉลาก
+                  </Button>
+                )}
                 {trip.tripId !== null && (
                   <Button
                     variant="ghost"
@@ -928,6 +964,30 @@ export default function CloudOrders(): React.JSX.Element {
           onClose={() => { setPodOrder(null); setPodSheet(null) }}
         />
       )}
+
+      {/* สรุปหลังพิมพ์ฉลาก — ร้านละกี่ชิ้น รุ่นอะไร ใช้เทียบกับของที่ขึ้นรถจริง */}
+      <Modal
+        open={labelSummary !== null}
+        onClose={() => setLabelSummary(null)}
+        title={labelSummary ? `ฉลากเที่ยว ${labelSummary.tripNo} · ${labelSummary.stores.reduce((n, s) => n + s.total, 0)} ดวง` : 'ฉลาก'}
+        footer={<Button variant="accent" onClick={() => setLabelSummary(null)}>ปิด</Button>}
+      >
+        <div className="lbl-sum">
+          {labelSummary?.stores.map((s) => (
+            <section key={s.store} className="lbl-sum-store">
+              <div className="lbl-sum-head"><b>{s.store}</b><span>{s.total} คัน</span></div>
+              <ul>
+                {s.models.map((m) => (
+                  <li key={`${m.itemNo}|${m.model}`}>
+                    <span>{m.model}</span>
+                    <b>× {m.qty}</b>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </Modal>
 
       <Modal
         open={timelineTrip !== null}

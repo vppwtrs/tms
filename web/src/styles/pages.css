@@ -739,3 +739,11 @@
   .puser-row { flex-direction: column; align-items: stretch; gap: 8px; }
   .pmode { align-self: flex-start; }
 }
+
+/* สรุปหลังพิมพ์ฉลาก — ร้านละกี่คัน แยกรุ่น */
+.lbl-sum { display: grid; gap: 10px; }
+.lbl-sum-store { border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 10px 12px; }
+.lbl-sum-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.lbl-sum-head span { font-weight: 700; white-space: nowrap; }
+.lbl-sum ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.lbl-sum li { display: flex; justify-content: space-between; gap: 8px; }
