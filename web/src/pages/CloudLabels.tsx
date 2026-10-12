@@ -151,7 +151,7 @@ export default function CloudLabels(): React.JSX.Element {
     <>
       <PageHeader
         title="พิมพ์ฉลาก"
-        subtitle="ฉลาก 50×35 มม. หนึ่งดวงต่อรถหนึ่งคัน (TSC TX300)"
+        subtitle="ฉลาก 50×35 มม. หนึ่งดวงต่อรถหนึ่งคัน (Zebra GK420t)"
         actions={
           <Button variant="accent" icon={<IconPrinter size={16} />} disabled={plan.units.length === 0} onClick={doPrint}>
             พิมพ์ {plan.units.length > 0 ? `${plan.units.length} ดวง` : 'ฉลาก'}

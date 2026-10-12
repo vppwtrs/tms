@@ -587,7 +587,7 @@ export default function CloudOrders(): React.JSX.Element {
                   <Button
                     variant="ghost"
                     size="sm"
-                    title="พิมพ์ฉลาก 50×35 มม. หนึ่งดวงต่อรถหนึ่งคัน (TSC TX300)"
+                    title="พิมพ์ฉลาก 50×35 มม. หนึ่งดวงต่อรถหนึ่งคัน (Zebra GK420t)"
                     onClick={() => printTripLabels(trip)}
                   >
                     <IconPrinter size={14} /> พิมพ์ฉลาก
