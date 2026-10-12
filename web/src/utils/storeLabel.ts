@@ -119,7 +119,7 @@ const label = (u: LabelUnit, logo: string): string => {
   </footer>
 </section>`
 }
-const html = (units: LabelUnit[], logo: string): string => `<!doctype html>
+export const labelHtml = (units: LabelUnit[], logo: string, preview = false): string => `<!doctype html>
 <html lang="th"><head><meta charset="utf-8"><title>ฉลาก ${units.length} ดวง</title>
 <style>
 @page { size: 50mm 35mm; margin: 0; }
@@ -145,6 +145,7 @@ footer b { font-size: 8pt; white-space: nowrap; }
   body { background: #ddd; padding: 6mm; display: flex; flex-wrap: wrap; gap: 4mm; }
   .lb { background: #fff; box-shadow: 0 0 0 .2mm #999; }
 }
+${preview ? '@media screen { html, body { overflow: hidden; } body { padding: 0; background: #fff; display: block; } .lb { box-shadow: none; } }' : ''}
 </style></head><body>${units.map((u) => label(u, logo)).join('')}</body></html>`
 
 /**
@@ -152,7 +153,7 @@ footer b { font-size: 8pt; white-space: nowrap; }
  * ตัดด้วย … จะหายส่วนท้ายซึ่งมักเป็นชื่อสาขา ที่ต้องใช้แยกร้านมากที่สุด จึงย่อแทนตัด
  * รันจากฝั่งนี้ (ไม่ใช่ <script> ในเอกสาร) เพราะ CSP บล็อกสคริปต์ inline
  */
-function fit(doc: Document): void {
+export function fitLabels(doc: Document): void {
   const shrink = (el: HTMLElement, over: () => boolean, min: number): void => {
     let size = parseFloat(doc.defaultView!.getComputedStyle(el).fontSize)
     while (over() && size > min) { size -= 0.5; el.style.fontSize = `${size}px` }
@@ -171,9 +172,9 @@ function fit(doc: Document): void {
 export function printLabels(units: LabelUnit[], logoUrl: string): boolean {
   const w = window.open('', '_blank', 'width=600,height=700')
   if (!w) return false
-  w.document.write(html(units, logoUrl))
+  w.document.write(labelHtml(units, logoUrl))
   w.document.close()
-  const shoot = (): void => { fit(w.document); w.focus(); w.print() }
+  const shoot = (): void => { fitLabels(w.document); w.focus(); w.print() }
   const pending = [...w.document.images].filter((im) => !im.complete)
   if (!pending.length) { shoot(); return true }
   let left = pending.length

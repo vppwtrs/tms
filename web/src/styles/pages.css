@@ -747,3 +747,19 @@
 .lbl-sum-head span { font-weight: 700; white-space: nowrap; }
 .lbl-sum ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
 .lbl-sum li { display: flex; justify-content: space-between; gap: 8px; }
+
+/* ===== พิมพ์ฉลาก (CloudLabels) ===== */
+.lbl-page { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+@media (max-width: 960px) { .lbl-page { grid-template-columns: 1fr; } }
+.lbl-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.lbl-drop { margin: 16px; padding: 28px 16px; display: grid; justify-items: center; gap: 8px; text-align: center;
+  border: 2px dashed var(--line); border-radius: 14px; color: var(--muted); }
+.lbl-drop.is-over { border-color: var(--accent); color: var(--accent); }
+.lbl-side { display: grid; gap: 16px; position: sticky; top: 16px; }
+.lbl-total { padding: 14px 16px; }
+.lbl-total-num { font-size: 30px; font-weight: 700; color: var(--accent); }
+.lbl-total ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.lbl-total li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+/* ตัวอย่างฉลาก: iframe ขนาดจริง 50×35 มม. ขยาย 1.6 เท่า — เนื้อในคือ HTML ชุดเดียวกับที่ส่งพิมพ์ */
+.lbl-preview { display: block; width: 50mm; height: 35mm; border: 0; margin: 10px auto calc(35mm * .6 + 4px);
+  transform: scale(1.6); transform-origin: top center; background: #fff; box-shadow: 0 0 0 .2mm #999; }

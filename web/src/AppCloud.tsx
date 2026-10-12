@@ -31,6 +31,7 @@ const CloudTmsTrips = lazy(() => import('./pages/CloudTmsTrips'))
 const CloudVehicles = lazy(() => import('./pages/CloudVehicles'))
 const CloudDrivers = lazy(() => import('./pages/CloudDrivers'))
 const CloudOrders = lazy(() => import('./pages/CloudOrders'))
+const CloudLabels = lazy(() => import('./pages/CloudLabels'))
 const CloudDispatch = lazy(() => import('./pages/CloudDispatch'))
 const CloudTracking = lazy(() => import('./pages/CloudTracking'))
 const CloudReports = lazy(() => import('./pages/CloudReports'))
@@ -131,6 +132,7 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/tms-import" element={<Navigate to="/tms-trips" replace />} />
           <Route path="/tms-trips" element={<RequirePermission permission="dispatch.view"><CloudTmsTrips /></RequirePermission>} />
           <Route path="/orders" element={<RequirePermission permission="orders.view"><CloudOrders /></RequirePermission>} />
+          <Route path="/labels" element={<RequirePermission permission="orders.view"><CloudLabels /></RequirePermission>} />
           <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
           {/* คนขับก็เข้าได้ ด้วย myjobs.view — เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}
           <Route path="/tracking" element={<RequirePermission permission="myjobs.view"><CloudTracking /></RequirePermission>} />
