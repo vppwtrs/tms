@@ -39,7 +39,7 @@ if (import.meta.env.MODE === 'demo') {
 }
 
 /* ผิวของแอป iOS — ติดคลาสที่ <html> แล้วชั้น ios-*.css ค่อยทับสีและระยะให้
-   (ของจริงคือ Design C ใน ios-softop.css ที่โหลดท้ายสุด ดู styles/driverSkin.ts)
+   (ของจริงคือ styles/driver.css ดู styles/driverSkin.ts)
    ไม่แตะ JSX สักบรรทัด ลำดับล็อกอินและเส้นทางของงานจึงเหมือนเดิมทั้งหมด
 
    ?native=1 มีไว้ดูตัวอย่างผิวนี้บนเดสก์ท็อป — ของจริงมาจาก Capacitor

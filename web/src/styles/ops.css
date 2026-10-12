@@ -1830,3 +1830,31 @@
 @media (max-width: 700px) {
   .ops-head-right { width: 100%; justify-content: space-between; }
 }
+
+/* ---- หน้าเข้าระบบบนมือถือ (mockup "Driver App Redesign" จอ 0) ----
+   แถบน้ำเงินตามสีตัวอักษร Vespa ในโลโก้ วงมิ้นต์จาง ๆ ที่มุม การ์ดขาวซ้อนทับแถบ
+   จอใหญ่ไม่แตะ — หน้าออฟฟิศยังเป็นแบบสองคอลัมน์เดิม */
+@media (max-width: 640px) {
+  .ops-login {
+    position: relative; overflow: hidden; min-height: 100dvh;
+    background: #eaf0f7;
+  }
+  .ops-login::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 300px;
+    background: #3b6aaf; border-radius: 0 0 40px 40px;
+  }
+  .ops-login::after {
+    content: ""; position: absolute; top: -30px; right: -30px; width: 120px; height: 120px;
+    border-radius: 50%; background: #8fd3be; opacity: 0.35;
+  }
+  .ops-login-form { position: relative; z-index: 1; background: transparent; padding-top: 32px; }
+  .ops-login-art { display: none; }
+  .ops-login .login-card h1 { margin-top: 4px; }
+  .ops-login .logo-big { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); }
+  .ops-login .login-card {
+    border-radius: 28px; box-shadow: 0 10px 30px rgba(59, 106, 175, 0.18); border: 0;
+  }
+  .ops-login .login-card button[type='submit'] { background: #3b6aaf; border-color: #3b6aaf; height: 56px; border-radius: 16px; }
+  .ops-login .login-card input { height: 54px; border-radius: 14px; }
+  .ops-login .login-hint { background: #e1f3ec; border: 0; color: #1e4a3a; border-radius: 16px; }
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MyJob } from '../types'
-import { activeJob, autoOpenJob, doneJobs, dutyVehicle, groupHistory, liveJobs } from './jobs'
+import { activeJob, autoOpenJob, doneJobs, dutyVehicle, filterHistory, groupHistory, liveJobs, presetRange } from './jobs'
 import { daysAgoIso, todayIso } from './format'
 
 /**
@@ -174,5 +174,26 @@ describe('activeJob / autoOpenJob — เที่ยวที่เปิดอ
     const running = job({ status: 'in_progress', accepted_at: '2026-08-27T08:00:00Z' })
     expect(autoOpenJob([running], -1)).toBeNull()
     expect(autoOpenJob([running], running.id)).toBeNull()
+  })
+})
+
+describe('ตัวกรองวันที่ของประวัติ', () => {
+  const now = new Date(2026, 9, 1, 10, 0) // 1 ต.ค. 2569
+  it('ปุ่มลัดคืนช่วงที่ถูกต้อง — 7 วันนับวันนี้ด้วย', () => {
+    expect(presetRange('today', now)).toMatchObject({ from: '2026-10-01', to: '2026-10-01' })
+    expect(presetRange('7d', now)).toMatchObject({ from: '2026-09-25', to: '2026-10-01' })
+    expect(presetRange('month', now)).toMatchObject({ from: '2026-10-01', to: '2026-10-01' })
+    expect(presetRange('all', now)).toMatchObject({ from: null, to: null })
+  })
+
+  it('กรองตามวันปิดงาน รวมปลายทั้งสองข้าง และตัดเที่ยวที่ไม่มีวันปิดออก', () => {
+    const list = [
+      job({ id: 1, arrived_at: '2026-09-24T09:00:00' }),
+      job({ id: 2, arrived_at: '2026-09-25T09:00:00' }),
+      job({ id: 3, arrived_at: '2026-10-01T09:00:00' }),
+      job({ id: 4, arrived_at: null }),
+    ]
+    expect(filterHistory(list, presetRange('7d', now)).map((j) => j.id)).toEqual([2, 3])
+    expect(filterHistory(list, presetRange('all', now))).toHaveLength(4)
   })
 })

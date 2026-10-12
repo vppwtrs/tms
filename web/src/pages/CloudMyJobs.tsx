@@ -14,14 +14,16 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
 import type { MyJob, MyJobOrder } from '../types'
 import { groupStops, jobTripNo, type StopGroup } from '../utils/stops'
-import { activeJob, autoOpenJob, doneJobs, dutyVehicle, groupHistory, liveJobs } from '../utils/jobs'
-import { closingJobs, finishGate, needsOdometer, parseKm, podGapsOf, podRowsOf, tollFor } from '../utils/driverActions'
+import { activeJob, autoOpenJob, doneJobs, dutyVehicle, filterHistory, groupHistory, liveJobs, presetRange } from '../utils/jobs'
+import type { HistoryRange } from '../utils/jobs'
+import { closingJobs, finishGate, parseKm, podGapsOf, podRowsOf, tollFor } from '../utils/driverActions'
 import { CANCEL_STOP_REASONS, TRIP_STATUS_LABEL } from '../utils/constants'
-import { fmtDateTime, fmtLongToday, fmtTime } from '../utils/format'
+import { fmtDate, fmtDateTime, fmtLongToday, fmtTime } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
 import { PodViewModal } from '../components/PodViewModal'
 import { JobFocus } from '../components/driver/JobFocus'
+import { RangeCalendar, shortThai } from '../components/driver/RangeCalendar'
 import { PodSheet } from '../components/driver/PodSheet'
 import {
   IconAlert, IconCheck, IconChevronRight, IconKey, IconLogout, IconMoon, IconSun, IconTruck, IconUsers,
@@ -142,7 +144,18 @@ export default function CloudMyJobs(): React.JSX.Element {
      ไม่ต้องรู้จัก React จึงเขียนเทสต์ให้มันได้ ต่างจากตอนที่ฝังอยู่ในนี้ */
   const live = useMemo(() => liveJobs(jobs), [jobs])
   const done = useMemo(() => doneJobs(jobs), [jobs])
-  const historyGroups = useMemo(() => groupHistory(done), [done])
+  /* ประวัติกรองตามวันปิดงาน — ค่าเริ่ม 7 วัน พอสำหรับคำถาม "สัปดาห์นี้วิ่งอะไรไปบ้าง" */
+  const [histRange, setHistRange] = useState<HistoryRange>(() => presetRange('7d'))
+  const [rangeOpen, setRangeOpen] = useState(false)
+  const [gpsDenied, setGpsDenied] = useState<MyJob | null>(null)
+  const [podBlocked, setPodBlocked] = useState(false)
+  const [draftRange, setDraftRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
+  const shown = useMemo(() => filterHistory(done, histRange), [done, histRange])
+  const historyGroups = useMemo(() => groupHistory(shown), [shown])
+  const shownStops = useMemo(
+    () => shown.reduce((n, j) => n + groupStops(j.orders).filter((st) => !st.cancelled).length, 0),
+    [shown],
+  )
   const active = activeJob(live, activeId)
   /* คันที่ต้องถามเลขไมล์ — คนขับคนเดียวอาจถือหลายเที่ยวคนละคัน แต่คันที่ขับอยู่มีคันเดียว */
   const duty = useMemo(() => dutyVehicle(live), [live])
@@ -178,6 +191,9 @@ export default function CloudMyJobs(): React.JSX.Element {
      แต่ระหว่างที่รถวิ่งกลับ ออฟฟิศถอนตรวจหรือลบรูปได้ และคนวางแผนเพิ่มใบเข้าเที่ยวได้
      เที่ยวที่ผ่านด่านนั้นมาแล้วจึงกลับมาขาดหลักฐานได้อีก ตรวจซ้ำตอนจบงาน */
   const podGaps = podGapsOf(returningJobs)
+  /* ร้านที่ยังขาดหลักฐาน พร้อมเที่ยวของมัน — แผ่น "ยังปิดงานไม่ได้" ใช้เปิดฟอร์มเติมได้ทันที */
+  const podGapStops = returningJobs.flatMap((j) =>
+    groupStops(j.orders).filter((st) => st.done && st.needPod.length > 0).map((st) => ({ job: j, stop: st })))
   /* ร้านที่ส่งครบของทุกเที่ยวขากลับ — ให้คนขับตรวจด้วยตาก่อนกดจบงานจริง
      ไม่ใช่ด่านใหม่ ด่านจริงคือ podGaps ด้านบน ถึงตรงนี้ได้แปลว่าครบทุกร้านแล้ว */
   const podRows = podRowsOf(returningJobs)
@@ -226,10 +242,9 @@ export default function CloudMyJobs(): React.JSX.Element {
       const gate = finishGate(job.id, podGaps, finishing?.id ?? null)
       if (gate.kind === 'missing-pod') {
         /* บอกว่าร้านไหน ไม่ใช่แค่ว่าไม่ครบ — คนขับต้องรู้ว่าต้องกลับไปเก็บของใคร */
-        const shops = gate.shops
-        toast.push('warning',
-          `ยังเก็บหลักฐานไม่ครบ ${shops.length} ร้าน (${shops.slice(0, 3).join(', ')}${shops.length > 3 ? ' และอื่น ๆ' : ''}) — เก็บให้ครบก่อนจบงาน`)
+        /* แผ่น "ยังปิดงานไม่ได้" — บอกร้านพร้อมปุ่มไปเติม ไม่ใช่ toast ที่หายเองก่อนอ่านจบ */
         setFinishing(null)
+        setPodBlocked(true)
         return
       }
       if (gate.kind === 'ask-details') {
@@ -242,24 +257,9 @@ export default function CloudMyJobs(): React.JSX.Element {
         return
       }
     }
-    /* เลขไมล์ต้นวันเป็นด่านของการ "เริ่มทำงาน" ไม่ใช่ของการเปิดแอป
-       ขวางตรงรับงานกับเริ่มเดินทาง เพราะสองปุ่มนี้กดตอนอยู่หน้ารถแล้วเท่านั้น
-       ขวางตั้งแต่เปิดแอปคือขวางคนที่นั่งดูงานพรุ่งนี้อยู่ที่บ้าน ซึ่งอ่านหน้าปัดไม่ได้ */
-    if (action === 'accept' || action === 'start') {
-      /* ถามสถานะของ "รถคันที่กำลังจะขับ" ไม่ใช่คันที่จอกำลังโชว์อยู่ — เงื่อนไขว่าค่าที่
-         ถืออยู่ใช้กับคันนี้ได้ไหมอยู่ใน odometerCacheUsable ที่นี่เหลือแค่ยิงถามเมื่อใช้ไม่ได้ */
-      const st = odometer.usableFor(job.vehicle_id)
-        ? odometer.status
-        : await odometerStatus(job.vehicle_id).catch(() => null)
-      if (needsOdometer(action, st, opts?.odoDone)) {
-        odometer.block({ id: job.vehicle_id, plate: job.vehicle_plate }, st, { job, action })
-        toast.push('warning', 'กรอกเลขไมล์ตอนออกรถก่อน แล้วระบบจะทำงานที่กดค้างไว้ให้ต่อ')
-        return
-      }
-    }
     if (action === 'accept' && !(await askLocation())) {
-      toast.push('warning',
-        'ต้องอนุญาตให้แอปเห็นตำแหน่งก่อนรับงาน — เปิดสิทธิ์ตำแหน่งในเบราว์เซอร์แล้วกดใหม่')
+      /* จอเต็มบอกวิธีเปิด ไม่ใช่ toast ที่หายไปใน 4 วินาที — คนขับต้องทำตามทีละขั้น */
+      setGpsDenied(job)
       return
     }
     setBusy(job.id)
@@ -451,7 +451,7 @@ export default function CloudMyJobs(): React.JSX.Element {
   if (error) return <ErrorBox message={error} onRetry={() => load()} />
 
   return (
-    <div className="driver-scope">
+    <div className="driver-scope dv-app">
       {/* แถบสถานะของท่าลากลง ไหลตามนิ้วแล้วค้างไว้ระหว่างโหลด
           อยู่เหนือทุกอย่างและไม่กินที่ตอนไม่ได้ใช้ */}
       <div
@@ -464,21 +464,59 @@ export default function CloudMyJobs(): React.JSX.Element {
         )}
       </div>
 
-      <header className="driver-head">
-        <h1 className="driver-title">
-          {tab === 'jobs' ? 'งานของฉัน' : tab === 'history' ? 'ประวัติงาน' : 'บัญชีของฉัน'}
-        </h1>
-        {tab === 'jobs' && live.length > 1 && (
-          <span className="text-xs text-muted">{live.length} เที่ยวที่ยังไม่จบ</span>
-        )}
-      </header>
+      {/* หัวจอ — หน้าเที่ยวที่เปิดอยู่ไม่มีหัว (หัวเที่ยวอยู่ใน JobFocus เอง) */}
+      {!(tab === 'jobs' && active) && (
+        <header className="dv-head">
+          <h1 className="dv-title">
+            {tab === 'jobs' ? 'งาน' : tab === 'history' ? 'ประวัติ' : 'ฉัน'}
+          </h1>
+          {tab === 'jobs' && unread > 0 && <span className="dv-chip is-time">งานใหม่ {unread}</span>}
+          {tab === 'history' && (
+            <button type="button" className="dv-pill dv-range-pill" onClick={() => {
+              setDraftRange({ from: histRange.from ?? '', to: histRange.to ?? '' })
+              setRangeOpen(true)
+            }}>
+              {histRange.from && histRange.to
+                ? (histRange.from === histRange.to ? shortThai(histRange.from) : `${shortThai(histRange.from)} – ${shortThai(histRange.to)}`)
+                : 'ทุกวัน'}
+            </button>
+          )}
+        </header>
+      )}
 
       {tab === 'history' && (
         /* ประวัติเป็นรายการอ่านอย่างเดียว — ปิดงานแล้วไม่มีปุ่มอะไรให้กดอีก
            สิ่งที่คนขับมาหาที่นี่คือ "เมื่อวานฉันวิ่งกี่เที่ยว ร้านไหนบ้าง" */
         <div className="hist-list">
+          {/* ตัวกรองวันที่แบบมือถือ — ปุ่มลัดแถวเดียว ส่วน "เลือกเอง" เปิดแผ่นล่างที่ใช้ปฏิทินของเครื่อง */}
+          <div className="hist-filter" role="group" aria-label="ช่วงวันที่">
+            {([['today', 'วันนี้'], ['7d', '7 วัน'], ['month', 'เดือนนี้'], ['all', 'ทั้งหมด']] as const).map(([k, label]) => (
+              <button key={k} type="button" className="hist-chip" aria-pressed={histRange.preset === k}
+                onClick={() => setHistRange(presetRange(k))}>
+                {label}
+              </button>
+            ))}
+            <button type="button" className="hist-chip" aria-pressed={histRange.preset === 'custom'}
+              onClick={() => {
+                setDraftRange({ from: histRange.from ?? '', to: histRange.to ?? '' })
+                setRangeOpen(true)
+              }}>
+              {histRange.preset === 'custom' && histRange.from && histRange.to
+                ? 'เลือกเอง ✓' : 'เลือกเอง'}
+            </button>
+          </div>
+          {done.length > 0 && (
+            <div className="hist-sum">
+              <div><b>{shown.length}</b><span>เที่ยว</span></div>
+              <div><b>{shownStops}</b><span>จุดส่ง</span></div>
+              <div><b>{shown.filter((j) => j.issue_note).length}</b><span>แจ้งปัญหา</span></div>
+            </div>
+          )}
           {done.length === 0 && (
             <EmptyState icon={<IconTruck size={28} />} title="ยังไม่มีงานที่ปิดแล้ว" desc="งานที่ปิดงานเรียบร้อยจะมาอยู่ที่นี่" />
+          )}
+          {done.length > 0 && shown.length === 0 && (
+            <EmptyState icon={<IconTruck size={28} />} title="ไม่มีเที่ยวในช่วงนี้" desc="ลองเลือกช่วงวันที่กว้างขึ้น" />
           )}
           {historyGroups.map((group) => (
             <section key={group.key} className="hist-group">
@@ -498,7 +536,14 @@ export default function CloudMyJobs(): React.JSX.Element {
                           {j.arrived_at ? ` · ปิดงาน ${fmtTime(j.arrived_at)}` : ''}
                         </span>
                       </span>
-                      <Badge label={TRIP_STATUS_LABEL[j.status]} tone={j.status} />
+                      {/* ป้ายผลของเที่ยว (mockup) — ส่งครบ = เขียว, มีร้านส่งไม่ได้ = แดง, เที่ยวถูกยกเลิก = เทา */}
+                      {(() => {
+                        const failed = groupStops(j.orders).filter((st) => st.cancelled).length
+                        if (j.status === 'cancelled') return <span className="hist-pill is-off">ยกเลิกเที่ยว</span>
+                        return failed > 0
+                          ? <span className="hist-pill is-bad">ส่งไม่ได้ {failed}</span>
+                          : <span className="hist-pill is-ok">ส่งครบ</span>
+                      })()}
                       <IconChevronRight size={16} aria-hidden />
                     </button>
                   </li>
@@ -510,47 +555,40 @@ export default function CloudMyJobs(): React.JSX.Element {
       )}
 
       {tab === 'me' && (
+        /* หน้าฉัน (mockup จอ 16) — หัวโปรไฟล์ แล้วรายการตั้งค่าในการ์ดใบเดียว ออกจากระบบแยกเป็นปุ่มแดง */
         <div className="driver-me">
-          <div className="driver-me-card">
-            {/* iOS2: avatar กล่องมนแก้วโปร่ง — ใช้อักษรแรกของชื่อ */}
-            <span className="driver-me-avatar" aria-hidden>
-              {(user?.name ?? '?').trim().charAt(0)}
+          <div className="me-head">
+            <span className="me-avatar" aria-hidden>{(user?.name ?? '?').trim().charAt(0)}</span>
+            <span className="me-who">
+              <b>{user?.name}</b>
+              <small>{user?.username} · พนักงานขับรถ</small>
             </span>
-            <span className="driver-me-name">{user?.name}</span>
-            <span className="driver-me-sub">{user?.username} · พนักงานขับรถ · {fmtLongToday()}</span>
           </div>
-          {/* ปุ่มธีมเคยอยู่บนแถบบนที่ถูกถอดออกไป — กลางแดดกับตอนกลางคืนคนละเรื่องกัน
-              คนขับต้องสลับเองได้ */}
-          <Button variant="outline" className="driver-me-action"
-            aria-pressed={theme === 'dark'}
-            onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(next); applyTheme(next) }}>
-            <span className="driver-me-ic" aria-hidden>{theme === 'dark' ? <IconMoon size={16} /> : <IconSun size={16} />}</span>
-            <span className="driver-me-label">{theme === 'dark' ? 'โหมดมืด' : 'โหมดสว่าง'}</span>
-            <span className="driver-me-switch" aria-hidden />
-          </Button>
-          {/* สองอย่างที่คนขับต้องทำเองได้จริงจากในรถ ไม่ต้องโทรหาออฟฟิศ */}
-          <Button variant="outline" className="driver-me-action" onClick={() => setPwOpen(true)}>
-            <span className="driver-me-ic" aria-hidden><IconKey size={16} /></span>
-            <span className="driver-me-label">เปลี่ยนรหัสผ่าน</span>
-            <span className="driver-me-chev" aria-hidden><IconChevronRight size={16} /></span>
-          </Button>
-          <Button variant="ghost" className="driver-me-action is-danger" onClick={() => void logout()}>
-            <span className="driver-me-ic" aria-hidden><IconLogout size={16} /></span>
-            <span className="driver-me-label">ออกจากระบบ</span>
-          </Button>
-          <p className="text-xs text-muted">
-            เปิดหน้านี้ค้างไว้ระหว่างขับ ระบบถึงจะบันทึกตำแหน่งของเที่ยวให้ฝ่ายวางแผนเห็น
-          </p>
+          <div className="me-list">
+            <div className="me-row">
+              <span className="me-row-ic" aria-hidden><IconTruck size={18} /></span>
+              <span className="me-row-label">ตำแหน่ง GPS</span>
+              <span className={`me-row-val${tracking.state === 'denied' ? ' is-off' : ' is-on'}`}>
+                {tracking.state === 'denied' ? 'ไม่ได้อนุญาต' : tracking.state === 'unsupported' ? 'เครื่องไม่รองรับ' : 'อนุญาตแล้ว'}
+              </span>
+            </div>
+            <button type="button" className="me-row" role="switch" aria-checked={theme === 'dark'}
+              onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(next); applyTheme(next) }}>
+              <span className="me-row-ic" aria-hidden>{theme === 'dark' ? <IconMoon size={18} /> : <IconSun size={18} />}</span>
+              <span className="me-row-label">โหมดมืด</span>
+              <span className={`me-switch${theme === 'dark' ? ' is-on' : ''}`} aria-hidden />
+            </button>
+            <button type="button" className="me-row" onClick={() => setPwOpen(true)}>
+              <span className="me-row-ic" aria-hidden><IconKey size={18} /></span>
+              <span className="me-row-label">เปลี่ยนรหัสผ่าน</span>
+              <IconChevronRight size={16} aria-hidden />
+            </button>
+          </div>
+          <button type="button" className="me-logout" onClick={() => void logout()}>
+            <IconLogout size={18} aria-hidden /> ออกจากระบบ
+          </button>
+          <p className="me-foot">{fmtLongToday()} · เปิดหน้านี้ค้างไว้ระหว่างขับ ระบบถึงจะบันทึกตำแหน่งของเที่ยวให้ฝ่ายวางแผนเห็น</p>
         </div>
-      )}
-
-      {/* แถบเตือนเลขไมล์ — อยู่บนสุดของแท็บงาน ไม่ใช่ toast ที่หายไปเอง
-          เพราะเรื่องนี้ต้องค้างอยู่จนกว่าจะทำ ไม่ใช่แค่แจ้งให้รู้ */}
-      {tab === 'jobs' && odometer.status && !odometer.status.logged_today && odometer.vehicle && (
-        <button type="button" className="odo-bar" onClick={odometer.ask}>
-          <span className="odo-bar-text">ยังไม่ได้กรอกเลขไมล์ตอนออกรถของ {odometer.vehicle.plate}</span>
-          <span className="odo-bar-cta">กรอกเลย</span>
-        </button>
       )}
 
       {tab === 'jobs' && (loading ? (
@@ -561,162 +599,123 @@ export default function CloudMyJobs(): React.JSX.Element {
           title="ยังไม่มีงานที่มอบหมาย"
           desc="เมื่อฝ่ายวางแผนจัดเที่ยวให้ งานจะขึ้นที่นี่ทันที"
         />
-      ) : (
-        <div className="job-list">
-          {/* เข้าเที่ยวไหนแล้วเห็นเที่ยวนั้นเที่ยวเดียว — การ์ดที่หุบอยู่ของเที่ยวอื่น
-              ยังกดได้ ซึ่งแปลว่าระหว่างกดปิดจุดส่ง นิ้วพลาดไปโดนหัวการ์ดอีกเที่ยว
-              แล้วจอสลับเที่ยวโดยไม่มีใครสั่ง ปุ่มถอยข้างล่างคือทางกลับทางเดียว */}
-          {active && (
-            <button type="button" className="job-back" onClick={() => setActiveId(-1)}>
-              <span className="job-back-ic" aria-hidden><IconChevronRight size={16} /></span>
-              งานของฉัน{live.length > 1 ? ` · อีก ${live.length - 1} เที่ยว` : ''}
+      ) : active ? (
+        /* เปิดเที่ยวอยู่ — เห็นเที่ยวนั้นเที่ยวเดียว ทางกลับไปรายการเที่ยวมีทางเดียวคือชิปข้างบน
+           การ์ดเที่ยวอื่นไม่อยู่บนจอ นิ้วพลาดระหว่างปิดจุดจึงไม่สลับเที่ยวโดยไม่มีใครสั่ง */
+        <div className="dv-page">
+          {/* ทางกลับไปรายการเที่ยว — ปุ่มย้อนกลับมุมซ้ายบนแบบแอปทั่วไป เห็นทันทีว่ากดถอยได้
+              (แตะ "งาน" ที่เมนูล่างก็กลับได้เหมือนกัน) กดเข้าเที่ยวผิดก็ออกได้ในแตะเดียว */}
+          <div className="dv-topbar">
+            <button type="button" className="dv-back" onClick={() => setActiveId(-1)}>
+              <span aria-hidden>‹</span> เที่ยวทั้งหมด{live.length > 1 ? ` (${live.length})` : ''}
             </button>
-          )}
-          {/* ทุกเที่ยวหุบเป็นแถวเดียว กางทีละเที่ยว — คนขับถือหลายเที่ยวพร้อมกันได้
-              กางทุกเที่ยวพร้อมกันคือจอที่ต้องเลื่อนผ่านจุดส่งของเที่ยวอื่นก่อนถึงของตัวเอง
-              และเสี่ยงกดปิดจุดผิดเที่ยว ซึ่งย้อนกลับไม่ได้ */}
-          {(active ? [active] : live).map((job) => {
-            const open = job.id === active?.id
+            {(active.my_accepted_at ?? active.accepted_at) && (
+              /* บอกตรง ๆ ว่าบันทึกตำแหน่งอยู่หรือไม่ — ถ้าไม่บอก คนขับจะเชื่อว่ามีการบันทึกตลอดเวลา */
+              <span className={`dv-rec track-note${tracking.state === 'on' ? '' : ' is-off'}`}>
+                {tracking.state === 'on'
+                  ? (tracking.backgroundCapable ? 'บันทึกเส้นทาง'
+                    : screenAwake ? 'บันทึกเส้นทาง · จอไม่ดับ' : 'บันทึกเส้นทาง · เปิดค้างไว้')
+                  : tracking.state === 'denied' ? 'ไม่ได้สิทธิ์ตำแหน่ง'
+                  : tracking.state === 'unsupported' ? 'ระบุตำแหน่งไม่ได้'
+                  : 'กำลังขอตำแหน่ง…'}
+              </span>
+            )}
+          </div>
+          <JobFocus
+            job={active}
+            busy={busy === active.id}
+            deliveringKey={delivering}
+            canProgress={can('myjobs.progress')}
+            canPod={can('myjobs.pod')}
+            unfinishedOthers={unfinishedOthers(active)}
+            returningCount={returningJobs.length}
+            podMissing={podGaps.length}
+            onAct={(j, action) => void act(j, action)}
+            onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
+            onPod={(stop) => {
+              setPodStop(stop)
+              setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)
+            }}
+            onViewPod={setPodView}
+            onDeliver={(stop) => void deliver(stop)}
+            onUndoDeliver={(stop) => setUndoing(stop)}
+            onCancelStop={(stop) => { setCancelling(stop); setCancelReason(''); setCancelNote('') }}
+            onUndoCancelStop={(stop) => setUndoCancelling(stop)}
+            onReorder={(j, ids) => void reorder(j, ids)}
+          />
+        </div>
+      ) : (
+        /* รายการเที่ยวที่ยังไม่จบ (mockup จอ 1 + 6) — งานใหม่เป็นการ์ดเต็มพร้อมปุ่มรับงาน
+           เที่ยวที่รับแล้วเป็นการ์ดย่อ แตะเพื่อเปิด */
+        <div className="dv-page">
+          <p className="dv-label">เที่ยวที่ยังไม่จบ · {live.length}</p>
+          {live.map((job) => {
             const delivered = job.orders.filter((o) => o.status === 'delivered').length
             const mine = job.my_accepted_at ?? job.accepted_at
-            /* ยุบเป็นร้านเหมือนหน้าคนขับ — คนขับคิดเป็น "กี่ร้าน" ไม่ใช่ "กี่ใบ"
-               คำนวณเฉพาะงานใหม่ งานที่รับแล้ว JobFocus ยุบให้อยู่แล้ว */
-            const newStops = mine ? [] : groupStops(job.orders)
-            const firstStop = newStops[0]
-            const preview = !mine && previewId === job.id
-            return (
-              <section key={job.id} className={`job-card${open ? ' is-open' : ''}${!mine ? ' is-new' : ''}`}>
-                {/* งานที่ยังไม่ได้กดรับ กางไม่ได้ — แถวเดียว จบที่ปุ่มรับงานทางขวา
-                    รายละเอียดของงานเป็นของคนที่รับงานแล้ว และการกดรับไม่ใช่การเลือก
-                    (ไม่มีปุ่มปฏิเสธ TMS จ่ายคนมาแล้ว) การกางให้อ่านก่อนจึงไม่ได้
-                    ช่วยตัดสินใจอะไร มีแต่ทำให้จอแรกยาวเป็นสองเท่า */}
-                {!mine ? (
-                  <div className="job-card-head is-new">
-                    <span className="job-card-text">
-                      <span className="job-card-no">{jobTripNo(job)}</span>
-                      {/* เลขเที่ยวอย่างเดียวตอบไม่ได้ว่างานนี้คืออะไร — กี่ร้าน ออกจากคลังไหน
-                          นัดแรกกี่โมง คือสามอย่างที่คนขับถามก่อนเสมอ และสั้นพอจะอยู่ในบรรทัดเดียว */}
-                      <span className="job-card-meta">
-                        {job.vehicle_plate} · {newStops.length} ร้าน · {job.orders.length} ใบ
-                        {job.warehouse_code ? ` · คลัง ${job.warehouse_code}` : ''}
-                        {firstStop ? ` · นัดแรก ${fmtTime(firstStop.scheduled_at)}` : ''}
-                      </span>
+            const jobStops = groupStops(job.orders)
+            const firstStop = jobStops[0]
+            const crew = job.driver_count ?? 1
+            if (!mine) {
+              /* งานใหม่ — ไม่มีปุ่มปฏิเสธ (TMS จ่ายคนมาแล้ว) มีปัญหาให้กดแจ้ง */
+              return (
+                /* งานใหม่หุบไว้ก่อน — แถวเดียวบอกเลขเที่ยว รถ กี่ร้าน นัดแรก พร้อมปุ่มรับงาน
+                   แตะ "ดูรายละเอียด" ถึงกางรายชื่อร้าน คลัง คนไปด้วย */
+                <section key={job.id} className={`dv-card dv-newjob${previewId === job.id ? ' is-open' : ''}`}>
+                  <button type="button" className="dv-newjob-head" aria-expanded={previewId === job.id}
+                    onClick={() => setPreviewId(previewId === job.id ? null : job.id)}>
+                    <span className="dv-newjob-title">
+                      <b>{jobTripNo(job)}</b>
+                      <small>
+                        {job.vehicle_plate} · {jobStops.length} ร้าน{firstStop ? ` · นัดแรก ${fmtTime(firstStop.scheduled_at)}` : ''}
+                      </small>
                     </span>
-                    {/* ปุ่มเดียวในแถวนี้ — ปุ่มอ่านอยู่คนละแถวข้างล่าง ไม่ใช่ชิดกันแค่ 6px
-                        ปุ่มที่ไม่ควรกดสลับกัน ต้องห่างกันจริง ไม่ใช่ห่างกันพอเป็นพิธี */}
-                    <Button
-                      className="job-card-accept"
-                      loading={busy === job.id}
-                      onClick={() => void act(job, 'accept')}
-                    >
-                      รับงาน
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="job-card-head"
-                    aria-expanded={open}
-                    onClick={() => setActiveId(open ? -1 : job.id)}
-                  >
-                    <span className="job-card-text">
-                      <span className="job-card-no">{jobTripNo(job)}</span>
-                      <span className="job-card-meta">
-                        {job.vehicle_plate} · ส่งแล้ว {delivered}/{job.orders.length} ใบ
-                      </span>
-                    </span>
-                    <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot={job.status === 'in_progress'} />
+                    <span className="dv-chip is-time">รอรับงาน</span>
+                    <span className="dv-caret" aria-hidden>⌄</span>
                   </button>
-                )}
-
-                {/* ทางเดียวที่เหลือของคนที่รับงานนี้ไม่ได้จริง ๆ (รถเสีย ไม่ใช่คันนี้)
-                    ต้องอยู่ตรงนี้ เพราะปุ่มแจ้งปัญหาเดิมอยู่ในการ์ดที่ตอนนี้กางไม่ได้แล้ว */}
-                {/* พรีวิวเป็นรายการอ่านอย่างเดียว — ชื่อร้าน เวลานัด จำนวนใบ ไม่มีปุ่มปิดจุด
-                    ไม่มีปุ่มเก็บหลักฐาน ไม่มีปุ่มจัดลำดับ ของพวกนั้นเป็นของคนที่รับงานแล้ว
-                    ปิดด้วยการกด "ซ่อนจุดส่ง" ปุ่มเดิม ไม่มีปุ่มออกแยกให้ต้องหา */}
-                {preview && (
-                  <ol className="job-preview" aria-label={`จุดส่งของ ${jobTripNo(job)}`}>
-                    {newStops.map((s, i) => (
-                      <li key={s.key}>
-                        <span className="job-preview-seq">{i + 1}</span>
-                        <span className="job-preview-name">{s.customer_name ?? s.destination}</span>
-                        <span className="job-preview-meta">
-                          {fmtTime(s.scheduled_at)}
-                          {s.orders.length > 1 ? ` · ${s.orders.length} ใบ` : ''}
-                        </span>
-                      </li>
+                  {previewId === job.id && (
+                    <div className="dv-newjob-body">
+                      <div className="dv-stats">
+                        <div><small>รถ</small><b>{job.vehicle_plate}</b></div>
+                        <div><small>ร้าน</small><b>{jobStops.length} ร้าน</b></div>
+                        <div><small>นัดแรก</small><b>{firstStop ? fmtTime(firstStop.scheduled_at) : '—'}</b></div>
+                      </div>
+                      <ol className="dv-newjob-stops" aria-label={`จุดส่งของ ${jobTripNo(job)}`}>
+                        {jobStops.map((st, i) => (
+                          <li key={st.key}><span>{i + 1}</span>{st.customer_name ?? st.destination}</li>
+                        ))}
+                      </ol>
+                      {job.warehouse_code && <p className="dv-muted">โหลดของที่คลัง {job.warehouse_code}</p>}
+                      {crew > 1 && (
+                        <p className="dv-note is-info">ไปด้วยกัน {crew} คน · รับแล้ว {job.accepted_count}/{crew} — แต่ละคนต้องกดรับเอง</p>
+                      )}
+                      <p className="dv-muted">กดรับแล้วระบบจะขอใช้ตำแหน่ง GPS ระหว่างขับ</p>
+                      <button type="button" className="dv-link" onClick={() => { setIssueFor(job); setIssueNote('') }}>
+                        แจ้งปัญหา
+                      </button>
+                    </div>
+                  )}
+                  <Button size="lg" className="dv-cta" loading={busy === job.id} onClick={() => void act(job, 'accept')}>
+                    รับงานนี้
+                  </Button>
+                </section>
+              )
+            }
+            return (
+              <button key={job.id} type="button" className={`dv-card dv-tripcard status-${job.status}`}
+                onClick={() => setActiveId(job.id)}>
+                <span className="dv-tripcard-head">
+                  <b>{jobTripNo(job)}</b>
+                  <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot={job.status === 'in_progress'} />
+                </span>
+                <span className="dv-muted">{job.vehicle_plate} · ส่งแล้ว {delivered}/{job.orders.length} ใบ</span>
+                {job.orders.length > 0 && (
+                  <span className="dv-segs" aria-hidden>
+                    {job.orders.map((o) => (
+                      <span key={o.id} className={`dv-seg${o.status === 'delivered' ? ' is-done' : o.status === 'cancelled' ? ' is-cancelled' : ''}`} />
                     ))}
-                  </ol>
+                  </span>
                 )}
-
-                {!mine && (
-                  <div className="job-card-newbar">
-                    {/* ปุ่มอ่าน อยู่คนละแถวกับปุ่มรับงาน และมีขอบของตัวเอง
-                        แบบ ghost จาง ๆ อ่านไม่ออกกลางแดด ซึ่งเป็นที่ที่จอนี้ถูกใช้จริง */}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="job-card-peek"
-                      aria-expanded={preview}
-                      onClick={() => setPreviewId(preview ? null : job.id)}
-                    >
-                      {preview ? 'ซ่อนจุดส่ง' : `ดูจุดส่ง ${newStops.length} ร้าน`}
-                    </Button>
-                    <button type="button" className="job-card-issue" onClick={() => { setIssueFor(job); setIssueNote('') }}>
-                      แจ้งปัญหา
-                    </button>
-                  </div>
-                )}
-
-                {open && mine && (
-                  <div className="job-card-body">
-                    <JobFocus
-                      job={job}
-                      busy={busy === job.id}
-                      deliveringKey={delivering}
-                      canProgress={can('myjobs.progress')}
-                      canPod={can('myjobs.pod')}
-                      unfinishedOthers={unfinishedOthers(job)}
-                      returningCount={returningJobs.length}
-                      podMissing={podGaps.length}
-                      onAct={(j, action) => void act(j, action)}
-                      onReportIssue={(j) => { setIssueFor(j); setIssueNote('') }}
-                      onPod={(stop) => {
-                        setPodStop(stop)
-                        setPodFor(stop.needPod.length > 0 ? stop.needPod : stop.orders)
-                      }}
-                      onViewPod={setPodView}
-                      onDeliver={(stop) => void deliver(stop)}
-                      onUndoDeliver={(stop) => setUndoing(stop)}
-                      onCancelStop={(stop) => { setCancelling(stop); setCancelReason(''); setCancelNote('') }}
-                      onUndoCancelStop={(stop) => setUndoCancelling(stop)}
-                      onReorder={(j, ids) => void reorder(j, ids)}
-                    />
-
-                    {/* บอกตรง ๆ ว่าตอนนี้บันทึกอยู่หรือไม่ — เบราว์เซอร์หยุดให้ตำแหน่งเมื่อพับหน้าจอ
-                        ถ้าไม่บอก คนขับจะเชื่อว่ามีการบันทึกตลอดเวลา แล้ววันที่ต้องใช้จะไม่มีข้อมูล */}
-                    {mine && (
-                      <p className={`track-note${tracking.state === 'denied' ? ' is-off' : ''}`}>
-                        {tracking.state === 'on'
-                          ? tracking.backgroundCapable
-                            /* ในแอป พิกัดเดินต่อขณะจอดับ การสั่งให้เปิดหน้าค้างไว้
-                               ตรงนี้จะเป็นคำสั่งที่ไม่จำเป็นและกินแบตฟรี */
-                            ? 'กำลังบันทึกเส้นทาง — ล็อกจอได้ตามปกติ บันทึกต่อจนกว่าจะปิดเที่ยว'
-                            : screenAwake
-                              /* จอไม่ดับเองแล้ว แต่กดปุ่มปิดจอเองยังหลุดอยู่ดี บอกให้ครบ
-                                 และเตือนเรื่องแบตด้วย เพราะเราเป็นคนทำให้จอค้างเอง */
-                              ? 'กำลังบันทึกตำแหน่ง — จอจะไม่ดับเอง เสียบสายชาร์จไว้ระหว่างขับ'
-                              : 'กำลังบันทึกตำแหน่งของเที่ยวนี้ — เปิดหน้านี้ค้างไว้ระหว่างขับ'
-                          : tracking.state === 'denied'
-                            ? 'ไม่ได้รับสิทธิ์ตำแหน่ง — ฝ่ายวางแผนจะไม่เห็นว่ารถอยู่ไหน'
-                            : tracking.state === 'unsupported'
-                              ? 'เครื่องนี้ไม่รองรับการระบุตำแหน่ง'
-                              : 'กำลังขอตำแหน่ง…'}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </section>
+              </button>
             )
           })}
         </div>
@@ -724,21 +723,23 @@ export default function CloudMyJobs(): React.JSX.Element {
 
       {/* แถบล่างจอ — โครงเดียวกับแอปที่คนใช้ทุกวัน ถึงด้วยนิ้วโป้งข้างเดียว
           ไม่ใช่เมนูที่ต้องกดเปิดจากมุมบนซ้ายก่อนถึงจะเห็นว่ามีอะไรบ้าง */}
-      <nav className="driver-tabs" aria-label="เมนูหลัก">
-        <button type="button" className={`driver-tab${tab === 'jobs' ? ' is-active' : ''}`}
-          aria-current={tab === 'jobs' ? 'page' : undefined} onClick={() => setTab('jobs')}>
-          <IconTruck size={20} />
-          <span>งานของฉัน</span>
-          {unread > 0 && <span className="driver-tab-badge" aria-label={`งานใหม่ ${unread}`}>{unread}</span>}
+      <nav className="dv-nav" aria-label="เมนูหลัก">
+        <button type="button" className={`dv-nav-btn${tab === 'jobs' ? ' is-active' : ''}`}
+          aria-current={tab === 'jobs' ? 'page' : undefined}
+          /* แตะ "งาน" ตอนอยู่ในเที่ยว = กลับไปรายการเที่ยว เหมือนแท็บของแอปทั่วไป */
+          onClick={() => { if (tab === 'jobs') setActiveId(-1); setTab('jobs') }}>
+          <IconTruck size={24} />
+          <span>งาน</span>
+          {unread > 0 && <span className="dv-nav-badge" aria-label={`งานใหม่ ${unread}`}>{unread}</span>}
         </button>
-        <button type="button" className={`driver-tab${tab === 'history' ? ' is-active' : ''}`}
+        <button type="button" className={`dv-nav-btn${tab === 'history' ? ' is-active' : ''}`}
           aria-current={tab === 'history' ? 'page' : undefined} onClick={() => setTab('history')}>
-          <IconCheck size={20} />
+          <IconCheck size={24} />
           <span>ประวัติ</span>
         </button>
-        <button type="button" className={`driver-tab${tab === 'me' ? ' is-active' : ''}`}
+        <button type="button" className={`dv-nav-btn${tab === 'me' ? ' is-active' : ''}`}
           aria-current={tab === 'me' ? 'page' : undefined} onClick={() => setTab('me')}>
-          <IconUsers size={20} />
+          <IconUsers size={24} />
           <span>ฉัน</span>
         </button>
       </nav>
@@ -753,8 +754,126 @@ export default function CloudMyJobs(): React.JSX.Element {
         />
       )}
 
+      {gpsDenied && (
+        <Modal
+          open
+          onClose={() => setGpsDenied(null)}
+          size="sheet"
+          title="ต้องเปิดตำแหน่งก่อนรับงาน"
+          footer={
+            <div className="pod-actions">
+              <Button variant="ghost" onClick={() => setGpsDenied(null)}>กลับ</Button>
+              <Button onClick={() => {
+                const job = gpsDenied
+                setGpsDenied(null)
+                void act(job, 'accept')
+              }}>
+                ลองอีกครั้ง
+              </Button>
+            </div>
+          }
+        >
+          <div className="gps-denied">
+            <span className="gps-denied-ic" aria-hidden><IconAlert size={36} /></span>
+            <p>บริษัทใช้ตำแหน่งดูว่ารถอยู่ไหนระหว่างส่งของ บันทึกเฉพาะตอนมีเที่ยวที่กำลังวิ่งเท่านั้น</p>
+            <ol>
+              <li>แตะไอคอนแม่กุญแจ (หรือ ⓘ) ข้างช่องที่อยู่เว็บ</li>
+              <li>เลือก ตำแหน่ง → อนุญาต</li>
+              <li>กลับมากด "ลองอีกครั้ง"</li>
+            </ol>
+          </div>
+        </Modal>
+      )}
+
+      {finishing && finishSuspect && (
+        <Modal
+          open
+          onClose={() => setFinishSuspect(null)}
+          title="เลขไมล์ดูแปลก ๆ"
+          footer={
+            <div className="pod-actions">
+              <Button variant="ghost" onClick={() => { setFinishSuspect(null); setFinishOdo('') }}>แก้เลข</Button>
+              <Button loading={busy === finishing.id} onClick={() => void act(finishing, 'finish')}>
+                เลขถูกแล้ว ส่งให้แอดมินตรวจ
+              </Button>
+            </div>
+          }
+        >
+          <OdoSuspect message={finishSuspect} />
+        </Modal>
+      )}
+
+      {podBlocked && (
+        <Modal
+          open
+          onClose={() => setPodBlocked(false)}
+          size="sheet"
+          title="ยังปิดงานไม่ได้"
+          footer={<Button variant="ghost" onClick={() => setPodBlocked(false)}>ปิด</Button>}
+        >
+          <p className="job-sub" style={{ marginBottom: 12 }}>
+            มี {podGapStops.length} ร้านที่หลักฐานยังไม่ครบ — เติมให้ครบแล้วกด "ถึงคลังแล้ว" อีกครั้ง
+          </p>
+          <ul className="gap-list">
+            {podGapStops.map(({ job, stop }) => (
+              <li key={`${job.id}-${stop.key}`}>
+                <button type="button" className="gap-row" onClick={() => {
+                  setPodBlocked(false)
+                  setActiveId(job.id)
+                  setPodStop(stop)
+                  setPodFor(stop.needPod)
+                }}>
+                  <span>
+                    <b>{stop.customer_name ?? stop.destination}</b>
+                    <small>{jobTripNo(job)} · ขาดหลักฐาน {stop.needPod.length} ใบ</small>
+                  </span>
+                  <span className="gap-row-go">เติม ›</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Modal>
+      )}
+
+      {rangeOpen && (
+        <Modal
+          open
+          onClose={() => setRangeOpen(false)}
+          size="sheet"
+          title="เลือกช่วงวันที่"
+          footer={
+            <div className="pod-foot">
+              <Button
+                size="lg"
+                className="dv-cta"
+                disabled={!draftRange.from}
+                onClick={() => {
+                  const to = draftRange.to || draftRange.from
+                  setHistRange({ preset: 'custom', from: draftRange.from, to })
+                  setRangeOpen(false)
+                }}
+              >
+                {(() => {
+                  if (!draftRange.from) return 'แตะวันเริ่มต้น'
+                  const to = draftRange.to || draftRange.from
+                  const n = filterHistory(done, { preset: 'custom', from: draftRange.from, to }).length
+                  const days = Math.round((Date.parse(to) - Date.parse(draftRange.from)) / 86_400_000) + 1
+                  return `ดู ${days} วัน · ${n} เที่ยว`
+                })()}
+              </Button>
+            </div>
+          }
+        >
+          <div className="dv-cal-top">
+            <button type="button" className="dv-link" onClick={() => setDraftRange({ from: '', to: '' })}>ล้าง</button>
+          </div>
+          <RangeCalendar from={draftRange.from} to={draftRange.to}
+            onChange={(from, to) => setDraftRange({ from, to })} />
+        </Modal>
+      )}
+
       {historyJob && (
-        <Modal open onClose={() => setHistoryJob(null)} title={jobTripNo(historyJob)}>
+        <Modal open onClose={() => setHistoryJob(null)} size="sheet" title={jobTripNo(historyJob)}>
           <p className="text-xs text-muted" style={{ marginBottom: 12 }}>
             {historyJob.vehicle_plate}
             {historyJob.arrived_at ? ` · ปิดงาน ${fmtDateTime(historyJob.arrived_at)}` : ''}
@@ -796,35 +915,36 @@ export default function CloudMyJobs(): React.JSX.Element {
           จ่ายไปไม่มีใครรู้ ถามก่อน = ตัวเลขถูกส่งไปพร้อมคำสั่งเดียวกัน */}
       <Modal
         open={finishing !== null}
-        title="จบงานเที่ยวนี้"
+        size="sheet"
+        title="ถึงคลัง ปิดงาน"
         onClose={() => setFinishing(null)}
         footer={
-          <div className="pod-actions">
-            <Button variant="ghost" onClick={() => setFinishing(null)}>ยังไม่จบ</Button>
+          <div className="pod-foot">
             <Button
+              size="lg"
+              className="dv-cta"
               loading={finishing !== null && busy === finishing.id}
               disabled={tollHas === null
                 || (tollHas && !(Number(tollAmount.replace(/[^0-9.]/g, '')) > 0))
                 || parseKm(finishOdo) === null}
               onClick={() => { if (finishing) void act(finishing, 'finish') }}
             >
-              {finishSuspect ? 'ยืนยันเลขนี้ · ส่งให้แอดมินตรวจ' : 'กลับถึงคลังแล้ว'}
+              {finishSuspect ? 'ยืนยันเลขนี้ · ส่งให้แอดมินตรวจ' : 'ปิดงาน ย้ายไปประวัติ'}
             </Button>
           </div>
         }
       >
         {finishing && (
           <div className="finish-box">
+            {/* ยืนยันครั้งเดียวพอ — รถกับคนขับจะถูกนับว่าว่าง และการบันทึกตำแหน่งหยุดทันที */}
             <p className="finish-lead">
-              ยืนยันว่ารถกลับถึงคลังแล้วใช่หรือไม่?{' '}
               {returningJobs.length > 1
-                ? <>ทั้ง <b>{returningJobs.length} เที่ยว</b> ที่รออยู่ ({returningJobs.map(jobTripNo).join(', ')}) จะถูกปิดพร้อมกัน</>
-                : <>เที่ยว <b>{jobTripNo(finishing)}</b> จะถูกปิด</>}{' '}
-              รถกับคนขับจะถูกนับว่าว่าง และการบันทึกตำแหน่งจะหยุดทันที
-            </p>
-            {/* เลขไมล์อยู่ก่อนค่าทางด่วน — อ่านหน้าปัดคือสิ่งที่ต้องทำตอนยังอยู่ในรถ
+                ? <>ปิด <b>{returningJobs.length} เที่ยว</b>พร้อมกัน ({returningJobs.map(jobTripNo).join(', ')})</>
+                : <>ปิด <b>{jobTripNo(finishing)}</b></>}
+              {podGaps.length === 0 && ' · หลักฐานครบทุกร้าน ✓'}
+            </p>            {/* เลขไมล์อยู่ก่อนค่าทางด่วน — อ่านหน้าปัดคือสิ่งที่ต้องทำตอนยังอยู่ในรถ
                 ส่วนใบเสร็จทางด่วนหยิบจากกระเป๋าได้ทีหลัง */}
-            <Field label={`เลขไมล์ตอนกลับถึงคลัง ${finishing.vehicle_plate} (กม.)`} required>
+            <Field label={`เลขไมล์บนหน้าปัด ${finishing.vehicle_plate} (กม.)`} required>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -836,35 +956,34 @@ export default function CloudMyJobs(): React.JSX.Element {
             </Field>
             {/* เลขตอนออกรถของวันนี้มีค่ามากกว่าเลขของเมื่อวาน เพราะคนขับกำลังจะ
                 กรอกเลขที่ต้องมากกว่ามัน และผลต่างคือระยะของวันที่เขาเพิ่งวิ่งจบ */}
-            {finishSuspect && <OdoSuspect message={finishSuspect} />}
             {odometer.vehicle?.id === finishing.vehicle_id && odometer.status?.start_km != null && (
               <p className="odo-last">
-                ตอนออกรถ {odometer.status.start_km.toLocaleString('th-TH')} กม.
+                ครั้งก่อน {odometer.status.start_km.toLocaleString('th-TH')} กม.
                 {(parseKm(finishOdo) ?? 0) > odometer.status.start_km
                   && ` · วันนี้วิ่ง ${((parseKm(finishOdo) ?? 0) - odometer.status.start_km).toLocaleString('th-TH')} กม.`}
               </p>
             )}
-            <p className="finish-toll-q">วันนี้มีค่าทางด่วนไหม</p>
+            <p className="finish-toll-q">วันนี้ขึ้นทางด่วนไหม</p>
             <div className="finish-toll-pick">
-              <button
-                type="button"
-                className={`pod-kind${tollHas === true ? ' is-on' : ''}`}
-                aria-pressed={tollHas === true}
-                onClick={() => setTollHas(true)}
-              >
-                มี
-              </button>
               <button
                 type="button"
                 className={`pod-kind${tollHas === false ? ' is-on' : ''}`}
                 aria-pressed={tollHas === false}
                 onClick={() => { setTollHas(false); setTollAmount('') }}
               >
-                ไม่มี
+                ไม่ขึ้น
+              </button>
+              <button
+                type="button"
+                className={`pod-kind${tollHas === true ? ' is-on' : ''}`}
+                aria-pressed={tollHas === true}
+                onClick={() => setTollHas(true)}
+              >
+                ขึ้น
               </button>
             </div>
             {tollHas && (
-              <Field label="ค่าทางด่วนรวม (บาท)" required>
+              <Field label="ค่าทางด่วน (บาท)" required>
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -975,7 +1094,8 @@ export default function CloudMyJobs(): React.JSX.Element {
         <Modal
           open
           onClose={() => setCancelling(null)}
-          title={`ยกเลิกร้าน — ${cancelling.customer_name ?? cancelling.destination}`}
+          size="sheet"
+          title={`ส่งไม่ได้เพราะอะไร — ${cancelling.customer_name ?? cancelling.destination}`}
           footer={
             <div className="pod-actions">
               <Button variant="ghost" onClick={() => setCancelling(null)}>ไม่ยกเลิก</Button>
@@ -990,20 +1110,15 @@ export default function CloudMyJobs(): React.JSX.Element {
                   void doCancelStop(cancelling, reason)
                 }}
               >
-                ยืนยันยกเลิกร้านนี้
+                ยืนยันส่งไม่ได้
               </Button>
             </div>
           }
         >
           <div className="cancel-stop">
+            {/* ไม่ได้ลบข้อมูลทิ้ง — ออฟฟิศเห็นร้านและเหตุผล ถอนคืนได้จาก "รายละเอียดเที่ยว" */}
             <p className="cancel-stop-lead">
-              ร้านนี้มี <b>{cancelling.pending.length} ใบ</b> ที่ยังไม่ได้ส่ง
-              ทั้งหมดจะถูกทำเครื่องหมายว่ายกเลิก แล้วร้านนี้จะไม่นับเป็นงานค้างอีก
-              ทำให้ปิดเที่ยวได้เมื่อร้านที่เหลือส่งครบ
-            </p>
-            <p className="cancel-stop-note">
-              ไม่ได้ลบข้อมูลทิ้ง ออฟฟิศเห็นทั้งร้านและเหตุผล และเป็นคนตัดสินว่า
-              จะปล่อยใบกลับไปสั่งใหม่หรือไม่ · ถ้ากดผิด ถอนคืนได้จากการ์ดร้านนี้
+              {cancelling.pending.length} ใบที่ยังไม่ได้ส่ง · ออฟฟิศจะเห็นเหตุผลนี้ · ถ้ากดผิดถอนคืนได้ภายหลัง
             </p>
 
             <div className="cancel-stop-reasons" role="group" aria-label="เหตุผลที่ยกเลิก">
@@ -1069,14 +1184,15 @@ export default function CloudMyJobs(): React.JSX.Element {
       <Modal
         open={issueFor !== null}
         onClose={() => setIssueFor(null)}
+        size="sheet"
         title={issueFor ? `แจ้งปัญหา — ${jobTripNo(issueFor)}` : ''}
         footer={
-          <>
-            <Button variant="ghost" onClick={() => setIssueFor(null)}>ปิด</Button>
+          <div className="pod-actions">
+            <Button variant="ghost" onClick={() => setIssueFor(null)}>ยกเลิก</Button>
             <Button variant="accent" loading={sendingIssue} onClick={() => void submitIssue()}>
-              ส่งให้ฝ่ายวางแผน
+              ส่งแจ้ง
             </Button>
-          </>
+          </div>
         }
       >
         {/* บอกให้ชัดว่านี่ไม่ใช่การคืนงาน ไม่งั้นคนขับจะกดแล้วเข้าใจว่าไม่ต้องไปแล้ว */}
@@ -1091,6 +1207,15 @@ export default function CloudMyJobs(): React.JSX.Element {
             style={{ minHeight: 90 }}
           />
         </Field>
+        {/* ชิปช่วยพิมพ์ — แตะแล้วเติมคำขึ้นต้นให้ ยังพิมพ์รายละเอียดต่อเองได้ ฐานเก็บเป็นข้อความเดียว */}
+        <div className="issue-chips">
+          {['รถเสีย', 'รถติดหนัก', 'อุบัติเหตุ', 'ของไม่ครบ'].map((t) => (
+            <button key={t} type="button" className="hist-chip"
+              onClick={() => setIssueNote((v) => (v.trim() ? `${v.trim()} · ${t}` : `${t} `))}>
+              + {t}
+            </button>
+          ))}
+        </div>
       </Modal>
     </div>
   )
@@ -1101,8 +1226,9 @@ export default function CloudMyJobs(): React.JSX.Element {
 function OdoSuspect({ message }: { message: string }): React.JSX.Element {
   return (
     <div className="odo-suspect" role="alert">
+      <span className="odo-suspect-ic" aria-hidden><IconAlert size={28} /></span>
       <p>{message}</p>
-      <p>ถ้าตรวจหน้าปัดแล้วเลขถูกต้อง กดปุ่มยืนยันด้านล่าง ระบบจะบันทึกและแจ้งแอดมินให้ตรวจ</p>
+      <p className="odo-suspect-sub">ลองดูหน้าปัดอีกที ถ้าเลขถูกจริงกด "เลขถูกแล้ว" ระบบจะบันทึกและแจ้งแอดมินให้ตรวจ</p>
     </div>
   )
 }

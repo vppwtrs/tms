@@ -86,3 +86,39 @@ export function autoOpenJob(live: MyJob[], activeId: number | null): MyJob | nul
   if (activeId !== null) return null
   return live.find((j) => j.status === 'in_progress' && (j.my_accepted_at ?? j.accepted_at)) ?? null
 }
+
+/* ---------- ตัวกรองวันที่ของหน้าประวัติ ---------- */
+
+export type HistoryPreset = 'today' | '7d' | 'month' | 'all' | 'custom'
+
+export interface HistoryRange {
+  preset: HistoryPreset
+  /** yyyy-mm-dd ทั้งคู่ รวมปลายทั้งสองข้าง — null คือไม่จำกัดด้านนั้น */
+  from: string | null
+  to: string | null
+}
+
+/** ช่วงวันที่ของปุ่มลัด — "7 วัน" นับวันนี้เป็นวันที่ 7 ไม่ใช่ 8 วัน */
+export function presetRange(preset: Exclude<HistoryPreset, 'custom'>, now = new Date()): HistoryRange {
+  const today = todayIso(now)
+  if (preset === 'today') return { preset, from: today, to: today }
+  if (preset === '7d') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 6)
+    return { preset, from: todayIso(d), to: today }
+  }
+  if (preset === 'month') return { preset, from: `${today.slice(0, 8)}01`, to: today }
+  return { preset, from: null, to: null }
+}
+
+/** เที่ยวที่ปิดในช่วงวันที่ — เที่ยวที่ไม่มีวันปิดงานโผล่เฉพาะตอนดู "ทั้งหมด" */
+export function filterHistory(done: MyJob[], range: HistoryRange): MyJob[] {
+  if (!range.from && !range.to) return done
+  return done.filter((j) => {
+    const day = j.arrived_at?.slice(0, 10)
+    if (!day) return false
+    if (range.from && day < range.from) return false
+    if (range.to && day > range.to) return false
+    return true
+  })
+}

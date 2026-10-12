@@ -1,4 +1,4 @@
-/* ผิว Design C ของจอคนขับ — โหลดไฟล์ครั้งเดียวแล้วเปิดปิดด้วยคลาสที่ <html>
+/* ผิวจอคนขับ (Driver App Redesign) — โหลดไฟล์ครั้งเดียวแล้วเปิดปิดด้วยคลาสที่ <html>
  *
  * เดิมผิวนี้ติดเฉพาะตอนรันในแอป iOS หรือเปิดด้วย ?native=1 แต่แอป iOS ยังสร้าง
  * ไม่ได้ (ไม่มีเครื่อง Mac) แปลว่าดีไซน์นี้ยังไม่มีคนขับคนไหนได้ใช้จริงสักคน
@@ -13,10 +13,9 @@ let loading: Promise<void> | null = null
 /** โหลด CSS ของผิว — เรียกซ้ำได้ ครั้งที่สองได้ promise เดิม ไม่โหลดใหม่ */
 export function loadDriverSkin(): Promise<void> {
   loading ??= (async () => {
-    await import('./ios-app.css')
-    await import('./ios-motion.css')
-    /* Design C "Soft Operator" — ผิวเดียวของจอคนขับ */
-    await import('./ios-softop.css')
+    /* ผิวเดียวของจอคนขับ — ดีไซน์ Driver App Redesign (ต.ค. 2569)
+       แทนชุด Design C เดิม (ios-app / ios-motion / ios-softop) ซึ่งถูกถอดทิ้งแล้ว */
+    await import('./driver.css')
   })()
   return loading
 }

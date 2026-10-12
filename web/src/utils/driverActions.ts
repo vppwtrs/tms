@@ -84,12 +84,8 @@ export const odometerCacheUsable = (
  *
  * ถามสถานะไม่ได้ (`status` เป็น null) ก็ปล่อยผ่าน — เน็ตล่มต้องไม่แปลว่าทำงานไม่ได้
  */
-export const needsOdometer = (
-  action: DriverAction,
-  status: OdometerStatus | null,
-  justLogged = false,
-): boolean =>
-  (action === 'accept' || action === 'start') && !justLogged && status !== null && !status.logged_today
+/* เลขไมล์กรอกครั้งเดียวตอนกลับถึงคลัง (finish_return) — ไม่มีด่านตอนรับงานหรือออกรถแล้ว
+   ฝั่งฐานไม่ได้บังคับเลขตอนออกรถอยู่แล้ว: log_odometer เทียบเลขปิดกับเลขล่าสุดก่อนหน้า */
 
 /** เลขไมล์ที่คนกรอก — ตัดทุกอย่างที่ไม่ใช่ตัวเลขทิ้ง คืน null เมื่อใช้ไม่ได้ */
 export function parseKm(text: string): number | null {

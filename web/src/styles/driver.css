@@ -1,0 +1,769 @@
+/* ============================================================================
+ * จอคนขับ — ดีไซน์ "Driver App Redesign" (ต.ค. 2569)
+ * mockup: https://claude.ai/artifact/Q8Wkm6EW7whWEpCTVmURjD
+ *
+ * ไฟล์เดียวของผิวคนขับ — แทนชุดเดิม (ios-app / ios-motion / ios-softop) ทั้งหมด
+ * เปิดด้วยคลาส .is-native-app ที่ <html> (ดู styles/driverSkin.ts) จึงไม่รั่วไปหน้าออฟฟิศ
+ *
+ * หลักของดีไซน์:
+ * - หนึ่งจอจบ ไม่ต้องเลื่อน เมนูล่างตรึง ซูมไม่ได้ (ยกเว้นดูรูปเต็มจอ)
+ * - สีตามโลโก้ Vespa: น้ำเงิน #3B6AAF เป็นสีหลัก พื้นเทาอมฟ้า
+ *   เขียว = เสร็จแล้ว · ฟ้า = กำลังทำ · เหลือง = รอ/เวลา · แดง = ส่งไม่ได้
+ * - ปุ่มหลักสูง 56–60px มุมมน 16–18px การ์ดมน 20–24px ปุ่มทุกปุ่ม ≥ 44px
+ * ========================================================================== */
+
+/* ---------- tokens ---------- */
+.is-native-app {
+  --paper: #eef2f7;
+  --paper-deep: #dde4ee;
+  --surface: #ffffff;
+  --surface-2: #f7f9fc;
+  --line: #d3dbe7;
+  --line-soft: #edf1f6;
+  --ink: #111a2e;
+  --ink-2: #1b2540;
+  --muted: #56637a;
+  --faint: #5d6a80;
+
+  --fleet: #3b6aaf;
+  --fleet-deep: #2f5a97;
+  --fleet-tint: #e1eaf6;
+  --mint: #8fd3be;
+
+  --ok: #13795b;
+  --ok-fill: #22a06b;
+  --ok-bg: #ddf3ea;
+  --info: #0b5a8a;
+  --info-bg: #dcf0fb;
+  --warn: #7a5300;
+  --warn-bg: #fff1c2;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+  --neutral: #56637a;
+  --neutral-bg: #edf1f6;
+
+  --dv-shadow: 0 2px 12px rgba(17, 26, 46, 0.06);
+  --dv-shadow-up: 0 -2px 12px rgba(17, 26, 46, 0.06);
+  --dv-font: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
+  --dv-nav-h: 76px;
+
+  /* ให้คอมโพเนนต์กลาง (ปุ่ม ช่องกรอก ป้าย) หยิบสีชุดเดียวกัน */
+  --primary: var(--fleet);
+  --primary-hover: var(--fleet-deep);
+  --bg: var(--paper);
+  --text: var(--ink);
+  --text-muted: var(--muted);
+  --border: var(--line);
+  --font: var(--dv-font);
+  --font-display: var(--dv-font);
+}
+
+.is-native-app[data-theme='dark'] {
+  --paper: #0b1220;
+  --paper-deep: #172033;
+  --surface: #172033;
+  --surface-2: #1f2a40;
+  --line: #2a3650;
+  --line-soft: #1f2a40;
+  --ink: #eef2f8;
+  --ink-2: #dfe6f1;
+  --muted: #a9b5c9;
+  --faint: #94a1b8;
+  --fleet: #6f9be0;
+  --fleet-deep: #5a86cc;
+  --fleet-tint: #18284a;
+  --ok: #3ec58f;
+  --ok-fill: #2fae7b;
+  --ok-bg: #10301f;
+  --info: #5fb4e6;
+  --info-bg: #0f2a3d;
+  --warn: #e3b341;
+  --warn-bg: #33270f;
+  --danger: #ff6b60;
+  --danger-bg: #3a1c19;
+  --neutral: #a9b5c9;
+  --neutral-bg: #1f2a40;
+  --dv-shadow: none;
+  --dv-shadow-up: none;
+}
+
+.is-native-app body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--dv-font);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
+
+/* ---------- โครงหน้า ---------- */
+.is-native-app .dv-app {
+  min-height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: max(12px, env(safe-area-inset-top)) 16px calc(var(--dv-nav-h) + 24px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.is-native-app .dv-page { display: flex; flex-direction: column; gap: 12px; }
+
+.is-native-app .dv-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px 0; }
+.is-native-app .dv-title { margin: 0; font-size: 24px; font-weight: 700; color: var(--ink); letter-spacing: 0; }
+.is-native-app .dv-label { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); padding: 0 4px; }
+.is-native-app .dv-muted { margin: 0; font-size: 13px; color: var(--muted); }
+.is-native-app .dv-center { text-align: center; align-self: center; }
+.is-native-app .dv-empty { margin: 0; padding: 24px; text-align: center; color: var(--muted); }
+
+/* ---------- การ์ด ชิป ปุ่ม ---------- */
+.is-native-app .dv-card {
+  background: var(--surface);
+  border: 0;
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: var(--dv-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+
+.is-native-app .dv-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 600; line-height: 1.4;
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+}
+.is-native-app .dv-chip.is-info { background: var(--info-bg); color: var(--info); }
+.is-native-app .dv-chip.is-ok { background: var(--ok-bg); color: var(--ok); }
+.is-native-app .dv-chip.is-bad { background: var(--danger-bg); color: var(--danger); }
+.is-native-app .dv-chip.is-time { background: var(--warn-bg); color: var(--warn); font-weight: 700; }
+.is-native-app .dv-chip.is-here { background: var(--fleet); color: #fff; }
+
+.is-native-app .dv-pill {
+  min-height: 40px; padding: 0 14px; border-radius: 20px; border: 0;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600;
+  box-shadow: 0 1px 2px rgba(17, 26, 46, 0.08); cursor: pointer;
+}
+
+.is-native-app .dv-icon-btn {
+  width: 44px; height: 44px; border-radius: 22px; border: 0; flex: none;
+  background: var(--surface); color: var(--muted); box-shadow: 0 1px 2px rgba(17, 26, 46, 0.08);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.is-native-app .dv-icon-btn.is-warn { color: #b45309; }
+
+.is-native-app .dv-link {
+  border: 0; background: none; padding: 0; min-height: 40px;
+  color: var(--fleet); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.is-native-app .dv-danger-link {
+  align-self: center; min-height: 44px; border: 0; background: none;
+  color: var(--danger); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.is-native-app .dv-mini {
+  min-height: 36px; padding: 0 12px; border-radius: 18px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.is-native-app .dv-mini:disabled { opacity: 0.4; cursor: default; }
+.is-native-app .dv-mini.is-primary { background: var(--fleet); border-color: var(--fleet); color: #fff; }
+.is-native-app .dv-mini.is-armed { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+
+.is-native-app .dv-note {
+  margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5;
+}
+.is-native-app .dv-note.is-info { background: var(--info-bg); color: var(--info); }
+.is-native-app .dv-note.is-warn { background: var(--warn-bg); color: var(--warn); }
+.is-native-app .dv-note.is-bad { background: var(--danger-bg); color: var(--danger); }
+
+.is-native-app .dv-round {
+  width: 48px; height: 48px; border-radius: 24px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.is-native-app .dv-round.is-ok { background: var(--ok-bg); color: var(--ok); }
+
+.is-native-app .dv-seq {
+  width: 28px; height: 28px; border-radius: 14px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; background: var(--paper); color: var(--ink);
+}
+
+/* แถบคืบหน้าแบ่งช่อง */
+.is-native-app .dv-segs { display: flex; gap: 5px; width: 100%; }
+.is-native-app .dv-seg { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
+.is-native-app .dv-seg.is-done { background: var(--ok-fill); }
+.is-native-app .dv-seg.is-now { background: var(--fleet); }
+.is-native-app .dv-seg.is-cancelled { background: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+
+/* ปุ่มกลาง (Button) — ใหญ่ มน เต็มความกว้างในจอคนขับ */
+.is-native-app .btn {
+  font-family: var(--dv-font);
+  border-radius: 16px;
+  min-height: 48px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.is-native-app .btn-lg { min-height: 60px; border-radius: 18px; font-size: 18px; font-weight: 700; }
+.is-native-app .btn-primary,
+.is-native-app .btn-success,
+.is-native-app .btn-accent { background: var(--fleet); border-color: var(--fleet); color: #fff; }
+.is-native-app .btn-primary:hover,
+.is-native-app .btn-success:hover,
+.is-native-app .btn-accent:hover { background: var(--fleet-deep); border-color: var(--fleet-deep); }
+.is-native-app .btn-ghost { background: var(--paper); border-color: transparent; color: var(--ink); }
+.is-native-app .btn-outline { background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+.is-native-app .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.is-native-app .dv-cta { width: 100%; }
+.is-native-app[data-theme='dark'] .btn-primary,
+.is-native-app[data-theme='dark'] .btn-success,
+.is-native-app[data-theme='dark'] .btn-accent { background: var(--mint); border-color: var(--mint); color: #0b1220; }
+
+/* ช่องกรอก */
+.is-native-app .input,
+.is-native-app .textarea,
+.is-native-app .select {
+  font-family: var(--dv-font);
+  min-height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 16px; /* 16px = iOS ไม่ซูมเข้าเองตอนแตะช่อง */
+  padding: 0 16px;
+}
+.is-native-app .textarea { padding: 12px 16px; min-height: 96px; }
+.is-native-app .input:focus,
+.is-native-app .textarea:focus { border: 2px solid var(--fleet); outline: none; box-shadow: none; }
+.is-native-app .field label,
+.is-native-app .field > span:first-child { font-size: 14px; font-weight: 600; color: var(--ink); }
+
+/* ป้ายสถานะเที่ยว */
+.is-native-app .badge {
+  font-family: var(--dv-font); font-size: 12px; font-weight: 600;
+  padding: 4px 10px; border-radius: 999px; border: 0;
+  background: var(--info-bg); color: var(--info);
+}
+.is-native-app .badge-planned,
+.is-native-app .badge-pending,
+.is-native-app .badge-assigned { background: var(--warn-bg); color: var(--warn); }
+.is-native-app .badge-returning,
+.is-native-app .badge-completed,
+.is-native-app .badge-delivered { background: var(--ok-bg); color: var(--ok); }
+.is-native-app .badge-cancelled { background: var(--danger-bg); color: var(--danger); }
+
+.is-native-app .empty-state { background: var(--surface); border-radius: 24px; border: 0; padding: 32px 20px; }
+
+/* ---------- เมนูล่าง (ตรึง) ---------- */
+.is-native-app .dv-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  height: calc(var(--dv-nav-h) + env(safe-area-inset-bottom));
+  padding: 8px 12px calc(14px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: var(--surface);
+  border-top: 1px solid var(--line-soft);
+  box-shadow: var(--dv-shadow-up);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.is-native-app .dv-nav-btn {
+  position: relative; border: 0; background: none; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font: inherit; font-size: 12px; color: var(--muted);
+}
+.is-native-app .dv-nav-btn.is-active { color: var(--fleet); font-weight: 700; }
+.is-native-app .dv-nav-badge {
+  position: absolute; top: 0; left: calc(50% + 6px);
+  min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
+  background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ดึงลงเพื่อโหลดใหม่ */
+.is-native-app .pull-hint { color: var(--muted); font-size: 13px; text-align: center; overflow: hidden; }
+
+/* ---------- รายการเที่ยว ---------- */
+.is-native-app .dv-newjob-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.is-native-app .dv-newjob-head b { font-size: 20px; font-weight: 700; }
+.is-native-app .dv-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .dv-stats > div {
+  padding: 10px; border-radius: 14px; background: var(--paper);
+  display: flex; flex-direction: column; min-width: 0;
+}
+.is-native-app .dv-stats small { font-size: 12px; color: var(--muted); }
+.is-native-app .dv-stats b { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-native-app .dv-newjob-stops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.is-native-app .dv-newjob-stops li { display: flex; gap: 10px; align-items: center; }
+.is-native-app .dv-newjob-stops li > span { width: 20px; color: var(--muted); }
+.is-native-app .dv-newjob-stops .is-more { padding-left: 30px; }
+
+.is-native-app .dv-tripcard { cursor: pointer; gap: 8px; padding: 16px; border-radius: 20px; width: 100%; }
+.is-native-app .dv-tripcard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.is-native-app .dv-tripcard-head b { font-size: 17px; font-weight: 700; }
+.is-native-app .dv-tripcard.status-in_progress { box-shadow: inset 0 0 0 2px var(--fleet), var(--dv-shadow); }
+
+/* ---------- เที่ยวที่เปิดอยู่ ---------- */
+.is-native-app .dv-topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; }
+.is-native-app .dv-rec {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted);
+  background: none; padding: 0; border: 0;
+}
+.is-native-app .dv-rec::before { content: ''; width: 8px; height: 8px; border-radius: 4px; background: #16a34a; }
+.is-native-app .dv-rec.is-off::before { background: var(--danger); }
+
+.is-native-app .dv-trip { display: flex; flex-direction: column; gap: 12px; background: none; box-shadow: none; padding: 0; }
+.is-native-app .dv-trip-head { display: flex; flex-direction: column; gap: 8px; padding: 0 2px; }
+.is-native-app .dv-trip-row { display: flex; align-items: center; gap: 8px; }
+.is-native-app .dv-trip-no {
+  display: inline-flex; align-items: center; gap: 2px; margin-right: auto;
+  border: 0; background: none; padding: 0; min-height: 44px; cursor: pointer;
+  font: inherit; font-size: 22px; font-weight: 700; color: var(--ink);
+}
+.is-native-app .dv-trip-sub { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+.is-native-app .dv-trip-sub > span { display: inline-flex; align-items: center; gap: 4px; }
+.is-native-app .dv-trip-sub .job-meter-text { margin-left: auto; }
+.is-native-app .dv-trip-sub .job-meter-text b { color: var(--ink); }
+
+.is-native-app .dv-stops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* การ์ดร้านใบใหญ่ */
+.is-native-app .dv-stop.is-locked { box-shadow: inset 0 0 0 2px var(--fleet), var(--dv-shadow); }
+.is-native-app .dv-stop-top { display: flex; align-items: center; gap: 8px; }
+.is-native-app .dv-stop-top .dv-chip.is-time { margin-left: auto; }
+.is-native-app .dv-stop-top .dv-mini { margin-left: 4px; }
+.is-native-app .dv-stop-name { margin: 0; font-size: 26px; line-height: 1.25; font-weight: 700; color: var(--ink); }
+.is-native-app .dv-stop-addr { margin: -6px 0 0; font-size: 15px; color: var(--muted); }
+.is-native-app .dv-bills {
+  list-style: none; margin: 0; padding: 4px 14px; border-radius: 14px; background: var(--paper);
+  display: flex; flex-direction: column;
+}
+.is-native-app .dv-bills li {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.is-native-app .dv-bills li:last-child { border-bottom: 0; }
+.is-native-app .dv-bill-goods { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-native-app .dv-bill-no { font-size: 13px; color: var(--muted); }
+.is-native-app .dv-bills li.is-done .dv-bill-goods { color: var(--muted); }
+.is-native-app .dv-stop-acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.is-native-app .dv-btn-out {
+  height: 52px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 16px; font-weight: 600; color: var(--ink); text-decoration: none;
+}
+.is-native-app .dv-btn-out svg { color: var(--fleet); }
+.is-native-app .dv-btn-out.is-disabled { color: var(--faint); background: var(--surface-2); }
+.is-native-app .dv-btn-out.is-disabled svg { color: var(--faint); }
+
+/* แถวร้านที่ยุบ */
+.is-native-app .dv-row { list-style: none; }
+.is-native-app .dv-row-btn {
+  width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; border-radius: 16px; border: 0; background: var(--surface);
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+}
+.is-native-app .dv-row-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-native-app .dv-row-meta { font-size: 13px; color: var(--muted); }
+.is-native-app .dv-row.is-done .dv-seq { background: var(--ok-bg); color: var(--ok); }
+.is-native-app .dv-row.is-done .dv-row-name { color: var(--muted); font-weight: 500; }
+.is-native-app .dv-row.is-done .dv-row-meta { color: var(--ok); font-weight: 600; }
+.is-native-app .dv-row.is-cancelled .dv-seq { background: var(--danger-bg); color: var(--danger); }
+.is-native-app .dv-row.is-cancelled .dv-row-name { color: var(--muted); text-decoration: line-through; }
+
+.is-native-app .dv-crew { margin: 0; padding: 0 4px; font-size: 13px; color: var(--muted); }
+
+/* คำสั่งระดับเที่ยว — ตรึงเหนือเมนูล่าง อยู่ในระยะนิ้วโป้งเสมอ */
+.is-native-app .job-cta-bar {
+  position: sticky; bottom: calc(var(--dv-nav-h) + 8px + env(safe-area-inset-bottom)); z-index: 5;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 0 0; background: linear-gradient(to top, var(--paper) 70%, transparent);
+}
+.is-native-app .job-cta-bar .btn { width: 100%; }
+.is-native-app .job-cta-hint {
+  margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface);
+  font-size: 14px; color: var(--muted); text-align: center;
+}
+
+/* ขากลับคลัง */
+.is-native-app .dv-return-head { display: flex; align-items: center; gap: 12px; }
+.is-native-app .dv-return-head b { display: block; font-size: 17px; }
+.is-native-app .dv-return-head small { display: block; font-size: 13px; color: var(--muted); }
+.is-native-app .dv-return-row {
+  display: flex; justify-content: space-between; padding-top: 10px;
+  border-top: 1px solid var(--line-soft); font-size: 15px;
+}
+.is-native-app .dv-return-row b { color: var(--ok); }
+.is-native-app .dv-return .dv-link { align-self: flex-start; }
+
+/* รายละเอียดเที่ยว (แผ่นล่าง) */
+.is-native-app .dv-detail { display: flex; flex-direction: column; gap: 12px; }
+.is-native-app .dv-detail-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .dv-detail-stats > div { padding: 10px; border-radius: 14px; background: var(--paper); display: flex; flex-direction: column; }
+.is-native-app .dv-detail-stats small { font-size: 12px; color: var(--muted); }
+.is-native-app .dv-detail-stats b { font-size: 16px; }
+.is-native-app .dv-detail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.is-native-app .dv-detail-list li {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 0; border-bottom: 1px solid var(--line-soft);
+}
+.is-native-app .dv-detail-list li:last-child { border-bottom: 0; }
+.is-native-app .dv-detail-name { flex: 1; min-width: 140px; display: flex; flex-direction: column; }
+.is-native-app .dv-detail-name small { font-size: 12px; color: var(--muted); }
+.is-native-app .dv-detail-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.is-native-app .dv-detail-list li.is-done .dv-seq { background: var(--ok-fill); color: #fff; }
+.is-native-app .dv-detail-list li.is-cancelled .dv-seq { background: var(--danger-bg); color: var(--danger); }
+.is-native-app .dv-detail-list li.is-cancelled b { text-decoration: line-through; color: var(--muted); }
+
+/* ---------- แผ่นล่าง (Modal) ---------- */
+.is-native-app .modal-overlay { background: rgba(17, 26, 46, 0.45); backdrop-filter: none; }
+.is-native-app .modal-panel {
+  font-family: var(--dv-font); background: var(--surface); color: var(--ink);
+  border: 0; border-radius: 24px; box-shadow: 0 20px 50px rgba(17, 26, 46, 0.25);
+}
+.is-native-app .modal-panel.modal-sheet {
+  border-radius: 28px 28px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.is-native-app .modal-sheet::before {
+  content: ''; display: block; width: 40px; height: 5px; border-radius: 3px;
+  background: var(--line); margin: 10px auto 0;
+}
+.is-native-app .modal-header { border-bottom: 0; padding: 12px 20px 4px; }
+.is-native-app .modal-title { font-size: 20px; font-weight: 700; font-family: var(--dv-font); }
+.is-native-app .modal-body { padding: 8px 20px 12px; }
+.is-native-app .modal-footer { border-top: 0; padding: 8px 20px 20px; background: none; }
+.is-native-app .pod-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.is-native-app .pod-actions .btn { min-height: 56px; width: 100%; }
+
+/* ---------- ฟอร์มหลักฐาน (PodSheet) ---------- */
+.is-native-app .pod-steps { margin: 4px 0 10px; background: var(--paper-deep); }
+.is-native-app .pod-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.is-native-app .pod-meta > span {
+  font-size: 12px; color: var(--muted); background: var(--paper); padding: 4px 10px; border-radius: 999px;
+}
+.is-native-app .pod-swap { font: inherit; font-size: 13px; color: var(--fleet); background: none; border: 0; font-weight: 600; min-height: 32px; }
+.is-native-app .pod-guide {
+  border-radius: 16px; padding: 12px 14px; background: var(--warn-bg); color: var(--warn);
+  display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; border: 0;
+}
+.is-native-app .pod-guide b { font-size: 16px; }
+.is-native-app .pod-guide span { font-size: 13px; }
+.is-native-app .pod-guide.is-done { background: var(--ok-bg); color: var(--ok); }
+.is-native-app .pod-kinds { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 10px; scrollbar-width: none; }
+.is-native-app .pod-kind {
+  flex: none; min-height: 40px; padding: 0 14px; border-radius: 20px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.is-native-app .pod-kind[aria-pressed='true'],
+.is-native-app .pod-kind.is-on { background: var(--fleet); border-color: var(--fleet); color: #fff; font-weight: 700; }
+.is-native-app .pod-kind b {
+  min-width: 20px; height: 20px; border-radius: 10px; background: var(--ok-fill); color: #fff;
+  font-size: 12px; display: inline-flex; align-items: center; justify-content: center;
+}
+.is-native-app .cam-stage { border-radius: 20px; overflow: hidden; background: #0b1220; }
+.is-native-app .cam-shutter { background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35); }
+.is-native-app .pod-strip { display: flex; gap: 10px; overflow-x: auto; padding: 10px 2px; }
+.is-native-app .pod-strip-empty { margin: 0; font-size: 13px; color: var(--muted); }
+.is-native-app .pod-shot img { width: 76px; height: 76px; border-radius: 14px; border: 0; object-fit: cover; display: block; }
+.is-native-app .pod-shot-kind {
+  position: absolute; right: 4px; bottom: 4px; font-size: 10px; color: #fff;
+  background: rgba(17, 26, 46, 0.6); padding: 1px 6px; border-radius: 6px;
+}
+.is-native-app .pod-shot > button:not(.pod-shot-view) {
+  position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 13px;
+  border: 0; background: var(--danger); color: #fff; font-size: 12px; cursor: pointer;
+}
+.is-native-app .pod-relax,
+.is-native-app .pod-note-toggle,
+.is-native-app .pod-undo {
+  border: 0; background: none; font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; cursor: pointer;
+}
+.is-native-app .pod-relax,
+.is-native-app .pod-note-toggle { color: var(--fleet); }
+.is-native-app .pod-undo { color: var(--danger); display: block; margin: 8px auto 0; }
+.is-native-app .pod-relaxed { margin: 0; font-size: 13px; color: var(--warn); }
+.is-native-app .pod-section { margin-top: 8px; }
+.is-native-app .pod-veil {
+  position: absolute; inset: 0; z-index: 10; background: rgba(255, 255, 255, 0.92);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--ink);
+}
+.is-native-app[data-theme='dark'] .pod-veil { background: rgba(11, 18, 32, 0.92); }
+.is-native-app .sigpad-frame,
+.is-native-app .sigpad canvas {
+  border-radius: 20px; border: 2px dashed var(--line); background: var(--surface);
+}
+
+/* ---------- หน้าประวัติ ---------- */
+.is-native-app .hist-list { display: flex; flex-direction: column; gap: 10px; }
+.is-native-app .hist-filter { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.is-native-app .hist-filter::-webkit-scrollbar { display: none; }
+.is-native-app .hist-chip {
+  flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 0;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; white-space: nowrap; cursor: pointer;
+}
+.is-native-app .hist-chip[aria-pressed='true'] { background: var(--fleet); color: #fff; font-weight: 700; }
+.is-native-app[data-theme='dark'] .hist-chip[aria-pressed='true'] { background: var(--mint); color: #0b1220; }
+.is-native-app .hist-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .hist-sum > div { padding: 10px 12px; border-radius: 16px; background: var(--surface); display: flex; flex-direction: column; }
+.is-native-app .hist-sum b { font-size: 20px; font-weight: 700; }
+.is-native-app .hist-sum span { font-size: 12px; color: var(--muted); }
+.is-native-app .hist-group { display: flex; flex-direction: column; gap: 6px; }
+.is-native-app .hist-date { margin: 6px 0 0; padding-left: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.is-native-app .hist-rows { list-style: none; margin: 0; padding: 0; border-radius: 18px; background: var(--surface); overflow: hidden; }
+.is-native-app .hist-rows li + li { border-top: 1px solid var(--line-soft); }
+.is-native-app .hist-row {
+  width: 100%; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+  border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+}
+.is-native-app .hist-ic {
+  width: 32px; height: 32px; border-radius: 16px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center; background: var(--ok-bg); color: var(--ok);
+}
+.is-native-app .hist-ic.is-flag { background: var(--warn-bg); color: #b45309; }
+.is-native-app .hist-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.is-native-app .hist-no { font-weight: 600; }
+.is-native-app .hist-meta { font-size: 13px; color: var(--muted); }
+.is-native-app .hist-pill { flex: none; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.is-native-app .hist-pill.is-ok { background: var(--ok-bg); color: var(--ok); }
+.is-native-app .hist-pill.is-bad { background: var(--danger-bg); color: var(--danger); }
+.is-native-app .hist-pill.is-off { background: var(--neutral-bg); color: var(--neutral); }
+.is-native-app .hist-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.is-native-app .hist-detail-stops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.is-native-app .hist-detail-stop { padding: 12px 14px; border-radius: 14px; background: var(--paper); }
+
+/* ---------- หน้าฉัน ---------- */
+.is-native-app .driver-me { display: flex; flex-direction: column; gap: 12px; }
+.is-native-app .me-head { display: flex; align-items: center; gap: 14px; padding: 4px 4px 8px; }
+.is-native-app .me-avatar {
+  width: 56px; height: 56px; border-radius: 28px; flex: none; background: var(--fleet); color: #fff;
+  font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.is-native-app .me-who b { display: block; font-size: 20px; }
+.is-native-app .me-who small { display: block; font-size: 14px; color: var(--muted); }
+.is-native-app .me-list { background: var(--surface); border-radius: 20px; overflow: hidden; }
+.is-native-app .me-row {
+  width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 16px;
+  border: 0; border-bottom: 1px solid var(--line-soft); background: none; font: inherit; color: var(--ink); text-align: left;
+}
+.is-native-app .me-list > .me-row:last-child { border-bottom: 0; }
+.is-native-app button.me-row { cursor: pointer; }
+.is-native-app .me-row-ic { color: var(--muted); display: inline-flex; }
+.is-native-app .me-row-label { flex: 1; }
+.is-native-app .me-row-val { font-size: 13px; font-weight: 600; }
+.is-native-app .me-row-val.is-on { color: var(--ok); }
+.is-native-app .me-row-val.is-off { color: var(--danger); }
+.is-native-app .me-switch { width: 44px; height: 26px; border-radius: 13px; background: var(--line); position: relative; transition: background-color 0.2s; }
+.is-native-app .me-switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px;
+  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); transition: transform 0.2s;
+}
+.is-native-app .me-switch.is-on { background: var(--fleet); }
+.is-native-app .me-switch.is-on::after { transform: translateX(18px); }
+.is-native-app .me-logout {
+  width: 100%; height: 52px; border-radius: 16px; border: 0; background: var(--surface);
+  color: var(--danger); font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.is-native-app .me-foot { margin: 0 4px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+/* ---------- แผ่นย่อยต่าง ๆ ---------- */
+/* ไม่ให้สิทธิ์ GPS */
+.is-native-app .gps-denied { display: flex; flex-direction: column; gap: 14px; text-align: center; padding: 8px 4px; }
+.is-native-app .gps-denied-ic {
+  width: 80px; height: 80px; border-radius: 40px; align-self: center;
+  background: var(--warn-bg); color: var(--warn); display: flex; align-items: center; justify-content: center;
+}
+.is-native-app .gps-denied p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--muted); }
+.is-native-app .gps-denied ol {
+  margin: 0; padding: 16px 16px 16px 36px; text-align: left; border-radius: 18px;
+  background: var(--paper); font-size: 15px; line-height: 1.9;
+}
+
+/* ยังปิดงานไม่ได้ */
+.is-native-app .gap-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.is-native-app .gap-row {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px;
+  border: 1px solid #f3d48a; background: #fffbeb; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+}
+.is-native-app .gap-row > span:first-child { flex: 1; min-width: 0; }
+.is-native-app .gap-row b { display: block; }
+.is-native-app .gap-row small { display: block; font-size: 13px; color: var(--warn); }
+.is-native-app .gap-row-go { color: var(--fleet); font-weight: 600; font-size: 14px; }
+.is-native-app[data-theme='dark'] .gap-row { background: var(--warn-bg); border-color: transparent; }
+
+/* เลขไมล์ผิดปกติ */
+.is-native-app .odo-suspect { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 4px; }
+.is-native-app .odo-suspect-ic {
+  width: 56px; height: 56px; border-radius: 28px; background: var(--warn-bg); color: var(--warn);
+  display: flex; align-items: center; justify-content: center;
+}
+.is-native-app .odo-suspect p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ink); }
+.is-native-app .odo-suspect .odo-suspect-sub { color: var(--muted); font-size: 14px; }
+
+/* ถึงคลัง ปิดงาน */
+.is-native-app .finish-box { display: flex; flex-direction: column; gap: 14px; }
+.is-native-app .finish-lead { margin: 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
+.is-native-app .finish-box .input { font-size: 24px; font-weight: 700; min-height: 60px; }
+.is-native-app .odo-last { margin: -6px 0 0; font-size: 13px; color: var(--muted); }
+.is-native-app .finish-toll-q { margin: 0; font-size: 14px; font-weight: 600; }
+.is-native-app .finish-toll-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .finish-toll-pick .pod-kind { justify-content: center; min-height: 52px; border-radius: 14px; font-size: 16px; }
+.is-native-app .finish-toll-note { margin: 0; font-size: 13px; color: var(--muted); }
+.is-native-app .pod-check-list { list-style: none; margin: 0; padding: 0; }
+.is-native-app .pod-check-row { display: flex; gap: 8px; padding: 8px 0; font-size: 14px; border-bottom: 1px solid var(--line-soft); }
+.is-native-app .pod-check-toggle { border: 0; background: none; font: inherit; color: var(--fleet); font-weight: 600; min-height: 40px; cursor: pointer; }
+
+/* ส่งไม่ได้ (ยกเลิกร้าน) */
+.is-native-app .cancel-stop { display: flex; flex-direction: column; gap: 10px; }
+.is-native-app .cancel-stop-lead { margin: 0; font-size: 14px; color: var(--muted); }
+.is-native-app .cancel-stop-reasons { display: flex; flex-direction: column; gap: 8px; }
+.is-native-app .cancel-stop-reasons .pod-kind {
+  width: 100%; justify-content: flex-start; min-height: 48px; border-radius: 14px; font-size: 15px;
+}
+.is-native-app .cancel-stop-reasons .pod-kind[aria-pressed='true'],
+.is-native-app .cancel-stop-reasons .pod-kind.is-on { background: var(--danger-bg); border: 2px solid var(--danger); color: var(--danger); }
+.is-native-app .cancel-stop-note { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* แจ้งปัญหา */
+.is-native-app .issue-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.is-native-app .issue-chips .hist-chip { border: 1px solid var(--line); }
+
+/* ---------- เคารพคนที่ปิดภาพเคลื่อนไหว ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .is-native-app .me-switch,
+  .is-native-app .me-switch::after { transition: none; }
+}
+
+/* ---------- ล้างของจากสไตล์กลางที่ไม่ใช่ของดีไซน์นี้ ---------- */
+.is-native-app .dv-trip,
+.is-native-app .dv-trip[class*='status-'] { border: 0; border-left: 0; background: none; box-shadow: none; padding: 0; margin: 0; }
+.is-native-app .dv-trip-no { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.is-native-app .dv-trip-row .badge { flex: none; }
+.is-native-app .dv-stops > .stop-item { border: 0; margin: 0; padding: 0; background: none; }
+.is-native-app .dv-stops > .dv-card.stop-item { padding: 20px; background: var(--surface); }
+
+/* ---------- ฟอร์มหลักฐาน: เซ็นรับ + รูป 3 มุม (mockup จอ 3 / 3b) ---------- */
+.is-native-app .pod-foot { width: 100%; }
+.is-native-app .pod-foot .btn { width: 100%; }
+.is-native-app .pod-sub { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.is-native-app .pod-sign-area { position: relative; }
+.is-native-app .pod-sign-hint {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: var(--muted);
+}
+.is-native-app .pod-sign-area .sigpad canvas,
+.is-native-app .pod-sign-area .sigpad-frame { border: 2px dashed var(--line); border-radius: 20px; background: var(--surface); }
+.is-native-app .pod-alt { display: block; margin: 8px auto 0; text-decoration: underline; color: var(--muted); font-weight: 500; }
+
+.is-native-app .pod-card {
+  background: var(--surface); border-radius: 20px; padding: 16px; margin-bottom: 10px;
+  display: flex; flex-direction: column; gap: 12px; box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.is-native-app .pod-card-head { display: flex; align-items: center; justify-content: space-between; }
+.is-native-app .pod-card-head b { font-size: 16px; }
+.is-native-app .pod-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .pod-slot { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.is-native-app button.pod-slot { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; text-align: left; }
+.is-native-app .pod-slot-img,
+.is-native-app .pod-slot-box {
+  width: 100%; aspect-ratio: 1; border-radius: 14px; overflow: hidden; position: relative; display: block;
+}
+.is-native-app .pod-slot-img { border: 0; padding: 0; cursor: zoom-in; background: var(--paper); }
+.is-native-app .pod-slot-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.is-native-app .pod-slot-ok {
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 11px;
+  background: var(--ok-fill); color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center;
+}
+.is-native-app .pod-slot-del {
+  position: absolute; top: -6px; left: -6px; width: 26px; height: 26px; border-radius: 13px;
+  border: 0; background: var(--danger); color: #fff; font-size: 12px; cursor: pointer;
+}
+.is-native-app .pod-slot-box {
+  border: 2px dashed #e3b341; background: #fffbeb; color: var(--warn);
+  display: flex; align-items: center; justify-content: center;
+}
+.is-native-app .pod-slot.is-empty[aria-pressed='true'] .pod-slot-box { border-style: solid; border-color: var(--fleet); background: var(--fleet-tint); color: var(--fleet); }
+.is-native-app[data-theme='dark'] .pod-slot-box { background: var(--warn-bg); }
+.is-native-app .pod-slot-label { font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-native-app .pod-slot.is-empty .pod-slot-label { color: var(--warn); font-weight: 600; }
+.is-native-app .pod-more {
+  min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--fleet); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.is-native-app .pod-more[aria-pressed='true'] { border-color: var(--fleet); background: var(--fleet-tint); }
+.is-native-app .pod-aim { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.is-native-app .pod-aim b { color: var(--ink); }
+
+/* ---------- ปฏิทินเลือกช่วงวัน (mockup จอ 14b) ---------- */
+.is-native-app .dv-range-pill::before { content: '▦ '; color: var(--fleet); }
+.is-native-app .dv-cal-top { display: flex; justify-content: flex-end; margin-top: -8px; }
+.is-native-app .dv-cal { display: flex; flex-direction: column; gap: 12px; }
+.is-native-app .dv-cal-ends { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .dv-cal-ends > div {
+  padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); display: flex; flex-direction: column;
+}
+.is-native-app .dv-cal-ends > div.is-active { border: 2px solid var(--fleet); }
+.is-native-app .dv-cal-ends small { font-size: 12px; color: var(--muted); }
+.is-native-app .dv-cal-ends b { font-size: 16px; }
+.is-native-app .dv-cal-nav { display: flex; align-items: center; justify-content: space-between; }
+.is-native-app .dv-cal-nav .dv-icon-btn { box-shadow: none; background: none; font-size: 22px; color: var(--ink); }
+.is-native-app .dv-cal-nav .dv-icon-btn:disabled { opacity: 0.3; }
+.is-native-app .dv-cal-nav b { font-size: 16px; }
+.is-native-app .dv-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px; text-align: center; }
+.is-native-app .dv-cal-dow { font-size: 12px; color: var(--muted); padding-bottom: 4px; }
+.is-native-app .dv-cal-day {
+  height: 44px; border: 0; background: none; font: inherit; font-size: 15px; color: var(--ink); cursor: pointer;
+}
+.is-native-app .dv-cal-day:disabled { color: var(--line); cursor: default; }
+.is-native-app .dv-cal-day.is-today { font-weight: 700; text-decoration: underline; }
+.is-native-app .dv-cal-day.is-in { background: var(--fleet-tint); }
+.is-native-app .dv-cal-day.is-edge { background: var(--fleet); color: #fff; font-weight: 700; }
+.is-native-app .dv-cal-day.is-from { border-radius: 22px 0 0 22px; }
+.is-native-app .dv-cal-day.is-to { border-radius: 0 22px 22px 0; }
+.is-native-app .dv-cal-day.is-from.is-to { border-radius: 22px; }
+
+/* แผ่นล่างสูงเท่าเนื้อหา ชิดขอบล่าง (mockup) — ยกเว้นฟอร์มหลักฐาน ซึ่งเป็นจอเต็ม (ช่องเซ็น/กล้อง)
+   หน้าต่างธรรมดา (เช่น เลขไมล์ผิดปกติ) ลอยกลางจอ */
+.is-native-app .modal-overlay { padding: 16px; align-items: center; }
+.is-native-app .modal-overlay:has(.modal-sheet) { padding: 0; align-items: flex-end; }
+.is-native-app .modal-panel.modal-sheet {
+  width: 100%; max-width: 560px; height: auto; max-height: 94dvh;
+  border-radius: 28px 28px 0 0;
+}
+.is-native-app .modal-panel.modal-sheet.is-pod-sign,
+.is-native-app .modal-panel.modal-sheet.is-pod-photo { height: 100dvh; max-height: 100dvh; border-radius: 0; }
+.is-native-app .modal-panel:not(.modal-sheet) { width: 100%; max-width: 400px; margin: auto; }
+.is-native-app .modal-sheet .modal-footer { padding: 8px 20px calc(20px + env(safe-area-inset-bottom)); }
+.is-native-app .cancel-stop-reasons .pod-kind::before {
+  content: ''; width: 20px; height: 20px; border-radius: 10px; flex: none;
+  border: 2px solid var(--line); box-sizing: border-box; margin-right: 6px;
+}
+.is-native-app .cancel-stop-reasons .pod-kind[aria-pressed='true']::before { border: 6px solid var(--danger); }
+.is-native-app .modal-sheet .modal-footer > .btn { width: 100%; min-height: 52px; }
+
+/* ปุ่มย้อนกลับไปรายการเที่ยว — มุมซ้ายบน ชัดว่าเป็นทางถอย */
+.is-native-app .dv-back {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 14px 0 8px;
+  border: 0; border-radius: 22px; background: var(--surface); color: var(--fleet);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(17, 26, 46, 0.08);
+}
+.is-native-app .dv-back span { font-size: 24px; line-height: 1; margin-top: -2px; }
+.is-native-app .dv-topbar .dv-rec { margin-left: auto; }
+
+/* งานใหม่แบบหุบ — แตะหัวการ์ดเพื่อกางรายละเอียด */
+.is-native-app .dv-newjob { gap: 12px; padding: 16px; }
+.is-native-app .dv-newjob-head {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px;
+  border: 0; background: none; padding: 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+}
+.is-native-app .dv-newjob-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.is-native-app .dv-newjob-title b { font-size: 18px; font-weight: 700; }
+.is-native-app .dv-newjob-title small { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.is-native-app .dv-caret { font-size: 18px; color: var(--muted); transition: transform 0.2s; }
+.is-native-app .dv-newjob.is-open .dv-caret { transform: rotate(180deg); }
+.is-native-app .dv-newjob-body { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; border-top: 1px solid var(--line-soft); }
+.is-native-app .dv-newjob-body .dv-link { align-self: flex-start; }
+.is-native-app .dv-newjob .btn-lg { min-height: 52px; font-size: 17px; }

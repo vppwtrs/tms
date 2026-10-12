@@ -85,16 +85,8 @@ export function useOdometer({ duty, live, onResume, onError, onSaved }: {
       setStatus(st)
       setVehicle(v)
       setDay(today())
-      /* เด้งเฉพาะคนที่ "เริ่มงานไปแล้ว" — รับงานไว้หรือรถกำลังวิ่ง คนกลุ่มนี้อยู่ที่รถแน่นอน
-         ส่วนคนที่ยังไม่รับงานเจอด่านตอนกดรับงานอยู่แล้ว
-         ครั้งเดียวต่อวัน ไม่ใช่ต่อการรีเฟรชหนึ่งครั้ง ไม่งั้นกล่องเด้งทับสิ่งที่กำลังกดอยู่ */
-      const started = liveRef.current.some((j) => j.vehicle_id === v.id
-        && (j.my_accepted_at ?? j.accepted_at) && j.status !== 'completed')
-      if (pop && !st.logged_today && started && asked.current !== today()) {
-        asked.current = today()
-        setValue('')
-        setOpen(true)
-      }
+      /* ไม่เด้งถามเลขไมล์ตอนออกรถแล้ว — กรอกครั้งเดียวตอนกลับถึงคลัง */
+      void pop
     } catch {
       /* อ่านสถานะไม่ได้ไม่ใช่เรื่องที่ต้องขึ้น error ทั้งจอ — งานส่งของยังทำต่อได้
          แต่ต้องล้างของเก่าทิ้ง ค่าที่ค้างอยู่คือคำตอบของวันอื่น */

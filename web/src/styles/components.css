@@ -3220,24 +3220,50 @@
 
 /* ตัวบอกว่าอยู่ขั้นไหนใน 2 ขั้น — ฟอร์มที่เด้งเป็นหน้าที่สองโดยไม่บอกว่ามีสองหน้า
    ทำให้คนคิดว่าเพิ่งบันทึกพลาดแล้วโดนเด้งกลับ */
+/* แถบสลับขั้น เซ็นรับ | รูป — แตะสลับได้ตลอด (segmented control) */
 .pod-steps {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
   margin-bottom: var(--space-3);
-  font-size: var(--font-xs);
-  font-weight: 650;
+  border-radius: 14px;
+  background: var(--paper-deep, var(--surface-2));
 }
-.pod-steps span {
-  flex: 1;
-  text-align: center;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  color: var(--faint);
+.pod-steps button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
 }
-.pod-steps span.is-now { background: var(--info-bg); border-color: var(--info); color: var(--info); }
-.pod-steps span.is-done { background: var(--ok-bg, var(--surface-2)); border-color: var(--ok); color: var(--ok); }
+.pod-steps button.is-now { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: 0 1px 3px rgba(17, 26, 46, 0.12); }
+.pod-steps button.is-done { color: var(--ok); }
+.pod-steps button:disabled { cursor: default; }
+.pod-steps button.is-now:disabled { opacity: 1; }
+
+/* ดูรูปเต็มจอ — ที่เดียวบนจอคนขับที่ซูมได้ */
+.pod-shot-view { padding: 0; border: 0; background: none; cursor: zoom-in; display: block; }
+.pod-shot .pod-shot-view { position: static; width: auto; height: auto; border-radius: 0; }
+.photo-viewer {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #0b1220;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.photo-viewer-close {
+  position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px;
+  width: 48px; height: 48px; border-radius: 24px; border: 0;
+  background: rgba(255, 255, 255, 0.14); color: #fff; font-size: 20px; cursor: pointer;
+}
+.photo-viewer-hint {
+  position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 0; right: 0;
+  margin: 0; text-align: center; font-size: 13px; color: #b9c4d6;
+}
 
 /* ทับทั้งแผ่นระหว่างบันทึก — กันกดซ้ำ ซึ่งบนหน้ารูปแปลว่าอัปทั้งกองใหม่อีกรอบ
    และตอบคำถามเดียวที่คนถามตอนนั้น: มันค้างหรือมันกำลังทำงาน */

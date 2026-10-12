@@ -111,7 +111,7 @@ export function RequirePermission({ permission, children }: { permission: string
 }
 
 export default function AppCloud(): React.JSX.Element {
-  /* จอคนขับได้ผิว Design C ทุกครั้งที่เข้าไป ไม่ต้องมี ?native=1 อีกแล้ว
+  /* จอคนขับได้ผิวคนขับทุกครั้งที่เข้าไป ไม่ต้องมี ?native=1 อีกแล้ว
      หน้าอื่นถอดผิวออกตอนออกจากจอ */
   useDriverSkin()
   return (
@@ -132,6 +132,7 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/tms-import" element={<Navigate to="/tms-trips" replace />} />
           <Route path="/tms-trips" element={<RequirePermission permission="dispatch.view"><CloudTmsTrips /></RequirePermission>} />
           <Route path="/orders" element={<RequirePermission permission="orders.view"><CloudOrders /></RequirePermission>} />
+
           <Route path="/labels" element={<RequirePermission permission="orders.view"><CloudLabels /></RequirePermission>} />
           <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
           {/* คนขับก็เข้าได้ ด้วย myjobs.view — เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}

@@ -17,18 +17,14 @@ function mapsUrl(stop: StopGroup): string {
 }
 
 /**
- * จุดส่งหนึ่งจุด = หนึ่งร้าน — ย่อเป็นแถว กางเมื่อถูกเลือก
+ * จุดส่งหนึ่งจุด = หนึ่งร้าน (mockup "งานตอนนี้")
  *
- * ทุกจุดอยู่บนจอพร้อมกันเสมอ เพราะลำดับจริงไม่ได้เดินตามเอกสาร คนขับแวะร้าน 2
- * ก่อนร้าน 1 ได้ตลอด ถ้าต้องเปิดแผ่นซ้อนก่อนถึงจะสลับจุดได้ ก็คือเพิ่มการกด
- * ให้กับสิ่งที่เกิดขึ้นทุกวัน แอปส่งของที่ใช้งานจริงจึงวางเป็นรายการเสมอ
+ * open = การ์ดใหญ่: ป้ายสถานะ + เวลานัด ชื่อร้านตัวใหญ่ ที่อยู่ ของที่ส่ง ปุ่มโทร/นำทาง
+ * แล้วปุ่มหลักของร้านปุ่มเดียว — "ถึงร้านแล้ว" (เข้าร้าน) → "ส่งของ" (ปิดจุด ตอนอยู่ในร้านเท่านั้น)
+ * → "เก็บหลักฐาน" (ส่งแล้วแต่ยังไม่มีหลักฐาน)
+ * ไม่ open = แถวบาง แตะแล้วร้านนั้นกลายเป็นการ์ดใหญ่แทน
  *
- * ใบเบิกหลายใบของร้านเดียวถูกยุบมาอยู่ในจุดเดียว และปิดพร้อมกันด้วยการกดครั้งเดียว
- * ที่หน้าร้านคนขับส่งของทั้งกองในรอบเดียว การให้กดปิดทีละใบคือให้เขานับเอกสาร
- * แทนที่จะบอกว่า "ร้านนี้เสร็จแล้ว"
- *
- * ปุ่มของจุดอยู่ในจุดนั้น ไม่ยกไปไว้ล่างจอ — ล่างจอสงวนไว้ให้คำสั่งระดับเที่ยว
- * จะได้ไม่มีวันกดปิดจุดผิดจุด
+ * ใบหลายใบของร้านเดียวปิดพร้อมกันด้วยการกดครั้งเดียว — ที่หน้าร้านคนขับส่งของทั้งกองในรอบเดียว
  */
 export function StopItem({
   stop,
@@ -39,21 +35,17 @@ export function StopItem({
   canPod,
   locked = false,
   switchArmed = false,
+  isNext = false,
   onExitLock,
   onOpen,
   onEnter,
   onPod,
   onViewPod,
   onDeliver,
-  onUndoDeliver,
   onCancelStop,
-  onUndoCancelStop,
-  onMove,
-  canMoveUp,
-  canMoveDown,
 }: {
   stop: StopGroup
-  /** ลำดับที่แสดง (เริ่มที่ 1) */
+  /** ลำดับจริงในเที่ยว (เริ่มที่ 1) */
   index: number
   open: boolean
   busy: boolean
@@ -61,231 +53,112 @@ export function StopItem({
   canPod: boolean
   /** จุดนี้คือจุดที่คนขับ "เข้าไป" อยู่ — ปุ่มปิดจุดขึ้นเฉพาะตอนนี้เท่านั้น */
   locked?: boolean
-  /** กดออกครั้งแรกแล้วรออีกครั้ง — ปุ่มออกเปลี่ยนเป็นสีเตือนระหว่างรอ */
+  /** กดออกครั้งแรกแล้วรออีกครั้ง */
   switchArmed?: boolean
+  /** ร้านถัดไปที่ต้องไป — ป้าย "จุดต่อไป" */
+  isNext?: boolean
   /** ออกจากร้านที่ล็อกอยู่ (กดสองครั้ง) — ไม่ส่งมา = ปุ่มออกไม่ขึ้น */
   onExitLock?: () => void
   onOpen: () => void
-  /* เข้าร้านนี้ (ล็อกจอไว้ที่ร้านเดียว) — ไม่ส่งมา = เข้าไม่ได้ตอนนี้
-     (ยังไม่ออกจากคลัง อยู่ในร้านอื่นอยู่ หรือเป็นจอที่ดูอย่างเดียว) */
+  /** เข้าร้านนี้ (ล็อกจอไว้ที่ร้านเดียว) — ไม่ส่งมา = เข้าไม่ได้ตอนนี้ */
   onEnter?: () => void
   onPod: (stop: StopGroup) => void
-  /* เปิดดูหลักฐานที่เก็บไปแล้ว — คนขับต้องตรวจได้ว่าที่ส่งไปคือของจริง
-     ไม่ส่งมา = หน้าจอที่ยังไม่มีตัวอ่าน (ฝั่ง LAN) ปุ่มจะไม่ขึ้น */
   onViewPod?: (order: MyJobOrder) => void
   onDeliver: (stop: StopGroup) => void
-  /* ถอนการปิดส่งที่กดผิด — ไม่ส่งมา = ปุ่มไม่ขึ้น (จอฝั่ง LAN ที่ยังไม่มีตัวเรียก) */
-  onUndoDeliver?: (stop: StopGroup) => void
-  /* ร้านยกเลิกจากต้นทาง — คนขับส่งไม่ได้แต่ต้องปิดเที่ยวต่อได้
-     ไม่ส่งมา = ปุ่มไม่ขึ้น (จอที่ดูอย่างเดียว) */
+  /** ร้านยกเลิกจากต้นทาง — ไม่ส่งมา = ปุ่มไม่ขึ้น (จอที่ดูอย่างเดียว) */
   onCancelStop?: (stop: StopGroup) => void
-  onUndoCancelStop?: (stop: StopGroup) => void
-  /* ลำดับการแวะเป็นของคนขับ ปุ่มขึ้น/ลงแทนการลาก — ลากในรถที่สั่นแล้วพลาดง่าย */
-  onMove?: (stop: StopGroup, dir: -1 | 1) => void
-  canMoveUp?: boolean
-  canMoveDown?: boolean
 }): React.JSX.Element {
   const state = stop.done ? 'is-done' : stop.cancelled ? 'is-cancelled' : 'is-todo'
   const bills = stop.orders.length
+  const name = stop.customer_name ?? stop.destination
 
-  return (
-    <li className={`stop-item ${state}${open ? ' is-open' : ''}${locked ? ' is-locked' : ''}`}>
-      {/* อยู่ในร้านนี้แล้ว หัวการ์ดยุบไม่ได้ (ปุ่มเปิด/ปิดจึงไม่มีความหมาย) และร้านอื่น
-          ถูกซ่อนไปหมดจากจอ — แถบ "กำลังส่งที่ + เปลี่ยนร้าน" ที่เคยลอยแยกอยู่เหนือ
-          การ์ด ย้ายเข้ามาเป็นหัวการ์ดเองแทน จะได้ไม่ใช่กล่องซ้อนกล่อง
-          ปุ่มเปลี่ยนร้านเป็นปุ่มจริง เอาไปไว้ในปุ่ม head เดิมไม่ได้ (ปุ่มซ้อนปุ่มผิดกติกา
-          HTML) หัวการ์ดโหมดล็อกจึงเป็น div ธรรมดา ไม่ใช่ button */}
-      {locked ? (
-        <div className="stop-item-head" aria-label={`จุดที่ ${index} ${stop.destination}`}>
-          <span className="stop-item-seq" aria-hidden="true">
-            {stop.done ? <IconCheck size={15} /> : index}
-          </span>
-          <span className="stop-item-text">
-            <span className="stop-item-dest">กำลังส่งที่ {stop.customer_name ?? stop.destination}</span>
-            <span className="stop-item-sub">
-              {fmtTime(stop.scheduled_at)}
-              {bills > 1 ? ` · ${bills} ใบ` : ''}
-              {stop.unit_count ? ` · ${stop.unit_count} หน่วย` : ''}
-            </span>
-          </span>
-          {onExitLock && (
-            <Button
-              variant="outline"
-              size="sm"
-              className={`stop-lock-exit${switchArmed ? ' is-armed' : ''}`}
-              onClick={onExitLock}
-            >
-              {switchArmed ? 'แตะอีกครั้งเพื่อออก' : 'เปลี่ยนร้าน'}
-            </Button>
-          )}
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="stop-item-head"
-          onClick={onOpen}
-          aria-expanded={open}
-          aria-label={`จุดที่ ${index} ${stop.destination}`}
-        >
-          <span className="stop-item-seq" aria-hidden="true">
-            {stop.done ? <IconCheck size={15} /> : index}
-          </span>
-          <span className="stop-item-text">
-            <span className="stop-item-dest">{stop.customer_name ?? stop.destination}</span>
-            <span className="stop-item-sub">
-              {fmtTime(stop.scheduled_at)}
-              {/* บอกจำนวนใบตั้งแต่ตอนย่อ — คนขับต้องรู้ว่าร้านนี้ต้องยกของกี่กอง */}
-              {bills > 1 ? ` · ${bills} ใบ` : ''}
-              {stop.unit_count ? ` · ${stop.unit_count} หน่วย` : ''}
-              {stop.done && (stop.needPod.length === 0 ? ' · เก็บหลักฐานแล้ว' : ' · ยังไม่เก็บหลักฐาน')}
-            </span>
+  if (!open) {
+    return (
+      <li className={`stop-item dv-row ${state}`}>
+        <button type="button" className="dv-row-btn" onClick={onOpen} aria-label={`จุดที่ ${index} ${stop.destination}`}>
+          <span className="dv-seq" aria-hidden="true">{stop.done ? <IconCheck size={15} /> : stop.cancelled ? '×' : index}</span>
+          <span className="dv-row-name">{name}</span>
+          <span className="dv-row-meta">
+            {stop.done ? (stop.needPod.length === 0 ? 'ส่งแล้ว' : 'ยังไม่เก็บหลักฐาน')
+              : stop.cancelled ? 'ยกเลิก' : fmtTime(stop.scheduled_at)}
           </span>
         </button>
+      </li>
+    )
+  }
+
+  const tag = locked ? 'อยู่ที่ร้านนี้'
+    : stop.done ? 'ส่งแล้ว'
+    : stop.cancelled ? 'ยกเลิก'
+    : isNext ? `จุดต่อไป · ร้านที่ ${index}` : `ร้านที่ ${index}`
+
+  return (
+    <li className={`stop-item dv-card dv-stop ${state}${locked ? ' is-locked' : ''}`}>
+      <div className="dv-stop-top">
+        <span className={`dv-chip ${locked ? 'is-here' : stop.done ? 'is-ok' : stop.cancelled ? 'is-bad' : 'is-info'}`}>{tag}</span>
+        {stop.scheduled_at && <span className="dv-chip is-time">{fmtTime(stop.scheduled_at)}</span>}
+        {locked && onExitLock && (
+          <button type="button" className={`dv-mini${switchArmed ? ' is-armed' : ''}`} onClick={onExitLock}>
+            {switchArmed ? 'แตะอีกครั้งเพื่อออก' : 'เปลี่ยนร้าน'}
+          </button>
+        )}
+      </div>
+
+      <h2 className="dv-stop-name">{name}</h2>
+      {stop.customer_address && <p className="dv-stop-addr">{stop.customer_address}</p>}
+
+      {/* ใบของร้านนี้ — เลขที่ใบต้องอ่านให้ทางโทรศัพท์ได้ทันที */}
+      <ul className="dv-bills" aria-label={`ใบเบิกของ ${name}`}>
+        {stop.orders.map((o) => (
+          <li key={o.id} className={`stop-bill${o.status === 'delivered' ? ' is-done' : ''}`}>
+            <span className="dv-bill-goods">{o.goods_desc || '—'}</span>
+            <span className="dv-bill-no">{o.tms_picking_list_no ?? o.order_no}</span>
+            {o.has_pod > 0 && onViewPod && (
+              <button type="button" className="dv-link" onClick={() => onViewPod(o)}>ดูหลักฐาน</button>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {/* หมายเหตุที่คนพิมพ์เอง — หมายเหตุที่ระบบเขียนตอนนำเข้าไม่ต้องขึ้น */}
+      {stop.orders.map((o) => (o.notes && !o.notes.startsWith('นำเข้าจาก TMS') ? (
+        <p className="dv-note is-info" key={o.id}>หมายเหตุ: {o.notes}</p>
+      ) : null))}
+
+      {stop.cancelled && (
+        <p className="dv-note is-bad" role="status">
+          ยกเลิกแล้ว — {stop.orders.find((o) => o.cancel_reason)?.cancel_reason ?? 'ไม่ได้บันทึกเหตุผล'}
+        </p>
       )}
 
-      {open && (
-        <div className="stop-item-body">
-          {/* สองปุ่มที่ใช้บ่อยที่สุดตอนถึงหน้าร้าน อยู่บนสุดของจุดที่กางอยู่ */}
-          <div className="stop-item-actions">
-            {stop.customer_phone ? (
-              <a className="btn btn-outline btn-lg" href={`tel:${stop.customer_phone}`}>
-                <IconPhone size={18} /> โทรหาผู้รับ
-              </a>
-            ) : (
-              <span className="stop-item-nophone">ไม่มีเบอร์ผู้รับ</span>
-            )}
-            <a className="btn btn-outline btn-lg" href={mapsUrl(stop)} target="_blank" rel="noreferrer">
-              <IconPin size={18} /> นำทาง
-            </a>
-          </div>
-
-          {/* สองจังหวะ ไม่ใช่จังหวะเดียว — "ถึงร้านนี้แล้ว" กดตอนรถจอด (กดผิดก็แค่กลับออกมา)
-              ส่วน "ส่งร้านนี้เสร็จแล้ว" ซึ่งเป็นการกดที่ย้อนยาก ขึ้นได้เฉพาะตอนอยู่ในร้านนั้น
-              ตอนนั้นบนจอไม่มีร้านอื่นให้กดผิดอยู่แล้ว */}
-          {canProgress && stop.pending.length > 0 && !locked && onEnter && (
-            <Button size="lg" className="stop-item-cta" onClick={onEnter}>
-              รับงานร้านนี้
-            </Button>
+      {!stop.cancelled && (
+        <div className="dv-stop-acts">
+          {stop.customer_phone ? (
+            <a className="dv-btn-out" href={`tel:${stop.customer_phone}`}><IconPhone size={20} /> โทร</a>
+          ) : (
+            <span className="dv-btn-out is-disabled" aria-disabled="true"><IconPhone size={20} /> ไม่มีเบอร์</span>
           )}
-          {canProgress && stop.pending.length > 0 && locked && (
-            <Button size="lg" className="stop-item-cta" loading={busy} onClick={() => onDeliver(stop)}>
-              ส่งร้านนี้เสร็จแล้ว{bills > 1 ? ` (${stop.pending.length} ใบ)` : ''}
-            </Button>
-          )}
-          {canPod && stop.done && stop.needPod.length > 0 && (
-            <Button size="lg" className="stop-item-cta" onClick={() => onPod(stop)}>
-              เก็บหลักฐานการส่งมอบ
-            </Button>
-          )}
-
-          {/* ร้านที่ต้นทางยกเลิกกลางเที่ยว ถ้าไม่มีทางปิด ใบจะค้างเป็นงานที่ยังไม่ส่ง
-              แล้วทั้งเที่ยวปิดไม่ได้ ทั้งที่ร้านอื่นส่งครบแล้ว
-              เป็นปุ่มรอง สีอันตราย ไม่วางคู่ปุ่มปิดส่ง และถามเหตุผลก่อนเสมอ */}
-          {canProgress && onCancelStop && stop.pending.length > 0 && !stop.cancelled && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="stop-item-cancel"
-              onClick={() => onCancelStop(stop)}
-            >
-              ร้านยกเลิก — ส่งไม่ได้
-            </Button>
-          )}
-
-          {/* ยกเลิกแล้วต้องอ่านออกว่ายกเลิกเพราะอะไร ไม่ใช่ป้าย "ยกเลิก" ลอย ๆ
-              ที่พรุ่งนี้ไม่มีใครตอบได้ว่าเกิดอะไรขึ้น */}
-          {stop.cancelled && (
-            <div className="stop-item-cancelled" role="status">
-              <b>ยกเลิกแล้ว</b>
-              <span>{stop.orders.find((o) => o.cancel_reason)?.cancel_reason ?? 'ไม่ได้บันทึกเหตุผล'}</span>
-              {canProgress && onUndoCancelStop && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="stop-item-undo"
-                  onClick={() => onUndoCancelStop(stop)}
-                >
-                  ถอนการยกเลิก
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* กางการ์ดผิดร้านแล้วกดปิดส่งเป็นเรื่องที่เกิดขึ้นจริง เคยมีใบที่ขึ้นว่า
-              ส่งแล้วทั้งที่รถยังไม่ไปถึงร้านนั้นด้วยซ้ำ
-              ปุ่มเล็กและจาง ไม่วางคู่กับปุ่มปิดส่ง — ปุ่มถอยที่เด่นเท่าปุ่มเดินหน้า
-              คือปุ่มที่จะถูกกดผิดเป็นอันดับต่อไป
-              ขึ้นเฉพาะจุดที่ยังไม่มีหลักฐาน จุดที่เซ็นแล้วต้องให้ออฟฟิศแก้ */}
-          {canProgress && onUndoDeliver && stop.done && stop.needPod.length === stop.orders.length && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="stop-item-undo"
-              onClick={() => onUndoDeliver(stop)}
-            >
-              กดผิดร้าน — ยกเลิกการส่ง
-            </Button>
-          )}
-
-          <dl className="stop-item-facts">
-            {stop.customer_address && (
-              <div>
-                <dt>ที่อยู่</dt>
-                <dd>{stop.customer_address}</dd>
-              </div>
-            )}
-          </dl>
-
-          {/* ใบของร้านนี้ทั้งหมด — เลขที่คลังกับร้านใช้อ้างถึงใบนี้ ต้องอ่านให้ทางโทรศัพท์
-              ได้ทันที ไม่ใช่ต้องเปิด TMS อีกจอตอนยืนอยู่หน้าร้าน */}
-          <ul className="stop-bills" aria-label={`ใบเบิกของ ${stop.customer_name ?? stop.destination}`}>
-            {stop.orders.map((o) => (
-              <li key={o.id} className={`stop-bill${o.status === 'delivered' ? ' is-done' : ''}`}>
-                <span className="stop-bill-no">{o.tms_picking_list_no ?? o.order_no}</span>
-                <span className="stop-bill-goods">{o.goods_desc}</span>
-                <span className="stop-bill-qty">{o.tms_unit_count ? `${o.tms_unit_count} หน่วย` : '—'}</span>
-                {/* หลักฐานที่เก็บแล้วต้องเปิดดูย้อนได้ ไม่งั้นคนขับที่ถูกถามว่า
-                    "ร้านนี้ใครเซ็น" ตอบไม่ได้ทั้งที่เป็นคนถือมือถือถ่ายเอง */}
-                {o.has_pod > 0 && onViewPod && (
-                  <button type="button" className="stop-bill-pod" onClick={() => onViewPod(o)}>
-                    ดูหลักฐาน
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-
-          {/* หมายเหตุที่ระบบเขียนเองตอนนำเข้า ("นำเข้าจาก TMS · PL … · เที่ยว …") ไม่ต้องขึ้น
-              เลข PL เลขเที่ยว และจำนวนหน่วย อยู่บนจอนี้อยู่แล้วทั้งหมด
-              เหลือแต่หมายเหตุที่คนพิมพ์เอง ซึ่งเป็นสิ่งเดียวที่คนขับต้องอ่านจริง */}
-          {stop.orders.map((o) => (o.notes && !o.notes.startsWith('นำเข้าจาก TMS') ? (
-            <p className="stop-item-note" key={o.id}>หมายเหตุ: {o.notes}</p>
-          ) : null))}
-
-          {onMove && !stop.done && (
-            <div className="stop-item-move">
-              <span className="stop-item-move-label">ลำดับการแวะ</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label={`เลื่อน ${stop.destination} ขึ้นก่อน`}
-                disabled={!canMoveUp}
-                onClick={() => onMove(stop, -1)}
-              >
-                ขึ้น
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label={`เลื่อน ${stop.destination} ไปทีหลัง`}
-                disabled={!canMoveDown}
-                onClick={() => onMove(stop, 1)}
-              >
-                ลง
-              </Button>
-            </div>
-          )}
+          <a className="dv-btn-out" href={mapsUrl(stop)} target="_blank" rel="noreferrer"><IconPin size={20} /> นำทาง</a>
         </div>
+      )}
+
+      {/* ปุ่มหลักของร้าน — สองจังหวะ: เข้าร้าน (กดผิดก็แค่ออก) แล้วจึงปิดจุด (ย้อนยาก) */}
+      {canProgress && stop.pending.length > 0 && !locked && onEnter && (
+        <Button size="lg" className="dv-cta" onClick={onEnter}>ถึงร้านแล้ว เริ่มส่งของ</Button>
+      )}
+      {canProgress && stop.pending.length > 0 && locked && (
+        <Button size="lg" className="dv-cta" loading={busy} onClick={() => onDeliver(stop)}>
+          ส่งของ · เซ็นรับ + ถ่ายรูป{bills > 1 ? ` (${stop.pending.length} ใบ)` : ''}
+        </Button>
+      )}
+      {canPod && stop.done && stop.needPod.length > 0 && (
+        <Button size="lg" className="dv-cta" onClick={() => onPod(stop)}>เก็บหลักฐานการส่งมอบ</Button>
+      )}
+
+      {canProgress && onCancelStop && stop.pending.length > 0 && !stop.cancelled && (
+        <button type="button" className="dv-danger-link" onClick={() => onCancelStop(stop)}>
+          ส่งไม่ได้ / ร้านยกเลิก
+        </button>
       )}
     </li>
   )

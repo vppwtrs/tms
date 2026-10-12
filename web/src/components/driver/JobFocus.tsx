@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Badge, Button } from '../ui'
+import { Badge, Button, Modal } from '../ui'
 import { StopItem } from './StopCard'
-import { IconBuilding, IconTruck } from '../icons'
+import { IconAlert, IconBuilding, IconCheck, IconChevronRight, IconTruck } from '../icons'
 import { TRIP_STATUS_LABEL } from '../../utils/constants'
+import { fmtTime } from '../../utils/format'
 import { groupStops, jobTripNo, type StopGroup } from '../../utils/stops'
 import type { MyJob, MyJobOrder } from '../../types'
 
@@ -29,24 +30,17 @@ function writeLock(jobId: number, key: string | null): void {
 }
 
 /**
- * งานหนึ่งเที่ยว — รายการจุดส่งทั้งเที่ยวอยู่บนจอเสมอ จนกว่าจะเข้าร้าน
+ * งานหนึ่งเที่ยว — ดีไซน์ "งานตอนนี้" (mockup Driver App Redesign จอ 2)
  *
- * ลำดับจริงไม่เดินตามเอกสาร คนขับแวะร้าน 2 ก่อนร้าน 1 ได้ทุกวัน โครงที่โชว์
- * "จุดปัจจุบัน" จุดเดียวแล้วซ่อนที่เหลือไว้ จึงบังคับให้กดเพิ่มทุกครั้งที่สลับจุด
- * ซึ่งเป็นเรื่องปกติ ไม่ใช่ข้อยกเว้น
+ * จอเดียวจบ ไม่ต้องเลื่อน: หัวเที่ยวบาง ๆ + แถบคืบหน้าแบ่งช่องละร้าน
+ * แล้วการ์ดใหญ่ใบเดียวของร้านที่ต้องไปตอนนี้ ร้านอื่นยุบเป็นแถวบาง (ร้านที่ยังไม่ไปอยู่บน
+ * ร้านที่จบแล้วอยู่ล่าง) แตะแถวไหนก็สลับให้ร้านนั้นเป็นการ์ดใหญ่ — ลำดับจริงไม่เดินตามเอกสาร
  *
- * โครงนี้เป็นรายการล้วน: ทุกจุดเห็นพร้อมกัน จุดที่ทำอยู่กางอยู่กับที่ในลำดับของมัน
- * แตะจุดไหนก็กางจุดนั้นแทน ปุ่มของจุด (ปิดจุด/เก็บหลักฐาน) อยู่ในจุดนั้น
- * ล่างจอสงวนไว้ให้คำสั่งของทั้งเที่ยวเท่านั้น — รับงาน เริ่มเดินทาง ปิดงาน
- *
- * จนถึงตอนที่รถจอดหน้าร้าน — ตรงนั้นรายการกลายเป็นความเสี่ยง ไม่ใช่ความสะดวก
- * คนขับถือของอยู่เต็มมือ มองจอแวบเดียวแล้วกด ร้านข้างเคียงในรายการอยู่ห่างกัน
- * ไม่กี่มิลลิเมตร กดปิดผิดร้านจึงเกิดจริงและแก้ยากเมื่อมีลายเซ็นไปแล้ว
- *
- * ทางแก้: กด "ถึงร้านนี้แล้ว" เพื่อ *เข้า* ร้าน จอเหลือร้านเดียวจนกว่าร้านนั้น
- * จะปิดจุดและเก็บหลักฐานครบ แล้วจึงปลดเองกลับไปเป็นรายการ ระหว่างนั้นปุ่มปิดจุด
- * มีอยู่ปุ่มเดียวบนจอทั้งจอ และเป็นของร้านที่คนขับยืนอยู่หน้าร้านแน่ ๆ
- * ออกก่อนกำหนดได้ (ของไม่ครบ ร้านปิด) แต่ต้องกดสองครั้ง ไม่ใช่ปัดผ่าน
+ * กติกาเดิมทั้งหมดยังอยู่:
+ * - "ถึงร้านแล้ว" = เข้าร้าน (ล็อกจอไว้ที่ร้านเดียว) ปุ่มปิดจุดขึ้นเฉพาะตอนล็อกอยู่
+ *   ออกจากร้านต้องกดสองครั้ง ร้านจบ (ส่ง + หลักฐานครบ / ยกเลิก) แล้วปลดเอง
+ * - แถบล่าง (job-cta-bar) สงวนไว้ให้คำสั่งระดับเที่ยวเท่านั้น — รับงาน เริ่มเดินทาง ปิดงาน ถึงคลัง
+ * - จัดลำดับ ถอยการส่ง ถอนยกเลิก ดูหลักฐาน อยู่ในแผ่น "รายละเอียดเที่ยว" (แตะเลขเที่ยว)
  *
  * หนึ่งจุด = หนึ่งร้าน ใบเบิกหลายใบของร้านเดียวถูกยุบเข้าด้วยกัน (ดู utils/stops)
  */
@@ -75,60 +69,53 @@ export function JobFocus({
   deliveringKey: string
   canProgress: boolean
   canPod: boolean
-  /** จำนวนเที่ยวอื่นของคนขับคนนี้ที่ยังไม่จบ — รถกลับคลังได้ครั้งเดียวต่อวัน
-   *  ปุ่มจบงานจึงขึ้นได้ก็ต่อเมื่อไม่มีเที่ยวอื่นค้างอยู่แล้ว */
+  /** จำนวนเที่ยวอื่นของคนขับคนนี้ที่ยังไม่จบ — รถกลับคลังได้ครั้งเดียวต่อวัน */
   unfinishedOthers?: number
   /** เที่ยวที่รออยู่บนขากลับคันเดียวกัน รวมเที่ยวนี้ด้วย — ปุ่มปิดทั้งชุดในครั้งเดียว */
   returningCount?: number
   /** ร้านที่ปิดส่งแล้วแต่ยังไม่มีหลักฐาน นับรวมทุกเที่ยวที่กำลังจะถูกปิดพร้อมกัน */
   podMissing?: number
   onAct: (job: MyJob, action: 'start' | 'complete' | 'accept' | 'finish') => void
-  /** เปิดฟอร์มแจ้งปัญหา — แจ้งได้ ไม่ใช่ปฏิเสธงาน งานยังเป็นของคนขับ
-   *  ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน (ฝั่ง LAN) ปุ่มรับงานจะไม่ขึ้นเลย */
+  /** เปิดฟอร์มแจ้งปัญหา — ไม่ส่งมา = สแตกที่ไม่มีประตูรับงาน ปุ่มรับงานจะไม่ขึ้นเลย */
   onReportIssue?: (job: MyJob) => void
   onPod: (stop: StopGroup) => void
-  /* เปิดดูหลักฐานของใบที่เก็บไปแล้ว — ส่งต่อลงไปที่จุดส่งแต่ละจุด */
   onViewPod?: (order: MyJobOrder) => void
   onDeliver: (stop: StopGroup) => void
   onUndoDeliver?: (stop: StopGroup) => void
   onCancelStop?: (stop: StopGroup) => void
   onUndoCancelStop?: (stop: StopGroup) => void
-  /* จัดลำดับร้านใหม่ทั้งเที่ยว — คนขับรู้เส้นทางจริงดีกว่าลำดับที่เอกสารให้มา
-     ไม่ส่งมา = สแตกที่ยังไม่มีการจัดลำดับ (ฝั่ง LAN) ปุ่มขึ้น/ลงจะไม่ขึ้น */
   onReorder?: (job: MyJob, orderIds: number[]) => void
 }): React.JSX.Element {
   const stops = useMemo(() => groupStops(job.orders), [job.orders])
   const firstPending = stops.find((s) => !s.done && !s.cancelled)
   const [openKey, setOpenKey] = useState<string | null>(firstPending?.key ?? stops[0]?.key ?? null)
-  /* ร้านที่คนขับ "เข้าไปทำ" อยู่ตอนนี้ — ระหว่างล็อก จอเหลือร้านเดียว
-     กลับมาจากกล้อง/แผนที่/แอปปิดเอง ต้องอยู่ที่ร้านเดิม จึงจำไว้ที่ sessionStorage */
   const [lockedKey, setLockedKey] = useState<string | null>(() => readLock(job.id))
-  /* ปุ่มเปลี่ยนร้านต้องกดสองครั้ง — ครั้งเดียวก็คือปุ่มออกที่กดพลาดได้เหมือนเดิม */
   const [confirmSwitch, setConfirmSwitch] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [showStops, setShowStops] = useState(false)
 
-  // สลับเที่ยวแล้วต้องกลับไปกางจุดถัดไปของเที่ยวใหม่ ไม่ใช่ค้างที่จุดของเที่ยวเก่า
+  // สลับเที่ยวแล้วต้องกลับไปที่จุดถัดไปของเที่ยวใหม่ ไม่ใช่ค้างที่จุดของเที่ยวเก่า
   useEffect(() => {
     const list = groupStops(job.orders)
     setOpenKey(list.find((s) => !s.done && !s.cancelled)?.key ?? list[0]?.key ?? null)
     setLockedKey(readLock(job.id))
     setConfirmSwitch(false)
+    setShowStops(false)
+    setDetailOpen(false)
   }, [job.id])
 
   useEffect(() => {
     writeLock(job.id, lockedKey)
   }, [job.id, lockedKey])
 
-  /* ปิดจุดที่กางอยู่แล้ว ให้เด้งไปกางจุดถัดไปเอง — จังหวะที่คนขับต้องการต่อคือจุดต่อไป
-     ไม่ใช่นั่งดูจุดที่เพิ่งปิด (ยกเว้นยังไม่ได้เก็บหลักฐาน ซึ่งปุ่มยังอยู่ในจุดนั้น)
-     ระหว่างล็อกไม่เด้ง — จอต้องนิ่งอยู่ที่ร้านเดิมจนกว่าร้านนั้นจะจบจริง */
+  /* จุดที่เปิดอยู่จบแล้ว (และไม่ต้องเก็บหลักฐาน) → เด้งไปจุดถัดไปเอง ระหว่างล็อกไม่เด้ง */
   useEffect(() => {
     if (lockedKey) return
     const open = stops.find((s) => s.key === openKey)
     if (open && open.done && open.needPod.length === 0 && firstPending) setOpenKey(firstPending.key)
   }, [stops, openKey, lockedKey])
 
-  /* ร้านที่ล็อกไว้จบแล้ว (ปิดจุด + เก็บหลักฐานครบ) หรือหายไปจากเที่ยว → ปลดเอง
-     แล้วพาไปกางร้านถัดไป คนขับไม่ต้องกดออกจากโหมดล็อกด้วยตัวเอง */
+  /* ร้านที่ล็อกไว้จบแล้วหรือหายไปจากเที่ยว → ปลดเองแล้วพาไปร้านถัดไป */
   const lockedStop = lockedKey ? stops.find((s) => s.key === lockedKey) : undefined
   useEffect(() => {
     if (!lockedKey) return
@@ -140,28 +127,21 @@ export function JobFocus({
   }, [stops, lockedKey, lockedStop])
 
   const delivered = stops.filter((s) => s.done).length
-  /* ร้านที่ยกเลิกไม่ใช่ร้านที่ส่งแล้ว แต่ก็ไม่ใช่งานค้าง — แถบคืบหน้าต้องนับมันว่า
-     จบแล้ว ไม่งั้นจอจะขึ้น "ส่งแล้ว 1/2" พร้อมปุ่มปิดงาน ซึ่งอ่านแล้วขัดกันเอง */
+  /* ร้านที่ยกเลิกนับว่าจบแล้ว ไม่งั้นจอขึ้น "ส่งแล้ว 1/2" พร้อมปุ่มปิดงาน ซึ่งขัดกันเอง */
   const cancelledStops = stops.filter((s) => s.cancelled).length
   const settled = delivered + cancelledStops
   const active = job.status !== 'completed' && job.status !== 'cancelled'
-  /* ประตูเป็นของ "ฉัน" ไม่ใช่ของเที่ยว — คนขับหลักกดรับไปแล้วไม่ได้แปลว่าผู้ช่วยรับแล้ว
-     my_accepted_at เป็น undefined บนสแตก LAN ที่ยังไม่มีคอลัมน์นี้ ถอยไปใช้ของเดิม */
+  /* ประตูเป็นของ "ฉัน" ไม่ใช่ของเที่ยว — คนขับหลักรับแล้วไม่ได้แปลว่าผู้ช่วยรับแล้ว */
   const mineAccepted = job.my_accepted_at ?? job.accepted_at
   const waiting = active && !mineAccepted && onReportIssue !== undefined
-  /* ปิดเที่ยวได้เฉพาะคนขับหลัก — ผู้ช่วยยังปิดจุดส่งและเก็บ POD ได้ตามปกติ
-     ฐานปฏิเสธอยู่แล้ว ตรงนี้คือไม่แสดงปุ่มที่กดแล้วขึ้น error เป็นอย่างเดียว */
+  /* ปิดเที่ยวได้เฉพาะคนขับหลัก — ผู้ช่วยยังปิดจุดส่งและเก็บ POD ได้ตามปกติ */
   const canClose = job.is_primary !== false
-  /* จัดลำดับได้เฉพาะงานที่รับแล้วและยังไม่จบ — ลำดับของงานที่จบไปแล้วคือประวัติ
-     และเฉพาะตอนไม่ได้อยู่ในร้าน: เห็นร้านเดียวแล้วสลับลำดับไม่มีความหมาย */
   const canReorder = onReorder !== undefined && canProgress && active && !waiting && !lockedKey
-  /* จุดส่งเปิดทำงานได้ต่อเมื่อรับงานแล้วและออกรถแล้ว — ก่อนหน้านั้นดูได้อย่างเดียว
-     ไม่งั้นคนขับกดปิดจุดได้ทั้งที่ยังไม่ได้ออกจากคลัง */
+  /* จุดส่งเปิดทำงานได้ต่อเมื่อรับงานแล้วและออกรถแล้ว */
   const stopsLive = canProgress && active && !waiting && job.status !== 'planned'
   const crew = job.driver_count ?? 1
 
-  /* เที่ยวถูกดึงกลับไปเป็นสถานะที่กดอะไรไม่ได้ (ถูกยกเลิก ปิดไปแล้ว ถอนรับงาน)
-     ล็อกที่ค้างอยู่ต้องหลุด ไม่งั้นคนขับเห็นร้านเดียวและไม่มีทางกลับไปที่รายการ */
+  /* เที่ยวถูกดึงกลับไปเป็นสถานะที่กดอะไรไม่ได้ ล็อกที่ค้างอยู่ต้องหลุด */
   useEffect(() => {
     if (!stopsLive && lockedKey) {
       setLockedKey(null)
@@ -169,8 +149,7 @@ export function JobFocus({
     }
   }, [stopsLive, lockedKey])
 
-  /* สลับตำแหน่งทั้งร้าน ไม่ใช่ทีละใบ — ใบของร้านเดียวกันต้องติดกันเสมอ
-     ไม่งั้นลำดับที่บันทึกกลับไปจะแยกร้านออกจากกันอีกรอบ */
+  /* สลับตำแหน่งทั้งร้าน ไม่ใช่ทีละใบ — ใบของร้านเดียวกันต้องติดกันเสมอ */
   const move = (stop: StopGroup, dir: -1 | 1): void => {
     const at = stops.indexOf(stop)
     const to = at + dir
@@ -183,14 +162,12 @@ export function JobFocus({
     onReorder?.(job, next.flatMap((s) => s.orders.map((o) => o.id)))
   }
 
-  /* ล่างจอเป็นคำสั่งของ "ทั้งเที่ยว" เท่านั้น ปุ่มของจุดอยู่ในจุด
-     แยกกันชัดแบบนี้แล้วไม่มีทางกดปิดงานทั้งเที่ยวตอนตั้งใจจะปิดร้านเดียว */
+  /* แถบล่าง = คำสั่งของ "ทั้งเที่ยว" เท่านั้น ปุ่มของจุดอยู่ในการ์ดร้าน */
   const cta = ((): React.JSX.Element | null => {
     if (!canProgress || !active) return null
     if (waiting) {
+      /* ไม่มีปุ่มปฏิเสธ — TMS จ่ายคนมาแล้ว มีปัญหาให้กดแจ้ง */
       return (
-        /* ไม่มีปุ่มปฏิเสธ — TMS จ่ายคนมาแล้วและเราเขียนกลับไม่ได้
-           มีปัญหาให้กดแจ้ง ซึ่งไปขึ้นบนกระดานของคนวางแผน ไม่ใช่คืนงานเงียบ ๆ */
         <>
           <Button size="lg" loading={busy} onClick={() => onAct(job, 'accept')}>
             รับงานนี้
@@ -201,13 +178,9 @@ export function JobFocus({
         </>
       )
     }
-    /* ส่งครบแล้วแต่รถยังอยู่ข้างนอก — ปุ่มสุดท้ายคือยืนยันว่ากลับถึงคลังจริง
-       ระหว่างนี้ตำแหน่งยังถูกบันทึกอยู่ และรถยังไม่ถูกนับว่าว่าง */
     if (job.status === 'returning') {
       if (!canClose) return <p className="job-cta-hint">กำลังกลับคลัง — รอคนขับหลักกดจบงาน</p>
-      /* รถกลับเข้าคลังครั้งเดียว ไม่ใช่ครั้งละเที่ยว คนขับที่ถือสามเที่ยวแล้วเห็นปุ่มนี้
-         ตั้งแต่เที่ยวแรกจบ จะกดตอนยังวิ่งเที่ยวที่สองอยู่ แล้วรถถูกนับว่าว่างทั้งที่
-         ยังอยู่บนถนน คนวางแผนก็จ่ายงานใหม่ทับ */
+      /* รถกลับเข้าคลังครั้งเดียว ไม่ใช่ครั้งละเที่ยว */
       if (unfinishedOthers > 0) {
         return (
           <p className="job-cta-hint">
@@ -216,20 +189,10 @@ export function JobFocus({
           </p>
         )
       }
-      /* จบงานคือประตูสุดท้ายที่หลักฐานจะถูกทวงได้ หลังจากนี้เที่ยวไปอยู่ในประวัติ
-         และคนที่ต้องตามเก็บคือออฟฟิศ ซึ่งตามจากโต๊ะไม่ได้ */
-      if (podMissing > 0) {
-        return (
-          <p className="job-cta-hint">
-            ยังขาดหลักฐาน {podMissing} ร้าน — เก็บให้ครบก่อนจบงาน
-          </p>
-        )
-      }
+      /* หลักฐานขาด ปุ่มยังกดได้ — หน้าแม่ขึ้นแผ่น "ยังปิดงานไม่ได้" บอกร้านพร้อมปุ่มไปเติม */
       return (
-        <Button size="lg" variant="success" loading={busy} onClick={() => onAct(job, 'finish')}>
-          {returningCount > 1
-            ? `กลับถึงคลังแล้ว — จบงานทั้ง ${returningCount} เที่ยว`
-            : 'กลับถึงคลังแล้ว — จบงาน'}
+        <Button size="lg" loading={busy} onClick={() => onAct(job, 'finish')}>
+          {podMissing > 0 ? `ถึงคลังแล้ว · ขาดหลักฐาน ${podMissing} ร้าน` : 'ถึงคลังแล้ว'}
         </Button>
       )
     }
@@ -241,173 +204,222 @@ export function JobFocus({
       )
     }
     if (firstPending) {
-      /* ยังส่งไม่ครบ ห้ามปิดเที่ยว — ถ้าปิดตอนนี้ จุดที่เหลือจะถูกเหมาเป็น "ส่งแล้ว"
-         ทั้งที่ยังไม่ได้ไป แล้ว POD ของร้านเหล่านั้นก็ไม่มีใครเก็บ
-         บอกจำนวนที่เหลือแทนปุ่มที่กดไม่ได้ เพราะคำถามคือ "อีกกี่ร้าน" */
+      /* ยังส่งไม่ครบ ห้ามปิดเที่ยว — บอกจำนวนที่เหลือแทนปุ่มที่กดไม่ได้ */
       return <p className="job-cta-hint">เหลืออีก {stops.length - settled} จุด — ปิดงานได้เมื่อส่งครบ</p>
     }
     if (canClose) {
       return (
-        <Button size="lg" variant="success" loading={busy} onClick={() => onAct(job, 'complete')}>
+        <Button size="lg" loading={busy} onClick={() => onAct(job, 'complete')}>
           ส่งครบแล้ว — ปิดงานที่หน้าร้าน
         </Button>
       )
     }
-    /* ผู้ช่วยส่งครบแล้วต้องรู้ว่าไม่มีอะไรให้เขากดต่อ ไม่ใช่เห็นปุ่มเทาแล้วเดาเอง */
     return <p className="job-cta-hint">ส่งครบแล้ว — รอคนขับหลักปิดงาน</p>
   })()
 
+  /* ร้านที่เป็นการ์ดใหญ่ — ระหว่างล็อกคือร้านที่ล็อก ไม่งั้นคือร้านที่แตะเลือก / ร้านถัดไป */
+  const focusKey = lockedKey ?? openKey
+  const focus = stops.find((s) => s.key === focusKey) ?? firstPending ?? stops[0]
+  const rest = lockedKey ? [] : [
+    ...stops.filter((s) => s !== focus && !s.done && !s.cancelled),
+    ...stops.filter((s) => s !== focus && (s.done || s.cancelled)),
+  ]
+
+  const stopItem = (s: StopGroup, open: boolean): React.JSX.Element => {
+    const i = stops.indexOf(s)
+    return (
+      <StopItem
+        key={s.key}
+        stop={s}
+        index={i + 1}
+        open={open}
+        isNext={s.key === firstPending?.key}
+        busy={deliveringKey === s.key}
+        canProgress={stopsLive}
+        canPod={canPod}
+        locked={lockedKey === s.key}
+        switchArmed={confirmSwitch}
+        onExitLock={
+          lockedKey === s.key
+            ? () => {
+                if (!confirmSwitch) {
+                  setConfirmSwitch(true)
+                  return
+                }
+                setLockedKey(null)
+                setConfirmSwitch(false)
+              }
+            : undefined
+        }
+        onOpen={() => {
+          if (lockedKey) return
+          setOpenKey(s.key)
+        }}
+        onEnter={
+          stopsLive && !lockedKey
+            ? () => {
+                setLockedKey(s.key)
+                setOpenKey(s.key)
+                setConfirmSwitch(false)
+              }
+            : undefined
+        }
+        onPod={onPod}
+        onViewPod={onViewPod}
+        onDeliver={onDeliver}
+        onCancelStop={
+          onCancelStop
+            ? (target) => {
+                setLockedKey(null)
+                setConfirmSwitch(false)
+                onCancelStop(target)
+              }
+            : undefined
+        }
+      />
+    )
+  }
+
+  const segState = (s: StopGroup): string =>
+    s.done ? ' is-done' : s.cancelled ? ' is-cancelled' : s.key === (lockedKey ?? firstPending?.key) ? ' is-now' : ''
+
   return (
-    <article className={`job-focus status-${job.status}`}>
-      {/* บอร์ด Design C วางเลขเที่ยว แถบคืบหน้า และ chip ไว้ในกล่องเขียวใบเดียว
-          ก่อนหน้านี้สามชิ้นนี้เป็นพี่น้องกัน กล่องเขียวจึงจบก่อนแล้วแถบคืบหน้า
-          ไปนั่งบนพื้นขาว กว้างกว่ากล่องด้วย — ห่อรวมเป็นกล่องเดียวตามบอร์ด
-          ตัวห่อไม่มีตรรกะ แค่ขอบเขตของภาพ */}
-      <div className="job-hero">
-      {/* บรรทัดเดียวจบ: เที่ยวไหน รถคันไหน สถานะอะไร */}
-      <header className="job-bar">
-        <span className="job-bar-no">{jobTripNo(job)}</span>
-        <span className="job-bar-meta">
-          <IconTruck size={13} /> {job.vehicle_plate}
-        </span>
-        {/* คลังที่ต้องไปโหลดของ — บริษัทมีหลายคลังในเมืองเดียวกัน ไปผิดคลัง
-            คือเสียครึ่งเช้า ก่อนหน้านี้รหัสนี้อยู่แต่ในข้อความหมายเหตุของเที่ยว
-            ซึ่งคนขับต้องอ่านเองแล้วเดาว่าท่อนไหนคือคลัง */}
-        {job.warehouse_code && (
-          <span className="job-bar-meta">
-            <IconBuilding size={13} /> {job.warehouse_code}
+    <article className={`job-focus dv-trip status-${job.status}`}>
+      <header className="dv-trip-head">
+        <div className="dv-trip-row">
+          <button type="button" className="dv-trip-no" onClick={() => setDetailOpen(true)}
+            aria-label={`รายละเอียดเที่ยว ${jobTripNo(job)}`}>
+            {jobTripNo(job)} <IconChevronRight size={16} aria-hidden />
+          </button>
+          <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot />
+          {!waiting && onReportIssue && active && (
+            <button type="button" className="dv-icon-btn is-warn" aria-label="แจ้งปัญหา" onClick={() => onReportIssue(job)}>
+              <IconAlert size={20} />
+            </button>
+          )}
+        </div>
+        <div className="dv-trip-sub">
+          <span><IconTruck size={14} /> {job.vehicle_plate}</span>
+          {job.warehouse_code && <span><IconBuilding size={14} /> {job.warehouse_code}</span>}
+          <span className="job-meter-text">
+            <b>{delivered}</b>/{stops.length} ร้าน{cancelledStops > 0 ? ` · ยกเลิก ${cancelledStops}` : ''}
           </span>
+        </div>
+        {stops.length > 0 && (
+          <div className="dv-segs" role="img" aria-label={`ส่งแล้ว ${delivered} จาก ${stops.length} ร้าน`}>
+            {stops.map((s) => <span key={s.key} className={`dv-seg${segState(s)}`} />)}
+          </div>
         )}
-        <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot />
       </header>
 
-      {/* แถบคืบหน้าเส้นเดียว — นับเป็น "ร้าน" ไม่ใช่ "ใบ" เพราะสิ่งที่คนขับทำคือแวะร้าน */}
-      <div className="job-meter">
-        <div className="job-meter-track">
-          <div
-            className="job-meter-fill"
-            style={{ width: `${stops.length ? (settled / stops.length) * 100 : 0}%` }}
-          />
-        </div>
-        <span className="job-meter-text">
-          ส่งแล้ว {delivered}/{stops.length} ร้าน{cancelledStops > 0 ? ` · ยกเลิก ${cancelledStops}` : ''}
-        </span>
-      </div>
-
-      {/* iOS2: chip ตำแหน่งในเที่ยว — ✓ เสร็จ / ▶ กำลังแวะ / เลข = รอคิว
-          มอง hero แวบเดียวรู้ว่าเที่ยวเดินไปถึงไหน ไม่ต้องไล่นับการ์ด */}
-      {stops.length > 0 && (
-        <div className="job-chips" aria-label={`ลำดับจุดส่ง ${stops.length} ร้าน`}>
-          {stops.map((s, i) => (
-            <span key={s.key} className={`job-chip${s.key === firstPending?.key ? ' is-now' : ''}`}>
-              {s.done ? '✓' : s.key === firstPending?.key ? '▶' : i + 1}
-              {' '}{(s.customer_name ?? s.destination ?? '').replace(/^ร้าน/, '').slice(0, 10)}
-            </span>
-          ))}
-        </div>
-      )}
-      </div>
-
-      {waiting && <p className="job-alert">งานใหม่ — กดรับงานก่อนถึงจะเริ่มเดินทางได้</p>}
+      {waiting && <p className="dv-note is-warn">งานใหม่ — กดรับงานก่อนถึงจะเริ่มเดินทางได้</p>}
       {!waiting && job.status === 'planned' && (
-        <p className="job-alert">กด "เริ่มเดินทาง" เมื่อออกจากคลัง แล้วจึงปิดจุดส่งได้</p>
+        <p className="dv-note is-info">กด "เริ่มเดินทาง" เมื่อออกจากคลัง แล้วจึงเริ่มส่งร้านได้</p>
       )}
-      {job.issue_note && <p className="job-alert is-warn">แจ้งปัญหาไว้: {job.issue_note}</p>}
+      {job.issue_note && <p className="dv-note is-warn">แจ้งปัญหาไว้: {job.issue_note}</p>}
 
-      {stops.length === 0 ? (
-        <p className="job-sub">เที่ยวนี้ยังไม่มีจุดส่ง</p>
+      {job.status === 'returning' && !showStops ? (
+        /* ขากลับ (mockup จอ 4) — ไม่มีร้านให้ทำแล้ว เหลือการ์ดสรุปใบเดียว */
+        <section className="dv-card dv-return">
+          <div className="dv-return-head">
+            <span className="dv-round is-ok" aria-hidden><IconCheck size={22} /></span>
+            <span>
+              <b>{returningCount > 1 ? `ส่งครบ ${returningCount} เที่ยว` : 'ส่งครบแล้ว'}</b>
+              <small>ถึงคลังแล้วค่อยกดปิดทีเดียว</small>
+            </span>
+          </div>
+          <div className="dv-return-row">
+            <span>{jobTripNo(job)}</span>
+            <b>{delivered}/{stops.length} ร้าน</b>
+          </div>
+          {podMissing > 0 && <p className="dv-note is-warn">ยังขาดหลักฐาน {podMissing} ร้าน</p>}
+          <button type="button" className="dv-link" onClick={() => setShowStops(true)}>ดูร้านในเที่ยวนี้</button>
+        </section>
+      ) : stops.length === 0 ? (
+        <p className="dv-empty">เที่ยวนี้ยังไม่มีจุดส่ง</p>
       ) : (
-        <ol className="stop-list" aria-label={lockedStop ? 'ร้านที่กำลังส่ง' : 'จุดส่งในเที่ยวนี้'}>
-          {stops.map((s, i) =>
-            /* ระหว่างล็อก ร้านอื่นไม่ได้แค่ถูกย่อ แต่ไม่อยู่บนจอเลย — ปุ่มปิดจุดที่กดผิดได้
-               ต้องไม่มีอยู่ให้กด การซ่อนแค่ทางสายตายังโดนนิ้วโป้งอยู่ดี */
-            lockedKey && s.key !== lockedKey ? null : (
-              <StopItem
-                key={s.key}
-                stop={s}
-                index={i + 1}
-                open={lockedKey ? true : s.key === openKey}
-                busy={deliveringKey === s.key}
-                canProgress={stopsLive}
-                canPod={canPod}
-                locked={lockedKey === s.key}
-                switchArmed={confirmSwitch}
-                onExitLock={
-                  lockedKey === s.key
-                    ? () => {
-                        if (!confirmSwitch) {
-                          setConfirmSwitch(true)
-                          return
-                        }
-                        setLockedKey(null)
-                        setConfirmSwitch(false)
-                      }
-                    : undefined
-                }
-                onOpen={() => {
-                  if (lockedKey) return
-                  setOpenKey(s.key === openKey ? null : s.key)
-                }}
-                onEnter={
-                  stopsLive && !lockedKey
-                    ? () => {
-                        setLockedKey(s.key)
-                        setOpenKey(s.key)
-                        setConfirmSwitch(false)
-                      }
-                    : undefined
-                }
-                onPod={onPod}
-                onViewPod={onViewPod}
-                onDeliver={onDeliver}
-                /* ถอนการส่ง = ยอมรับว่าไม่ได้อยู่ที่ร้านนี้ ปล่อยล็อกทันที
-                   ไม่งั้นคนขับที่เพิ่งถอยยังติดอยู่ในร้านที่เขาบอกเองว่ากดผิด */
-                onUndoDeliver={
-                  onUndoDeliver
-                    ? (target) => {
-                        setLockedKey(null)
-                        setConfirmSwitch(false)
-                        onUndoDeliver(target)
-                      }
-                    : undefined
-                }
-                /* ยกเลิกร้าน = ไม่ต้องอยู่ที่ร้านนี้แล้ว ปล่อยล็อกเหมือนตอนถอนการส่ง
-                   ไม่งั้นจอยังล็อกอยู่ที่ร้านที่เพิ่งบอกว่าไปไม่ได้ */
-                onCancelStop={
-                  onCancelStop
-                    ? (target) => {
-                        setLockedKey(null)
-                        setConfirmSwitch(false)
-                        onCancelStop(target)
-                      }
-                    : undefined
-                }
-                onUndoCancelStop={onUndoCancelStop}
-                onMove={canReorder ? move : undefined}
-                canMoveUp={i > 0}
-                canMoveDown={i < stops.length - 1}
-              />
-            ),
-          )}
+        <ol className="stop-list dv-stops" aria-label={lockedStop ? 'ร้านที่กำลังส่ง' : 'จุดส่งในเที่ยวนี้'}>
+          {focus && stopItem(focus, true)}
+          {rest.map((s) => stopItem(s, false))}
         </ol>
       )}
 
-      <div className="job-secondary">
-        {crew > 1 && (
-          <span className="job-crew">
-            ไปด้วยกัน {crew} คน · รับแล้ว {job.accepted_count}/{crew}
-            {job.is_primary === false && ' · คุณเป็นผู้ช่วย'}
-          </span>
-        )}
-        {!waiting && onReportIssue && (
-          <Button variant="ghost" size="sm" onClick={() => onReportIssue(job)}>
-            แจ้งปัญหา
-          </Button>
-        )}
-      </div>
+      {crew > 1 && (
+        <p className="dv-crew">
+          ไปด้วยกัน {crew} คน · รับแล้ว {job.accepted_count}/{crew}
+          {job.is_primary === false && ' · คุณเป็นผู้ช่วย'}
+        </p>
+      )}
 
-      {/* ตรึงล่างจอ — คำสั่งระดับเที่ยวต้องอยู่ในระยะนิ้วโป้งเสมอ ไม่ต้องเลื่อนหา */}
       {cta && <div className="job-cta-bar">{cta}</div>}
+
+      {/* รายละเอียดเที่ยว (mockup จอ 7) — ลำดับการแวะ จัดลำดับ ถอยการส่ง ถอนยกเลิก ดูหลักฐาน */}
+      {detailOpen && (
+        <Modal open onClose={() => setDetailOpen(false)} size="sheet" title={`รายละเอียด ${jobTripNo(job)}`}
+          footer={<Button variant="ghost" onClick={() => setDetailOpen(false)}>ปิด</Button>}>
+          <div className="dv-detail">
+            <div className="dv-detail-stats">
+              <div><small>รถ</small><b>{job.vehicle_plate}</b></div>
+              <div><small>ออกรถ</small><b>{job.departed_at ? fmtTime(job.departed_at) : '—'}</b></div>
+              <div><small>ส่งแล้ว</small><b>{delivered}/{stops.length}</b></div>
+            </div>
+            <span className="dv-label">ลำดับการแวะ</span>
+            <ol className="dv-detail-list">
+              {stops.map((s, i) => (
+                <li key={s.key} className={s.done ? 'is-done' : s.cancelled ? 'is-cancelled' : ''}>
+                  <span className="dv-seq">{s.done ? '✓' : s.cancelled ? '×' : i + 1}</span>
+                  <span className="dv-detail-name">
+                    <b>{s.customer_name ?? s.destination}</b>
+                    <small>
+                      {s.cancelled
+                        ? (s.orders.find((o) => o.cancel_reason)?.cancel_reason ?? 'ยกเลิก')
+                        : `${fmtTime(s.scheduled_at)}${s.done ? (s.needPod.length ? ' · ยังไม่เก็บหลักฐาน' : ' · เก็บหลักฐานแล้ว') : ''}`}
+                    </small>
+                  </span>
+                  <span className="dv-detail-acts">
+                    {canReorder && !s.done && !s.cancelled && (
+                      <>
+                        <button type="button" className="dv-mini" disabled={i === 0} onClick={() => move(s, -1)}
+                          aria-label={`เลื่อน ${s.destination} ขึ้นก่อน`}>ขึ้น</button>
+                        <button type="button" className="dv-mini" disabled={i === stops.length - 1} onClick={() => move(s, 1)}
+                          aria-label={`เลื่อน ${s.destination} ไปทีหลัง`}>ลง</button>
+                      </>
+                    )}
+                    {/* ถอยการส่งได้เฉพาะร้านที่ยังไม่มีหลักฐาน — เซ็นแล้วต้องให้ออฟฟิศแก้ */}
+                    {stopsLive && onUndoDeliver && s.done && s.needPod.length === s.orders.length && (
+                      <button type="button" className="dv-mini" onClick={() => {
+                        setLockedKey(null)
+                        setConfirmSwitch(false)
+                        setDetailOpen(false)
+                        onUndoDeliver(s)
+                      }}>ถอยการส่ง</button>
+                    )}
+                    {stopsLive && onUndoCancelStop && s.cancelled && (
+                      <button type="button" className="dv-mini" onClick={() => { setDetailOpen(false); onUndoCancelStop(s) }}>
+                        ถอนยกเลิก
+                      </button>
+                    )}
+                    {canPod && s.done && s.needPod.length > 0 && (
+                      <button type="button" className="dv-mini is-primary" onClick={() => { setDetailOpen(false); onPod(s) }}>
+                        เก็บหลักฐาน
+                      </button>
+                    )}
+                    {onViewPod && s.orders.some((o) => o.has_pod > 0) && (
+                      <button type="button" className="dv-mini" onClick={() => {
+                        const o = s.orders.find((x) => x.has_pod > 0)
+                        if (o) { setDetailOpen(false); onViewPod(o) }
+                      }}>ดูหลักฐาน</button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            {crew > 1 && (
+              <p className="dv-crew">ไปด้วยกัน {crew} คน · รับแล้ว {job.accepted_count}/{crew}</p>
+            )}
+          </div>
+        </Modal>
+      )}
     </article>
   )
 }

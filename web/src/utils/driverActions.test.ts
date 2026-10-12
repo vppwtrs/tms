@@ -3,7 +3,6 @@ import type { MyJob, MyJobOrder, OdometerStatus } from '../types'
 import {
   closingJobs,
   finishGate,
-  needsOdometer,
   odometerCacheUsable,
   parseKm,
   podGapsOf,
@@ -152,32 +151,6 @@ describe('finishGate — ด่านก่อนจบงาน', () => {
   })
 })
 
-describe('needsOdometer — ด่านเลขไมล์ต้นวัน', () => {
-  it('ขวางตอนรับงานและตอนเริ่มเดินทาง เพราะสองปุ่มนี้กดตอนอยู่หน้ารถแล้ว', () => {
-    expect(needsOdometer('accept', odo())).toBe(true)
-    expect(needsOdometer('start', odo())).toBe(true)
-  })
-
-  /* ขวางปิดงานหรือจบงานคือขวางตอนที่รถวิ่งไปแล้ว ซึ่งสายเกินกว่าจะไปอ่านหน้าปัดต้นวัน */
-  it('ไม่ขวางตอนปิดงานหรือจบงาน', () => {
-    expect(needsOdometer('complete', odo())).toBe(false)
-    expect(needsOdometer('finish', odo())).toBe(false)
-  })
-
-  it('กรอกไปแล้ววันนี้ก็ไม่ต้องถามซ้ำ', () => {
-    expect(needsOdometer('accept', odo({ logged_today: true }))).toBe(false)
-  })
-
-  /* ค่าใน closure ของกล่องยังเป็นของก่อนบันทึกเสมอ ถ้าไม่มีธงนี้ การกรอกเสร็จแล้ว
-     เดินงานต่อจะวนกลับเข้ากล่องเดิมทันที */
-  it('เพิ่งกรอกเสร็จต้องข้ามด่าน ไม่งั้นวนกลับเข้ากล่องเดิม', () => {
-    expect(needsOdometer('accept', odo({ logged_today: false }), true)).toBe(false)
-  })
-
-  it('ถามสถานะไม่ได้ก็ปล่อยผ่าน — เน็ตล่มต้องไม่แปลว่าทำงานไม่ได้', () => {
-    expect(needsOdometer('accept', null)).toBe(false)
-  })
-})
 
 describe('odometerCacheUsable — ค่าที่ถืออยู่ใช้กับคันนี้ได้ไหม', () => {
   const today = '2026-08-27'
