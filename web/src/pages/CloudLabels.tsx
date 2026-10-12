@@ -247,16 +247,16 @@ export default function CloudLabels(): React.JSX.Element {
                               checked={okRows.length > 0 && selRows.size === okRows.length}
                               onChange={(e) => setSelRows(e.target.checked ? new Set(okRows.map((r) => r.row)) : new Set())} />
                           </th>
-                          <th>แถว</th><th>เลขตัวถัง</th><th>PL</th><th>วันที่ตัดจ่าย</th><th>ร้าน</th><th>ประเภทรถ</th><th>รุ่นรถ</th><th className="text-right">คัน</th><th>ตรวจ</th>
+                          <th>ลำดับ</th><th>เลขตัวถัง</th><th>PL</th><th>วันที่ตัดจ่าย</th><th>ร้าน</th><th>ประเภทรถ</th><th>รุ่นรถ</th><th className="text-right">คัน</th><th>ตรวจ</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {rows.map((r) => {
+                        {rows.map((r, i) => {
                           const ok = r.errors.length === 0
                           return (
                             <tr key={r.row}>
                               <td><input type="checkbox" aria-label={`เลือกแถว ${r.row}`} disabled={!ok} checked={selRows.has(r.row)} onChange={() => setSelRows((s) => toggle(s, r.row))} /></td>
-                              <td className="text-muted">{r.row}</td>
+                              <td className="text-muted" title={`แถว ${r.row} ใน Excel`}>{i + 1}</td>
                               <td className="text-strong">{r.chassis || '—'}</td>
                               <td>{r.pl || '—'}</td>
                               <td>{r.date || '—'}</td>
