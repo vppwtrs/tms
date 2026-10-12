@@ -661,7 +661,7 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
 
   /* หาแถวผู้ใช้ กับถามชื่อจริงจาก TMS ไม่ต้องรอกัน — สองอย่างนี้ไม่เกี่ยวข้องกันเลย
      เดิมเรียงต่อกันทำให้เวลาล็อกอินเท่ากับผลบวกของทั้งคู่ ทั้งที่ควรเป็นตัวที่ช้ากว่า */
-  const existingP = sb.from('users').select('id, auth_id, is_active, role, name')
+  const existingP = sb.from('users').select('id, auth_id, is_active, role, name, auth_source')
     .eq('username', username).maybeSingle()
 
   // ชื่อจริงเอาจาก TMS ไม่ให้ผู้ใช้พิมพ์เอง — จะได้ตรงกับที่ออฟฟิศเรียกกันจริง
@@ -674,6 +674,13 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
   }).catch(() => null)   /* ชื่อไม่ใช่เรื่องคอขาดบาดตาย */
 
   const { data: existing } = await existingP
+
+  /* รหัส TMS เปิดได้เฉพาะบัญชีที่เกิดจากการล็อกอิน TMS — บัญชีที่สร้างในระบบเรา
+     (admin, คนขับ) ใช้ชื่อผู้ใช้ชุดเดียวกัน ถ้าชื่อเผอิญตรงกับบัญชี TMS ของใคร
+     คนนั้นจะได้เข้าบัญชีเราแทน และรหัสเดิมของเจ้าของถูกตั้งใหม่ทิ้งข้างล่าง */
+  if (existing && existing.auth_source !== 'tms') {
+    return json({ error: 'ชื่อผู้ใช้นี้เป็นบัญชีของระบบขนส่ง เข้าด้วยรหัส TMS ไม่ได้ — ติดต่อผู้ดูแลระบบ' }, 409)
+  }
 
   /* คนที่มีชื่ออยู่แล้วไม่ต้องรอผลโปรไฟล์ — ปล่อยให้คำขอนั้นวิ่งจบไปเงียบ ๆ
      ชื่อที่เปลี่ยนใน TMS จะตามมาในรอบถัดไปที่ระบบต้องสร้างบัญชีอยู่ดี
