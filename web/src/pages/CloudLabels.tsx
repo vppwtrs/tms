@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { listTmsTripsForLabels } from '../api/tms'
+import { ALLOWED_WAREHOUSES, listWarehouses, scanTripsForLabels } from '../api/tmsPull'
 import { useToast } from '../context/ToastContext'
 import { Badge, Button, EmptyState, ErrorBox, Input, Modal, PageHeader, SearchInput, TableSkeleton } from '../components/ui'
 import { IconDownload, IconPrinter, IconTable } from '../components/icons'
 import { buildLabels, fitLabels, labelHtml, printLabels, type LabelStoreSummary, type LabelUnit } from '../utils/storeLabel'
-import { groupTmsTrips, TMS_CONFIRM, type TmsLabelTrip } from '../utils/tmsTripLabels'
+import { labelTripsFromTms, TMS_CONFIRM, type TmsLabelTrip } from '../utils/tmsTripLabels'
 import { doLockLabelGroups, parseDoLock, type DoLockRow } from '../utils/doLockImport'
 import { fmtDate, todayIso } from '../utils/format'
 
@@ -12,8 +12,8 @@ import { fmtDate, todayIso } from '../utils/format'
  * พิมพ์ฉลาก 50×35 มม. — แยกออกมาจากปุ่มบนหน้าออเดอร์ ให้พิมพ์ได้ทีละหลายเที่ยว
  *
  * สองแหล่ง:
- *   1. เที่ยวของ TMS โดยตรง — ค่าเริ่มต้นแค่ Confirm (ก่อนรถออก) ติ๊กเพื่อดูสถานะอื่นไว้พิมพ์ซ้ำ
- *      ไม่ใช้ออเดอร์ในระบบ เพราะออเดอร์เกิดตอน OnDelivery แล้วเท่านั้น
+ *   1. เที่ยวจาก TMS ตรง ๆ ทุก carrier ทุกสถานะ (ยกเว้นยกเลิก) เฉพาะเที่ยวที่มีรถ
+ *      แยกจากหน้า "งานจาก TMS" ซึ่งเก็บเฉพาะกองรถเรา — อ่านแล้วพิมพ์ ไม่เขียนลงฐาน
  *   2. ไฟล์ DO-LOCK — รถ lock ที่ถูกตัดออกจากระบบไปแล้ว พิมพ์ย้อนหลังได้ ไม่เขียนลงฐาน
  */
 
@@ -47,8 +47,6 @@ export default function CloudLabels(): React.JSX.Element {
   const [to, setTo] = useState(today)
   const [q, setQ] = useState('')
   const [allTrips, setAllTrips] = useState<TmsLabelTrip[]>([])
-  /* ค่าเริ่มต้นเห็นแค่ Confirm — สถานะอื่นมีไว้พิมพ์ซ้ำตอนฉลากหาย/ชำรุด */
-  const [showAll, setShowAll] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [selTrips, setSelTrips] = useState<Set<string>>(new Set())
@@ -57,8 +55,10 @@ export default function CloudLabels(): React.JSX.Element {
     setLoading(true)
     setError('')
     try {
-      const { trips: raw, ships } = await listTmsTripsForLabels(from, to)
-      setAllTrips(groupTmsTrips(raw, ships).filter((t) => t.count > 0))
+      const whs = (await listWarehouses()).filter((w) => ALLOWED_WAREHOUSES.includes(w.code))
+      const scans = await Promise.all(whs.map((w) => scanTripsForLabels({ from, to, warehouse: w })))
+      setAllTrips(labelTripsFromTms(scans.flat()).filter((t) => t.count > 0)
+        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || a.tripNo.localeCompare(b.tripNo)))
       setSelTrips(new Set())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'โหลดเที่ยวไม่สำเร็จ')
@@ -74,10 +74,11 @@ export default function CloudLabels(): React.JSX.Element {
 
   const trips = useMemo((): TmsLabelTrip[] => {
     const needle = q.trim().toLowerCase()
-    return allTrips.filter((t) => (showAll || t.statusId === TMS_CONFIRM) && (!needle
+    return allTrips.filter((t) => (!needle
       || t.tripNo.toLowerCase().includes(needle)
+      || t.carrier.toLowerCase().includes(needle)
       || t.stores.some((st) => st.store.toLowerCase().includes(needle) || st.rows.some((rw) => (rw.pl ?? '').toLowerCase().includes(needle)))))
-  }, [allTrips, showAll, q])
+  }, [allTrips, q])
 
   /* ---- จากไฟล์ ---- */
   const fileRef = useRef<HTMLInputElement>(null)
@@ -178,14 +179,10 @@ export default function CloudLabels(): React.JSX.Element {
                 <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ width: 150 }} title="กำหนดส่ง ตั้งแต่" />
                 <span className="text-muted">ถึง</span>
                 <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ width: 150 }} title="ถึง" />
-                <SearchInput value={q} onChange={setQ} placeholder="ค้นเลขทริป / PL / ร้าน..." />
-                <label className="text-xs" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); setSelTrips(new Set()) }} />
-                  แสดงเที่ยวที่ออกวิ่งแล้ว (พิมพ์ซ้ำ)
-                </label>
+                <SearchInput value={q} onChange={setQ} placeholder="ค้นเลขทริป / PL / ร้าน / ขนส่ง..." />
               </div>
               {error ? <ErrorBox message={error} onRetry={() => void load()} /> : loading ? <TableSkeleton rows={5} cols={5} /> : trips.length === 0 ? (
-                <EmptyState icon={<IconPrinter size={28} />} title={showAll ? 'ไม่มีเที่ยวที่มีรถในช่วงนี้' : 'ไม่มีเที่ยว Confirm ที่มีรถในช่วงนี้'} desc={showAll ? 'ลองเปลี่ยนช่วงวัน' : 'ลองเปลี่ยนช่วงวัน หรือติ๊กแสดงเที่ยวที่ออกวิ่งแล้ว'} />
+                <EmptyState icon={<IconPrinter size={28} />} title="ไม่มีเที่ยวที่มีรถในช่วงนี้" desc="ลองเปลี่ยนช่วงวันหรือคลัง" />
               ) : (
                 <div className="table-wrap">
                   <table className="table ops-table">
@@ -196,7 +193,7 @@ export default function CloudLabels(): React.JSX.Element {
                             checked={selTrips.size === trips.length}
                             onChange={(e) => setSelTrips(e.target.checked ? new Set(trips.map((t) => t.key)) : new Set())} />
                         </th>
-                        <th>เลขทริป</th><th>วันที่</th><th>ร้าน</th><th>สถานะ TMS</th><th className="text-right">รถ (คัน)</th>
+                        <th>เลขทริป</th><th>วันที่</th><th>คลัง</th><th>ขนส่ง</th><th>ร้าน</th><th>สถานะ TMS</th><th className="text-right">รถ (คัน)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -205,6 +202,8 @@ export default function CloudLabels(): React.JSX.Element {
                           <td><input type="checkbox" aria-label={`เลือก ${t.tripNo}`} checked={selTrips.has(t.key)} onChange={() => setSelTrips((s) => toggle(s, t.key))} onClick={(e) => e.stopPropagation()} /></td>
                           <td className="text-strong">{t.tripNo}</td>
                           <td>{fmtDate(t.date)}</td>
+                          <td>{t.warehouse}</td>
+                          <td>{t.carrier || '—'}</td>
                           <td>{t.stores.map((s) => s.store).join(', ')}</td>
                           <td><Badge label={t.status} tone={t.statusId === TMS_CONFIRM ? 'pending' : 'neutral'} /></td>
                           <td className="text-right">{t.count}</td>

@@ -1,10 +1,12 @@
 /**
- * ฉลากจากเที่ยวของ TMS โดยตรง (tms_trips + tms_shipments) — ไม่ผ่านออเดอร์ในระบบเรา
+ * ฉลากจากเที่ยวของ TMS โดยตรง — ไม่ผ่านออเดอร์และไม่ผ่านข้อมูลที่ระบบเก็บไว้
  *
- * ออเดอร์ถูกสร้างตอนเที่ยวถึง OnDelivery แล้วเท่านั้น (ด่านนำเข้า 16 ก.ย. 2569)
- * แต่ฉลากต้องพิมพ์ก่อนรถออก ตอนที่เที่ยวยังเป็น Confirm — จึงต้องอ่านจากข้อมูลดิบที่ดึงมาทุก 5 นาที
+ * ออเดอร์เกิดตอน OnDelivery แล้วเท่านั้น และรอบดึงข้อมูลเก็บเฉพาะกองรถเรา (Fleet Owner)
+ * แต่ฉลากต้องติดรถทุกคันที่ออกจากคลัง ทุก carrier ทุกสถานะ (ยกเว้นยกเลิก)
+ * หน้าพิมพ์ฉลากจึงอ่านจาก TMS ตรง ๆ ผ่าน scanTripsForLabels แล้วแปลงด้วยไฟล์นี้
  */
 import { buildLabels, type LabelSource } from './storeLabel'
+import type { LabelTmsTrip } from '../api/tmsPull'
 
 /** status_id ของ TMS — ตรงกับ TRIP_STATUS ใน api/tmsPull.ts */
 export const TMS_CONFIRM = 2
@@ -17,6 +19,7 @@ export interface TmsTripRaw {
   status_id: number | null
   status: string | null
   warehouse_code: string | null
+  carrier?: string | null
 }
 
 export interface TmsShipmentRaw {
@@ -42,6 +45,7 @@ export interface TmsLabelTrip {
   statusId: number | null
   status: string
   warehouse: string
+  carrier: string
   stores: LabelSource[]
   /** จำนวนดวงที่จะได้ (เฉพาะรถ ไม่รวมกล่อง) */
   count: number
@@ -85,8 +89,32 @@ export function groupTmsTrips(trips: TmsTripRaw[], ships: TmsShipmentRaw[]): Tms
       statusId: t.status_id,
       status: t.status ?? '—',
       warehouse: t.warehouse_code ?? '',
+      carrier: t.carrier ?? '',
       stores: list,
       count: buildLabels(t.trip_no, '', list).units.length,
     }
   })
+}
+
+/** แปลงผลอ่านจาก TMS (PlRow รายบรรทัดต่อรุ่น) เข้ารูปเดียวกับข้างบน */
+export function labelTripsFromTms(trips: LabelTmsTrip[]): TmsLabelTrip[] {
+  const raw: TmsTripRaw[] = trips.map((t) => ({
+    tms_id: t.id, trip_no: t.tripNo, order_date: t.orderDate || null, status_id: t.statusId,
+    status: t.status, warehouse_code: t.warehouse, carrier: t.carrierName,
+  }))
+  const ships: TmsShipmentRaw[] = trips.flatMap((t) => t.rows.map((r) => ({
+    tms_trip_id: t.id,
+    picking_list_no: r.pickingListNo,
+    pl_type: r.plType,
+    unit: r.unit,
+    item_no: r.itemNo,
+    item_name: r.itemName,
+    item_qty: r.itemQty,
+    item_split_qty: r.itemSplitQty,
+    dealer_name: r.dealerName,
+    ship_to_name: r.shipToName,
+    ship_to_province: r.shipToProvince,
+    province: r.province,
+  })))
+  return groupTmsTrips(raw, ships)
 }

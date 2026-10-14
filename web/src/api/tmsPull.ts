@@ -829,3 +829,59 @@ export async function pullCoverage(hours = 24): Promise<PullCoverage> {
   if (error) throw toDataError(error)
   return data as PullCoverage
 }
+
+/* ---------- ฉลาก: อ่านเที่ยวจาก TMS ตรง ๆ ทุก carrier ทุกสถานะ ----------
+   แยกจากรอบดึงข้อมูลงานคนขับโดยตั้งใจ — รอบนั้นเก็บเฉพาะกองรถเรา (Fleet Owner)
+   แต่ฉลากต้องติดรถทุกคันที่ออกจากคลัง รวมรถที่ outsource ขน (ATM, KTS ฯลฯ)
+   ไม่เขียนอะไรลงฐาน อ่านแล้วใช้พิมพ์อย่างเดียว */
+
+export interface LabelTmsTrip {
+  id: string
+  tripNo: string
+  orderDate: string
+  statusId: number
+  status: string
+  carrierName: string
+  warehouse: string
+  rows: PlRow[]
+}
+
+export async function scanTripsForLabels(
+  opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
+): Promise<LabelTmsTrip[]> {
+  const guid = await warehouseGuid(opts.warehouse)
+  const scan = await tmsOp<{ items: unknown[]; pages: number; complete: boolean }>('scanTrips', {
+    guid,
+    from: opts.from,
+    maxPages: opts.maxPages ?? 6,
+  })
+
+  const trips = scan.items.map(toTripHeader).filter((t) => {
+    const d = day(t.orderDate)
+    return d && d >= opts.from && d <= opts.to && t.statusId !== 6
+  })
+
+  /* รายการรุ่นอยู่ที่เส้นรายเที่ยวเท่านั้น — gateway รับทีละไม่เกิน 60 id */
+  const byTrip = new Map<string, PlHeader[]>()
+  const ids = trips.filter((t) => t.id).map((t) => String(t.id))
+  for (let i = 0; i < ids.length; i += 60) {
+    const part = await tmsOp<{ lists: Array<{ id: string; items: PlHeader[] }> }>(
+      'scanTripPickingLists', { ids: ids.slice(i, i + 60) },
+    ).catch(() => ({ lists: [] as Array<{ id: string; items: PlHeader[] }> }))
+    for (const l of part.lists) byTrip.set(l.id, l.items)
+  }
+
+  return trips.map((t) => {
+    const fromScan = t.id ? byTrip.get(String(t.id)) : undefined
+    return {
+      id: s(t.id) || `${opts.warehouse.code}|${s(t.tripNo)}`,
+      tripNo: s(t.tripNo),
+      orderDate: day(t.orderDate),
+      statusId: t.statusId ?? 0,
+      status: TRIP_STATUS[t.statusId ?? 0] ?? s(t.status),
+      carrierName: s(t.carrierName),
+      warehouse: opts.warehouse.code,
+      rows: plRowsOf(fromScan?.length ? fromScan : (t.pickingLists ?? [])),
+    }
+  })
+}
