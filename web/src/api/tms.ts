@@ -1,5 +1,6 @@
 import { supabase, unwrap, toDataError } from './supabase.js'
 import type { TmsShipmentRow } from '../types/database.js'
+import { TMS_CANCELLED, type TmsShipmentRaw, type TmsTripRaw } from '../utils/tmsTripLabels.js'
 
 /**
  * สะพานจาก TMS บริษัท — ไม่มีของเดิมใน server/ ให้แทน นี่เป็นของใหม่ทั้งก้อน
@@ -242,3 +243,33 @@ export async function createVehicleFromTms(plate: string): Promise<{ vehicle_id:
   return data as { vehicle_id: number; plate: string }
 }
 
+
+/* ---------- ฉลาก: เที่ยว TMS ทุกสถานะที่ยังไม่ยกเลิก + ใบของเที่ยวนั้น ----------
+   อ่านข้อมูลดิบโดยตรง เพราะออเดอร์ถูกสร้างตอน OnDelivery แล้วเท่านั้น
+   แต่ฉลากต้องพิมพ์ตั้งแต่ Confirm (ดู utils/tmsTripLabels.ts) */
+export async function listTmsTripsForLabels(from: string, to: string): Promise<{
+  trips: TmsTripRaw[]
+  ships: TmsShipmentRaw[]
+}> {
+  let q = supabase.from('tms_trips')
+    .select('tms_id, trip_no, order_date, status_id, status, warehouse_code')
+    .or(`status_id.is.null,status_id.neq.${TMS_CANCELLED}`)
+    .order('order_date', { ascending: false })
+    .order('trip_no')
+    .limit(1000)
+  if (from) q = q.gte('order_date', from)
+  if (to) q = q.lte('order_date', to)
+  const trips = (await unwrap(q)) as TmsTripRaw[]
+
+  const ids = trips.map((t) => t.tms_id)
+  const ships: TmsShipmentRaw[] = []
+  /* ทีละ 150 — ใส่ id ทั้งหมดใน in(...) ครั้งเดียว URL ยาวเกินเมื่อเลือกช่วงวันกว้าง */
+  for (let i = 0; i < ids.length; i += 150) {
+    const part = (await unwrap(supabase.from('tms_shipments')
+      .select('tms_trip_id, picking_list_no, pl_type, unit, item_no, item_name, item_qty, item_split_qty, dealer_name, ship_to_name, ship_to_province, province')
+      .in('tms_trip_id', ids.slice(i, i + 150))
+      .order('picking_list_no'))) as TmsShipmentRaw[]
+    ships.push(...part)
+  }
+  return { trips, ships }
+}
