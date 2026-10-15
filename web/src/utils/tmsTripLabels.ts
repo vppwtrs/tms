@@ -73,7 +73,7 @@ export function groupTmsTrips(trips: TmsTripRaw[], ships: TmsShipmentRaw[]): Tms
       const plKey = `${store}|${s.picking_list_no}`
       let row = pls.get(plKey)
       if (!row) {
-        row = { pl: s.picking_list_no, orderNo: s.picking_list_no, goods: s.item_name ?? '', units: s.unit, kind: null, items: [] }
+        row = { pl: s.picking_list_no, orderNo: s.picking_list_no, goods: s.item_name ?? '', units: s.unit, kind: null, plType: s.pl_type, items: [] }
         pls.set(plKey, row)
         src.rows.push(row)
       }

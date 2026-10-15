@@ -14,6 +14,8 @@ export interface LabelUnit {
   pl: string
   tripNo: string
   date: string
+  /** ประเภท PL (CLM …) — กรอบแบบเดียวกับเลขทริป วางเหนือจังหวัด */
+  status: string
   index: number
   total: number
 }
@@ -35,6 +37,8 @@ export interface LabelSource {
     units: number | null
     /** orders.work_kind — 'vehicle' | 'box' | null (null = เดาจาก goods ขึ้นต้น BOX) */
     kind: string | null
+    /** ประเภท PL จาก TMS (CLM …) — ขึ้นกรอบเหนือจังหวัด */
+    plType?: string | null
     items: { item_no: string; item_name: string | null; qty: number }[]
   }[]
 }
@@ -47,7 +51,7 @@ const isVehicleOrder = (kind: string | null, goods: string): boolean =>
   (kind ?? (/^box\b/i.test(goods.trim()) ? 'box' : 'vehicle')) === 'vehicle'
 
 /** แตกใบเป็นรายคัน — ใบรถที่ไม่มีรายการของ ใช้จำนวนหน่วยจาก TMS แทน ขั้นต่ำ 1 ดวง */
-export function buildLabels(tripNo: string, date: string, stores: LabelSource[]): {
+export function buildLabels(tripNo: string, date: string, stores: LabelSource[], status = ''): {
   units: LabelUnit[]
   summary: LabelStoreSummary[]
 } {
@@ -69,7 +73,7 @@ export function buildLabels(tripNo: string, date: string, stores: LabelSource[])
         m.qty += ln.qty
         models.set(key, m)
         for (let i = 0; i < ln.qty; i++) {
-          mine.push({ store: s.store, address: s.address, model: ln.model, itemNo: ln.itemNo, pl: r.pl ?? r.orderNo, tripNo, date })
+          mine.push({ store: s.store, address: s.address, model: ln.model, itemNo: ln.itemNo, pl: r.pl ?? r.orderNo, tripNo, date, status: r.plType?.trim() || status })
         }
       }
     }
@@ -112,6 +116,7 @@ const label = (u: LabelUnit, logo: string): string => {
     <h1>${esc(name)}</h1>
     ${branch ? `<p class="branch">${esc(branch)}</p>` : ''}
   </div>
+  ${u.status ? `<p class="st"><span>${esc(u.status)}</span></p>` : ''}
   ${u.address ? `<p class="addr">${esc(u.address)}</p>` : ''}
   <footer>
     <b>${esc(u.date)}</b>
@@ -136,6 +141,7 @@ header img { height: 6.2mm; max-width: 26mm; object-fit: contain; filter: graysc
 .mid { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: .3mm; padding: .6mm 0 .8mm; overflow: hidden; }
 h1 { font-size: 9.5pt; font-weight: 700; line-height: 1.18; max-height: 3.54em; overflow: hidden; }
 .branch { font-size: 7.5pt; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; }
+.st { flex: none; margin-bottom: .4mm; } .st span { font-size: 6.5pt; font-weight: 700; border: .25mm solid #000; border-radius: .8mm; padding: 0 1mm; line-height: 3.4mm; display: inline-block; }
 .addr { font-size: 8pt; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 footer { display: flex; align-items: flex-end; justify-content: space-between; margin-top: .9mm;
   border-top: .25mm dashed #666; padding-top: .6mm; } /* เส้นประบาง — เส้นทึบหนาแย่งสายตาจากชื่อร้าน */
