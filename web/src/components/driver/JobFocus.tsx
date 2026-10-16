@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Button, Modal } from '../ui'
 import { StopItem } from './StopCard'
-import { IconAlert, IconCheck, IconChevronLeft, IconList } from '../icons'
+import { IconAlert, IconBuilding, IconCheck, IconChevronRight, IconTruck } from '../icons'
 import { TRIP_STATUS_LABEL } from '../../utils/constants'
 import { fmtTime } from '../../utils/format'
 import { groupStops, jobTripNo, type StopGroup } from '../../utils/stops'
@@ -62,16 +62,8 @@ export function JobFocus({
   onCancelStop,
   onUndoCancelStop,
   onReorder,
-  onBack,
-  backLabel = 'เที่ยวทั้งหมด',
-  trackNote,
 }: {
   job: MyJob
-  /** ปุ่มย้อนกลับมุมซ้ายบนของหัวจอ */
-  onBack?: () => void
-  backLabel?: string
-  /** สถานะบันทึกเส้นทาง — ไม่ส่งมา = ยังไม่รับงาน ไม่ต้องบอก */
-  trackNote?: { on: boolean; text: string }
   busy: boolean
   /** คีย์ของร้านที่กำลังส่งคำสั่งปิดจุดอยู่ ('' = ไม่มี) */
   deliveringKey: string
@@ -293,43 +285,31 @@ export function JobFocus({
 
   return (
     <article className={`job-focus dv-trip status-${job.status}`}>
-      {/* หัวจอตรึงบน (mockup v2) — ย้อนกลับ · เลขเที่ยว + สถานะย่อ · รายละเอียด · แจ้งปัญหา */}
       <header className="dv-trip-head">
         <div className="dv-trip-row">
-          {onBack && (
-            <button type="button" className="dv-icon-btn" aria-label={backLabel} onClick={onBack}>
-              <IconChevronLeft size={22} />
-            </button>
-          )}
-          <h1 className="dv-trip-no">
-            {jobTripNo(job)}
-            <span className="dv-trip-sub">
-              <span className="job-meter-text">
-                ส่งแล้ว <b>{delivered}</b>/{stops.length} ร้าน{cancelledStops > 0 ? ` · ยกเลิก ${cancelledStops}` : ''}
-              </span>
-              {' · '}{job.vehicle_plate}
-            </span>
-          </h1>
-          <button type="button" className="dv-icon-btn" aria-label={`รายละเอียดเที่ยว ${jobTripNo(job)}`}
-            onClick={() => setDetailOpen(true)}>
-            <IconList size={22} />
+          <button type="button" className="dv-trip-no" onClick={() => setDetailOpen(true)}
+            aria-label={`รายละเอียดเที่ยว ${jobTripNo(job)}`}>
+            {jobTripNo(job)} <IconChevronRight size={16} aria-hidden />
           </button>
+          <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot />
           {!waiting && onReportIssue && active && (
             <button type="button" className="dv-icon-btn is-warn" aria-label="แจ้งปัญหา" onClick={() => onReportIssue(job)}>
-              <IconAlert size={22} />
+              <IconAlert size={20} />
             </button>
           )}
+        </div>
+        <div className="dv-trip-sub">
+          <span><IconTruck size={14} /> {job.vehicle_plate}</span>
+          {job.warehouse_code && <span><IconBuilding size={14} /> {job.warehouse_code}</span>}
+          <span className="job-meter-text">
+            <b>{delivered}</b>/{stops.length} ร้าน{cancelledStops > 0 ? ` · ยกเลิก ${cancelledStops}` : ''}
+          </span>
         </div>
         {stops.length > 0 && (
           <div className="dv-segs" role="img" aria-label={`ส่งแล้ว ${delivered} จาก ${stops.length} ร้าน`}>
             {stops.map((s) => <span key={s.key} className={`dv-seg${segState(s)}`} />)}
           </div>
         )}
-        <div className="dv-trip-meta">
-          <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot />
-          {job.warehouse_code && <span>คลัง {job.warehouse_code}</span>}
-          {trackNote && <span className={`dv-rec track-note${trackNote.on ? '' : ' is-off'}`}>{trackNote.text}</span>}
-        </div>
       </header>
 
       {waiting && <p className="dv-note is-warn">งานใหม่ — กดรับงานก่อนถึงจะเริ่มเดินทางได้</p>}

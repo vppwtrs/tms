@@ -46,35 +46,3 @@ export function applyTheme(theme: Theme): void {
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.setAttribute('content', theme === 'dark' ? '#14111f' : '#faf9fd')
 }
-
-/** ค่าที่ผู้ใช้เลือก รวม "ตามเครื่อง" — ค่าเริ่มต้นยังเป็นสว่าง ต้องเลือก auto เอง */
-export type ThemePref = Theme | 'auto'
-
-export function getThemePref(): ThemePref {
-  try {
-    if (localStorage.getItem(KEY) === 'auto') return 'auto'
-  } catch { /* ไม่มี localStorage */ }
-  return currentTheme()
-}
-
-const systemDark = (): boolean =>
-  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches
-
-let unwatch: (() => void) | null = null
-
-/** ทาธีมตามที่เลือก — auto ทาตามเครื่องแล้วตามต่อเมื่อเครื่องสลับโหมด */
-export function applyThemePref(pref: ThemePref): void {
-  unwatch?.()
-  unwatch = null
-  if (pref !== 'auto') { applyTheme(pref); return }
-  applyTheme(systemDark() ? 'dark' : 'light')
-  try { localStorage.setItem(KEY, 'auto') } catch { /* ไม่ถูกจำ */ }
-  if (typeof window.matchMedia !== 'function') return
-  const mq = window.matchMedia('(prefers-color-scheme: dark)')
-  const on = (): void => {
-    applyTheme(mq.matches ? 'dark' : 'light')
-    try { localStorage.setItem(KEY, 'auto') } catch { /* ไม่ถูกจำ */ }
-  }
-  mq.addEventListener('change', on)
-  unwatch = () => mq.removeEventListener('change', on)
-}

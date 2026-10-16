@@ -19,15 +19,14 @@ import type { HistoryRange } from '../utils/jobs'
 import { closingJobs, finishGate, parseKm, podGapsOf, podRowsOf, tollFor } from '../utils/driverActions'
 import { CANCEL_STOP_REASONS, TRIP_STATUS_LABEL } from '../utils/constants'
 import { fmtDate, fmtDateTime, fmtLongToday, fmtTime } from '../utils/format'
-import { applyThemePref, getThemePref, type ThemePref } from '../utils/theme'
+import { applyTheme, currentTheme, type Theme } from '../utils/theme'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal, Skeleton, Textarea } from '../components/ui'
-import { HistoryStopPod } from '../components/driver/HistoryStopPod'
 import { PodViewModal } from '../components/PodViewModal'
 import { JobFocus } from '../components/driver/JobFocus'
 import { RangeCalendar, shortThai } from '../components/driver/RangeCalendar'
 import { PodSheet } from '../components/driver/PodSheet'
 import {
-  IconAlert, IconCalendar, IconChevronLeft, IconCheck, IconChevronRight, IconKey, IconLogout, IconMoon, IconSun, IconTruck, IconUsers,
+  IconAlert, IconCheck, IconChevronRight, IconKey, IconLogout, IconMoon, IconSun, IconTruck, IconUsers,
 } from '../components/icons'
 import { ChangePasswordModal } from '../components/ChangePasswordModal'
 
@@ -56,9 +55,7 @@ export default function CloudMyJobs(): React.JSX.Element {
     startTab === 'history' || startTab === 'me' ? startTab : 'jobs',
   )
   const [pwOpen, setPwOpen] = useState(false)
-  const [theme, setTheme] = useState<ThemePref>(() => getThemePref())
-  /* ตามเครื่อง: ต้องเริ่มฟังการสลับโหมดของเครื่องตั้งแต่เปิดแอป ไม่ใช่แค่ตอนกดเลือก */
-  useEffect(() => { if (getThemePref() === 'auto') applyThemePref('auto') }, [])
+  const [theme, setTheme] = useState<Theme>(() => currentTheme())
   const [busy, setBusy] = useState(0)
   // แยกจาก busy เพราะ busy เก็บเลขเที่ยว ส่วนนี่เก็บร้านที่กำลังปิด — ชนกันได้ถ้าใช้ตัวเดียว
   const [delivering, setDelivering] = useState('')
@@ -455,41 +452,8 @@ export default function CloudMyJobs(): React.JSX.Element {
 
   return (
     <div className="driver-scope dv-app">
-      {/* โครงแอป (mockup v2): หัวจอตรึงบน · เนื้อหาเลื่อนขึ้นลงอย่างเดียว · เมนูล่างตรึง
-          หน้าเที่ยวที่เปิดอยู่ หัวจอเป็นของ JobFocus (ตรึงในกล่องเนื้อหา) */}
-      {!(tab === 'jobs' && active) && (
-        <header className="dv-head">
-          {tab === 'history' && historyJob ? (
-            <>
-              <button type="button" className="dv-icon-btn" aria-label="กลับไปประวัติ" onClick={() => setHistoryJob(null)}>
-                <IconChevronLeft size={22} />
-              </button>
-              <h1 className="dv-title" style={{ flex: 1 }}>
-                {historyJob.arrived_at ? shortThai(historyJob.arrived_at.slice(0, 10)) : jobTripNo(historyJob)}
-                <span className="dv-sub">{jobTripNo(historyJob)} · {historyJob.vehicle_plate}</span>
-              </h1>
-            </>
-          ) : (<>
-          <h1 className="dv-title">
-            {tab === 'jobs' ? 'งานวันนี้' : tab === 'history' ? 'ประวัติ' : 'ฉัน'}
-            {tab !== 'me' && (
-              <span className="dv-sub">{tab === 'jobs' ? fmtLongToday() : 'เที่ยวที่ปิดแล้ว'}</span>
-            )}
-          </h1>
-          {tab === 'history' && (
-            <button type="button" className="dv-icon-btn" aria-label="เลือกช่วงวันที่" onClick={() => {
-              setDraftRange({ from: histRange.from ?? '', to: histRange.to ?? '' })
-              setRangeOpen(true)
-            }}>
-              <IconCalendar size={22} />
-            </button>
-          )}
-          </>)}
-        </header>
-      )}
-
-      <main className="dv-body">
-      {/* แถบสถานะของท่าลากลง ไหลตามนิ้วแล้วค้างไว้ระหว่างโหลด */}
+      {/* แถบสถานะของท่าลากลง ไหลตามนิ้วแล้วค้างไว้ระหว่างโหลด
+          อยู่เหนือทุกอย่างและไม่กินที่ตอนไม่ได้ใช้ */}
       <div
         className={`pull-hint${pull.refreshing ? ' is-loading' : ''}${pull.ready ? ' is-ready' : ''}`}
         style={{ height: pull.distance }}
@@ -500,47 +464,33 @@ export default function CloudMyJobs(): React.JSX.Element {
         )}
       </div>
 
-      {tab === 'history' && historyJob && (
-        /* รายละเอียดย้อนหลังเป็นหน้าเต็ม (mockup v2) — การ์ดละร้าน รูปหลักฐานอยู่ในการ์ดเลย กดรูปเปิดเต็มจอ */
-        <div className="hist-list">
-          <div className="dv-card">
-            <dl className="hd-kv">
-              <dt>ปิดงาน</dt><dd>{historyJob.arrived_at ? fmtDateTime(historyJob.arrived_at) : '—'}</dd>
-              <dt>จุดส่ง</dt><dd>{groupStops(historyJob.orders).filter((st) => !st.cancelled).length} จุด · {historyJob.orders.length} ใบ</dd>
-              {historyJob.issue_note && (<><dt>แจ้งปัญหา</dt><dd>{historyJob.issue_note}</dd></>)}
-            </dl>
-          </div>
-          {groupStops(historyJob.orders).map((stop, i) => (
-            <div key={stop.key} className="dv-card hd-stop">
-              <div className="hd-stop-head">
-                <span className="hd-num" aria-hidden>{i + 1}</span>
-                <span className="hd-name">
-                  <b>{stop.customer_name ?? stop.destination}</b>
-                  {stop.customer_address && <small>{stop.customer_address}</small>}
-                </span>
-                {stop.cancelled
-                  ? <span className="hist-pill is-bad">ส่งไม่ได้</span>
-                  : <span className="hist-pill is-ok">ส่งแล้ว</span>}
-              </div>
-              {/* ร้านเดียวอาจมีหลายใบ แต่ละใบมีหลักฐานแยกกัน */}
-              {stop.orders.filter((o) => o.has_pod > 0).map((o) => (
-                <div key={o.id} className="hd-bill">
-                  {stop.orders.length > 1 && <p className="dv-label">{o.tms_picking_list_no ?? o.order_no}</p>}
-                  <HistoryStopPod orderId={o.id} />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+      {/* หัวจอ — หน้าเที่ยวที่เปิดอยู่ไม่มีหัว (หัวเที่ยวอยู่ใน JobFocus เอง) */}
+      {!(tab === 'jobs' && active) && (
+        <header className="dv-head">
+          <h1 className="dv-title">
+            {tab === 'jobs' ? 'งาน' : tab === 'history' ? 'ประวัติ' : 'ฉัน'}
+          </h1>
+          {tab === 'jobs' && unread > 0 && <span className="dv-chip is-time">งานใหม่ {unread}</span>}
+          {tab === 'history' && (
+            <button type="button" className="dv-pill dv-range-pill" onClick={() => {
+              setDraftRange({ from: histRange.from ?? '', to: histRange.to ?? '' })
+              setRangeOpen(true)
+            }}>
+              {histRange.from && histRange.to
+                ? (histRange.from === histRange.to ? shortThai(histRange.from) : `${shortThai(histRange.from)} – ${shortThai(histRange.to)}`)
+                : 'ทุกวัน'}
+            </button>
+          )}
+        </header>
       )}
 
-      {tab === 'history' && !historyJob && (
+      {tab === 'history' && (
         /* ประวัติเป็นรายการอ่านอย่างเดียว — ปิดงานแล้วไม่มีปุ่มอะไรให้กดอีก
            สิ่งที่คนขับมาหาที่นี่คือ "เมื่อวานฉันวิ่งกี่เที่ยว ร้านไหนบ้าง" */
         <div className="hist-list">
           {/* ตัวกรองวันที่แบบมือถือ — ปุ่มลัดแถวเดียว ส่วน "เลือกเอง" เปิดแผ่นล่างที่ใช้ปฏิทินของเครื่อง */}
           <div className="hist-filter" role="group" aria-label="ช่วงวันที่">
-            {([['today', 'วันนี้'], ['7d', '7 วัน'], ['30d', '30 วัน'], ['all', 'ทั้งหมด']] as const).map(([k, label]) => (
+            {([['today', 'วันนี้'], ['7d', '7 วัน'], ['month', 'เดือนนี้'], ['all', 'ทั้งหมด']] as const).map(([k, label]) => (
               <button key={k} type="button" className="hist-chip" aria-pressed={histRange.preset === k}
                 onClick={() => setHistRange(presetRange(k))}>
                 {label}
@@ -552,16 +502,15 @@ export default function CloudMyJobs(): React.JSX.Element {
                 setRangeOpen(true)
               }}>
               {histRange.preset === 'custom' && histRange.from && histRange.to
-                ? 'กำหนดเอง ✓' : 'กำหนดเอง'}
+                ? 'เลือกเอง ✓' : 'เลือกเอง'}
             </button>
           </div>
           {done.length > 0 && (
-            <p className="hist-sum">
-              <span>{histRange.from && histRange.to
-                ? (histRange.from === histRange.to ? shortThai(histRange.from) : `${shortThai(histRange.from)} – ${shortThai(histRange.to)}`)
-                : 'ทุกวัน'}</span>
-              <span>{shown.length} เที่ยว · {shownStops} จุด</span>
-            </p>
+            <div className="hist-sum">
+              <div><b>{shown.length}</b><span>เที่ยว</span></div>
+              <div><b>{shownStops}</b><span>จุดส่ง</span></div>
+              <div><b>{shown.filter((j) => j.issue_note).length}</b><span>แจ้งปัญหา</span></div>
+            </div>
           )}
           {done.length === 0 && (
             <EmptyState icon={<IconTruck size={28} />} title="ยังไม่มีงานที่ปิดแล้ว" desc="งานที่ปิดงานเรียบร้อยจะมาอยู่ที่นี่" />
@@ -570,17 +519,17 @@ export default function CloudMyJobs(): React.JSX.Element {
             <EmptyState icon={<IconTruck size={28} />} title="ไม่มีเที่ยวในช่วงนี้" desc="ลองเลือกช่วงวันที่กว้างขึ้น" />
           )}
           {historyGroups.map((group) => (
-            <section key={group.key} className="hist-group" aria-label={group.label}>
+            <section key={group.key} className="hist-group">
+              <h2 className="hist-date">{group.label}</h2>
               <ul className="hist-rows">
                 {group.jobs.map((j) => (
                   <li key={j.id}>
                     <button type="button" className="hist-row" onClick={() => setHistoryJob(j)}>
-                      <span className="hist-day" aria-hidden>
-                        <b>{j.arrived_at ? new Date(j.arrived_at).getDate() : '—'}</b>
-                        <small>{j.arrived_at ? new Date(j.arrived_at).toLocaleDateString('th-TH', { month: 'short' }) : ''}</small>
+                      <span className={`hist-ic${j.issue_note ? ' is-flag' : ''}`} aria-hidden>
+                        {j.issue_note ? <IconAlert size={17} /> : <IconCheck size={17} />}
                       </span>
                       <span className="hist-text">
-                        <span className="hist-no">{jobTripNo(j)}{j.issue_note ? ' · แจ้งปัญหา' : ''}</span>
+                        <span className="hist-no">{jobTripNo(j)}</span>
                         <span className="hist-meta">
                           {/* ร้านที่ยกเลิกทั้งร้านไม่นับเป็นจุดส่ง — รถไม่ได้วิ่งไปถึงจริง */}
                           {j.vehicle_plate} · {groupStops(j.orders).filter((s) => !s.cancelled).length} จุดส่ง · {j.orders.length} ใบ
@@ -595,6 +544,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                           ? <span className="hist-pill is-bad">ส่งไม่ได้ {failed}</span>
                           : <span className="hist-pill is-ok">ส่งครบ</span>
                       })()}
+                      <IconChevronRight size={16} aria-hidden />
                     </button>
                   </li>
                 ))}
@@ -607,23 +557,12 @@ export default function CloudMyJobs(): React.JSX.Element {
       {tab === 'me' && (
         /* หน้าฉัน (mockup จอ 16) — หัวโปรไฟล์ แล้วรายการตั้งค่าในการ์ดใบเดียว ออกจากระบบแยกเป็นปุ่มแดง */
         <div className="driver-me">
-          <div className="me-head dv-card">
+          <div className="me-head">
             <span className="me-avatar" aria-hidden>{(user?.name ?? '?').trim().charAt(0)}</span>
             <span className="me-who">
               <b>{user?.name}</b>
               <small>{user?.username} · พนักงานขับรถ</small>
             </span>
-          </div>
-          {/* ธีมหน้าจอ — สองปุ่มเห็นพร้อมกัน แตะครั้งเดียวรู้ผลทันที (mockup v2) */}
-          <p className="dv-label">ธีมหน้าจอ</p>
-          <div className="me-theme" role="group" aria-label="ธีมหน้าจอ">
-            {(['light', 'dark', 'auto'] as const).map((t) => (
-              <button key={t} type="button" aria-pressed={theme === t}
-                onClick={() => { setTheme(t); applyThemePref(t) }}>
-                {t === 'dark' ? <IconMoon size={20} aria-hidden /> : t === 'light' ? <IconSun size={20} aria-hidden /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></svg>}
-                {t === 'dark' ? 'มืด' : t === 'light' ? 'สว่าง' : 'ตามเครื่อง'}
-              </button>
-            ))}
           </div>
           <div className="me-list">
             <div className="me-row">
@@ -633,6 +572,12 @@ export default function CloudMyJobs(): React.JSX.Element {
                 {tracking.state === 'denied' ? 'ไม่ได้อนุญาต' : tracking.state === 'unsupported' ? 'เครื่องไม่รองรับ' : 'อนุญาตแล้ว'}
               </span>
             </div>
+            <button type="button" className="me-row" role="switch" aria-checked={theme === 'dark'}
+              onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(next); applyTheme(next) }}>
+              <span className="me-row-ic" aria-hidden>{theme === 'dark' ? <IconMoon size={18} /> : <IconSun size={18} />}</span>
+              <span className="me-row-label">โหมดมืด</span>
+              <span className={`me-switch${theme === 'dark' ? ' is-on' : ''}`} aria-hidden />
+            </button>
             <button type="button" className="me-row" onClick={() => setPwOpen(true)}>
               <span className="me-row-ic" aria-hidden><IconKey size={18} /></span>
               <span className="me-row-label">เปลี่ยนรหัสผ่าน</span>
@@ -658,19 +603,26 @@ export default function CloudMyJobs(): React.JSX.Element {
         /* เปิดเที่ยวอยู่ — เห็นเที่ยวนั้นเที่ยวเดียว ทางกลับไปรายการเที่ยวมีทางเดียวคือชิปข้างบน
            การ์ดเที่ยวอื่นไม่อยู่บนจอ นิ้วพลาดระหว่างปิดจุดจึงไม่สลับเที่ยวโดยไม่มีใครสั่ง */
         <div className="dv-page">
+          {/* ทางกลับไปรายการเที่ยว — ปุ่มย้อนกลับมุมซ้ายบนแบบแอปทั่วไป เห็นทันทีว่ากดถอยได้
+              (แตะ "งาน" ที่เมนูล่างก็กลับได้เหมือนกัน) กดเข้าเที่ยวผิดก็ออกได้ในแตะเดียว */}
+          <div className="dv-topbar">
+            <button type="button" className="dv-back" onClick={() => setActiveId(-1)}>
+              <span aria-hidden>‹</span> เที่ยวทั้งหมด{live.length > 1 ? ` (${live.length})` : ''}
+            </button>
+            {(active.my_accepted_at ?? active.accepted_at) && (
+              /* บอกตรง ๆ ว่าบันทึกตำแหน่งอยู่หรือไม่ — ถ้าไม่บอก คนขับจะเชื่อว่ามีการบันทึกตลอดเวลา */
+              <span className={`dv-rec track-note${tracking.state === 'on' ? '' : ' is-off'}`}>
+                {tracking.state === 'on'
+                  ? (tracking.backgroundCapable ? 'บันทึกเส้นทาง'
+                    : screenAwake ? 'บันทึกเส้นทาง · จอไม่ดับ' : 'บันทึกเส้นทาง · เปิดค้างไว้')
+                  : tracking.state === 'denied' ? 'ไม่ได้สิทธิ์ตำแหน่ง'
+                  : tracking.state === 'unsupported' ? 'ระบุตำแหน่งไม่ได้'
+                  : 'กำลังขอตำแหน่ง…'}
+              </span>
+            )}
+          </div>
           <JobFocus
             job={active}
-            onBack={() => setActiveId(-1)}
-            backLabel={`เที่ยวทั้งหมด${live.length > 1 ? ` (${live.length})` : ''}`}
-            trackNote={(active.my_accepted_at ?? active.accepted_at) ? {
-              on: tracking.state === 'on',
-              text: tracking.state === 'on'
-                ? (tracking.backgroundCapable ? 'บันทึกเส้นทาง'
-                  : screenAwake ? 'บันทึกเส้นทาง · จอไม่ดับ' : 'บันทึกเส้นทาง · เปิดค้างไว้')
-                : tracking.state === 'denied' ? 'ไม่ได้สิทธิ์ตำแหน่ง'
-                : tracking.state === 'unsupported' ? 'ระบุตำแหน่งไม่ได้'
-                : 'กำลังขอตำแหน่ง…',
-            } : undefined}
             busy={busy === active.id}
             deliveringKey={delivering}
             canProgress={can('myjobs.progress')}
@@ -696,9 +648,6 @@ export default function CloudMyJobs(): React.JSX.Element {
         /* รายการเที่ยวที่ยังไม่จบ (mockup จอ 1 + 6) — งานใหม่เป็นการ์ดเต็มพร้อมปุ่มรับงาน
            เที่ยวที่รับแล้วเป็นการ์ดย่อ แตะเพื่อเปิด */
         <div className="dv-page">
-          {unread > 0 && (
-            <p className="dv-banner"><span className="dv-chip is-info">งานใหม่ {unread}</span> ฝ่ายวางแผนมอบเที่ยวให้คุณ กดรับงานก่อนออกเดินทาง</p>
-          )}
           <p className="dv-label">เที่ยวที่ยังไม่จบ · {live.length}</p>
           {live.map((job) => {
             const delivered = job.orders.filter((o) => o.status === 'delivered').length
@@ -755,13 +704,10 @@ export default function CloudMyJobs(): React.JSX.Element {
               <button key={job.id} type="button" className={`dv-card dv-tripcard status-${job.status}`}
                 onClick={() => setActiveId(job.id)}>
                 <span className="dv-tripcard-head">
+                  <b>{jobTripNo(job)}</b>
                   <Badge label={TRIP_STATUS_LABEL[job.status]} tone={job.status} dot={job.status === 'in_progress'} />
-                  <span className="dv-tripcard-no">{jobTripNo(job)}</span>
                 </span>
-                <span className="dv-tripcard-title">
-                  <b>{firstStop ? (firstStop.customer_name ?? firstStop.destination) : jobTripNo(job)}{jobStops.length > 1 ? ` · ${jobStops.length} จุด` : ''}</b>
-                  <small>รถ {job.vehicle_plate}{job.warehouse_code ? ` · คลัง ${job.warehouse_code}` : ''}</small>
-                </span>
+                <span className="dv-muted">{job.vehicle_plate} · ส่งแล้ว {delivered}/{job.orders.length} ใบ</span>
                 {job.orders.length > 0 && (
                   <span className="dv-segs" aria-hidden>
                     {job.orders.map((o) => (
@@ -769,21 +715,11 @@ export default function CloudMyJobs(): React.JSX.Element {
                     ))}
                   </span>
                 )}
-                <span className="dv-tripcard-foot">
-                  <b>ส่งแล้ว {delivered}/{job.orders.length} ใบ</b>
-                  {(() => {
-                    const next = jobStops.find((st) => !st.done && !st.cancelled)
-                    return next ? <small>ถัดไป {next.customer_name ?? next.destination}</small> : null
-                  })()}
-                  <IconChevronRight size={18} aria-hidden />
-                </span>
               </button>
             )
           })}
         </div>
       ))}
-
-      </main>
 
       {/* แถบล่างจอ — โครงเดียวกับแอปที่คนใช้ทุกวัน ถึงด้วยนิ้วโป้งข้างเดียว
           ไม่ใช่เมนูที่ต้องกดเปิดจากมุมบนซ้ายก่อนถึงจะเห็นว่ามีอะไรบ้าง */}
@@ -792,18 +728,18 @@ export default function CloudMyJobs(): React.JSX.Element {
           aria-current={tab === 'jobs' ? 'page' : undefined}
           /* แตะ "งาน" ตอนอยู่ในเที่ยว = กลับไปรายการเที่ยว เหมือนแท็บของแอปทั่วไป */
           onClick={() => { if (tab === 'jobs') setActiveId(-1); setTab('jobs') }}>
-          <span className="dv-nav-pill" aria-hidden><IconTruck size={22} /></span>
+          <IconTruck size={24} />
           <span>งาน</span>
           {unread > 0 && <span className="dv-nav-badge" aria-label={`งานใหม่ ${unread}`}>{unread}</span>}
         </button>
         <button type="button" className={`dv-nav-btn${tab === 'history' ? ' is-active' : ''}`}
-          aria-current={tab === 'history' ? 'page' : undefined} onClick={() => { setTab('history'); setHistoryJob(null) }}>
-          <span className="dv-nav-pill" aria-hidden><IconCheck size={22} /></span>
+          aria-current={tab === 'history' ? 'page' : undefined} onClick={() => setTab('history')}>
+          <IconCheck size={24} />
           <span>ประวัติ</span>
         </button>
         <button type="button" className={`dv-nav-btn${tab === 'me' ? ' is-active' : ''}`}
           aria-current={tab === 'me' ? 'page' : undefined} onClick={() => setTab('me')}>
-          <span className="dv-nav-pill" aria-hidden><IconUsers size={22} /></span>
+          <IconUsers size={24} />
           <span>ฉัน</span>
         </button>
       </nav>
@@ -936,6 +872,39 @@ export default function CloudMyJobs(): React.JSX.Element {
         </Modal>
       )}
 
+      {historyJob && (
+        <Modal open onClose={() => setHistoryJob(null)} size="sheet" title={jobTripNo(historyJob)}>
+          <p className="text-xs text-muted" style={{ marginBottom: 12 }}>
+            {historyJob.vehicle_plate}
+            {historyJob.arrived_at ? ` · ปิดงาน ${fmtDateTime(historyJob.arrived_at)}` : ''}
+          </p>
+          <ul className="hist-detail-stops">
+            {groupStops(historyJob.orders).map((stop) => (
+              <li key={stop.key} className="hist-detail-stop">
+                <div className="hist-detail-stop-head">
+                  <span>{stop.customer_name ?? stop.destination}</span>
+                  {stop.cancelled && <Badge label="ยกเลิก" tone="cancelled" />}
+                </div>
+                {stop.customer_address && (
+                  <p className="text-xs text-muted">{stop.customer_address}</p>
+                )}
+                {/* ร้านเดียวอาจมีหลายใบ แต่ละใบมีหลักฐานแยกกัน — เปิดของบิลไหน
+                    ต้องดูของบิลนั้น ไม่ใช่เดาว่าทุกใบเหมือนกัน */}
+                {stop.orders.filter((o) => o.has_pod > 0).map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className="hist-detail-pod"
+                    onClick={() => setPodView(o)}
+                  >
+                    ดูหลักฐาน — {o.tms_picking_list_no ?? o.order_no}
+                  </button>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </Modal>
+      )}
 
       {/* ถามชื่อร้านกลับไปให้เห็นเต็ม ๆ — คนที่กดผิดร้านหนึ่งครั้งแล้ว กำลังจะ
           กดถอยจากรายการเดียวกันนั้น ต้องอ่านชื่อก่อนว่าถอยถูกใบ */}

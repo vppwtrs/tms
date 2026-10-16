@@ -16,9 +16,7 @@
            ใช้ใน meta ไม่ได้ตามสเปก และ GitHub Pages ตั้ง header เองไม่ได้
            เหลือทางนี้ทางเดียว: รู้ตัวว่าถูกฝังแล้วดีดตัวเองออกมาเป็นหน้าเต็ม */
         try {
-          /* ยกเว้นกรอบจำลองมือถือตอน dev เท่านั้น (ชื่อ iframe "phone-sim" บน localhost) */
-          var devSim = window.name === 'phone-sim' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
-          if (!devSim && window.top !== window.self) {
+          if (window.top !== window.self) {
             window.top.location = window.self.location
           }
         } catch (e) {
@@ -32,10 +30,6 @@
           /* ยังไม่เคยเลือกเอง = โหมดสว่าง ไม่ตามการตั้งค่าเครื่อง
              มือถือที่ตั้งโหมดมืดไว้จะเปิดแอปครั้งแรกมาเจอจอมืด ทั้งที่คนที่นี่
              ทำงานกลางวันและคาดหวังจอสว่างแบบเอกสาร */
-          /* 'auto' = ตามเครื่อง (ต้องเลือกเองในหน้า "ฉัน") */
-          if (t === 'auto') {
-            t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-          }
           if (t !== 'light' && t !== 'dark') {
             t = 'light'
           }
