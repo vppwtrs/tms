@@ -16,8 +16,7 @@ import { fmtDateTime } from '../../utils/format'
 import { Button, Field, Modal, Textarea } from '../ui'
 import { PhotoViewer } from '../PhotoViewer'
 import { SignaturePad } from '../SignaturePad'
-import { CameraCapture } from '../CameraCapture'
-import type { CompressedImage } from '../../utils/image'
+import { compressFile, type CompressedImage } from '../../utils/image'
 import { saveShotBackup, listShotBackups, removeShotBackup, clearOrderBackup } from '../../utils/podBackup'
 
 const podKindLabel = (kind: string): string =>
@@ -98,7 +97,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
 
   /* ถ่ายเสร็จแล้วเลื่อนไปมุมถัดไปที่ยังขาดเอง — คนขับถือของอยู่ ไม่ควรต้องกลับมา
      กดชิปเปลี่ยนมุมเองทุกใบ ครบสามมุมแล้วค้างไว้ที่ "อื่น ๆ" สำหรับรูปเสริม */
-  const capture = (img: CompressedImage): void => {
+  const capture = (img: CompressedImage, kind: string): void => {
     const backupId = crypto.randomUUID()
     const next = [...shots, { img, kind, backupId }]
     setShots(next)
@@ -115,6 +114,30 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
         ? `เก็บ${podKindLabel(kind)}แล้ว — ต่อไปถ่าย${podKindLabel(nextKind)}`
         : 'ครบทั้งสามมุมแล้ว — บันทึกได้เลย',
     )
+  }
+
+  /* กดช่องไหน เปิดกล้องของเครื่องทันที (ไม่มีช่องมองภาพในหน้าแล้ว — ตามที่ตกลงกัน
+     เพื่อลดขั้นตอน) มุมที่จะถ่ายจำไว้ใน ref เพราะ state ยังไม่อัปเดตตอนรูปกลับมา
+     Android บางรุ่นยังเลือกรูปจากคลังได้ — รูปที่ไฟล์เก่ากว่า 10 นาทีจึงขึ้นเตือน */
+  const fileRef = useRef<HTMLInputElement>(null)
+  const pendingKind = useRef<string>(kind)
+  const openCamera = (k: string): void => {
+    pendingKind.current = k
+    setKind(k)
+    fileRef.current?.click()
+  }
+  const onFile = async (file: File | undefined): Promise<void> => {
+    if (!file) return
+    const k = pendingKind.current
+    try {
+      if (Date.now() - file.lastModified > 10 * 60_000) {
+        toast.push('error', 'รูปนี้ไม่ได้ถ่ายตอนนี้ — กรุณาถ่ายใหม่ที่หน้าร้าน')
+        return
+      }
+      capture(await compressFile(file, stampLines()), k)
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    }
   }
 
   /* กู้รูปที่ถ่ายค้างไว้จากรอบก่อนของร้านนี้ — เน็ตหลุดหรือแอปถูกปิดกลางคันตอน
@@ -398,7 +421,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
               </div>
             ) : (
               <button key={p.kind} type="button" className="pod-slot is-empty" aria-pressed={kind === p.kind}
-                onClick={() => setKind(p.kind)} disabled={saving}>
+                onClick={() => openCamera(p.kind)} disabled={saving}>
                 <span className="pod-slot-box" aria-hidden>
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
                 </span>
@@ -421,17 +444,13 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
             ))}
           </div>
         )}
-        <button type="button" className="pod-more" aria-pressed={kind === 'other'} onClick={() => setKind('other')} disabled={saving}>
+        <button type="button" className="pod-more" aria-pressed={kind === 'other'} onClick={() => openCamera('other')} disabled={saving}>
           + ถ่ายรูปอื่นเพิ่ม
         </button>
       </section>
 
-      {/* ช่องมองภาพเปิดเองตั้งแต่เข้าหน้า — จอนี้คือกล้อง ไม่ใช่ฟอร์มที่มีปุ่มเปิดกล้องอยู่ข้างใน */}
-      <p className="pod-aim" role="status" aria-live="polite">
-        {missing.length === 0 && kind === 'other' ? 'ครบสามมุมแล้ว — ถ่ายเพิ่มได้ หรือกดยืนยันข้างล่าง'
-          : <>กำลังถ่าย: <b>{podKindLabel(kind)}</b>{podStepHint(kind) ? ` — ${podStepHint(kind)}` : ''}</>}
-      </p>
-      <CameraCapture stage onCapture={capture} disabled={saving} stamp={stampLines} />
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void onFile(f) }} />
 
       {/* ถ่ายมุมที่ขาดไม่ได้จริง ๆ (ร้านไม่มีป้าย ไม่มีใบให้เซ็น) — ทางออกที่ต้องกดเอง */}
       {missing.length > 0 && shots.length > 0 && (

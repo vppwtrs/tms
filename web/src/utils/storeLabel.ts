@@ -117,7 +117,7 @@ const label = (u: LabelUnit, logo: string): string => {
     ${branch ? `<p class="branch">${esc(branch)}</p>` : ''}
   </div>
   ${u.status ? `<p class="st"><span>${esc(u.status)}</span></p>` : ''}
-  ${u.address ? `<p class="addr">${esc(u.address)}</p>` : ''}
+  ${u.address ? `<p class="addr">${esc(provinceText(u.address))}</p>` : ''}
   <footer>
     <b>${esc(u.date)}</b>
     <span class="no">${u.index}<i>/${u.total}</i></span>
@@ -191,4 +191,12 @@ export function printLabels(units: LabelUnit[], logoUrl: string): boolean {
     im.addEventListener('error', done, { once: true })
   }
   return true
+}
+
+/** ช่องที่อยู่บนฉลากคือชื่อจังหวัดเปล่า ๆ จาก TMS — เติม "จังหวัด" ข้างหน้า
+ *  ยกเว้นกรุงเทพฯ (ไม่ใช่จังหวัด) และค่าที่มีคำนำหน้าอยู่แล้ว */
+export function provinceText(v: string): string {
+  const t = v.trim()
+  if (!t || /^(จังหวัด|จ\.|กรุงเทพ|กทม)/.test(t) || /\s/.test(t)) return t
+  return `จังหวัด : ${t}`
 }

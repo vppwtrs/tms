@@ -44,7 +44,10 @@ export function usePullToRefresh(onRefresh: () => Promise<void> | void, enabled 
   useEffect(() => {
     if (!enabled) return
 
-    const atTop = (): boolean => (window.scrollY || document.documentElement.scrollTop || 0) <= 0
+    /* จอคนขับเลื่อนในกล่องเนื้อหา (.dv-body) ไม่ใช่ทั้งหน้า — ต้องดูทั้งสองที่ */
+    const atTop = (): boolean =>
+      (window.scrollY || document.documentElement.scrollTop || 0) <= 0 &&
+      (document.querySelector('.dv-body')?.scrollTop ?? 0) <= 0
 
     /* ลากจากในกล่องที่เลื่อนเองได้ ต้องปล่อยให้กล่องนั้นเลื่อนตามปกติ */
     const inScrollable = (target: EventTarget | null): boolean => {
