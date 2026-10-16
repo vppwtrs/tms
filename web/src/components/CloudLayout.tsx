@@ -31,7 +31,8 @@ interface NavItem {
    *  ไม่ใส่ = เห็นได้ทุกคนที่เข้าถึงเมนูนี้ ใช้กับหน้าแรกซึ่งเลือกเนื้อหาตามสิทธิ์
    *  ด้วยตัวเองอยู่แล้ว (ดู Home ใน AppCloud.tsx) จะผูกกับสิทธิ์ตัวไหนตัวหนึ่ง
    *  ก็ผิดทั้งคู่ — คนที่ไม่มีสิทธิ์นั้นก็ยังต้องมีทางกลับหน้าแรก */
-  perm?: string
+  /* หลายสิทธิ์ = มีข้อใดข้อหนึ่งก็เห็นเมนู */
+  perm?: string | string[]
 }
 
 interface NavGroup {
@@ -56,7 +57,7 @@ const NAV: NavGroup[] = [
       { to: '/orders', label: 'ออเดอร์', icon: IconBox, perm: 'orders.view' },
       { to: '/labels', label: 'พิมพ์ฉลาก', icon: IconPrinter, perm: 'orders.view' },
       { to: '/dispatch', label: 'แผนงานขนส่ง', icon: IconRoute, perm: 'dispatch.view' },
-      { to: '/tracking', label: 'ติดตามรถ', icon: IconPin, perm: 'myjobs.view' },
+      { to: '/tracking', label: 'ติดตามรถ', icon: IconPin, perm: ['dispatch.view', 'myjobs.view'] },
       /* ผูกกับ dispatch.view ไปก่อน — ยังไม่มีสิทธิ์ reports.view ใน catalog ของฐาน
          ใส่ชื่อสิทธิ์ที่ยังไม่มีจริง = can() คืน false ตลอด เมนูจะไม่ขึ้นให้ใครเลย */
       { to: '/reports', label: 'รายงาน', icon: IconReport, perm: 'dispatch.view' },
@@ -109,7 +110,7 @@ export function CloudLayout(): React.JSX.Element {
 
   /* กลุ่มที่ไม่เหลือรายการเลยต้องหายไปทั้งกลุ่ม ไม่ใช่เหลือหัวข้อลอย ๆ */
   const groups = NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.perm || can(i.perm)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.perm || [i.perm].flat().some((p) => can(p))) }))
     .filter((g) => g.items.length > 0)
 
   /* คนขับได้จอเปล่า ไม่มีแถบบน ไม่มีเมนูข้าง — หน้าเขามีเมนูล่างจอของตัวเองแล้ว

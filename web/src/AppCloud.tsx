@@ -99,9 +99,10 @@ function PublicOnly(): React.JSX.Element {
   return <CloudLogin />
 }
 
-export function RequirePermission({ permission, children }: { permission: string; children: React.ReactNode }): React.JSX.Element {
+export function RequirePermission({ permission, children }: { permission: string | string[]; children: React.ReactNode }): React.JSX.Element {
   const { can } = useCloudAuth()
-  if (!can(permission)) {
+  /* หลายสิทธิ์ = มีข้อใดข้อหนึ่งก็เข้าได้ */
+  if (![permission].flat().some((p) => can(p))) {
     return <div className="card" style={{ margin: 24, padding: 24, textAlign: 'center' }}>
       <h2 style={{ marginBottom: 8 }}>ไม่มีสิทธิ์เปิดหน้านี้</h2>
       <p className="text-muted">แจ้งผู้ดูแลระบบให้เพิ่มสิทธิ์ให้บัญชีของคุณ</p>
@@ -135,8 +136,8 @@ export default function AppCloud(): React.JSX.Element {
 
           <Route path="/labels" element={<RequirePermission permission="orders.view"><CloudLabels /></RequirePermission>} />
           <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
-          {/* คนขับก็เข้าได้ ด้วย myjobs.view — เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}
-          <Route path="/tracking" element={<RequirePermission permission="myjobs.view"><CloudTracking /></RequirePermission>} />
+          {/* ผู้วางแผนงานเข้าด้วย dispatch.view · คนขับเข้าด้วย myjobs.view เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}
+          <Route path="/tracking" element={<RequirePermission permission={['dispatch.view', 'myjobs.view']}><CloudTracking /></RequirePermission>} />
           <Route path="/reports" element={<RequirePermission permission="dispatch.view"><CloudReports /></RequirePermission>} />
           <Route path="/vehicles" element={<RequirePermission permission="vehicles.view"><CloudVehicles /></RequirePermission>} />
           <Route path="/drivers" element={<RequirePermission permission="drivers.view"><CloudDrivers /></RequirePermission>} />
