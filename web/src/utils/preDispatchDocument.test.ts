@@ -36,6 +36,8 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('ผู้ตรวจเช็ค')
     expect(html).toContain('Consignee')
     expect(html).toContain('grid-template-columns:1fr 1fr')
+    expect(html).toContain('.signatures { position:fixed; bottom:-37mm; left:14mm; right:14mm; margin:0;')
+    expect(html).toContain('@page { size:A4; margin:0 0 42mm 0 }')
     expect(html).toContain('FSBOX04 M')
     expect(html).not.toContain('POD')
     expect(html).not.toContain('รูปหลักฐาน')

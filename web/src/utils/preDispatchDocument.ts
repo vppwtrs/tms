@@ -94,7 +94,7 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
 
 function documentHtml(title: string, pages: string): string {
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-    @page { size:A4; margin:0 }
+    @page { size:A4; margin:0 0 42mm 0 }
     * { box-sizing:border-box }
     body { margin:0; padding:0; color:#000; font:11px Tahoma,"Sarabun",sans-serif }
     .sheet { min-height:297mm; padding:14mm; break-inside:auto }
@@ -115,7 +115,10 @@ function documentHtml(title: string, pages: string): string {
     .signatures { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:32mm; text-align:center; break-inside:avoid; page-break-inside:avoid }
     .line { height:18mm; border-bottom:1px solid #000; margin-bottom:6px }
     @media screen { body { background:#eee }.sheet { width:210mm; margin:12px auto; background:white; box-shadow:0 1px 8px #999 } }
-    @media print { .sheet { margin:0; box-shadow:none } }
+    @media print {
+      .sheet { min-height:255mm; margin:0; box-shadow:none }
+      .signatures { position:fixed; bottom:-37mm; left:14mm; right:14mm; margin:0; background:#fff; }
+    }
   </style></head><body>${pages}</body></html>`
 }
 
