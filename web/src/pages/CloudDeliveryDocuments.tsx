@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { ALLOWED_WAREHOUSES, listWarehouses, scanTripsForPreDispatch, type PreDispatchTmsTrip } from '../api/tmsPull'
-import { Badge, Button, EmptyState, ErrorBox, Input, PageHeader, TableSkeleton } from '../components/ui'
+import { Badge, Button, EmptyState, ErrorBox, Input, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { IconPrinter } from '../components/icons'
 import { useToast } from '../context/ToastContext'
 import { fmtDate, todayIso } from '../utils/format'
@@ -14,6 +14,8 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
   const [from, setFrom] = useState(today)
   const [to, setTo] = useState(today)
   const [trips, setTrips] = useState<PreDispatchTmsTrip[]>([])
+  const [warehouses, setWarehouses] = useState<Awaited<ReturnType<typeof listWarehouses>>>([])
+  const [warehouseFilter, setWarehouseFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -22,8 +24,9 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
     setLoading(true)
     setError('')
     try {
-      const warehouses = (await listWarehouses()).filter((warehouse) => ALLOWED_WAREHOUSES.includes(warehouse.code))
-      const scans = await Promise.all(warehouses.map((warehouse) => scanTripsForPreDispatch({ from, to, warehouse })))
+      const availableWarehouses = (await listWarehouses()).filter((warehouse) => ALLOWED_WAREHOUSES.includes(warehouse.code))
+      setWarehouses(availableWarehouses)
+      const scans = await Promise.all(availableWarehouses.map((warehouse) => scanTripsForPreDispatch({ from, to, warehouse })))
       setTrips(scans.flat().sort((a, b) => b.orderDate.localeCompare(a.orderDate) || a.tripNo.localeCompare(b.tripNo)))
       setExpanded(new Set())
     } catch (cause) {
@@ -38,7 +41,11 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
     return () => window.clearTimeout(timer)
   }, [load])
 
-  const totalStops = useMemo(() => trips.reduce((sum, trip) => sum + groupPreDispatchShipTos(trip).length, 0), [trips])
+  const visibleTrips = useMemo(
+    () => trips.filter((trip) => !warehouseFilter || trip.warehouse === warehouseFilter),
+    [trips, warehouseFilter],
+  )
+  const totalStops = useMemo(() => visibleTrips.reduce((sum, trip) => sum + groupPreDispatchShipTos(trip).length, 0), [visibleTrips])
 
   const print = (html: string): void => {
     if (!printPreDispatchHtml(html)) push('error', 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์ — อนุญาตป๊อปอัปของเว็บนี้ก่อน')
@@ -59,18 +66,29 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
           <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} style={{ width: 160 }} title="ตั้งแต่วันที่" />
           <span className="text-muted">ถึง</span>
           <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} style={{ width: 160 }} title="ถึงวันที่" />
+          {warehouses.length > 1 && <>
+            <span className="text-muted">คลัง</span>
+            <Select value={warehouseFilter} onChange={(event) => setWarehouseFilter(event.target.value)} aria-label="กรองตามคลัง">
+              <option value="">ทุกคลัง ({trips.length})</option>
+              {warehouses.map((warehouse) => {
+                const count = trips.filter((trip) => trip.warehouse === warehouse.code).length
+                const label = warehouse.description ? `${warehouse.code} · ${warehouse.description}` : warehouse.code
+                return <option key={warehouse.code} value={warehouse.code}>{label} ({count})</option>
+              })}
+            </Select>
+          </>}
           <span className="text-muted" style={{ flex: 1 }}>แสดงเฉพาะสถานะ Confirm และ Handling</span>
           <Button variant="outline" size="sm" onClick={() => void load()} loading={loading}>โหลดใหม่</Button>
         </div>
-        {error ? <ErrorBox message={error} onRetry={() => void load()} /> : loading ? <TableSkeleton rows={5} cols={6} /> : trips.length === 0 ? (
-          <EmptyState icon={<IconPrinter size={28} />} title="ไม่มีเที่ยวก่อนออกจากคลังในช่วงนี้" desc="ลองเปลี่ยนช่วงวันที่ หรือตรวจสอบการเชื่อมต่อบัญชี TMS" />
+        {error ? <ErrorBox message={error} onRetry={() => void load()} /> : loading ? <TableSkeleton rows={5} cols={6} /> : visibleTrips.length === 0 ? (
+          <EmptyState icon={<IconPrinter size={28} />} title="ไม่มีเที่ยวก่อนออกจากคลังในช่วงนี้" desc={warehouseFilter ? 'ลองเลือกทุกคลังหรือเปลี่ยนช่วงวันที่' : 'ลองเปลี่ยนช่วงวันที่ หรือตรวจสอบการเชื่อมต่อบัญชี TMS'} />
         ) : (
           <>
-            <div className="text-muted" style={{ margin: '4px 0 12px' }}>{trips.length} เที่ยว · {totalStops} Ship To · อ่านสดจาก TMS</div>
+            <div className="text-muted" style={{ margin: '4px 0 12px' }}>{visibleTrips.length} เที่ยว · {totalStops} Ship To · อ่านสดจาก TMS</div>
             <div className="table-wrap">
               <table className="table ops-table">
                 <thead><tr><th>เลข Trip</th><th>วันที่</th><th>คลัง</th><th>ขนส่ง / รถ</th><th>Ship To</th><th>สถานะ</th><th className="text-right">พิมพ์</th></tr></thead>
-                <tbody>{trips.map((trip) => {
+                <tbody>{visibleTrips.map((trip) => {
                   const shipTos = groupPreDispatchShipTos(trip)
                   const isExpanded = expanded.has(trip.id)
                   return <Fragment key={trip.id}>
