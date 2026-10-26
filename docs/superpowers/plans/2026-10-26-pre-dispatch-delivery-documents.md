@@ -79,6 +79,6 @@
 
 - [x] Review diff against the design and verify no existing document/POD path changed.
 - [x] Correct missing quantity / PL summaries so unavailable values show `—` instead of zero; add regression coverage.
-- [ ] Fetch origin and confirm target branch still has the expected base and no conflicting updates.
-- [ ] Push the verified implementation to the production branch as authorized by Wave; observe the production deployment/checks to completion.
-- [ ] Record commit, deployment status and final verification results.
+- [x] Fetch origin and confirm `origin/main` remains at base `71dca0d`; local feature branch is a fast-forward of four commits.
+- [ ] Push the verified implementation to the production branch as authorized by Wave; attempted `git push origin HEAD:main`, rejected by GitHub with HTTP 403 because connected account `waritchiojun-ai` lacks repository write permission.
+- [x] Record implementation commit `1880f5e`, 181/181 tests, typecheck and cloud build success. Production deployment is pending write access.
