@@ -41,13 +41,16 @@ describe('pre-dispatch document', () => {
     expect(html).not.toContain('รูปหลักฐาน')
   })
 
-  it('starts each Ship to on a fresh A4 page and permits long content to flow to later pages', () => {
+  it('puts all Ship Tos in one Trip document while keeping the individual Ship To document scoped', () => {
     const twoStops = { ...trip, rows: [...trip.rows, { ...trip.rows[0]!, shipToName: 'Second shop', shipToAddress: 'Other road' }] }
     const html = preDispatchTripHtml(twoStops, '/logo.png')
     expect(html).toContain('@page { size:A4')
-    expect(html).toContain('break-before:page')
     expect(html).toContain('break-inside:auto')
-    expect(html.match(/<section class="sheet/g)).toHaveLength(2)
-    expect(html).toContain('class="sheet next"')
+    expect(html.match(/<section class="sheet/g)).toHaveLength(1)
+    expect(html).toContain('Ship To: Shop &lt;A&gt;')
+    expect(html).toContain('Ship To: Second shop')
+    expect(html).toContain('รวมทั้ง Trip · 2 Ship To')
+    const singleShipTo = preDispatchShipToHtml(twoStops, groupPreDispatchShipTos(twoStops)[0]!, '/logo.png')
+    expect(singleShipTo).not.toContain('Ship To: Second shop')
   })
 })
