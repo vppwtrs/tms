@@ -27,7 +27,7 @@ export function groupPreDispatchShipTos(trip: PreDispatchTmsTrip): PreDispatchSh
     const address = row.shipToAddress.trim() || row.customerAddress.trim()
     const province = row.shipToProvince.trim() || row.province.trim()
     const postCode = row.shipToPostCode.trim()
-    const key = `${name.toLocaleLowerCase()}|${address.toLocaleLowerCase()}|${province.toLocaleLowerCase()}|${postCode}`
+    const key = JSON.stringify([name.toLocaleLowerCase(), address.toLocaleLowerCase(), province.toLocaleLowerCase(), postCode])
     const group = groups.get(key)
     if (group) group.rows.push(row)
     else groups.set(key, { key, name, address, province, postCode, rows: [row] })
@@ -36,13 +36,21 @@ export function groupPreDispatchShipTos(trip: PreDispatchTmsTrip): PreDispatchSh
 }
 
 const boxSizes = (rows: PlRow[]): string => {
-  const sizes = new Map<string, number>()
+  const sizes = new Map<string, number | null>()
   for (const row of rows) {
     const last = row.itemNo.trim().split(/\s+/).pop() ?? ''
-    if (/^(XXL|XL|[SML])\+?$/i.test(last)) sizes.set(last.toUpperCase(), (sizes.get(last.toUpperCase()) ?? 0) + (row.itemQty ?? 0))
+    if (!/^(XXL|XL|[SML])\+?$/i.test(last)) continue
+    const key = last.toUpperCase()
+    if (!sizes.has(key)) sizes.set(key, row.itemQty)
+    else {
+      const previous = sizes.get(key)
+      sizes.set(key, previous == null || row.itemQty == null ? null : previous + row.itemQty)
+    }
   }
-  return [...sizes].map(([size, qty]) => `${size} (${qty})`).join(' / ')
+  return [...sizes].map(([size, qty]) => qty == null ? size : `${size} (${qty})`).join(' / ')
 }
+
+const pickingListCount = (rows: PlRow[]): number => new Set(rows.map((row) => row.pickingListNo.trim()).filter(Boolean)).size
 
 const signature = `<div class="signatures">
   <div><div class="line"></div><b>ผู้ตรวจเช็ค</b></div>
@@ -55,7 +63,9 @@ function page(trip: PreDispatchTmsTrip, shipTo: PreDispatchShipTo, logoUrl: stri
     <td class="mono">${esc(val(row.itemNo))}</td><td>${esc(val(row.itemName))}</td>
     <td>${esc(boxSizes([row]))}</td><td class="center">${row.itemQty ?? '—'}</td>
   </tr>`).join('')
-  const total = shipTo.rows.reduce((sum, row) => sum + (row.itemQty ?? 0), 0)
+  const total = shipTo.rows.some((row) => row.itemQty == null)
+    ? '—'
+    : shipTo.rows.reduce((sum, row) => sum + (row.itemQty ?? 0), 0)
   const header = `<div class="top">
     <div><div class="logo" style="-webkit-mask-image:url('${esc(logoUrl)}');mask-image:url('${esc(logoUrl)}')"></div>
       <div class="sender"><b>VPPW (Thailand) Co., Ltd.</b><br>Building No. 28/10, Bang Na Trad KM.23Road,<br>Bang Sao Thong District, Samut Prakan 10570</div></div>
@@ -70,7 +80,7 @@ function page(trip: PreDispatchTmsTrip, shipTo: PreDispatchShipTo, logoUrl: stri
     <div class="box"><b>To</b> : ${esc(shipTo.name)}</div>
     <div class="box"><b>Address</b> : ${esc([shipTo.address, shipTo.province, shipTo.postCode].filter(Boolean).join(' ') || '—')}</div>
     <div class="box"><b>Location</b> : —</div>
-    <div class="summary"><span>Ship to ${pageNo} / ${pageCount}</span><span>จำนวนใบ ${new Set(shipTo.rows.map((row) => row.pickingListNo)).size}</span></div>
+    <div class="summary"><span>Ship to ${pageNo} / ${pageCount}</span><span>จำนวนใบ ${pickingListCount(shipTo.rows)}</span></div>
     <table><thead><tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="center">ไม่มีรายการสินค้า</td></tr>'}</tbody>
       <tfoot><tr><td colspan="5">รวม</td><td class="center">${total}</td></tr></tfoot></table>

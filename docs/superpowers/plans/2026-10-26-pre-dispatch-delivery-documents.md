@@ -78,6 +78,7 @@
 - Modify: implementation files from Tasks 1–3.
 
 - [x] Review diff against the design and verify no existing document/POD path changed.
+- [x] Correct missing quantity / PL summaries so unavailable values show `—` instead of zero; add regression coverage.
 - [ ] Fetch origin and confirm target branch still has the expected base and no conflicting updates.
 - [ ] Push the verified implementation to the production branch as authorized by Wave; observe the production deployment/checks to completion.
 - [ ] Record commit, deployment status and final verification results.

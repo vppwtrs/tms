@@ -18,10 +18,20 @@ describe('pre-dispatch document', () => {
     expect(groups[0]?.rows).toHaveLength(2)
   })
 
+  it('does not turn a missing item quantity into a fabricated zero in box size totals', () => {
+    const missingQty = { ...trip, rows: [{ ...trip.rows[0]!, itemQty: null, pickingListNo: '' }] }
+    const html = preDispatchShipToHtml(missingQty, groupPreDispatchShipTos(missingQty)[0]!, '/logo.png')
+    expect(html).toContain('<td>M</td>')
+    expect(html).not.toContain('M (0)')
+    expect(html).toContain('จำนวนใบ 0')
+    expect(html).toContain('<td class="center">—</td></tr></tfoot>')
+  })
+
   it('escapes live TMS values, leaves missing fields blank, and renders side-by-side signature lines', () => {
     const html = preDispatchShipToHtml(trip, groupPreDispatchShipTos(trip)[0]!, '/logo.png')
     expect(html).toContain('Shop &lt;A&gt;')
     expect(html).toContain('Road &amp; Lane')
+    expect(html).toContain('<b>Location</b> : —')
     expect(html).toContain('—')
     expect(html).toContain('ผู้ตรวจเช็ค')
     expect(html).toContain('Consignee')
