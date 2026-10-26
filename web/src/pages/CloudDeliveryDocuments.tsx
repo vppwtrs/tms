@@ -4,7 +4,7 @@ import { Badge, Button, EmptyState, ErrorBox, Input, PageHeader, Select, TableSk
 import { IconPrinter } from '../components/icons'
 import { useToast } from '../context/ToastContext'
 import { fmtDate, todayIso } from '../utils/format'
-import { groupPreDispatchShipTos, preDispatchShipToHtml, preDispatchTripHtml, type PreDispatchShipTo, printPreDispatchHtml } from '../utils/preDispatchDocument'
+import { groupPreDispatchShipTos, preDispatchAllShipTosHtml, preDispatchShipToHtml, preDispatchTripHtml, type PreDispatchShipTo, printPreDispatchHtml } from '../utils/preDispatchDocument'
 
 const logoUrl = (): string => new URL(`${import.meta.env.BASE_URL}vppw-mark.png`, window.location.href).href
 
@@ -99,7 +99,10 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
                       <td>{shipTos.length} จุด · {trip.rows.length} รายการ</td>
                       <td><Badge label={trip.status} tone={trip.statusId === 2 ? 'pending' : 'neutral'} /></td>
                       <td className="text-right" onClick={(event) => event.stopPropagation()}>
-                        <Button variant="accent" size="sm" icon={<IconPrinter size={14} />} onClick={() => print(preDispatchTripHtml(trip, logoUrl()))}>พิมพ์ทั้ง Trip</Button>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 6 }}>
+                          <Button variant="accent" size="sm" icon={<IconPrinter size={14} />} onClick={() => print(preDispatchTripHtml(trip, logoUrl()))}>พิมพ์ทั้ง Trip</Button>
+                          <Button variant="outline" size="sm" icon={<IconPrinter size={14} />} onClick={() => print(preDispatchAllShipTosHtml(trip, logoUrl()))}>พิมพ์แยกทั้งหมด</Button>
+                        </div>
                       </td>
                     </tr>
                     {isExpanded && shipTos.map((shipTo: PreDispatchShipTo) => <tr key={`${trip.id}-${shipTo.key}`}>

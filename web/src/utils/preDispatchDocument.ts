@@ -131,6 +131,13 @@ export function preDispatchTripHtml(trip: PreDispatchTmsTrip, logoUrl: string): 
   return documentHtml(`ใบส่งสินค้า ${trip.tripNo}`, page(trip, groups, logoUrl, true))
 }
 
+/** One print job and PDF containing one individual Ship To document per page. */
+export function preDispatchAllShipTosHtml(trip: PreDispatchTmsTrip, logoUrl: string): string {
+  const groups = groupPreDispatchShipTos(trip)
+  const pages = groups.map((shipTo, index) => page(trip, [shipTo], logoUrl, index === 0, true)).join('')
+  return documentHtml(`ใบส่งสินค้า ${trip.tripNo} แยก Ship To`, pages)
+}
+
 export function preDispatchShipToHtml(trip: PreDispatchTmsTrip, shipTo: PreDispatchShipTo, logoUrl: string): string {
   return documentHtml(`ใบส่งสินค้า ${trip.tripNo} ${shipTo.name}`, page(trip, [shipTo], logoUrl, true, true))
 }
