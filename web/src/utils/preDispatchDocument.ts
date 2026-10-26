@@ -57,9 +57,9 @@ const signature = `<div class="signatures">
   <div><div class="line"></div><b>Consignee</b></div>
 </div>`
 
-function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: string, first: boolean): string {
+function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: string, first: boolean, individualShipTo = false): string {
   const rows = shipTos.flatMap((shipTo) => [
-    `<tr class="ship-to-heading"><td colspan="6"><b>Ship To: ${esc(shipTo.name)}</b><br>${esc([shipTo.address, shipTo.province, shipTo.postCode].filter(Boolean).join(' ') || '—')}</td></tr>`,
+    ...(individualShipTo ? [] : [`<tr class="ship-to-heading"><td colspan="6"><b>Ship To: ${esc(shipTo.name)}</b><br>${esc([shipTo.address, shipTo.province, shipTo.postCode].filter(Boolean).join(' ') || '—')}</td></tr>`]),
     ...shipTo.rows.map((row, index) => `<tr>
       <td class="center">${index + 1}</td><td class="mono">${esc(val(row.pickingListNo))}</td>
       <td class="mono">${esc(val(row.itemNo))}</td><td>${esc(val(row.itemName))}</td>
@@ -71,6 +71,10 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
     ? '—'
     : allRows.reduce((sum, row) => sum + (row.itemQty ?? 0), 0)
   const stopCount = shipTos.length
+  const individual = individualShipTo ? shipTos[0] : null
+  const location = individual
+    ? [individual.address, individual.province, individual.postCode].filter(Boolean).join(' ') || '—'
+    : '—'
   const header = `<div class="top">
     <div><div class="logo" style="-webkit-mask-image:url('${esc(logoUrl)}');mask-image:url('${esc(logoUrl)}')"></div>
       <div class="sender"><b>VPPW (Thailand) Co., Ltd.</b><br>Building No. 28/10, Bang Na Trad KM.23Road,<br>Bang Sao Thong District, Samut Prakan 10570</div></div>
@@ -82,8 +86,8 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
   </div>`
   return `<section class="sheet${first ? '' : ' next'}">
     ${header}
-    <div class="box"><b>Ship To</b> : ${stopCount} จุด</div>
-    <div class="box"><b>Location</b> : —</div>
+    <div class="box"><b>Ship To</b> : ${individual ? esc(individual.name) : `${stopCount} จุด`}</div>
+    <div class="box"><b>Location</b> : ${esc(location)}</div>
     <div class="summary"><span>รวมทั้ง Trip · ${stopCount} Ship To</span><span>จำนวนใบ ${pickingListCount(allRows)}</span></div>
     <table><thead><tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="center">ไม่มีรายการสินค้า</td></tr>'}</tbody>
@@ -128,7 +132,7 @@ export function preDispatchTripHtml(trip: PreDispatchTmsTrip, logoUrl: string): 
 }
 
 export function preDispatchShipToHtml(trip: PreDispatchTmsTrip, shipTo: PreDispatchShipTo, logoUrl: string): string {
-  return documentHtml(`ใบส่งสินค้า ${trip.tripNo} ${shipTo.name}`, page(trip, [shipTo], logoUrl, true))
+  return documentHtml(`ใบส่งสินค้า ${trip.tripNo} ${shipTo.name}`, page(trip, [shipTo], logoUrl, true, true))
 }
 
 export function printPreDispatchHtml(html: string): boolean {
