@@ -846,6 +846,66 @@ export interface LabelTmsTrip {
   rows: PlRow[]
 }
 
+/** Live Trip snapshot for the pre-dispatch delivery document. Kept separate from
+ * LabelTmsTrip so the existing label menu's scan contract remains unchanged. */
+export interface PreDispatchTmsTrip {
+  id: string
+  tripNo: string
+  orderDate: string
+  statusId: number
+  status: string
+  carrierName: string
+  warehouse: string
+  area: string
+  driver: string
+  licensePlate: string
+  vehicleTypeName: string
+  rows: PlRow[]
+}
+
+/** Read current, not-yet-departed trips from TMS without writing to app storage. */
+export async function scanTripsForPreDispatch(
+  opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
+): Promise<PreDispatchTmsTrip[]> {
+  const guid = await warehouseGuid(opts.warehouse)
+  const scan = await tmsOp<{ items: unknown[]; pages: number; complete: boolean }>('scanTrips', {
+    guid,
+    from: opts.from,
+    maxPages: opts.maxPages ?? 6,
+  })
+
+  const trips = scan.items.map(toTripHeader).filter((trip) => {
+    const tripDay = day(trip.orderDate)
+    return tripDay >= opts.from && tripDay <= opts.to && (trip.statusId === 2 || trip.statusId === 3)
+  })
+  const ids = trips.filter((trip) => trip.id).map((trip) => String(trip.id))
+  const byTrip = new Map<string, PlHeader[]>()
+  for (let i = 0; i < ids.length; i += 60) {
+    const part = await tmsOp<{ lists: Array<{ id: string; items: PlHeader[] }> }>(
+      'scanTripPickingLists', { ids: ids.slice(i, i + 60) },
+    )
+    for (const list of part.lists) byTrip.set(list.id, list.items)
+  }
+
+  return trips.map((trip) => {
+    const headers = trip.id ? byTrip.get(String(trip.id)) : undefined
+    return {
+      id: s(trip.id) || `${opts.warehouse.code}|${s(trip.tripNo)}`,
+      tripNo: s(trip.tripNo),
+      orderDate: day(trip.orderDate),
+      statusId: trip.statusId ?? 0,
+      status: TRIP_STATUS[trip.statusId ?? 0] ?? s(trip.status),
+      carrierName: s(trip.carrierName),
+      warehouse: opts.warehouse.code,
+      area: s(trip.area),
+      driver: s(trip.driver),
+      licensePlate: s(trip.licensePlate),
+      vehicleTypeName: s(trip.vehicleTypeName),
+      rows: plRowsOf(headers?.length ? headers : (trip.pickingLists ?? [])),
+    }
+  }).filter((trip) => trip.rows.length > 0)
+}
+
 export async function scanTripsForLabels(
   opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
 ): Promise<LabelTmsTrip[]> {
