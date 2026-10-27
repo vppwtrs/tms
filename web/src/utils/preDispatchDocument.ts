@@ -121,7 +121,7 @@ function documentHtml(title: string, pages: string): string {
     @media screen { body { background:#eee }.sheet { width:210mm; margin:12px auto; background:white; box-shadow:0 1px 8px #999 } }
     @media print {
       .sheet { min-height:255mm; margin:0; box-shadow:none }
-      .signatures { position:fixed; bottom:-37mm; left:14mm; right:14mm; margin:0; background:#fff; }
+      .signatures { position:fixed; bottom:0; left:14mm; right:14mm; margin:0; background:#fff; }
     }
   </style></head><body>${pages}</body></html>`
 }
