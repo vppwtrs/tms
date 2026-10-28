@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PreDispatchTmsTrip } from '../api/tmsPull'
-import { groupPreDispatchShipTos, preDispatchShipToHtml, preDispatchTripHtml } from './preDispatchDocument'
+import { groupPreDispatchShipTos, preDispatchDocumentTypeLabels, preDispatchShipToHtml, preDispatchTripHtml } from './preDispatchDocument'
 
 const trip: PreDispatchTmsTrip = {
   id: 'trip-1', tripNo: 'T-<1>', orderDate: '2026-10-26', statusId: 2, status: 'Confirm',
@@ -12,6 +12,25 @@ const trip: PreDispatchTmsTrip = {
 }
 
 describe('pre-dispatch document', () => {
+  it('classifies PL and BK shipment IDs and returns both when a group contains both', () => {
+    const rows = [
+      { ...trip.rows[0]!, pickingListNo: ' pl-001 ' },
+      { ...trip.rows[0]!, pickingListNo: 'BK-002' },
+      { ...trip.rows[0]!, pickingListNo: 'unmapped-003' },
+    ]
+
+    expect(preDispatchDocumentTypeLabels(rows)).toEqual(['Dealer', 'Transfer'])
+    expect(preDispatchDocumentTypeLabels([{ ...trip.rows[0]!, pickingListNo: 'BK-002' }])).toEqual(['Transfer'])
+    expect(preDispatchDocumentTypeLabels([{ ...trip.rows[0]!, pickingListNo: '' }])).toEqual([])
+  })
+
+  it('keeps document type labels out of the printable A4', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+    expect(html).not.toContain('ประเภทเอกสาร')
+    expect(html).not.toContain('Dealer')
+    expect(html).not.toContain('Transfer')
+  })
+
   it('groups by Ship to and includes separate PLs at the same address', () => {
     const groups = groupPreDispatchShipTos(trip)
     expect(groups).toHaveLength(1)

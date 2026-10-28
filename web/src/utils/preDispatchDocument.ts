@@ -10,6 +10,15 @@ export interface PreDispatchShipTo {
   rows: PlRow[]
 }
 
+/** Resolve visible document categories from the live shipment identifiers. */
+export function preDispatchDocumentTypeLabels(rows: readonly PlRow[]): ('Dealer' | 'Transfer')[] {
+  const ids = rows.map((row) => row.pickingListNo.trim().toUpperCase())
+  const labels: ('Dealer' | 'Transfer')[] = []
+  if (ids.some((id) => id.startsWith('PL'))) labels.push('Dealer')
+  if (ids.some((id) => id.startsWith('BK'))) labels.push('Transfer')
+  return labels
+}
+
 const esc = (value: string): string => value.replace(/[&<>"']/g, (char) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[char] as string))
