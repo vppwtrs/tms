@@ -1,12 +1,22 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { ALLOWED_WAREHOUSES, listWarehouses, scanTripsForPreDispatch, type PreDispatchTmsTrip } from '../api/tmsPull'
+import { ALLOWED_WAREHOUSES, listWarehouses, scanTripsForPreDispatch, type PlRow, type PreDispatchTmsTrip } from '../api/tmsPull'
 import { Badge, Button, EmptyState, ErrorBox, Input, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { IconPrinter } from '../components/icons'
 import { useToast } from '../context/ToastContext'
 import { fmtDate, todayIso } from '../utils/format'
-import { groupPreDispatchShipTos, preDispatchAllShipTosHtml, preDispatchShipToHtml, preDispatchTripHtml, type PreDispatchShipTo, printPreDispatchHtml } from '../utils/preDispatchDocument'
+import { groupPreDispatchShipTos, preDispatchAllShipTosHtml, preDispatchDocumentTypeLabels, preDispatchShipToHtml, preDispatchTripHtml, type PreDispatchShipTo, printPreDispatchHtml } from '../utils/preDispatchDocument'
 
 const logoUrl = (): string => new URL(`${import.meta.env.BASE_URL}vppw-mark.png`, window.location.href).href
+
+function DocumentTypeBadges({ rows }: { rows: readonly PlRow[] }): React.JSX.Element {
+  const labels = preDispatchDocumentTypeLabels(rows)
+  if (labels.length === 0) return <span className="text-muted">ไม่ระบุ</span>
+  if (labels.length > 1) return <Badge label="Dealer + Transfer" tone="warning" />
+  const tone = { Dealer: 'success', Transfer: 'accent' } as const
+  return <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+    {labels.map((label) => <Badge key={label} label={label} tone={tone[label]} />)}
+  </span>
+}
 
 export default function CloudDeliveryDocuments(): React.JSX.Element {
   const { push } = useToast()
@@ -87,7 +97,7 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
             <div className="text-muted" style={{ margin: '4px 0 12px' }}>{visibleTrips.length} เที่ยว · {totalStops} Ship To · อ่านสดจาก TMS</div>
             <div className="table-wrap">
               <table className="table ops-table">
-                <thead><tr><th>เลข Trip</th><th>วันที่</th><th>คลัง</th><th>ขนส่ง / รถ</th><th>Ship To</th><th>สถานะ</th><th className="text-right">พิมพ์</th></tr></thead>
+                <thead><tr><th>เลข Trip</th><th>วันที่</th><th>คลัง</th><th>ขนส่ง / รถ</th><th>Ship To</th><th>ประเภทเอกสาร</th><th>สถานะ</th><th className="text-right">พิมพ์</th></tr></thead>
                 <tbody>{visibleTrips.map((trip) => {
                   const shipTos = groupPreDispatchShipTos(trip)
                   const isExpanded = expanded.has(trip.id)
@@ -97,6 +107,7 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
                       <td>{fmtDate(trip.orderDate)}</td><td>{trip.warehouse}</td>
                       <td>{[trip.carrierName, trip.licensePlate, trip.vehicleTypeName].filter(Boolean).join(' · ') || '—'}</td>
                       <td>{shipTos.length} จุด · {trip.rows.length} รายการ</td>
+                      <td><DocumentTypeBadges rows={trip.rows} /></td>
                       <td><Badge label={trip.status} tone={trip.statusId === 2 ? 'pending' : 'neutral'} /></td>
                       <td className="text-right" onClick={(event) => event.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 6 }}>
@@ -107,7 +118,9 @@ export default function CloudDeliveryDocuments(): React.JSX.Element {
                     </tr>
                     {isExpanded && shipTos.map((shipTo: PreDispatchShipTo) => <tr key={`${trip.id}-${shipTo.key}`}>
                       <td colSpan={4} style={{ paddingLeft: 28 }}><b>{shipTo.name}</b><div className="text-xs text-muted">{[shipTo.address, shipTo.province, shipTo.postCode].filter(Boolean).join(' ') || '—'}</div></td>
-                      <td colSpan={2}>{new Set(shipTo.rows.map((row) => row.pickingListNo)).size} ใบ · {shipTo.rows.length} รายการ</td>
+                      <td>{new Set(shipTo.rows.map((row) => row.pickingListNo)).size} ใบ · {shipTo.rows.length} รายการ</td>
+                      <td><DocumentTypeBadges rows={shipTo.rows} /></td>
+                      <td />
                       <td className="text-right"><Button variant="outline" size="sm" icon={<IconPrinter size={14} />} onClick={() => print(preDispatchShipToHtml(trip, shipTo, logoUrl()))}>พิมพ์ Ship To นี้</Button></td>
                     </tr>)}
                   </Fragment>
