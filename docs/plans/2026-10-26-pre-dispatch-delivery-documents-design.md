@@ -8,24 +8,36 @@ Add a separate menu for printing delivery documents before a trip leaves the war
 
 - Read current Trip and picking-list data directly from the company TMS when the new page loads.
 - List trips that have not left the warehouse: TMS statuses `Confirm` (2) and `Handling` (3). Exclude `OnDelivery` and later statuses, plus cancelled trips.
-- Print either one A4 PDF for the whole Trip or one A4 PDF for an individual Ship to.
+- Offer three print actions: one document containing the whole Trip, one print job with a separate document for every Ship To, or one document for a selected Ship To.
+- Show a document type summary on the pre-print page for each Trip and expanded Ship To, inferred from Shipment ID prefixes.
 - Reuse the existing consignment document's visual style and available Trip / Ship to / item data.
 - Remove POD signature images, delivery photos, and delivery collection timestamps from this pre-dispatch document.
 - Show two blank signing areas at the bottom, side by side: `ผู้ตรวจเช็ค` on the left and `Consignee` on the right.
+- Keep document type labels off the printable A4; they are only for the pre-print page.
 
 ## Proposed flow
 
 1. An office user opens the new `พิมพ์ใบส่งสินค้า` menu.
 2. The page reads Trip headers and picking-list details directly from TMS for the allowed warehouses and selected date range (default: today), across carrier types.
-3. The page groups rows by Trip and Ship to. It shows the Trip number, date, warehouse, status, Ship to count, and item/PL count.
-4. The user opens a Trip and chooses `พิมพ์ทั้ง Trip` to print one document with a separate A4 page starting each Ship to, or chooses `พิมพ์ Ship to นี้` to print only that Ship to as one PDF. A Ship to with too many item rows may continue onto additional pages.
-5. Printing uses the browser's print dialog, consistent with the existing document. Each individual Ship to is printed with its own action.
+3. The page groups rows by Trip and Ship To. It shows the Trip number, date, warehouse, status, Ship To count, and document type inferred from every Shipment ID in the Trip.
+4. Expanding a Trip shows each Ship To's address, Shipment/item count, and document type inferred from that Ship To's Shipment IDs.
+5. The user can choose `พิมพ์ทั้ง Trip` for one document containing every Ship To, `พิมพ์แยกทั้งหมด` for one print job with a separate document per Ship To, or `พิมพ์ Ship To นี้` for the selected Ship To. Long content may continue onto additional pages as needed.
+6. Printing uses the browser's print dialog, consistent with the existing document.
+
+## Document type rules
+
+- Trim and compare Shipment ID prefixes without case sensitivity.
+- `PL` maps to `Dealer`; `BK` maps to `Transfer`.
+- If the Trip or Ship To contains both prefixes, show `Dealer + Transfer`.
+- If no recognized prefix exists, show `ไม่ระบุ`.
+- Calculate Trip type from all Trip rows and Ship To type from that group's rows.
+- Display these labels on the pre-print page only; do not add them to the printable A4.
 
 ## Document contents
 
 - Trip header: Trip number, date, warehouse, area, driver / vehicle details when returned by TMS, and shipment count.
 - Ship to section: recipient name, address and available location, picking-list number, item code/name, box size, and quantity.
-- A4 page layout based on the existing consignment print style.
+- A4 layout based on the existing consignment print style; no document type label is printed.
 - Two empty signature lines, `ผู้ตรวจเช็ค` and `Consignee`, clearly separated left and right.
 - No POD images, POD signature, recipient name captured at delivery, or delivery timestamp.
 
