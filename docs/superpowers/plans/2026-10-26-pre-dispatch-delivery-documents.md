@@ -15,7 +15,9 @@
 - Read directly from TMS when opening the new menu; do not write to TMS or Supabase.
 - Include only statuses `Confirm` (2) and `Handling` (3); exclude all other states.
 - Keep the existing Orders PDF, POD flow, TMS import, and trip state transitions unchanged.
-- Print one A4 page per Ship to, either as one whole-Trip document or one Ship-to document.
+- Support whole-Trip print, print-all Ship Tos as separate documents in one print job, and one selected Ship-to print.
+- Show `Dealer` for `PL` Shipment IDs and `Transfer` for `BK` Shipment IDs on the pre-print page at both Trip and Ship-to level; show both as `Dealer + Transfer` when both prefixes occur.
+- Keep document type labels off the printable A4.
 - Leave blank side-by-side signing areas: `ผู้ตรวจเช็ค` on the left and `Consignee` on the right.
 - Reuse `dispatch.view` permission.
 
@@ -24,6 +26,7 @@
 - TMS rows may contain HTML metacharacters — test HTML escapes user-controlled values.
 - Missing optional Trip / Ship-to fields — test that the document uses `—` and renders no fabricated location.
 - Unexpected or missing status ids — test that only 2 and 3 are included.
+- Shipment IDs with lowercase/whitespace prefixes, mixed PL/BK prefixes, or unknown prefixes — test case-insensitive classification, both labels, and the unknown fallback.
 - A Trip with no picking-list rows — test that it is not offered for printing.
 - A long item list — test print CSS starts each Ship to on a new page and allows continuation.
 
@@ -50,7 +53,7 @@
 
 **Interfaces:**
 - Consumes: `PreDispatchTmsTrip` from Task 1.
-- Produces: `preDispatchTripHtml(trip, logoUrl): string`, `preDispatchShipToHtml(trip, shipToName, logoUrl): string`, and `printPreDispatchHtml(html): boolean`.
+- Produces: `preDispatchTripHtml(trip, logoUrl): string`, `preDispatchAllShipTosHtml(trip, logoUrl): string`, `preDispatchShipToHtml(trip, shipTo, logoUrl): string`, and `printPreDispatchHtml(html): boolean`.
 
 - [x] Write failing tests for escaped text, missing values, two separate signature columns, no POD fields, and page breaks between Ship-to groups.
 - [x] Implement a focused Ship-to grouping helper and standalone A4 HTML using Trip, PL, item, quantity and available address fields; create print buttons via `window.open` and `window.print`.
@@ -68,7 +71,8 @@
 - Produces: `/delivery-documents` menu page protected by `dispatch.view`.
 
 - [x] Implement date filters defaulted to today, live warehouse lookup and TMS scan on page entry/date change; show loading/error/empty states and trip rows.
-- [x] Add controls for whole Trip print and per-Ship-to print, showing `Confirm`/`Handling` state and Trip/Ship-to summary.
+- [x] Add controls for whole Trip print, print-all Ship Tos, and per-Ship-to print, showing `Confirm`/`Handling` state and Trip/Ship-to summary.
+- [x] Show document type from Shipment ID prefixes at Trip and expanded Ship-to level; keep it out of A4 output.
 - [x] Wire additive lazy route and navigation item; leave existing Orders and label routes untouched.
 - [x] Run focused tests, all web tests, typecheck and cloud build.
 
@@ -79,6 +83,6 @@
 
 - [x] Review diff against the design and verify no existing document/POD path changed.
 - [x] Correct missing quantity / PL summaries so unavailable values show `—` instead of zero; add regression coverage.
-- [x] Fetch origin and confirm `origin/main` remains at base `71dca0d`; local feature branch is a fast-forward of four commits.
-- [ ] Push the verified implementation to the production branch as authorized by Wave; attempted `git push origin HEAD:main`, rejected by GitHub with HTTP 403 because connected account `waritchiojun-ai` lacks repository write permission.
-- [x] Record implementation commit `1880f5e`, 181/181 tests, typecheck and cloud build success. Production deployment is pending write access.
+- [x] Merge the document-type update through PR #1; production main commit is `815d270`.
+- [x] Verify 183/183 tests, typecheck, cloud build, GitHub CI, and GitHub Pages deployment succeeded.
+- [x] Confirm Trip and Ship-to document types appear only before printing; A4 output remains unchanged.
