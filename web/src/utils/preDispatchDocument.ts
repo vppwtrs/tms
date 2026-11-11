@@ -93,14 +93,15 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
       <dt>ทะเบียน / รถ</dt><dd>${esc([trip.licensePlate, trip.vehicleTypeName].filter(Boolean).join(' · ') || '—')}</dd>
       <dt>เขต</dt><dd>${esc(val(trip.area))}</dd></dl></div>
   </div>`
-  return `<section class="sheet${first ? '' : ' next'}">
-    <div class="print-header">${header}
+  const printHeader = `<div class="print-header">${header}
       <div class="box"><b>Ship To</b> : ${individual ? esc(individual.name) : `${stopCount} จุด`}</div>
       <div class="box"><b>Location</b> : ${esc(location)}</div>
       <div class="summary"><span>รวมทั้ง Trip · ${stopCount} Ship To</span><span>จำนวนใบ ${pickingListCount(allRows)}</span></div>
-    </div>
+    </div>`
+  return `<section class="sheet${first ? '' : ' next'}">
     <table><colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup>
-      <thead><tr class="header-spacer"><th colspan="6"></th></tr><tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
+      <thead><tr class="document-header-row"><th colspan="6">${printHeader}</th></tr>
+        <tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
       ${rows || '<tbody><tr><td colspan="6" class="center">ไม่มีรายการสินค้า</td></tr></tbody>'}
       <tbody><tr class="grand-total"><td colspan="5">รวม</td><td class="center">${total}</td></tr></tbody>
       <tfoot class="print-footer-space"><tr><td colspan="6"></td></tr></tfoot></table>
@@ -110,7 +111,7 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
 
 function documentHtml(title: string, pages: string): string {
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-    @page { size:A4; margin:0 }
+    @page { size:A4; margin:8mm 0 0 }
     * { box-sizing:border-box }
     body { margin:0; padding:0; color:#000; font:11px Tahoma,"Sarabun",sans-serif }
     .sheet { min-height:297mm; padding:14mm; break-inside:auto }
@@ -124,12 +125,13 @@ function documentHtml(title: string, pages: string): string {
     .box { border:1px solid #000; padding:7px 8px; line-height:1.6 }.box + .box { border-top:0 }
     .summary { display:flex; justify-content:space-between; margin-top:10px; font-weight:700 }
     .ship-to-heading td { background:#eee; break-after:avoid; page-break-after:avoid }
-    .print-header { margin-bottom:8px }
-    .header-spacer,.print-footer-space { display:none }
+    .print-header { margin:0 }
+    .document-header-row th { border:0; padding:0; background:#fff }
+    .print-footer-space { display:none }
     table { width:100%; table-layout:fixed; border-collapse:collapse; margin-top:8px }
     th,td { border:1px solid #000; padding:5px 7px; text-align:left; vertical-align:top; font-weight:400; overflow-wrap:anywhere }
     th,.grand-total td { font-weight:700 }.center { text-align:center }.mono { font-family:Consolas,monospace; font-size:10px }
-    thead { display:table-header-group } tfoot { display:table-footer-group }
+    thead { display:table-header-group; break-inside:avoid; page-break-inside:avoid } tfoot { display:table-footer-group }
     tbody tr { break-inside:avoid; page-break-inside:avoid }
     tbody.ship-to-group { break-inside:avoid; page-break-inside:avoid }
     .signatures { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:32mm; text-align:center; break-inside:avoid; page-break-inside:avoid }
@@ -138,9 +140,7 @@ function documentHtml(title: string, pages: string): string {
     @media print {
       .sheet { min-height:0; margin:0; box-shadow:none; padding:0 14mm; break-after:page; page-break-after:always }
       .sheet:last-child { break-after:auto; page-break-after:auto }
-      .print-header { position:fixed; top:8mm; left:14mm; right:14mm; margin:0; background:#fff }
-      .header-spacer { display:table-row }
-      .header-spacer th { height:82mm; border:0; padding:0 }
+      .document-header-row th { border:0; padding:0; background:#fff }
       .print-footer-space { display:table-footer-group }
       .print-footer-space td { height:42mm; border:0; padding:0 }
       .signatures { position:fixed; bottom:12mm; left:14mm; right:14mm; margin:0; background:#fff; }
