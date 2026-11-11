@@ -85,7 +85,7 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
     ? [individual.address, individual.province, individual.postCode].filter(Boolean).join(' ') || '—'
     : '—'
   const header = `<div class="top">
-    <div><div class="logo" style="-webkit-mask-image:url('${esc(logoUrl)}');mask-image:url('${esc(logoUrl)}')"></div>
+    <div><img class="logo" src="${esc(logoUrl)}" alt="VPPW">
       <div class="sender"><b>VPPW (Thailand) Co., Ltd.</b><br>Building No. 28/10, Bang Na Trad KM.23Road,<br>Bang Sao Thong District, Samut Prakan 10570</div></div>
     <div class="meta"><dl><dt>เที่ยว</dt><dd>${esc(val(trip.tripNo))}</dd><dt>วันที่</dt><dd>${esc(thDate(trip.orderDate))}</dd>
       <dt>คลังต้นทาง</dt><dd>${esc(val(trip.warehouse))}</dd><dt>สถานะ</dt><dd>${esc(val(trip.status))}</dd>
@@ -116,7 +116,7 @@ function documentHtml(title: string, pages: string): string {
     .sheet { min-height:297mm; padding:14mm; break-inside:auto }
     .sheet.next { break-before:page; page-break-before:always }
     .top { display:flex; justify-content:space-between; gap:18px; margin-bottom:14px }
-    .logo { width:82px; height:34px; background:#000; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat; -webkit-mask-size:contain; mask-size:contain; print-color-adjust:exact }
+    .logo { width:82px; height:34px; object-fit:contain; object-position:left center; display:block }
     .sender { font-weight:700; line-height:1.6; margin-top:10px }
     .meta { border:1px solid #000; padding:6px 10px; min-width:250px }
     .meta dl { display:grid; grid-template-columns:auto 1fr; gap:3px 10px; margin:0 }
@@ -169,8 +169,17 @@ export function printPreDispatchHtml(html: string): boolean {
   if (!printWindow) return false
   printWindow.document.write(html)
   printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
+  const images = Array.from(printWindow.document.images)
+  void Promise.all(images.map((image) => {
+    if (image.complete) return Promise.resolve()
+    if (typeof image.decode === 'function') return image.decode().catch(() => undefined)
+    return new Promise<void>((resolve) => {
+      image.addEventListener('load', () => resolve(), { once: true })
+      image.addEventListener('error', () => resolve(), { once: true })
+    })
+  })).then(() => {
+    printWindow.focus()
+    printWindow.print()
+  })
   return true
 }
-

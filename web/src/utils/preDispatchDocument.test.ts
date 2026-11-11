@@ -55,6 +55,14 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('thead { display:table-header-group }')
   })
 
+  it('renders the logo as a printable image instead of a background mask', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+
+    expect(html).toContain('<img class="logo" src="/logo.png" alt="VPPW">')
+    expect(html).toContain('.logo { width:82px; height:34px; object-fit:contain; object-position:left center; display:block }')
+    expect(html).not.toContain('mask-image:url(')
+  })
+
   it('places the complete document header before the table on every controlled page', () => {
     const html = preDispatchTripHtml(trip, '/logo.png')
     const sheet = html.match(/<section class="sheet[\s\S]*?<\/section>/)?.[0] ?? ''
@@ -132,4 +140,3 @@ describe('pre-dispatch document', () => {
     expect(singleShipTo).not.toContain('Ship To: Second shop')
   })
 })
-
