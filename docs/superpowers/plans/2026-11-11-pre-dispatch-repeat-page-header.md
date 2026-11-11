@@ -4,7 +4,7 @@
 
 **Goal:** Repeat the complete Trip/Ship To header and column labels on continuation pages while retaining every row within A4 and signatures within the page edge.
 
-**Architecture:** Pin the Trip and Ship To/Location header within the reserved top margin on every printed page. Keep compact column labels in the table's repeating `thead`, item rows in one `tbody`, and the total only once after the final item.
+**Architecture:** Pin the Trip and Ship To/Location header within the reserved top margin on every printed page. Keep compact column labels in the table's repeating `thead`, group rows by Ship To in separate `tbody` sections, and render the total only once after the final item.
 
 **Tech Stack:** TypeScript, Vitest, existing HTML print builder, Chromium print layout.
 
