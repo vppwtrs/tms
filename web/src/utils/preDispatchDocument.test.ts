@@ -52,7 +52,7 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('table { width:100%; table-layout:fixed;')
     expect(html).toContain('<colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup>')
     expect(html).toContain('overflow-wrap:anywhere')
-    expect(html).toContain('thead { display:table-header-group }')
+    expect(html).toContain('thead { display:table-header-group; break-inside:avoid; page-break-inside:avoid }')
   })
 
   it('renders the logo as a printable image instead of a background mask', () => {
@@ -63,25 +63,26 @@ describe('pre-dispatch document', () => {
     expect(html).not.toContain('mask-image:url(')
   })
 
-  it('places the complete document header before the table on every controlled page', () => {
+  it('places the complete document header inside the repeatable table header on every page', () => {
     const html = preDispatchTripHtml(trip, '/logo.png')
-    const sheet = html.match(/<section class="sheet[\s\S]*?<\/section>/)?.[0] ?? ''
-    const tableIndex = sheet.indexOf('<table>')
-    const thead = sheet.match(/<thead>([\s\S]*?)<\/thead>/)?.[1] ?? ''
+    const start = html.indexOf('<thead>')
+    const end = html.indexOf('</thead>', start)
+    const thead = html.slice(start, end)
 
-    expect(tableIndex).toBeGreaterThan(0)
-    expect(sheet.slice(0, tableIndex)).toContain('class="print-header"')
-    expect(sheet.slice(0, tableIndex)).toContain('class="top"')
-    expect(sheet.slice(0, tableIndex)).toContain('<b>Ship To</b> : 1 จุด')
-    expect(sheet.slice(0, tableIndex)).toContain('<b>Location</b> : —')
-    expect(sheet.slice(0, tableIndex)).toContain('รวมทั้ง Trip · 1 Ship To')
-    expect(thead).toContain('class="header-spacer"')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(end).toBeGreaterThan(start)
+    expect(thead).toContain('class="document-header-row"')
+    expect(thead).toContain('class="print-header"')
+    expect(thead).toContain('class="top"')
+    expect(thead).toContain('<b>Ship To</b> : 1 จุด')
+    expect(thead).toContain('<b>Location</b> : —')
+    expect(thead).toContain('รวมทั้ง Trip · 1 Ship To')
     expect(thead).toContain('Shipment ID')
     expect(thead).toContain('Qty.')
-    expect(html).toContain('.print-header { position:fixed; top:8mm;')
-    expect(html).toContain('.header-spacer th { height:82mm; border:0; padding:0 }')
+    expect(html).toContain('thead { display:table-header-group; break-inside:avoid; page-break-inside:avoid }')
+    expect(html).not.toContain('position:fixed; top:8mm')
+    expect(html).not.toContain('header-spacer')
   })
-
   it('keeps all Ship To groups and item rows once across a multi-page Trip', () => {
     const sixStops = {
       ...trip,
@@ -101,7 +102,7 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('<tfoot class="print-footer-space">')
     expect(html.indexOf('class="grand-total"')).toBeLessThan(html.indexOf('<tfoot class="print-footer-space">'))
     expect(html).toContain('class="ship-to-heading"')
-    expect(html).toContain('.print-header { position:fixed; top:8mm; left:14mm; right:14mm; margin:0; background:#fff }')
+    expect(html).toContain('class="document-header-row"')
     expect(html).toContain('.print-footer-space td { height:42mm; border:0; padding:0 }')
     expect(html).toContain('position:fixed; bottom:12mm')
   })
@@ -119,7 +120,7 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('grid-template-columns:1fr 1fr')
     expect(html).toContain('.signatures { position:fixed; bottom:12mm; left:14mm; right:14mm; margin:0;')
     expect(html).not.toContain('bottom:-37mm')
-    expect(html).toContain('@page { size:A4; margin:0 }')
+    expect(html).toContain('@page { size:A4; margin:8mm 0 0 }')
     expect(html).toContain('FSBOX04 M')
     expect(html).not.toContain('POD')
     expect(html).not.toContain('รูปหลักฐาน')
