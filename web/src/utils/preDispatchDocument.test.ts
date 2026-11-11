@@ -46,6 +46,15 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('<td class="center">—</td></tr></tfoot>')
   })
 
+  it('keeps every delivery table column within the A4 content width', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+
+    expect(html).toContain('table { width:100%; table-layout:fixed;')
+    expect(html).toContain('<colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup>')
+    expect(html).toContain('overflow-wrap:anywhere')
+    expect(html).toContain('thead { display:table-header-group }')
+  })
+
   it('escapes live TMS values, leaves missing fields blank, and renders side-by-side signature lines', () => {
     const html = preDispatchShipToHtml(trip, groupPreDispatchShipTos(trip)[0]!, '/logo.png')
     expect(html).toContain('Shop &lt;A&gt;')
@@ -80,3 +89,4 @@ describe('pre-dispatch document', () => {
     expect(singleShipTo).not.toContain('Ship To: Second shop')
   })
 })
+

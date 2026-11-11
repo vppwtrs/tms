@@ -86,3 +86,15 @@
 - [x] Merge the document-type update through PR #1; production main commit is `815d270`.
 - [x] Verify 183/183 tests, typecheck, cloud build, GitHub CI, and GitHub Pages deployment succeeded.
 - [x] Confirm Trip and Ship-to document types appear only before printing; A4 output remains unchanged.
+
+### Task 5: Keep print tables within A4
+
+**Files:**
+- Modify: `web/src/utils/preDispatchDocument.ts`
+- Test: `web/src/utils/preDispatchDocument.test.ts`
+- Update: `README.md`
+
+- [x] Use fixed table layout and explicit column proportions totaling 100% of the printable width.
+- [x] Wrap long values, repeat table headings on continuation pages, and keep body rows together.
+- [x] Run the focused and full test suites (184 passed) and verify the cloud build.
+

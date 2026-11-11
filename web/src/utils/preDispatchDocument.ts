@@ -98,7 +98,7 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
     <div class="box"><b>Ship To</b> : ${individual ? esc(individual.name) : `${stopCount} จุด`}</div>
     <div class="box"><b>Location</b> : ${esc(location)}</div>
     <div class="summary"><span>รวมทั้ง Trip · ${stopCount} Ship To</span><span>จำนวนใบ ${pickingListCount(allRows)}</span></div>
-    <table><thead><tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
+    <table><colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup><thead><tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="center">ไม่มีรายการสินค้า</td></tr>'}</tbody>
       <tfoot><tr><td colspan="5">รวม</td><td class="center">${total}</td></tr></tfoot></table>
     ${signature}
@@ -121,10 +121,10 @@ function documentHtml(title: string, pages: string): string {
     .box { border:1px solid #000; padding:7px 8px; line-height:1.6 }.box + .box { border-top:0 }
     .summary { display:flex; justify-content:space-between; margin-top:10px; font-weight:700 }
     .ship-to-heading td { background:#eee; break-after:avoid; page-break-after:avoid }
-    table { width:100%; border-collapse:collapse; margin-top:8px }
-    th,td { border:1px solid #000; padding:5px 7px; text-align:left; vertical-align:top; font-weight:400 }
+    table { width:100%; table-layout:fixed; border-collapse:collapse; margin-top:8px }
+    th,td { border:1px solid #000; padding:5px 7px; text-align:left; vertical-align:top; font-weight:400; overflow-wrap:anywhere }
     th,tfoot td { font-weight:700 }.center { text-align:center }.mono { font-family:Consolas,monospace; font-size:10px }
-    tbody tr { break-inside:avoid; page-break-inside:avoid }
+    thead { display:table-header-group } tbody tr { break-inside:avoid; page-break-inside:avoid }
     .signatures { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:32mm; text-align:center; break-inside:avoid; page-break-inside:avoid }
     .line { height:18mm; border-bottom:1px solid #000; margin-bottom:6px }
     @media screen { body { background:#eee }.sheet { width:210mm; margin:12px auto; background:white; box-shadow:0 1px 8px #999 } }
@@ -160,3 +160,4 @@ export function printPreDispatchHtml(html: string): boolean {
   printWindow.print()
   return true
 }
+
