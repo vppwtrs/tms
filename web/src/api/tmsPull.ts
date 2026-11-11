@@ -863,6 +863,18 @@ export interface PreDispatchTmsTrip {
   rows: PlRow[]
 }
 
+export interface PreDispatchTripArchiveSummary extends Omit<PreDispatchTmsTrip, 'rows'> {
+  totalPL: number
+  totalUnit: number
+}
+
+export interface PreDispatchTripArchiveSearch {
+  trips: PreDispatchTripArchiveSummary[]
+  scanned: number
+  pages: number
+  complete: boolean
+}
+
 /** Read current, not-yet-departed trips from TMS without writing to app storage. */
 export async function scanTripsForPreDispatch(
   opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
@@ -906,6 +918,51 @@ export async function scanTripsForPreDispatch(
   }).filter((trip) => trip.rows.length > 0)
 }
 
+/** Search historical, confirmed Trips. Shipment details are fetched separately
+ * only after a user selects a Trip, keeping a wide date search bounded. */
+export async function scanTripsForReprint(
+  opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
+): Promise<PreDispatchTripArchiveSearch> {
+  const guid = await warehouseGuid(opts.warehouse)
+  const maxPages = Math.min(Math.max(opts.maxPages ?? 60, 1), 60)
+  const scan = await tmsOp<{ items: unknown[]; pages: number; complete: boolean }>('scanTrips', {
+    guid,
+    from: opts.from,
+    maxPages,
+  })
+
+  const trips = scan.items.map(toTripHeader).filter((trip) => {
+    const tripDay = day(trip.orderDate)
+    const statusId = trip.statusId ?? 0
+    return tripDay >= opts.from && tripDay <= opts.to && statusId >= 2 && statusId <= 5
+  }).map((trip) => ({
+    id: s(trip.id) || `${opts.warehouse.code}|${s(trip.tripNo)}`,
+    tripNo: s(trip.tripNo),
+    orderDate: day(trip.orderDate),
+    statusId: trip.statusId ?? 0,
+    status: TRIP_STATUS[trip.statusId ?? 0] ?? s(trip.status),
+    carrierName: s(trip.carrierName),
+    warehouse: opts.warehouse.code,
+    area: s(trip.area),
+    driver: s(trip.driver),
+    licensePlate: s(trip.licensePlate),
+    vehicleTypeName: s(trip.vehicleTypeName),
+    totalPL: trip.totalPL ?? 0,
+    totalUnit: trip.totalUnit ?? 0,
+  }))
+
+  return { trips, scanned: scan.items.length, pages: scan.pages, complete: scan.complete }
+}
+
+/** Fetch only the selected Trip's current detail rows for historical reprint. */
+export async function loadTripForReprint(tripId: string): Promise<PlRow[]> {
+  const result = await tmsOp<{ lists: Array<{ id: string; items: PlHeader[] }> }>(
+    'scanTripPickingLists', { ids: [tripId] },
+  )
+  const header = result.lists.find((list) => list.id === tripId)
+  return plRowsOf(header?.items ?? [])
+}
+
 export async function scanTripsForLabels(
   opts: { from: string; to: string; warehouse: Warehouse; maxPages?: number },
 ): Promise<LabelTmsTrip[]> {
@@ -945,3 +1002,4 @@ export async function scanTripsForLabels(
     }
   })
 }
+

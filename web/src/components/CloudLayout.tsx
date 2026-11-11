@@ -57,6 +57,7 @@ const NAV: NavGroup[] = [
       { to: '/orders', label: 'ออเดอร์', icon: IconBox, perm: 'orders.view' },
       { to: '/labels', label: 'พิมพ์ฉลาก', icon: IconPrinter, perm: 'orders.view' },
       { to: '/delivery-documents', label: 'พิมพ์ใบส่งสินค้า', icon: IconPrinter, perm: 'dispatch.view' },
+      { to: '/delivery-documents/archive', label: 'พิมพ์ใบส่งสินค้า (ย้อนหลัง)', icon: IconPrinter, perm: 'dispatch.view' },
       { to: '/dispatch', label: 'แผนงานขนส่ง', icon: IconRoute, perm: 'dispatch.view' },
       { to: '/tracking', label: 'ติดตามรถ', icon: IconPin, perm: ['dispatch.view', 'myjobs.view'] },
       /* ผูกกับ dispatch.view ไปก่อน — ยังไม่มีสิทธิ์ reports.view ใน catalog ของฐาน
@@ -255,3 +256,4 @@ export function CloudLayout(): React.JSX.Element {
     </div>
   )
 }
+

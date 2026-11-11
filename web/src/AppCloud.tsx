@@ -33,6 +33,7 @@ const CloudDrivers = lazy(() => import('./pages/CloudDrivers'))
 const CloudOrders = lazy(() => import('./pages/CloudOrders'))
 const CloudLabels = lazy(() => import('./pages/CloudLabels'))
 const CloudDeliveryDocuments = lazy(() => import('./pages/CloudDeliveryDocuments'))
+const CloudDeliveryDocumentsArchive = lazy(() => import('./pages/CloudDeliveryDocumentsArchive'))
 const CloudDispatch = lazy(() => import('./pages/CloudDispatch'))
 const CloudTracking = lazy(() => import('./pages/CloudTracking'))
 const CloudReports = lazy(() => import('./pages/CloudReports'))
@@ -137,6 +138,7 @@ export default function AppCloud(): React.JSX.Element {
 
           <Route path="/labels" element={<RequirePermission permission="orders.view"><CloudLabels /></RequirePermission>} />
           <Route path="/delivery-documents" element={<RequirePermission permission="dispatch.view"><CloudDeliveryDocuments /></RequirePermission>} />
+          <Route path="/delivery-documents/archive" element={<RequirePermission permission="dispatch.view"><CloudDeliveryDocumentsArchive /></RequirePermission>} />
           <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
           {/* ผู้วางแผนงานเข้าด้วย dispatch.view · คนขับเข้าด้วย myjobs.view เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}
           <Route path="/tracking" element={<RequirePermission permission={['dispatch.view', 'myjobs.view']}><CloudTracking /></RequirePermission>} />
@@ -156,3 +158,4 @@ export default function AppCloud(): React.JSX.Element {
     </Suspense>
   )
 }
+
