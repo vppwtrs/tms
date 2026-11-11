@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ALLOWED_WAREHOUSES, listWarehouses, loadTripForReprint, scanTripsForReprint, type PreDispatchTmsTrip, type PreDispatchTripArchiveSummary, type Warehouse } from '../api/tmsPull'
 import { Badge, Button, EmptyState, ErrorBox, Input, PageHeader, Select, TableSkeleton } from '../components/ui'
 import { IconPrinter } from '../components/icons'
+import { DeliveryDocumentModeNav } from '../components/DeliveryDocumentModeNav'
 import { useToast } from '../context/ToastContext'
 import { fmtDate, todayIso } from '../utils/format'
 import { groupPreDispatchShipTos, preDispatchAllShipTosHtml, preDispatchDocumentTypeLabels, preDispatchShipToHtml, preDispatchTripHtml, type PreDispatchShipTo, printPreDispatchHtml } from '../utils/preDispatchDocument'
@@ -127,6 +128,7 @@ export default function CloudDeliveryDocumentsArchive(): React.JSX.Element {
   return (
     <>
       <PageHeader title="พิมพ์ใบส่งสินค้า (ย้อนหลัง)" subtitle="ค้น Trip ที่ Confirm แล้วขึ้นไป · อ่านข้อมูลปัจจุบันจาก TMS · ไม่เปลี่ยนสถานะ Trip" />
+      <DeliveryDocumentModeNav />
       <div className="card">
         <div className="lbl-filter">
           <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} style={{ width: 160 }} title="ตั้งแต่วันที่" />
