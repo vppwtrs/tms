@@ -43,7 +43,7 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('<td>M</td>')
     expect(html).not.toContain('M (0)')
     expect(html).toContain('จำนวนใบ 0')
-    expect(html).toContain('<tr class="grand-total"><td colspan="5">รวม</td><td class="center">—</td></tr></tbody>')
+    expect(html).toContain('<tr class="grand-total"><td colspan="5">รวม</td><td class="center">—</td></tr></tbody>\n      <tfoot class="print-footer-space">')
   })
 
   it('keeps every delivery table column within the A4 content width', () => {
@@ -59,6 +59,7 @@ describe('pre-dispatch document', () => {
     const html = preDispatchTripHtml(trip, '/logo.png')
     const sheet = html.match(/<section class="sheet[\s\S]*?<\/section>/)?.[0] ?? ''
     const tableIndex = sheet.indexOf('<table>')
+    const thead = sheet.match(/<thead>([\s\S]*?)<\/thead>/)?.[1] ?? ''
 
     expect(tableIndex).toBeGreaterThan(0)
     expect(sheet.slice(0, tableIndex)).toContain('class="print-header"')
@@ -66,8 +67,11 @@ describe('pre-dispatch document', () => {
     expect(sheet.slice(0, tableIndex)).toContain('<b>Ship To</b> : 1 จุด')
     expect(sheet.slice(0, tableIndex)).toContain('<b>Location</b> : —')
     expect(sheet.slice(0, tableIndex)).toContain('รวมทั้ง Trip · 1 Ship To')
-    expect(sheet.slice(tableIndex)).toContain('Shipment ID')
-    expect(sheet.slice(tableIndex)).toContain('Qty.')
+    expect(thead).toContain('class="header-spacer"')
+    expect(thead).toContain('Shipment ID')
+    expect(thead).toContain('Qty.')
+    expect(html).toContain('.print-header { position:fixed; top:8mm;')
+    expect(html).toContain('.header-spacer th { height:62mm; border:0; padding:0 }')
   })
 
   it('keeps all Ship To groups and item rows once across a multi-page Trip', () => {
@@ -86,9 +90,11 @@ describe('pre-dispatch document', () => {
     expect(html.match(/class="ship-to-heading"/g)).toHaveLength(6)
     expect(html.match(/<td class="mono">PL-/g)).toHaveLength(6)
     expect(html.match(/class="grand-total"/g)).toHaveLength(1)
-    expect(html).not.toContain('<tfoot>')
+    expect(html).toContain('<tfoot class="print-footer-space">')
+    expect(html.indexOf('class="grand-total"')).toBeLessThan(html.indexOf('<tfoot class="print-footer-space">'))
     expect(html).toContain('class="ship-to-heading"')
-    expect(html).toContain('.print-header { position:fixed; top:-64mm; left:14mm; right:14mm; margin:0; background:#fff }')
+    expect(html).toContain('.print-header { position:fixed; top:8mm; left:14mm; right:14mm; margin:0; background:#fff }')
+    expect(html).toContain('.print-footer-space td { height:42mm; border:0; padding:0 }')
     expect(html).toContain('position:fixed; bottom:12mm')
   })
 
@@ -105,7 +111,7 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('grid-template-columns:1fr 1fr')
     expect(html).toContain('.signatures { position:fixed; bottom:12mm; left:14mm; right:14mm; margin:0;')
     expect(html).not.toContain('bottom:-37mm')
-    expect(html).toContain('@page { size:A4; margin:72mm 0 42mm 0 }')
+    expect(html).toContain('@page { size:A4; margin:0 }')
     expect(html).toContain('FSBOX04 M')
     expect(html).not.toContain('POD')
     expect(html).not.toContain('รูปหลักฐาน')

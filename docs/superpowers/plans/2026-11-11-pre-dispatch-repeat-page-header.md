@@ -4,7 +4,7 @@
 
 **Goal:** Repeat the complete Trip/Ship To header and column labels on continuation pages while retaining every row within A4 and signatures within the page edge.
 
-**Architecture:** Pin the Trip and Ship To/Location header within the reserved top margin on every printed page. Keep compact column labels in the table's repeating `thead`, group rows by Ship To in separate `tbody` sections, and render the total only once after the final item.
+**Architecture:** Pin the Trip and Ship To/Location header 8mm from the page top. A blank 62mm row in the repeating `thead` reserves space before the column labels; a blank 42mm row in the repeating `tfoot` reserves the signature area. Keep Ship To groups in separate `tbody` sections and render the total only once after the final item.
 
 **Tech Stack:** TypeScript, Vitest, existing HTML print builder, Chromium print layout.
 
@@ -36,7 +36,7 @@
 - Update: `README.md`
 
 - [x] Add assertions for the page header, safe signature inset, six Ship To groups, and every item row exactly once.
-- [x] Reserve print top and bottom margins for the fixed Trip/Ship To header and signature lines.
+- [x] Reserve top and bottom space with repeating table header/footer rows, so print margin overrides cannot hide the header or overlap signatures.
 - [x] Keep the item total in one non-repeating body row; keep Ship To label attached to its first item row.
 - [x] Run focused tests and cloud build.
 - [ ] Render and inspect a multi-page preview. Chrome headless is blocked by the Windows runtime's Crashpad/IPC permissions, and local file navigation is blocked by browser security policy.
