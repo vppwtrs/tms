@@ -79,7 +79,7 @@ describe('pre-dispatch document', () => {
     expect(thead).toContain('Shipment ID')
     expect(thead).toContain('Qty.')
     expect(html).toContain('.print-header { position:fixed; top:8mm;')
-    expect(html).toContain('.header-spacer th { height:62mm; border:0; padding:0 }')
+    expect(html).toContain('.header-spacer th { height:82mm; border:0; padding:0 }')
   })
 
   it('keeps all Ship To groups and item rows once across a multi-page Trip', () => {

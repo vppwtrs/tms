@@ -140,7 +140,7 @@ function documentHtml(title: string, pages: string): string {
       .sheet:last-child { break-after:auto; page-break-after:auto }
       .print-header { position:fixed; top:8mm; left:14mm; right:14mm; margin:0; background:#fff }
       .header-spacer { display:table-row }
-      .header-spacer th { height:62mm; border:0; padding:0 }
+      .header-spacer th { height:82mm; border:0; padding:0 }
       .print-footer-space { display:table-footer-group }
       .print-footer-space td { height:42mm; border:0; padding:0 }
       .signatures { position:fixed; bottom:12mm; left:14mm; right:14mm; margin:0; background:#fff; }
