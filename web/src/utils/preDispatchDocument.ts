@@ -67,14 +67,14 @@ const signature = `<div class="signatures">
 </div>`
 
 function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: string, first: boolean, individualShipTo = false): string {
-  const rows = shipTos.flatMap((shipTo) => [
-    ...(individualShipTo ? [] : [`<tr class="ship-to-heading"><td colspan="6"><b>Ship To: ${esc(shipTo.name)}</b><br>${esc([shipTo.address, shipTo.province, shipTo.postCode].filter(Boolean).join(' ') || '—')}</td></tr>`]),
-    ...shipTo.rows.map((row, index) => `<tr>
+  const rows = shipTos.map((shipTo) => `<tbody class="ship-to-group">
+    ${individualShipTo ? '' : `<tr class="ship-to-heading"><td colspan="6"><b>Ship To: ${esc(shipTo.name)}</b><br>${esc([shipTo.address, shipTo.province, shipTo.postCode].filter(Boolean).join(' ') || '—')}</td></tr>`}
+    ${shipTo.rows.map((row, index) => `<tr>
       <td class="center">${index + 1}</td><td class="mono">${esc(val(row.pickingListNo))}</td>
       <td class="mono">${esc(val(row.itemNo))}</td><td>${esc(val(row.itemName))}</td>
       <td>${esc(boxSizes([row]))}</td><td class="center">${row.itemQty ?? '—'}</td>
-    </tr>`),
-  ]).join('')
+    </tr>`).join('')}
+  </tbody>`).join('')
   const allRows = shipTos.flatMap((shipTo) => shipTo.rows)
   const total = allRows.some((row) => row.itemQty == null)
     ? '—'
@@ -94,20 +94,22 @@ function page(trip: PreDispatchTmsTrip, shipTos: PreDispatchShipTo[], logoUrl: s
       <dt>เขต</dt><dd>${esc(val(trip.area))}</dd></dl></div>
   </div>`
   return `<section class="sheet${first ? '' : ' next'}">
-    ${header}
-    <div class="box"><b>Ship To</b> : ${individual ? esc(individual.name) : `${stopCount} จุด`}</div>
-    <div class="box"><b>Location</b> : ${esc(location)}</div>
-    <div class="summary"><span>รวมทั้ง Trip · ${stopCount} Ship To</span><span>จำนวนใบ ${pickingListCount(allRows)}</span></div>
-    <table><colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup><thead><tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="6" class="center">ไม่มีรายการสินค้า</td></tr>'}</tbody>
-      <tfoot><tr><td colspan="5">รวม</td><td class="center">${total}</td></tr></tfoot></table>
+    <div class="print-header">${header}
+      <div class="box"><b>Ship To</b> : ${individual ? esc(individual.name) : `${stopCount} จุด`}</div>
+      <div class="box"><b>Location</b> : ${esc(location)}</div>
+      <div class="summary"><span>รวมทั้ง Trip · ${stopCount} Ship To</span><span>จำนวนใบ ${pickingListCount(allRows)}</span></div>
+    </div>
+    <table><colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup>
+      <thead><tr><th class="center">#</th><th>Shipment ID</th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>Box Size</th><th class="center">Qty.</th></tr></thead>
+      ${rows || '<tbody><tr><td colspan="6" class="center">ไม่มีรายการสินค้า</td></tr></tbody>'}
+      <tbody><tr class="grand-total"><td colspan="5">รวม</td><td class="center">${total}</td></tr></tbody></table>
     ${signature}
   </section>`
 }
 
 function documentHtml(title: string, pages: string): string {
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-    @page { size:A4; margin:0 0 42mm 0 }
+    @page { size:A4; margin:72mm 0 42mm 0 }
     * { box-sizing:border-box }
     body { margin:0; padding:0; color:#000; font:11px Tahoma,"Sarabun",sans-serif }
     .sheet { min-height:297mm; padding:14mm; break-inside:auto }
@@ -121,16 +123,21 @@ function documentHtml(title: string, pages: string): string {
     .box { border:1px solid #000; padding:7px 8px; line-height:1.6 }.box + .box { border-top:0 }
     .summary { display:flex; justify-content:space-between; margin-top:10px; font-weight:700 }
     .ship-to-heading td { background:#eee; break-after:avoid; page-break-after:avoid }
+    .print-header { margin-bottom:8px }
     table { width:100%; table-layout:fixed; border-collapse:collapse; margin-top:8px }
     th,td { border:1px solid #000; padding:5px 7px; text-align:left; vertical-align:top; font-weight:400; overflow-wrap:anywhere }
-    th,tfoot td { font-weight:700 }.center { text-align:center }.mono { font-family:Consolas,monospace; font-size:10px }
-    thead { display:table-header-group } tbody tr { break-inside:avoid; page-break-inside:avoid }
+    th,.grand-total td { font-weight:700 }.center { text-align:center }.mono { font-family:Consolas,monospace; font-size:10px }
+    thead { display:table-header-group }
+    tbody tr { break-inside:avoid; page-break-inside:avoid }
+    tbody.ship-to-group { break-inside:avoid; page-break-inside:avoid }
     .signatures { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:32mm; text-align:center; break-inside:avoid; page-break-inside:avoid }
     .line { height:18mm; border-bottom:1px solid #000; margin-bottom:6px }
     @media screen { body { background:#eee }.sheet { width:210mm; margin:12px auto; background:white; box-shadow:0 1px 8px #999 } }
     @media print {
-      .sheet { min-height:255mm; margin:0; box-shadow:none }
-      .signatures { position:fixed; bottom:0; left:14mm; right:14mm; margin:0; background:#fff; }
+      .sheet { min-height:0; margin:0; box-shadow:none; padding:0 14mm; break-after:page; page-break-after:always }
+      .sheet:last-child { break-after:auto; page-break-after:auto }
+      .print-header { position:fixed; top:-64mm; left:14mm; right:14mm; margin:0; background:#fff }
+      .signatures { position:fixed; bottom:12mm; left:14mm; right:14mm; margin:0; background:#fff; }
     }
   </style></head><body>${pages}</body></html>`
 }

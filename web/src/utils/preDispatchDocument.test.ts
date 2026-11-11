@@ -43,7 +43,7 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('<td>M</td>')
     expect(html).not.toContain('M (0)')
     expect(html).toContain('จำนวนใบ 0')
-    expect(html).toContain('<td class="center">—</td></tr></tfoot>')
+    expect(html).toContain('<tr class="grand-total"><td colspan="5">รวม</td><td class="center">—</td></tr></tbody>')
   })
 
   it('keeps every delivery table column within the A4 content width', () => {
@@ -53,6 +53,43 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('<colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup>')
     expect(html).toContain('overflow-wrap:anywhere')
     expect(html).toContain('thead { display:table-header-group }')
+  })
+
+  it('places the complete document header before the table on every controlled page', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+    const sheet = html.match(/<section class="sheet[\s\S]*?<\/section>/)?.[0] ?? ''
+    const tableIndex = sheet.indexOf('<table>')
+
+    expect(tableIndex).toBeGreaterThan(0)
+    expect(sheet.slice(0, tableIndex)).toContain('class="print-header"')
+    expect(sheet.slice(0, tableIndex)).toContain('class="top"')
+    expect(sheet.slice(0, tableIndex)).toContain('<b>Ship To</b> : 1 จุด')
+    expect(sheet.slice(0, tableIndex)).toContain('<b>Location</b> : —')
+    expect(sheet.slice(0, tableIndex)).toContain('รวมทั้ง Trip · 1 Ship To')
+    expect(sheet.slice(tableIndex)).toContain('Shipment ID')
+    expect(sheet.slice(tableIndex)).toContain('Qty.')
+  })
+
+  it('keeps all Ship To groups and item rows once across a multi-page Trip', () => {
+    const sixStops = {
+      ...trip,
+      rows: Array.from({ length: 6 }, (_, index) => ({
+        ...trip.rows[0]!,
+        pickingListNo: `PL-${index + 1}`,
+        shipToName: `Stop ${index + 1}`,
+        shipToAddress: `Road ${index + 1}`,
+        itemNo: `SKU-${index + 1}`,
+      })),
+    }
+    const html = preDispatchTripHtml(sixStops, '/logo.png')
+
+    expect(html.match(/class="ship-to-heading"/g)).toHaveLength(6)
+    expect(html.match(/<td class="mono">PL-/g)).toHaveLength(6)
+    expect(html.match(/class="grand-total"/g)).toHaveLength(1)
+    expect(html).not.toContain('<tfoot>')
+    expect(html).toContain('class="ship-to-heading"')
+    expect(html).toContain('.print-header { position:fixed; top:-64mm; left:14mm; right:14mm; margin:0; background:#fff }')
+    expect(html).toContain('position:fixed; bottom:12mm')
   })
 
   it('escapes live TMS values, leaves missing fields blank, and renders side-by-side signature lines', () => {
@@ -66,9 +103,9 @@ describe('pre-dispatch document', () => {
     expect(html).toContain('ผู้ตรวจเช็ค')
     expect(html).toContain('Consignee')
     expect(html).toContain('grid-template-columns:1fr 1fr')
-    expect(html).toContain('.signatures { position:fixed; bottom:0; left:14mm; right:14mm; margin:0;')
+    expect(html).toContain('.signatures { position:fixed; bottom:12mm; left:14mm; right:14mm; margin:0;')
     expect(html).not.toContain('bottom:-37mm')
-    expect(html).toContain('@page { size:A4; margin:0 0 42mm 0 }')
+    expect(html).toContain('@page { size:A4; margin:72mm 0 42mm 0 }')
     expect(html).toContain('FSBOX04 M')
     expect(html).not.toContain('POD')
     expect(html).not.toContain('รูปหลักฐาน')
