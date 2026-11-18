@@ -662,7 +662,10 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
   /* หาแถวผู้ใช้ กับถามชื่อจริงจาก TMS ไม่ต้องรอกัน — สองอย่างนี้ไม่เกี่ยวข้องกันเลย
      เดิมเรียงต่อกันทำให้เวลาล็อกอินเท่ากับผลบวกของทั้งคู่ ทั้งที่ควรเป็นตัวที่ช้ากว่า */
   const existingP = sb.from('users').select('id, auth_id, is_active, role, name, auth_source')
-    .eq('username', username).maybeSingle()
+    /* เทียบแบบไม่สนตัวพิมพ์ — TMS รับ "Sirisak.t@..." กับ "sirisak.t@..." เป็นคนเดียวกัน
+       เดิมใช้ .eq จึงหาไม่เจอแล้วสร้างบัญชี viewer ซ้ำให้คนเดิม
+       ilike ถือ % _ \ เป็นอักขระพิเศษ ต้อง escape ก่อน ไม่งั้น "a_b" จะไปเจอ "axb" */
+    .ilike('username', username.replace(/[\\%_]/g, c => `\\${c}`)).maybeSingle()
 
   // ชื่อจริงเอาจาก TMS ไม่ให้ผู้ใช้พิมพ์เอง — จะได้ตรงกับที่ออฟฟิศเรียกกันจริง
   const profileP = fetch(`${TMS_BASE}/personal/profile`, {
@@ -725,7 +728,7 @@ async function handleAuth(req: Request, cors: Record<string, string>): Promise<R
          app.current_user_id() คืน null ทุก policy จึงมองไม่เห็นคนนี้
          admin ต้องกดอนุมัติก่อน (approve_user) */
       await sb.from('users').insert({
-        auth_id: authId, username, name: displayName,
+        auth_id: authId, username: username.toLowerCase(), name: displayName,
         role: 'viewer', is_active: false, auth_source: 'tms',
       })
     }
