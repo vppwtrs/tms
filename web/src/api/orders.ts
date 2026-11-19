@@ -44,13 +44,19 @@ export interface OrderListRow extends OrderRow {
   warehouse_code: string | null
   area: string | null
   pod_status: string | null
+  /* พิกัดร้าน — จากตารางลูกค้า ถ้ายังไม่ปักใช้ GPS ตอนคนขับบันทึกหลักฐาน
+     ใช้จับคู่ช่วงจอดในไทม์ไลน์กับร้าน */
+  store_lat: number | null
+  store_lng: number | null
   /* รายการของในใบ — เดิมมีแต่ goods_desc ซึ่งเป็นชื่อสินค้าต่อกันเป็นข้อความ
      ค้นตามรหัสไม่ได้ และไม่รู้ว่าอย่างละกี่ชิ้น */
   items: OrderItem[]
 }
 
+type PodEmbed = { status: string; lat: number | null; lng: number | null }
+
 interface OrderJoined extends OrderRow {
-  customers: { name: string } | null
+  customers: { name: string; lat: number | null; lng: number | null } | null
   trips: {
     trip_no: string
     drivers: { name: string } | null
@@ -66,7 +72,7 @@ interface OrderJoined extends OrderRow {
      มี unique constraint — pod.order_id มี เพราะ save_pod ใช้ on conflict (order_id)
      ความสัมพันธ์จึงเป็นหนึ่งต่อหนึ่งในสายตาของมัน รับไว้ทั้งสองรูป ไม่ผูกกับรูปเดียว
      เพราะรูปที่ได้ขึ้นกับ constraint ในฐาน ไม่ใช่สิ่งที่หน้าจอควบคุมได้ */
-  pod: { status: string }[] | { status: string } | null
+  pod: PodEmbed[] | PodEmbed | null
   order_items: OrderItem[] | null
 }
 
@@ -95,6 +101,8 @@ const flatten = (r: OrderJoined): OrderListRow => ({
   warehouse_code: embedOne(r.trips?.tms_trips)?.warehouse_code ?? null,
   area: embedOne(r.trips?.tms_trips)?.area ?? null,
   pod_status: embedOne(r.pod)?.status ?? null,
+  store_lat: r.customers?.lat ?? embedOne(r.pod)?.lat ?? null,
+  store_lng: r.customers?.lat != null ? r.customers.lng : embedOne(r.pod)?.lng ?? null,
   items: r.order_items ?? [],
 })
 
@@ -117,7 +125,7 @@ export async function listOrders(f: OrderFilter = {}): Promise<Paged<OrderListRo
   const driverJoin = 'drivers!trips_driver_id_fkey(name)'
   let q = supabase
     .from('orders')
-    .select(`*, customers(name), ${tripJoin}(trip_no, driver_id, ${driverJoin}, trip_drivers(drivers(name)), tms_trips(warehouse_code, area)${driverFilterJoin}), pod(status), order_items(item_no, item_name, qty)`, { count: 'exact' })
+    .select(`*, customers(name, lat, lng), ${tripJoin}(trip_no, driver_id, ${driverJoin}, trip_drivers(drivers(name)), tms_trips(warehouse_code, area)${driverFilterJoin}), pod(status, lat, lng), order_items(item_no, item_name, qty)`, { count: 'exact' })
   if (f.driverId) q = q.eq('trips.filter_drivers.driver_id', f.driverId)
   /* ค้นด้วยเลข PL ได้ด้วย — เลขที่คลัง ร้าน และคนขับใช้อ้างถึงใบจริงคือ PL
      ส่วน ORD เป็นเลขที่ระบบเราสร้างเอง ไม่มีใครนอกระบบรู้จัก

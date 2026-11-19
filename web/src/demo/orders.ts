@@ -67,6 +67,8 @@ function build(): OrderListRow[] {
       id,
       order_no: `ORD-DEMO-${String(id).padStart(4, '0')}`,
       customer_id: c.id,
+      store_lat: c.lat ?? null,
+      store_lng: c.lng ?? null,
       origin: s.trip?.wh === 'WH-NORTH' ? 'คลังสมมติ นนทบุรี' : 'คลังสมมติ บางนา',
       destination: `${c.name} · ${c.address ?? ''}`,
       goods_desc: `${s.goods} ${s.qty} ลัง`,

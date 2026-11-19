@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest'
+import type { PreDispatchTmsTrip } from '../api/tmsPull'
+import { groupPreDispatchShipTos, preDispatchDocumentTypeLabels, preDispatchShipToHtml, preDispatchTripHtml } from './preDispatchDocument'
+
+const trip: PreDispatchTmsTrip = {
+  id: 'trip-1', tripNo: 'T-<1>', orderDate: '2026-10-26', statusId: 2, status: 'Confirm',
+  carrierName: '', warehouse: 'KM23-CW-01', area: '', driver: '', licensePlate: '', vehicleTypeName: '',
+  rows: [
+    { pickingListNo: 'PL-1', planDeliveryDate: '', tripDate: '', tripNo: '', plStatus: '', tripStatus: '', plType: '', area: '', dealerCode: '', dealerName: '', branch: '', province: '', customerAddress: '', shipToName: 'Shop <A>', shipToAddress: 'Road & Lane', shipToProvince: '', shipToPostCode: '', unit: 2, totalQty: 2, pickupDate: '', deliveryDate: '', itemNo: 'FSBOX04 M', itemName: 'Box', itemQty: 2, itemSplitQty: null, qtySource: 'qty' },
+    { pickingListNo: 'PL-2', planDeliveryDate: '', tripDate: '', tripNo: '', plStatus: '', tripStatus: '', plType: '', area: '', dealerCode: '', dealerName: '', branch: '', province: '', customerAddress: '', shipToName: 'Shop <A>', shipToAddress: 'Road & Lane', shipToProvince: '', shipToPostCode: '', unit: 1, totalQty: 1, pickupDate: '', deliveryDate: '', itemNo: 'SKU-2', itemName: 'Part', itemQty: 1, itemSplitQty: null, qtySource: 'qty' },
+  ],
+}
+
+describe('pre-dispatch document', () => {
+  it('classifies PL and BK shipment IDs and returns both when a group contains both', () => {
+    const rows = [
+      { ...trip.rows[0]!, pickingListNo: ' pl-001 ' },
+      { ...trip.rows[0]!, pickingListNo: 'BK-002' },
+      { ...trip.rows[0]!, pickingListNo: 'unmapped-003' },
+    ]
+
+    expect(preDispatchDocumentTypeLabels(rows)).toEqual(['Dealer', 'Transfer'])
+    expect(preDispatchDocumentTypeLabels([{ ...trip.rows[0]!, pickingListNo: 'BK-002' }])).toEqual(['Transfer'])
+    expect(preDispatchDocumentTypeLabels([{ ...trip.rows[0]!, pickingListNo: '' }])).toEqual([])
+  })
+
+  it('keeps document type labels out of the printable A4', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+    expect(html).not.toContain('ประเภทเอกสาร')
+    expect(html).not.toContain('Dealer')
+    expect(html).not.toContain('Transfer')
+  })
+
+  it('groups by Ship to and includes separate PLs at the same address', () => {
+    const groups = groupPreDispatchShipTos(trip)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]?.rows).toHaveLength(2)
+  })
+
+  it('does not turn a missing item quantity into a fabricated zero in box size totals', () => {
+    const missingQty = { ...trip, rows: [{ ...trip.rows[0]!, itemQty: null, pickingListNo: '' }] }
+    const html = preDispatchShipToHtml(missingQty, groupPreDispatchShipTos(missingQty)[0]!, '/logo.png')
+    expect(html).toContain('<td>M</td>')
+    expect(html).not.toContain('M (0)')
+    expect(html).toContain('จำนวนใบ 0')
+    expect(html).toContain('<tr class="grand-total"><td colspan="5">รวม</td><td class="center">—</td></tr></tbody>\n      <tfoot class="print-footer-space">')
+  })
+
+  it('keeps every delivery table column within the A4 content width', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+
+    expect(html).toContain('table { width:100%; table-layout:fixed;')
+    expect(html).toContain('<colgroup><col style="width:5%"><col style="width:23%"><col style="width:15%"><col style="width:32%"><col style="width:17%"><col style="width:8%"></colgroup>')
+    expect(html).toContain('overflow-wrap:anywhere')
+    expect(html).toContain('thead { display:table-header-group; break-inside:avoid; page-break-inside:avoid }')
+  })
+
+  it('renders the logo as a printable image instead of a background mask', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+
+    expect(html).toContain('<img class="logo" src="/logo.png" alt="VPPW">')
+    expect(html).toContain('.logo { width:82px; height:34px; object-fit:contain; object-position:left center; display:block }')
+    expect(html).not.toContain('mask-image:url(')
+  })
+
+  it('places the complete document header inside the repeatable table header on every page', () => {
+    const html = preDispatchTripHtml(trip, '/logo.png')
+    const start = html.indexOf('<thead>')
+    const end = html.indexOf('</thead>', start)
+    const thead = html.slice(start, end)
+
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(end).toBeGreaterThan(start)
+    expect(thead).toContain('class="document-header-row"')
+    expect(thead).toContain('class="print-header"')
+    expect(thead).toContain('class="top"')
+    expect(thead).toContain('<b>Ship To</b> : 1 จุด')
+    expect(thead).toContain('<b>Location</b> : —')
+    expect(thead).toContain('รวมทั้ง Trip · 1 Ship To')
+    expect(thead).toContain('Shipment ID')
+    expect(thead).toContain('Qty.')
+    expect(html).toContain('thead { display:table-header-group; break-inside:avoid; page-break-inside:avoid }')
+    expect(html).not.toContain('position:fixed; top:8mm')
+    expect(html).not.toContain('header-spacer')
+  })
+  it('keeps all Ship To groups and item rows once across a multi-page Trip', () => {
+    const sixStops = {
+      ...trip,
+      rows: Array.from({ length: 6 }, (_, index) => ({
+        ...trip.rows[0]!,
+        pickingListNo: `PL-${index + 1}`,
+        shipToName: `Stop ${index + 1}`,
+        shipToAddress: `Road ${index + 1}`,
+        itemNo: `SKU-${index + 1}`,
+      })),
+    }
+    const html = preDispatchTripHtml(sixStops, '/logo.png')
+
+    expect(html.match(/class="ship-to-heading"/g)).toHaveLength(6)
+    expect(html.match(/<td class="mono">PL-/g)).toHaveLength(6)
+    expect(html.match(/class="grand-total"/g)).toHaveLength(1)
+    expect(html).toContain('<tfoot class="print-footer-space">')
+    expect(html.indexOf('class="grand-total"')).toBeLessThan(html.indexOf('<tfoot class="print-footer-space">'))
+    expect(html).toContain('class="ship-to-heading"')
+    expect(html).toContain('class="document-header-row"')
+    expect(html).toContain('.print-footer-space td { height:42mm; border:0; padding:0 }')
+    expect(html).toContain('position:fixed; bottom:12mm')
+  })
+
+  it('escapes live TMS values, leaves missing fields blank, and renders side-by-side signature lines', () => {
+    const html = preDispatchShipToHtml(trip, groupPreDispatchShipTos(trip)[0]!, '/logo.png')
+    expect(html).toContain('Shop &lt;A&gt;')
+    expect(html).toContain('Road &amp; Lane')
+    expect(html).toContain('<b>Ship To</b> : Shop &lt;A&gt;')
+    expect(html).toContain('<b>Location</b> : Road &amp; Lane')
+    expect(html).not.toContain('class="ship-to-heading"')
+    expect(html).toContain('—')
+    expect(html).toContain('ผู้ตรวจเช็ค')
+    expect(html).toContain('Consignee')
+    expect(html).toContain('grid-template-columns:1fr 1fr')
+    expect(html).toContain('.signatures { position:fixed; bottom:12mm; left:14mm; right:14mm; margin:0;')
+    expect(html).not.toContain('bottom:-37mm')
+    expect(html).toContain('@page { size:A4; margin:8mm 0 0 }')
+    expect(html).toContain('FSBOX04 M')
+    expect(html).not.toContain('POD')
+    expect(html).not.toContain('รูปหลักฐาน')
+  })
+
+  it('puts all Ship Tos in one Trip document while keeping the individual Ship To document scoped', () => {
+    const twoStops = { ...trip, rows: [...trip.rows, { ...trip.rows[0]!, shipToName: 'Second shop', shipToAddress: 'Other road' }] }
+    const html = preDispatchTripHtml(twoStops, '/logo.png')
+    expect(html).toContain('@page { size:A4')
+    expect(html).toContain('break-inside:auto')
+    expect(html.match(/<section class="sheet/g)).toHaveLength(1)
+    expect(html).toContain('Ship To: Shop &lt;A&gt;')
+    expect(html).toContain('Ship To: Second shop')
+    expect(html).toContain('รวมทั้ง Trip · 2 Ship To')
+    expect(html).toContain('<b>Ship To</b> : 2 จุด')
+    expect(html).toContain('class="ship-to-heading"')
+    const singleShipTo = preDispatchShipToHtml(twoStops, groupPreDispatchShipTos(twoStops)[0]!, '/logo.png')
+    expect(singleShipTo).not.toContain('Ship To: Second shop')
+  })
+})

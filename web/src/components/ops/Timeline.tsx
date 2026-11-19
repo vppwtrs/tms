@@ -13,7 +13,7 @@ export interface TimelineStep {
   /* เวลาที่เกิดจริง — ขั้นที่ยังไม่ถึงไม่มีเวลา ไม่ใช่เวลาที่คาดว่าจะถึง
      เดาเวลาแล้วพิมพ์ลงหน้าจอปนกับเวลาจริง คนอ่านแยกไม่ออกว่าอันไหนเกิดแล้ว */
   time?: string | null
-  note?: string | null
+  note?: React.ReactNode
   state: StepState
 }
 

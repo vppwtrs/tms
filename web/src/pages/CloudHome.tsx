@@ -67,8 +67,11 @@ export default function CloudHome(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  /* เห็นแผนงานหรือออเดอร์ไม่ได้เลย = ไม่มีอะไรให้สรุป (คนขับที่หลงเข้ามาหน้านี้) */
-  const wantsSummary = can('dispatch.view') || can('orders.view')
+  /* ตัวเลขสรุปมาจาก ops_overview / ops_today / ops_volume ซึ่งฐานตรวจ dashboard.view
+     ต้องเช็กสิทธิ์เดียวกับฐาน — เดิมเช็ก dispatch.view/orders.view ทำให้ผู้ใช้ที่ไม่มี
+     dashboard.view เห็นกล่อง error และยิงคำขอที่ล้มแน่ ๆ ทุกนาที (log วันละหลายร้อยครั้ง)
+     ไม่มีสิทธิ์ก็ยังเห็นทางลัดไปหน้าที่ตัวเองเปิดได้ตามปกติ */
+  const wantsSummary = can('dashboard.view')
 
   const load = useCallback(async (): Promise<void> => {
     if (!wantsSummary) { setLoading(false); return }

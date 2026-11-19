@@ -2,6 +2,7 @@
 import { listOrders, createOrder, updateOrder, removeOrder, type OrderListRow, type OrderItem } from '../api/orders'
 import { forceDeleteTrip } from '../api/trips'
 import { tripTrack, type TrackPoint } from '../api/tracking'
+import { distM, trackSegments } from '../utils/trackSegments'
 import { useUrlSearchTerm } from '../hooks/useUrlSearchTerm'
 import { useRealtime } from '../hooks/useRealtime'
 import { printConsignment, type ConsignmentLine } from '../utils/consignment'
@@ -206,15 +207,83 @@ async function downloadTimelineXlsx(trip: TripGroup, track: TrackPoint[]): Promi
   URL.revokeObjectURL(url)
 }
 
-/** จุด GPS ดิบเรียงเป็นขั้นไทม์ไลน์ — จุดแรกกับจุดสุดท้ายเน้นเป็น "ออกรถ"/"จุดล่าสุด" */
-function timelineToSteps(track: TrackPoint[]): TimelineStep[] {
-  return track.map((p, i) => ({
-    key: `${p.recorded_at}-${i}`,
-    title: i === 0 ? 'ออกรถ' : i === track.length - 1 ? 'จุดล่าสุด' : `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`,
-    time: fmtDateTime(p.recorded_at),
-    note: i === 0 || i === track.length - 1 ? `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}` : null,
-    state: i === track.length - 1 ? 'current' : 'done',
-  }))
+const hhmm = (iso: string): string => new Date(iso).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+const durText = (m: number): string => {
+  const r = Math.round(m)
+  return r >= 60 ? `${Math.floor(r / 60)} ชม. ${r % 60} นาที` : `${r} นาที`
+}
+
+/* ที่จอดห่างพิกัดร้านไม่เกินนี้ = จอดที่ร้านนั้น — พิกัดร้านปักจาก GPS ตอนปิดงาน
+   ซึ่งแกว่งได้พอ ๆ กับจุดจอด จึงต้องเผื่อมากกว่ารัศมีจอด */
+const STORE_MATCH_M = 300
+
+const mapLink = (lat: number, lng: number, label: string): React.JSX.Element => (
+  <a href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`} target="_blank" rel="noreferrer">{label}</a>
+)
+
+/** ไทม์ไลน์ที่ตอบสองคำถาม: ถึงร้านไหนกี่โมง กับจอดระหว่างทางที่ไหน
+ *  จุดดิบครบอยู่ใน Excel หน้าจอเหลือแค่ช่วงที่มีความหมาย */
+function timelineToSteps(track: TrackPoint[], trip: TripGroup): TimelineStep[] {
+  const segs = trackSegments(track)
+  const stores = trip.stores.map((st) => {
+    const withGeo = st.rows.find((r) => r.store_lat != null && r.store_lng != null)
+    const times = st.rows.map((r) => r.delivered_at).filter((t): t is string => !!t).sort()
+    return {
+      name: st.store,
+      lat: withGeo?.store_lat ?? null,
+      lng: withGeo?.store_lng ?? null,
+      deliveredAt: times[0] ?? null,
+      used: false,
+    }
+  })
+  type Ev = { at: string; step: TimelineStep }
+  const evs: Ev[] = []
+  const first = track[0]
+  if (first) evs.push({ at: first.recorded_at, step: {
+    key: 'start', title: 'ออกรถ', time: fmtDateTime(first.recorded_at),
+    note: mapLink(first.lat, first.lng, 'ดูจุดออกรถบนแผนที่'), state: 'done',
+  } })
+  segs.forEach((g, i) => {
+    if (g.kind === 'move') {
+      evs.push({ at: g.from, step: {
+        key: `move-${g.from}`, title: `เดินทาง ${g.km.toFixed(1)} กม. · ${durText(g.minutes)}`,
+        time: `${hhmm(g.from)} – ${hhmm(g.to)}`, state: 'done',
+      } })
+      return
+    }
+    /* ร้านที่ใกล้ที่สุดในรัศมี — ร้านเดียวกันไม่จับซ้ำสองช่วงจอด */
+    let best: (typeof stores)[number] | null = null
+    let bestD = STORE_MATCH_M
+    for (const st of stores) {
+      if (st.used || st.lat == null || st.lng == null) continue
+      const d = distM(g, { lat: st.lat, lng: st.lng })
+      if (d <= bestD) { best = st; bestD = d }
+    }
+    if (best) best.used = true
+    const isStart = i === 0 && !best
+    evs.push({ at: g.from, step: {
+      key: `stop-${g.from}`,
+      title: best ? `ถึงร้าน ${best.name}` : isStart ? `จอดที่จุดออกรถ ${durText(g.minutes)}` : `จอดระหว่างทาง ${durText(g.minutes)}`,
+      time: best
+        ? `ถึง ${hhmm(g.from)} · ออก ${hhmm(g.to)} (${durText(g.minutes)})${best.deliveredAt ? ` · กดส่งสำเร็จ ${hhmm(best.deliveredAt)}` : ''}`
+        : `${hhmm(g.from)} – ${hhmm(g.to)}`,
+      note: mapLink(g.lat, g.lng, 'ดูตำแหน่งบนแผนที่'),
+      state: 'done',
+    } })
+  })
+  /* ร้านที่ส่งแล้วแต่จับคู่ช่วงจอดไม่ได้ (ยังไม่มีพิกัดร้าน) — ยังต้องเห็นเวลาส่ง */
+  for (const st of stores) {
+    if (st.used || !st.deliveredAt) continue
+    evs.push({ at: st.deliveredAt, step: {
+      key: `deliv-${st.name}`, title: `ส่งสำเร็จ ร้าน ${st.name}`,
+      time: fmtDateTime(st.deliveredAt), note: 'ร้านนี้ยังไม่มีพิกัด จึงบอกเวลาถึงร้านไม่ได้', state: 'done',
+    } })
+  }
+  evs.sort((x, y) => Date.parse(x.at) - Date.parse(y.at))
+  const steps = evs.map((e) => e.step)
+  const last = steps[steps.length - 1]
+  if (last) last.state = 'current'
+  return steps
 }
 
 export default function CloudOrders(): React.JSX.Element {
@@ -918,7 +987,7 @@ export default function CloudOrders(): React.JSX.Element {
                 desc="เที่ยวนี้ยังไม่มีคนขับกดรับงาน หรือยังไม่ได้ส่งตำแหน่งเข้ามา"
               />
             ) : (
-              <Timeline steps={timelineToSteps(timelineTrack)} />
+              <Timeline steps={timelineToSteps(timelineTrack, timelineTrip)} />
             )}
           </>
         )}
