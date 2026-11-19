@@ -361,7 +361,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
       {/* เที่ยวที่ TMS ยกเลิกหลังจากเรานำเข้าไปแล้ว — ขึ้นบนสุดเสมอ ไม่ใช่ซ่อนท้ายหน้า
           ระบบไม่ยกเลิกให้เอง เพราะรถอาจวิ่งออกไปแล้ว คนต้องตัดสินเอง */}
       {data && data.cancelled_after_import.length > 0 && (
-        <div className="card" style={{ padding: 16, marginTop: 16, borderLeft: '3px solid var(--danger)' }}>
+        <div className="card" style={{ padding: 16, marginTop: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>
             TMS ยกเลิกเที่ยวที่นำเข้าไปแล้ว {data.cancelled_after_import.length} เที่ยว
           </div>

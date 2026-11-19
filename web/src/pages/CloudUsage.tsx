@@ -151,7 +151,7 @@ export default function CloudUsage(): React.JSX.Element {
       {/* ที่ล้างได้ตรงนี้คือ "ใบดิบที่ดึงมาแล้วไม่เคยถูกสั่งงาน" ไม่ใช่ข้อมูลงานจริง
           ตอนตั้งระบบมีการดึงย้อนหลังจาก TMS เข้ามาทดลอง ซึ่งเป็นเที่ยวที่ปิดงาน
           ไปแล้วในระบบต้นทาง คนขับของเราไม่เคยวิ่งงานพวกนั้น */}
-      <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '3px solid var(--warning)' }}>
+      <div className="card" style={{ padding: 18, marginBottom: 18 }}>
         <b>เก็บกวาดใบดิบจาก TMS</b>
         <p className="text-xs text-muted" style={{ margin: '6px 0 12px' }}>
           ลบเฉพาะใบที่ <b>ไม่เคยถูกสั่งงาน</b> และเก่ากว่า 14 วัน — ใบที่กลายเป็นออเดอร์แล้วและใบใหม่ไม่ถูกแตะ

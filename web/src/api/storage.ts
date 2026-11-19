@@ -1,4 +1,5 @@
 import { supabase, DataError } from './supabase.js'
+import { compressFile } from '../utils/image.js'
 
 /**
  * รูปหลักฐาน POD — เก็บบน Cloudflare R2
@@ -50,6 +51,22 @@ export async function uploadPodPhoto(
      ไม่ได้ใช้ในชื่อไฟล์ ผู้เรียกเป็นคนจับคู่ path กับ kind เอง */
   form.append('kind', kind.ext)
   form.append('file', new Blob([file], { type: kind.type }), `photo.${kind.ext}`)
+  const out = await callFn<{ path: string }>('pod-photo-upload', { body: form })
+  return out.path
+}
+
+export type TripPhotoFolder = 'fuel' | 'odometer' | 'issue'
+
+/** รูประดับเที่ยว — บีบก่อนแล้วอัปผ่าน Edge Function ตัวเดียวกับ POD
+ *  key = <folder>/<tripId>/<uuid>.<ext>  สิทธิ์เช็คด้วย trip_photo_can_write */
+export async function uploadTripPhoto(tripId: number | string, folder: TripPhotoFolder, file: File): Promise<string> {
+  const img = await compressFile(file)
+  URL.revokeObjectURL(img.url)
+  const form = new FormData()
+  form.append('trip_id', String(tripId))
+  form.append('folder', folder)
+  form.append('kind', img.ext)
+  form.append('file', new Blob([img.blob], { type: img.type }), `photo.${img.ext}`)
   const out = await callFn<{ path: string }>('pod-photo-upload', { body: form })
   return out.path
 }

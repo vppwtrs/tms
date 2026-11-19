@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
 import { podOfOrder, type PodView } from '../../api/pod'
 import { POD_PHOTO_KINDS } from '../../api/myjobs'
-import { PhotoViewer } from '../PhotoViewer'
+import { fmtDateTime } from '../../utils/format'
+import { PhotoView } from './PhotoView'
+import '../../styles/driver-pod.css'
 
 const kindLabel = (kind: string): string =>
   POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? 'อื่น ๆ'
 
 /**
- * รูปหลักฐานของใบหนึ่งในหน้ารายละเอียดย้อนหลัง (mockup v2 "hdetail")
- * โชว์เป็นแถวรูปย่อในการ์ดของร้านเลย กดรูปแล้วเปิดเต็มจอ — ไม่เปิดหน้าต่างซ้อนอีกชั้น
+ * จอ 14 — หลักฐานของใบหนึ่งในหน้าประวัติ: การ์ดรูปถ่าย · การ์ดลายเซ็น · การ์ดสรุป
+ * หัวจอ (ชื่อร้าน เลขทริป) เป็นของหน้าที่เรียกใช้ คอมโพเนนต์นี้วาดแค่ส่วน main
  */
 export function HistoryStopPod({ orderId }: { orderId: number }): React.JSX.Element {
   const [pod, setPod] = useState<PodView | null | undefined>(undefined)
-  const [viewing, setViewing] = useState<{ src: string; alt: string } | null>(null)
+  const [viewing, setViewing] = useState<number | null>(null)
 
   useEffect(() => {
     let dead = false
@@ -22,29 +24,60 @@ export function HistoryStopPod({ orderId }: { orderId: number }): React.JSX.Elem
     return () => { dead = true }
   }, [orderId])
 
-  if (pod === undefined) return <div className="hd-photos" aria-busy="true"><span className="hd-ph is-loading" /><span className="hd-ph is-loading" /><span className="hd-ph is-loading" /></div>
-  if (!pod) return <p className="dv-muted">ไม่มีหลักฐาน</p>
+  if (pod === undefined) {
+    return (
+      <div className="pod-scope hp" aria-busy="true">
+        <section className="hp-card"><div className="hp-label">รูปถ่าย</div>
+          <div className="hp-grid"><span className="hp-ph is-loading" /><span className="hp-ph is-loading" /><span className="hp-ph is-loading" /></div>
+        </section>
+      </div>
+    )
+  }
+  if (!pod) return <p className="pod-scope hp-none">ไม่มีหลักฐาน</p>
 
-  const items = [
-    ...pod.photos.map((ph) => ({ key: ph.path, src: ph.url, label: kindLabel(ph.kind), sign: false })),
-    ...(pod.signature_data ? [{ key: 'sign', src: pod.signature_data, label: 'ลายเซ็น', sign: true }] : []),
-  ]
+  const photos = pod.photos.filter((ph) => ph.url).map((ph) => ({ src: ph.url as string, label: kindLabel(ph.kind) }))
+  const when = fmtDateTime(pod.collected_at)
 
   return (
-    <>
-      {pod.recipient_name && <p className="dv-muted">ผู้รับ {pod.recipient_name}</p>}
-      <div className="hd-photos">
-        {items.map((it) => it.src ? (
-          <button key={it.key} type="button" className={`hd-ph${it.sign ? ' is-sign' : ''}`}
-            aria-label={`ดูรูป ${it.label}`} onClick={() => setViewing({ src: it.src as string, alt: it.label })}>
-            <img src={it.src} alt="" loading="lazy" />
-            <span>{it.label}</span>
-          </button>
-        ) : (
-          <span key={it.key} className="hd-ph is-missing"><span>{it.label}</span></span>
-        ))}
-      </div>
-      {viewing && <PhotoViewer src={viewing.src} alt={viewing.alt} onClose={() => setViewing(null)} />}
-    </>
+    <div className="pod-scope hp">
+      <section className="hp-card">
+        <div className="hp-label">รูปถ่าย · แตะเพื่อขยาย</div>
+        {pod.photos.length === 0 ? <div className="hp-empty">ไม่มีรูปถ่าย</div> : (
+          <div className="hp-grid">
+            {pod.photos.map((ph) => {
+              const i = photos.findIndex((p) => p.src === ph.url)
+              return ph.url ? (
+                <button key={ph.path} type="button" className="hp-ph" aria-label={`ดูรูป ${kindLabel(ph.kind)}`} onClick={() => setViewing(i)}>
+                  <img src={ph.url} alt="" loading="lazy" />
+                  <span>{kindLabel(ph.kind)}</span>
+                </button>
+              ) : (
+                <span key={ph.path} className="hp-ph is-missing"><span>{kindLabel(ph.kind)} · โหลดไม่ได้</span></span>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="hp-card">
+        <div className="hp-label">ลายเซ็น</div>
+        <div className="hp-sig">
+          {pod.signature_data ? <img src={pod.signature_data} alt="ลายเซ็นผู้รับ" /> : <span className="hp-empty">ไม่มีลายเซ็น</span>}
+        </div>
+        {pod.recipient_name && <div className="hp-sub">ผู้รับ: {pod.recipient_name}</div>}
+      </section>
+
+      <section className="hp-card is-kv">
+        <div className="hp-kv"><span>ส่งเมื่อ</span><span>{when}</span></div>
+        {pod.collected_by_name && <div className="hp-kv"><span>คนขับ</span><span>{pod.collected_by_name}</span></div>}
+        {pod.notes && <div className="hp-kv"><span>หมายเหตุ</span><span>{pod.notes}</span></div>}
+        <div className="hp-kv"><span>ตำแหน่งตอนส่ง</span>
+          <span className={pod.lat != null ? 'is-ok' : 'is-muted'}>{pod.lat != null ? 'บันทึกพิกัดแล้ว' : 'ไม่มีพิกัด'}</span></div>
+      </section>
+
+      {viewing !== null && photos[viewing] && (
+        <PhotoView photos={photos} index={viewing} caption={when} onClose={() => setViewing(null)} />
+      )}
+    </div>
   )
 }

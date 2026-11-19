@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { ToastProvider } from './context/ToastContext'
+import { fitToScreen } from './utils/viewportZoom'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
@@ -146,3 +147,5 @@ async function boot(): Promise<void> {
 }
 
 void boot()
+
+fitToScreen()

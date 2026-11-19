@@ -15,6 +15,7 @@ const EXT: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
 }
+const TRIP_FOLDERS = new Set(['fuel', 'odometer', 'issue'])
 const MAX_BYTES = 15 * 1024 * 1024
 
 Deno.serve(async (req) => {
@@ -29,8 +30,16 @@ Deno.serve(async (req) => {
     const orderId = Number(form?.get('order_id'))
     const kind = String(form?.get('kind') ?? '')
     const file = form?.get('file')
+    /* รูประดับเที่ยว (ใบเสร็จน้ำมัน / หน้าปัดเลขไมล์ / แจ้งปัญหา) — ส่ง trip_id + folder แทน order_id
+       key = <folder>/<trip_id>/<uuid>.<ext>  ด่านสิทธิ์ = RPC trip_photo_can_write */
+    const folder = String(form?.get('folder') ?? '')
+    const tripId = Number(form?.get('trip_id'))
+    const tripMode = folder !== ''
 
-    if (!Number.isFinite(orderId) || orderId <= 0) return json({ error: 'order_id ไม่ถูกต้อง' }, 400)
+    if (tripMode) {
+      if (!TRIP_FOLDERS.has(folder)) return json({ error: 'folder ไม่ถูกต้อง' }, 400)
+      if (!Number.isFinite(tripId) || tripId <= 0) return json({ error: 'trip_id ไม่ถูกต้อง' }, 400)
+    } else if (!Number.isFinite(orderId) || orderId <= 0) return json({ error: 'order_id ไม่ถูกต้อง' }, 400)
     if (!(file instanceof File)) return json({ error: 'ไม่มีไฟล์รูป' }, 400)
 
     const ext = EXT[file.type]
@@ -39,11 +48,17 @@ Deno.serve(async (req) => {
     if (file.size > MAX_BYTES) return json({ error: 'ไฟล์ใหญ่เกิน 15 MB' }, 413)
 
     const caller = callerClient(authorization)
-    const { data: allowed, error } = await caller.rpc('pod_can_write', { p_order_id: orderId })
+    const { data: allowed, error } = tripMode
+      ? await caller.rpc('trip_photo_can_write', { p_trip_id: tripId })
+      : await caller.rpc('pod_can_write', { p_order_id: orderId })
     if (error) return json({ error: error.message }, 400)
-    if (!allowed) return json({ error: 'ไม่มีสิทธิ์แนบรูปเข้าหลักฐานของออเดอร์นี้ หรือออเดอร์ยังไม่ปิดงาน' }, 403)
+    if (!allowed) {
+      return json({ error: tripMode ? 'ไม่มีสิทธิ์แนบรูปเข้าเที่ยวนี้' : 'ไม่มีสิทธิ์แนบรูปเข้าหลักฐานของออเดอร์นี้ หรือออเดอร์ยังไม่ปิดงาน' }, 403)
+    }
 
-    const key = `${orderId}/${crypto.randomUUID()}.${ext}`
+    const key = tripMode
+      ? `${folder}/${tripId}/${crypto.randomUUID()}.${ext}`
+      : `${orderId}/${crypto.randomUUID()}.${ext}`
     await r2Put(key, await file.arrayBuffer(), file.type)
 
     /* คืน kind กลับไปด้วย ฝั่งเว็บจะได้ประกอบ { path, kind } ส่งเข้า save_pod_with_photos ต่อได้เลย */

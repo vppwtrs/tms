@@ -863,3 +863,218 @@
 .is-native-app .hd-ph.is-missing { display: grid; place-items: center; border-style: dashed; cursor: default; }
 .is-native-app .hd-ph.is-loading { cursor: default; animation: hd-pulse 1.2s ease-in-out infinite; }
 @keyframes hd-pulse { 50% { opacity: .5; } }
+
+/* ---------- shared kit (enterprise redesign, พ.ย. 69) — ใช้ร่วมทุกจอคนขับ ----------
+ * ปุ่ม:  .btn.pri / .btn.sec / .btn.ghost  (+ .btn.bad ปุ่มอันตราย, .btn.block เต็มกว้าง)
+ * ชิป:   .chip + c-run (กำลังทำ) / c-ok (เสร็จ) / c-wait (รอ) / c-mute (เทา) / c-bad (ส่งไม่ได้) — ต้องมีข้อความกำกับเสมอ
+ * การ์ด: .card   ชีต: .sheet-veil > .sheet (.sheet-grip .sheet-head .sheet-body .sheet-foot)
+ * แถบปุ่มล่าง: .dock (ตรึงเหนือเมนูล่าง ปุ่มหลัก 56px)
+ * ---------------------------------------------------------------------------------- */
+.is-native-app {
+  --pri: var(--fleet);
+  --ground: var(--paper);
+  --r-btn: 10px;
+  --r-card: 12px;
+}
+.is-native-app .btn.pri,
+.is-native-app .btn.sec,
+.is-native-app .btn.ghost,
+.is-native-app .btn.bad {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 56px; padding: 0 18px; border-radius: var(--r-btn);
+  font: 600 17px/1.2 var(--dv-font); border: 1px solid transparent; cursor: pointer;
+}
+.is-native-app .btn.pri { background: var(--fleet); border-color: var(--fleet); color: #fff; }
+.is-native-app .btn.pri:hover { background: var(--fleet-deep); }
+.is-native-app .btn.sec { background: var(--surface); border-color: var(--line); color: var(--fleet); }
+.is-native-app .btn.ghost { background: transparent; color: var(--ink); min-height: 44px; }
+.is-native-app .btn.bad { background: var(--surface); border-color: var(--danger); color: var(--danger); }
+.is-native-app .btn.block { width: 100%; }
+.is-native-app .btn.sm { min-height: 44px; font-size: 15px; }
+.is-native-app .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.is-native-app[data-theme='dark'] .btn.pri { color: #0f1a2c; }
+
+.is-native-app .chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 2px 10px;
+  border-radius: 999px; font: 600 13px/1.3 var(--dv-font); white-space: nowrap;
+}
+.is-native-app .chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.is-native-app .chip.c-run { background: var(--fleet-tint); color: var(--fleet); }
+.is-native-app .chip.c-ok { background: var(--ok-bg); color: var(--ok); }
+.is-native-app .chip.c-wait { background: var(--warn-bg); color: var(--warn); }
+.is-native-app .chip.c-mute { background: var(--neutral-bg); color: var(--neutral); }
+.is-native-app .chip.c-bad { background: var(--danger-bg); color: var(--danger); }
+
+.is-native-app .card {
+  background: var(--surface); border-radius: var(--r-card); box-shadow: var(--dv-shadow);
+  padding: 14px 16px; color: var(--ink);
+}
+.is-native-app .card + .card { margin-top: 10px; }
+
+.is-native-app .sheet-veil {
+  position: fixed; inset: 0; z-index: 60; background: rgba(17, 26, 46, 0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.is-native-app .sheet {
+  width: 100%; max-width: 560px; max-height: 92dvh; display: flex; flex-direction: column;
+  background: var(--surface); color: var(--ink); border-radius: 16px 16px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.is-native-app .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 4px; }
+.is-native-app .sheet-head { padding: 8px 16px 10px; font: 700 18px/1.3 var(--dv-font); }
+.is-native-app .sheet-body { padding: 0 16px; overflow-y: auto; flex: 1; }
+.is-native-app .sheet-foot { padding: 12px 16px; display: grid; gap: 8px; border-top: 1px solid var(--line-soft); }
+
+.is-native-app .dock {
+  position: sticky; bottom: 0; display: grid; gap: 8px; padding: 12px 16px;
+  background: var(--paper); box-shadow: var(--dv-shadow-up);
+}
+
+/* คิวรอส่ง (จอ 20) */
+.is-native-app .sync-list { list-style: none; margin: 0; padding: 0; }
+.is-native-app .sync-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.is-native-app .sync-row:first-child { border-top: 0; }
+.is-native-app .sync-row b { flex: 1; font-weight: 600; }
+.is-native-app .sync-row small { color: var(--muted); display: block; font-weight: 400; }
+.is-native-app[data-theme='dark'] .sheet-veil { background: rgba(10, 14, 20, 0.7); }
+
+/* ---------- ปรับให้ตรง mockup enterprise (dm/project/*.dc.html) ---------- */
+.is-native-app { --line-card: #dce3ec; --r-btn: 12px; --r-card: 16px; }
+.is-native-app[data-theme='dark'] { --line-card: var(--line); }
+.is-native-app .card, .is-native-app .dv-card {
+  border: 1px solid var(--line-card); border-radius: var(--r-card); box-shadow: none; padding: 16px;
+}
+.is-native-app .btn.pri, .is-native-app .btn.sec, .is-native-app .btn.bad { border-radius: var(--r-btn); }
+.is-native-app .btn.sec { border-width: 1.5px; border-color: var(--fleet); color: var(--fleet-deep); }
+.is-native-app .chip { font-size: 12px; height: 26px; min-height: 0; padding: 0 10px; }
+.is-native-app .chip::before { display: none; }
+.is-native-app .chip.c-run { background: var(--info-bg); color: var(--info); }
+.is-native-app .dv-head {
+  background: var(--surface); border-bottom: 1px solid var(--line-card); padding: 14px 16px; min-height: 64px;
+}
+.is-native-app .dv-head .dv-title { font-size: 22px; font-weight: 700; }
+.is-native-app .dv-head .dv-sub { font-size: 13px; color: var(--muted); font-weight: 400; }
+.is-native-app .dv-nav { border-top: 1px solid var(--line-card); box-shadow: none; }
+.is-native-app .dv-nav-btn { font-size: 12px; color: var(--muted); }
+.is-native-app .dv-nav-btn.is-active { color: var(--fleet-deep); font-weight: 700; }
+.is-native-app[data-theme='dark'] .dv-nav-btn.is-active { color: var(--fleet); }
+.is-native-app .dv-page { gap: 12px; padding: 16px; }
+.is-native-app .dv-label { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 4px 0 0; }
+.is-native-app .dv-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .dv-stats > div {
+  background: var(--surface); border: 1px solid var(--line-card); border-radius: 12px; padding: 10px 12px;
+}
+.is-native-app .dv-stats b { display: block; font-size: 22px; font-weight: 700; }
+.is-native-app .dv-stats b.is-ok { color: var(--ok); }
+.is-native-app .dv-stats small { font-size: 12px; color: var(--muted); }
+.is-native-app .me-list { background: var(--surface); border: 1px solid var(--line-card); border-radius: var(--r-card); }
+.is-native-app .me-logout { min-height: 56px; border-radius: var(--r-btn); border: 1.5px solid var(--danger); color: var(--danger); background: var(--surface); }
+
+/* ---------- จอ 13 ประวัติ / 15 ฉัน / 20 รอส่ง / 21 เลือกวัน / 24 ไม่มีงาน ---------- */
+.is-native-app .hist-filter { display: flex; gap: 8px; overflow-x: auto; }
+.is-native-app .hist-chip {
+  height: 40px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line);
+  background: var(--surface); color: var(--ink-2); font: 400 14px var(--dv-font); white-space: nowrap;
+}
+.is-native-app .hist-chip[aria-pressed='true'] { background: var(--fleet); border-color: var(--fleet); color: #fff; font-weight: 600; }
+.is-native-app[data-theme='dark'] .hist-chip[aria-pressed='true'] { color: #0f1a2c; }
+.is-native-app .hist-group > h3, .is-native-app .hist-group-label { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.is-native-app .hist-rows { display: grid; gap: 10px; }
+.is-native-app .hist-row {
+  background: var(--surface); border: 1px solid var(--line-card); border-radius: 14px; padding: 14px;
+  box-shadow: none; color: var(--ink);
+}
+.is-native-app .hist-pill { border-radius: 999px; height: 26px; padding: 0 10px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; }
+.is-native-app .hist-pill.is-ok { background: var(--ok-bg); color: var(--ok); }
+.is-native-app .hist-pill.is-bad { background: var(--danger-bg); color: var(--danger); }
+.is-native-app .hist-pill.is-off { background: var(--neutral-bg); color: var(--neutral); }
+
+.is-native-app .driver-me .me-head {
+  display: flex; align-items: center; gap: 14px; padding: 20px 16px; margin: -16px -16px 0;
+  background: var(--surface); border-bottom: 1px solid var(--line-card); box-shadow: none; border-radius: 0;
+}
+.is-native-app .driver-me .me-avatar {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--fleet); color: #fff;
+  font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.is-native-app .driver-me .me-who b { display: block; font-size: 19px; }
+.is-native-app .driver-me .me-who small { font-size: 13px; color: var(--muted); }
+.is-native-app .grp { background: var(--surface); border: 1px solid var(--line-card); border-radius: 14px; padding: 0 14px; }
+.is-native-app .grp .it {
+  display: flex; align-items: center; gap: 12px; min-height: 52px; width: 100%; padding: 0;
+  font: 400 15px var(--dv-font); color: var(--ink); background: none; text-align: left;
+  border: 0; border-bottom: 1px solid var(--line-soft);
+}
+.is-native-app .grp .it:last-child { border-bottom: 0; }
+.is-native-app .grp .it > svg { color: var(--muted); }
+.is-native-app .grp .it.is-bad { color: var(--danger); }
+.is-native-app .it-l { flex: 1; }
+.is-native-app .it-v { font-size: 13px; color: var(--muted); }
+.is-native-app .it-v.is-wait { color: var(--warn); font-weight: 600; }
+.is-native-app .seg3 {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 3px;
+  width: 180px; background: var(--neutral-bg); border-radius: 10px;
+}
+.is-native-app .seg3 button { height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 400 13px var(--dv-font); }
+.is-native-app .seg3 button.on { background: var(--surface); color: var(--ink); font-weight: 700; }
+.is-native-app .driver-me .me-foot { text-align: center; font-size: 12px; color: var(--muted); }
+
+.is-native-app .sheet { border-radius: 22px 22px 0 0; box-shadow: 0 -8px 30px rgba(17, 26, 46, 0.18); }
+.is-native-app .sheet-head { margin: 0; font-size: 20px; padding: 6px 20px 8px; }
+.is-native-app .sheet-body, .is-native-app .sheet-foot { padding-left: 20px; padding-right: 20px; }
+.is-native-app .sheet-foot { border-top: 0; padding-bottom: 24px; }
+.is-native-app .sync-warn { background: var(--warn-bg); color: var(--warn); font-size: 14px; padding: 10px 12px; border-radius: 10px; line-height: 1.5; margin: 0 0 4px; }
+.is-native-app .sync-row { font-size: 14px; margin: 0; }
+
+.is-native-app .dv-cal-day { height: 44px; border: 0; background: none; font: 400 15px var(--dv-font); color: var(--ink); border-radius: 0; }
+.is-native-app .dv-cal-day.is-in { background: var(--fleet-tint); color: var(--fleet-deep); }
+.is-native-app .dv-cal-day.is-edge { background: var(--fleet); color: #fff; font-weight: 700; border-radius: 10px; }
+.is-native-app .dv-cal-dow { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+.is-native-app .dv-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 32px 24px; text-align: center;
+}
+.is-native-app .dv-empty-ic {
+  width: 96px; height: 96px; border-radius: 28px; background: var(--surface); border: 1px solid var(--line-card);
+  color: var(--fleet); display: flex; align-items: center; justify-content: center;
+}
+.is-native-app .dv-empty h2 { margin: 0; font-size: 21px; }
+.is-native-app .dv-empty p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+
+/* ---------- จอ 02 งานของฉัน — การ์ดเที่ยว ---------- */
+.is-native-app .jobs-list { display: flex; flex-direction: column; gap: 12px; }
+.is-native-app .jobs-list > .jl-new { order: 1; }
+.is-native-app .jobs-list > .jc.is-new { order: 2; }
+.is-native-app .jobs-list > .jl-next { order: 3; }
+.is-native-app .jobs-list > .jc:not(.is-new) { order: 4; }
+.is-native-app .jc { display: flex; flex-direction: column; gap: 12px; text-align: left; width: 100%; font: inherit; margin: 0; }
+.is-native-app button.jc { gap: 8px; cursor: pointer; }
+.is-native-app .jc.is-new { border: 2px solid var(--fleet); }
+.is-native-app .jc + .jc { margin-top: 0; }
+.is-native-app .jc-row { display: flex; align-items: center; gap: 8px; }
+.is-native-app .jc-time { margin-left: auto; font-size: 13px; color: var(--muted); }
+.is-native-app .jc-no { font-size: 19px; font-weight: 700; display: block; }
+.is-native-app .jc-no.sm { font-size: 17px; }
+.is-native-app .jc-route { font-size: 14px; color: var(--muted); }
+.is-native-app .jc-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+.is-native-app .jc .btn.ghost.sm { min-height: 40px; color: var(--fleet-deep); justify-content: flex-start; padding: 0; }
+.is-native-app .me-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.is-native-app .me-tiles > div { background: var(--surface); border: 1px solid var(--line-card); border-radius: 12px; padding: 12px; }
+.is-native-app .me-tiles small { display: block; font-size: 12px; color: var(--muted); }
+.is-native-app .me-tiles small.is-ok { color: var(--ok); }
+.is-native-app .me-tiles b { display: block; font-size: 17px; font-weight: 700; }
+.is-native-app .dv-stats b + small { display: block; }
+.pw-rules { list-style: none; margin: 0; padding: 12px 14px; display: grid; gap: 8px; border: 1px solid var(--border, #dce3ec); border-radius: 12px; background: var(--surface, #fff); font-size: 14px; color: var(--muted, #56637a); }
+.pw-rules li.is-ok { color: var(--ok, #13795b); font-weight: 600; }
+
+/* ---------- จอ 26 DarkNext — ค่าสีมืดตาม mockup ---------- */
+.is-native-app[data-theme='dark'] {
+  --paper: #141a24; --surface: #1e2633; --surface-2: #1b2230;
+  --line: #2c3646; --line-card: #2c3646; --line-soft: #2c3646;
+  --ink: #e8edf5; --ink-2: #c3ccda; --muted: #a3aec0;
+  --fleet: #7fa6dc; --fleet-deep: #9cc0f0;
+  --warn: #f5d57a; --neutral-bg: #2c3646; --neutral: #c3ccda;
+}
+.is-native-app[data-theme='dark'] .dv-head,
+.is-native-app[data-theme='dark'] .dv-nav { background: var(--surface-2); }
