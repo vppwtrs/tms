@@ -107,3 +107,7 @@ textarea {
 
 /* มือถือ: ห้ามเลื่อนซ้ายขวาทุกหน้า (viewportZoom ใส่คลาส is-phone) */
 html.is-phone, html.is-phone body { overflow-x: hidden; overscroll-behavior-x: none; max-width: 100%; }
+
+/* มือถือ หน้า login: ตรึงทั้งหน้า ไม่เด้ง/ไม่เลื่อน — ถ้าจอเตี้ยกว่าฟอร์ม (คีย์บอร์ดขึ้น) เลื่อนในกล่องแทน */
+html.is-phone:has(.ops-login), html.is-phone:has(.ops-login) body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+html.is-phone .ops-login { height: 100dvh; min-height: 0; overflow-y: auto; overscroll-behavior: none; }
