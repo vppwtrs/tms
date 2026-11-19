@@ -113,3 +113,8 @@ html.is-phone:has(.ops-login), html.is-phone:has(.ops-login) body { height: 100%
 html.is-phone .ops-login { height: 100dvh; min-height: 0; overflow-y: auto; overscroll-behavior: none; }
 /* มือถือ: ช่องกรอกต้องแสดงจริง ≥16px หลังย่อจอ ไม่งั้น iOS ซูมเข้าเองแล้วค้าง */
 html.is-phone input:not([type=checkbox]):not([type=radio]), html.is-phone textarea, html.is-phone select { font-size: max(16px, calc(16px / var(--fit-scale, 1))); }
+
+/* มือถือ จอคนขับ: ตรึงทั้งหน้าไว้ (iOS เด้ง/เลื่อนทั้งหน้าไม่ได้) เลื่อนได้เฉพาะเนื้อหาในกล่อง .dv-body */
+html.is-phone.is-native-app, html.is-phone.is-native-app body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+html.is-phone.is-native-app body { position: fixed; inset: 0; width: 100%; }
+html.is-phone.is-native-app .dv-body { overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
