@@ -110,7 +110,7 @@ describe('หน้าคนขับ — a11y', () => {
     )
     expect(container.querySelectorAll('.stop-item')).toHaveLength(1)
     expect(container.querySelectorAll('.stop-bill')).toHaveLength(2)
-    expect(container.querySelector('.job-meter-text')?.textContent).toContain('0/1')
+    expect(container.querySelector('.job-meter-text')?.textContent).toContain('ส่งแล้ว 0 จาก 1 จุด')
   })
 
   it('เที่ยวที่ปิดงานแล้วไม่แสดงปุ่มดำเนินการ', () => {

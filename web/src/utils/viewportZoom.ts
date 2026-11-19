@@ -5,8 +5,19 @@
  * นับเป็นชั้น ไม่ใช่ true/false — ถ้าวันหนึ่งมีสองที่ขอปลด (รูปซ้อนรูป) ปิดอันแรก
  * ต้องไม่ล็อกกลับทั้งที่อีกอันยังเปิดอยู่ */
 
-const LOCKED = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
-const FREE = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+/* ย่อทุกหน้าตามรุ่นมือถือ — แบบออกที่จอ 390x844 จอมือถือที่เล็กกว่าย่อทั้งหน้าเท่ากัน
+ * จอใหญ่กว่า แท็บเล็ต และเดสก์ท็อปใช้ขนาดจริง วัดครั้งเดียวก่อนแก้ meta (หลังแก้ค่าจะเป็นหน่วยใหม่) */
+const DESIGN_W = 390
+const DESIGN_H = 844
+const fit = (() => {
+  const w = window.innerWidth
+  const h = window.innerHeight
+  const phone = Math.min(screen.width, screen.height) < 600 && !!window.matchMedia?.('(pointer: coarse)').matches
+  const s = phone ? Math.min(1, w / DESIGN_W, h / DESIGN_H) : 1
+  return s >= 0.999 ? { width: 'device-width', scale: '1.0' } : { width: String(Math.round(w / s)), scale: s.toFixed(3) }
+})()
+const LOCKED = `width=${fit.width}, initial-scale=${fit.scale}, maximum-scale=${fit.scale}, user-scalable=no, viewport-fit=cover`
+const FREE = `width=${fit.width}, initial-scale=${fit.scale}, viewport-fit=cover`
 
 let locked = false
 let unlockDepth = 0
@@ -18,6 +29,11 @@ function apply(): void {
 }
 
 /** เปิดหรือปิดการล็อกซูมของทั้งหน้า — จอคนขับเปิด จอออฟฟิศปิด */
+/** เรียกครั้งเดียวตอนเปิดแอป ให้ทุกหน้าย่อตามจอ */
+export function fitToScreen(): void {
+  apply()
+}
+
 export function setZoomLock(on: boolean): void {
   locked = on
   apply()

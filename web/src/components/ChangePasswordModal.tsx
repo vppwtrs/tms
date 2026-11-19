@@ -18,12 +18,15 @@ export function ChangePasswordModal({
   onClose,
   onDone,
   forced = false,
+  page = false,
 }: {
   open: boolean
   onClose: () => void
   onDone?: () => void
   forced?: boolean
-}): React.JSX.Element {
+  /** จอคนขับ: เปิดเป็นหน้าเต็มจอตาม mockup จอ 23 แทนหน้าต่างเด้ง */
+  page?: boolean
+}): React.JSX.Element | null {
   const [form, setForm] = useState({ current: '', next: '', confirm: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -44,6 +47,50 @@ export function ChangePasswordModal({
     } finally {
       setBusy(false)
     }
+  }
+
+  const rules: [string, boolean][] = [
+    ['อย่างน้อย 8 ตัว', form.next.length >= 8],
+    ['มีตัวเลข', /\d/.test(form.next)],
+    ['ไม่ซ้ำรหัสเดิม', form.next !== '' && form.next !== form.current],
+  ]
+  const mismatch = !!form.confirm && form.confirm !== form.next
+
+  if (page) {
+    if (!open) return null
+    return (
+      <div className="pod-scope pod-page pw-page" role="dialog" aria-modal="true" aria-label="เปลี่ยนรหัสผ่าน">
+        <header className="pod-head">
+          {!forced && (
+            <button type="button" className="pod-back" aria-label="กลับ" onClick={onClose} disabled={busy}>
+              <svg className="pod-ic" aria-hidden="true" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
+            </button>
+          )}
+          <div className="pod-head-t"><h1>{forced ? 'ตั้งรหัสผ่านของคุณเอง' : 'เปลี่ยนรหัสผ่าน'}</h1></div>
+        </header>
+        <main className="pod-main">
+          {error && <div role="alert" className="pw-err">{error}</div>}
+          <label className="pod-field">{forced ? 'รหัสชั่วคราวที่ได้รับมา' : 'รหัสผ่านเดิม'}
+            <input type="password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} autoComplete="current-password" />
+          </label>
+          <label className="pod-field">รหัสผ่านใหม่
+            <input type="password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} autoComplete="new-password" />
+          </label>
+          <ul className="pw-page-rules" aria-label="เงื่อนไขรหัสผ่าน">
+            {rules.map(([t, ok]) => <li key={t} className={ok ? 'is-ok' : undefined}>{ok ? '✓' : '○'} {t}</li>)}
+          </ul>
+          <label className={`pod-field${mismatch ? ' is-bad' : ''}`}>ยืนยันรหัสผ่านใหม่
+            <input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} autoComplete="new-password" aria-invalid={mismatch} />
+            {mismatch && <span className="pw-hint">ไม่ตรงกับรหัสผ่านใหม่</span>}
+          </label>
+        </main>
+        <div className="pod-bottom">
+          <button type="button" className="pod-btn pod-pri" onClick={() => void submit()} disabled={busy || !form.current || !form.next || !form.confirm}>
+            {busy ? 'กำลังบันทึก…' : 'บันทึกรหัสผ่านใหม่'}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -70,10 +117,17 @@ export function ChangePasswordModal({
         <Field label="รหัสผ่านใหม่" required hint="อย่างน้อย 8 ตัวอักษร">
           <Input type="password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} autoComplete="new-password" />
         </Field>
-        <Field label="ยืนยันรหัสผ่านใหม่" required>
+        {/* เช็กทีละข้อขณะพิมพ์ (mockup จอ 23) — สีคู่กับข้อความเสมอ */}
+        <ul className="pw-rules" aria-label="เงื่อนไขรหัสผ่าน">
+          {rules.map(([t, ok]) => (
+            <li key={String(t)} className={ok ? 'is-ok' : undefined}>{ok ? '✓ ' : '○ '}{t}</li>
+          ))}
+        </ul>
+        <Field label="ยืนยันรหัสผ่านใหม่" required
+          error={form.confirm && form.confirm !== form.next ? 'ไม่ตรงกับรหัสผ่านใหม่' : undefined}>
           <Input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} autoComplete="new-password" />
         </Field>
-        <Button loading={busy} onClick={() => void submit()} disabled={!form.current || !form.next || !form.confirm}>
+        <Button size="lg" loading={busy} onClick={() => void submit()} disabled={!form.current || !form.next || !form.confirm}>
           บันทึกรหัสผ่านใหม่
         </Button>
       </div>

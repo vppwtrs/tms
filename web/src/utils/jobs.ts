@@ -89,7 +89,7 @@ export function autoOpenJob(live: MyJob[], activeId: number | null): MyJob | nul
 
 /* ---------- ตัวกรองวันที่ของหน้าประวัติ ---------- */
 
-export type HistoryPreset = 'today' | '7d' | 'month' | 'all' | 'custom'
+export type HistoryPreset = 'today' | '7d' | '30d' | 'month' | 'all' | 'custom'
 
 export interface HistoryRange {
   preset: HistoryPreset
@@ -102,9 +102,9 @@ export interface HistoryRange {
 export function presetRange(preset: Exclude<HistoryPreset, 'custom'>, now = new Date()): HistoryRange {
   const today = todayIso(now)
   if (preset === 'today') return { preset, from: today, to: today }
-  if (preset === '7d') {
+  if (preset === '7d' || preset === '30d') {
     const d = new Date(now)
-    d.setDate(d.getDate() - 6)
+    d.setDate(d.getDate() - (preset === '7d' ? 6 : 29))
     return { preset, from: todayIso(d), to: today }
   }
   if (preset === 'month') return { preset, from: `${today.slice(0, 8)}01`, to: today }

@@ -13,12 +13,12 @@ import { uploadPodPhoto } from '../../api/storage'
 import { useToast } from '../../context/ToastContext'
 import type { MyJobOrder } from '../../types'
 import { fmtDateTime } from '../../utils/format'
-import { Button, Field, Modal, Textarea } from '../ui'
-import { PhotoViewer } from '../PhotoViewer'
+import '../../styles/driver-pod.css'
+import { PhotoView } from './PhotoView'
 import { SignaturePad } from '../SignaturePad'
-import { CameraCapture } from '../CameraCapture'
-import type { CompressedImage } from '../../utils/image'
+import { compressFile, type CompressedImage } from '../../utils/image'
 import { saveShotBackup, listShotBackups, removeShotBackup, clearOrderBackup } from '../../utils/podBackup'
+import { clearCounts, shortNote } from '../../utils/podCount'
 
 const podKindLabel = (kind: string): string =>
   POD_PHOTO_KINDS.find((k) => k.kind === kind)?.label ?? kind
@@ -42,8 +42,10 @@ const podStepHint = (kind: string): string => POD_STEPS.find((s) => s.kind === k
  * เซ็นรับของทั้งกองครั้งเดียวจริง ๆ ส่วนฐานยังเก็บ POD ผูกกับใบเหมือนเดิม
  * ฝ่ายบัญชีจึงยังเปิดหลักฐานรายใบได้
  */
-export function PodSheet({ orders, onClose, onSaved, onUndo }: {
+export function PodSheet({ orders, onClose, onSaved, onUndo, initialNote }: {
   orders: MyJobOrder[]
+  /** หมายเหตุเริ่มต้น — ไม่ส่งมา = ใช้ยอดนับจริงจากจอถึงร้าน (ถ้านับไม่ตรง) */
+  initialNote?: string
   onClose: () => void
   onSaved: () => void
   /* กดผิดร้าน — ถอนการปิดส่งทั้งร้านแล้วออกจากฟอร์ม ไม่ส่งมา = ไม่มีสิทธิ์ถอน */
@@ -67,12 +69,13 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
   const [photos, setPhotos] = useState<PodPhoto[] | null>(null)
   /* ไม่ถามชื่อผู้รับแล้ว — ลายเซ็นกับรูปใบเซ็นรับคือหลักฐานตัวจริง ช่องชื่อเป็นแค่
      อีกช่องที่คนขับต้องพิมพ์ขณะยืนถือของ จึงบันทึกชื่อร้านแทนให้เอง */
-  const name = order.customer_name ?? order.destination ?? 'ผู้รับที่ร้าน'
+  const [recipient, setRecipient] = useState('')
+  const name = recipient.trim() || (order.customer_name ?? order.destination ?? 'ผู้รับที่ร้าน')
   const [sig, setSig] = useState('')
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState(() => initialNote ?? shortNote(orders.map((o) => o.id)))
   /* หมายเหตุพับไว้ก่อน — ส่วนใหญ่ไม่มีอะไรจะเขียน กล่องที่ว่างตลอดเวลา
      คือความยาวที่ทุกคนต้องเลื่อนผ่านโดยไม่ได้ใช้ */
-  const [noteOpen, setNoteOpen] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(() => note !== '')
   /* หลายมุมต่อหนึ่งใบ — ข้อโต้แย้งเรื่องการส่งของถามหลายอย่างพร้อมกัน
      ของที่ส่ง สภาพหน้าร้าน และใบเซ็นรับ รูปเดียวตอบได้ข้อเดียว */
   const [shots, setShots] = useState<{ img: CompressedImage; kind: string; backupId: string }[]>([])
@@ -98,7 +101,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
 
   /* ถ่ายเสร็จแล้วเลื่อนไปมุมถัดไปที่ยังขาดเอง — คนขับถือของอยู่ ไม่ควรต้องกลับมา
      กดชิปเปลี่ยนมุมเองทุกใบ ครบสามมุมแล้วค้างไว้ที่ "อื่น ๆ" สำหรับรูปเสริม */
-  const capture = (img: CompressedImage): void => {
+  const capture = (img: CompressedImage, kind: string): void => {
     const backupId = crypto.randomUUID()
     const next = [...shots, { img, kind, backupId }]
     setShots(next)
@@ -115,6 +118,30 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
         ? `เก็บ${podKindLabel(kind)}แล้ว — ต่อไปถ่าย${podKindLabel(nextKind)}`
         : 'ครบทั้งสามมุมแล้ว — บันทึกได้เลย',
     )
+  }
+
+  /* กดช่องไหน เปิดกล้องของเครื่องทันที (ไม่มีช่องมองภาพในหน้าแล้ว — ตามที่ตกลงกัน
+     เพื่อลดขั้นตอน) มุมที่จะถ่ายจำไว้ใน ref เพราะ state ยังไม่อัปเดตตอนรูปกลับมา
+     Android บางรุ่นยังเลือกรูปจากคลังได้ — รูปที่ไฟล์เก่ากว่า 10 นาทีจึงขึ้นเตือน */
+  const fileRef = useRef<HTMLInputElement>(null)
+  const pendingKind = useRef<string>(kind)
+  const openCamera = (k: string): void => {
+    pendingKind.current = k
+    setKind(k)
+    fileRef.current?.click()
+  }
+  const onFile = async (file: File | undefined): Promise<void> => {
+    if (!file) return
+    const k = pendingKind.current
+    try {
+      if (Date.now() - file.lastModified > 10 * 60_000) {
+        toast.push('error', 'รูปนี้ไม่ได้ถ่ายตอนนี้ — กรุณาถ่ายใหม่ที่หน้าร้าน')
+        return
+      }
+      capture(await compressFile(file, stampLines()), k)
+    } catch (e) {
+      toast.push('error', (e as Error).message)
+    }
   }
 
   /* กู้รูปที่ถ่ายค้างไว้จากรอบก่อนของร้านนี้ — เน็ตหลุดหรือแอปถูกปิดกลางคันตอน
@@ -221,6 +248,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
       })
     }
     void clearOrderBackup(order.id)
+    clearCounts(orders.map((o) => Number(o.id)))
     onSaved()
   }
 
@@ -266,33 +294,6 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
     </button>
   )
 
-  /* แถบสลับขั้น — เซ็นรับก่อนเสมอ (ผู้รับคือฝ่ายที่เดินหายไปได้) แต่แตะสลับได้ตลอด
-     ลำดับคงที่ เลขบนแถบจึงไม่เปลี่ยนความหมายใต้มือคนขับ */
-  const podSteps = (() => {
-    const label = (k: 'photo' | 'sign'): string => (k === 'photo' ? 'รูป' : 'เซ็นรับ')
-    const done: 'photo' | 'sign' | null = photos ? 'photo' : sig ? 'sign' : null
-    const order: ('photo' | 'sign')[] = ['sign', 'photo']
-    return (
-      /* เลขใน aria คือหน้าที่กำลังเปิดอยู่ ไม่ใช่จำนวนขั้นที่ทำไปแล้ว — คนที่ฟัง
-         ด้วยเสียงต้องรู้ว่าตัวเองยืนอยู่ตรงไหน ไม่ใช่ว่าเหลืออะไรอีก */
-      <div className="pod-steps" aria-label={`ขั้นตอนที่ ${order.indexOf(step) + 1} จาก ${order.length}`}>
-        {order.map((k, i) => (
-          /* แตะสลับหน้าได้ตลอด — ยกเว้นกลับไปหน้ารูปหลังอัปแล้ว ซึ่งแปลว่าอัปซ้ำ */
-          <button
-            key={k}
-            type="button"
-            className={[k === step && 'is-now', done === k && 'is-done'].filter(Boolean).join(' ')}
-            aria-current={k === step ? 'step' : undefined}
-            disabled={saving || k === step || (k === 'photo' && photos !== null)}
-            onClick={() => setStep(k)}
-          >
-            {`${i + 1} · ${label(k)}`}{done === k ? ' ✓' : ''}
-          </button>
-        ))}
-      </div>
-    )
-  })()
-
   const storeName = order.customer_name ?? order.destination
   const removeShot = (backupId: string): void => {
     const shot = shots.find((s) => s.backupId === backupId)
@@ -302,164 +303,152 @@ export function PodSheet({ orders, onClose, onSaved, onUndo }: {
     setShots(shots.filter((s) => s.backupId !== backupId))
   }
 
-  /* ---- ขั้น 1: เซ็นรับ (mockup จอ 3) ----
-     ยื่นมือถือให้ผู้รับ จอมีของอยู่อย่างเดียวคือช่องเซ็นใหญ่ ๆ ไม่มีปุ่มอื่นให้กดพลาด
-     ไม่มีทางถอยกลับไปแก้รูปที่อัปไปแล้ว — การให้ถอยคือให้อัปซ้ำ */
+  /* หัวจอ + แถบขั้น ตาม mockup 06/07 — ตรวจของเสร็จแล้วเสมอ (ทำในหน้าจุดส่ง)
+     ชิปเซ็นรับ/ถ่ายรูปแตะสลับหน้าได้ ยกเว้นกลับไปหน้ารูปหลังอัปแล้ว (= อัปซ้ำ) */
+  const signDone = !!sig
+  const photoDone = photos !== null
+  const shotsReady = shots.length > 0 && (missing.length === 0 || relaxed)
+  const head = (title: string, sub: string): React.JSX.Element => (
+    <>
+      <header className="pod-head">
+        <button type="button" className="pod-back" aria-label="กลับ" onClick={onClose} disabled={saving}>
+          <svg className="pod-ic" aria-hidden="true" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <div className="pod-head-t"><h1>{title}</h1><div>{sub}</div></div>
+      </header>
+      {/* แท็บสลับ เซ็นรับ / ถ่ายรูป ทำก่อนหลังได้ตามสะดวก เหมือนเวอร์ชันเก่า
+          แท็บรูปล็อกเฉพาะหลังอัปรูปขึ้นแล้ว (กลับไปจะอัปซ้ำ) */}
+      <div className="pod-tabs" role="tablist" aria-label="หลักฐานการส่ง">
+        <button type="button" role="tab" aria-selected={step === 'sign'} className={`pod-tab${step === 'sign' ? ' is-on' : ''}`}
+          disabled={saving} onClick={() => setStep('sign')}>
+          {signDone && <span className="pod-tab-ok" aria-label="เสร็จแล้ว">✓</span>}เซ็นรับ
+        </button>
+        <button type="button" role="tab" aria-selected={step === 'photo'} className={`pod-tab${step === 'photo' ? ' is-on' : ''}`}
+          disabled={saving || photoDone} onClick={() => setStep('photo')}>
+          {(photoDone || shotsReady) && <span className="pod-tab-ok" aria-label="เสร็จแล้ว">✓</span>}ถ่ายรูป{!photoDone && shots.length > 0 ? ` (${shots.length})` : ''}
+        </button>
+      </div>
+    </>
+  )
+
+  const camIcon = <svg className="pod-ic pod-ic-lg" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+
+  /* ---- 06 เซ็นรับ ---- */
   if (step === 'sign') {
     return (
-      <Modal
-        open
-        onClose={onClose}
-        size="sheet"
-        className="is-pod-sign"
-        title={storeName}
-        footer={
-          <div className="pod-foot">
-            <Button size="lg" className="dv-cta" onClick={() => void submitSignature()} loading={saving} disabled={!sig}>
-              {!photos ? 'ถัดไป · ถ่ายรูป'
-                : orders.length > 1 ? `ยืนยัน ส่งสำเร็จ (${orders.length} ใบ)` : 'ยืนยัน ส่งสำเร็จ'}
-            </Button>
-          </div>
-        }
-      >
+      <div className="pod-scope pod-page is-pod-sign" role="dialog" aria-modal="true" aria-label={`เซ็นรับสินค้า ${storeName}`}>
         {savingVeil}
-        {podSteps}
-        {orders.length > 1 && <p className="pod-sub">ลายเซ็นเดียวใช้กับ {orders.length} ใบของร้านนี้</p>}
-
-        {/* ช่องเซ็นสูงเท่าที่จอมี — ลายเซ็นที่บีบจนไม่เหมือนของตัวเองคือลายเซ็นที่คนเซ็นไม่ยอมรับ */}
-        <div className="pod-sign-area">
-          {!sig && <span className="pod-sign-hint" aria-hidden>ส่งมือถือให้ผู้รับ เซ็นชื่อตรงนี้</span>}
-          <SignaturePad onChange={setSig} height="min(56vh, 480px)" compact />
-        </div>
-
-        {!photos && (
-          <button type="button" className="dv-link pod-alt" onClick={() => setStep('photo')} disabled={saving}>
-            ผู้รับยังไม่สะดวกเซ็น · ไปถ่ายรูปก่อน
+        {head('เซ็นรับสินค้า', orders.length > 1 ? `${storeName} · ${orders.length} บิล` : storeName)}
+        <main className="pod-main">
+          <div className="pod-info">
+            <svg className="pod-ic" aria-hidden="true" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" /></svg>
+            ส่งมือถือให้ผู้รับ เซ็นชื่อในกรอบ
+          </div>
+          {/* SignaturePad มีปุ่มล้างของตัวเอง */}
+          <div className="pod-sign-box">
+            <SignaturePad onChange={setSig} height="300px" compact />
+            <div className="pod-sign-line" aria-hidden />
+            <div className="pod-sign-cap" aria-hidden>ลายเซ็นผู้รับ</div>
+          </div>
+          <label className="pod-field">ชื่อผู้รับ (ไม่บังคับ)
+            <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="เช่น คุณเอ" />
+          </label>
+          {undoButton}
+        </main>
+        <div className="pod-bottom">
+          <button type="button" className="pod-btn pod-pri" onClick={() => void submitSignature()} disabled={!sig || saving}>
+            {!photos && !shotsReady ? 'ต่อไป ถ่ายรูปหลักฐาน'
+              : orders.length > 1 ? `ยืนยัน ส่งสำเร็จ (${orders.length} ใบ)` : 'ยืนยัน ส่งสำเร็จ'}
           </button>
-        )}
-        {undoButton}
-      </Modal>
+          {!photos && !sig && (
+            <button type="button" className="pod-btn pod-ghost" onClick={() => setStep('photo')} disabled={saving}>
+              ผู้รับไม่อยู่ ข้ามไปถ่ายรูป
+            </button>
+          )}
+        </div>
+      </div>
     )
   }
 
-  /* ---- ขั้น 2: รูป 3 มุม (mockup จอ 3b) ----
-     ช่องสามมุมบังคับเรียงบนสุด เห็นทันทีว่าขาดมุมไหน แตะช่องที่ว่างเพื่อเลือกมุมแล้วกดชัตเตอร์
-     แตะรูปที่ถ่ายแล้วเพื่อดูเต็มจอ (ซูมได้) */
-  const shotOf = (k: string): { img: CompressedImage; kind: string; backupId: string } | undefined =>
-    shots.find((s) => s.kind === k)
+  /* ---- 07 ถ่ายรูป ---- */
+  type Shot = { img: CompressedImage; kind: string; backupId: string }
+  const shotOf = (k: string): Shot | undefined => shots.find((s) => s.kind === k)
   const extras = shots.filter((s) => !POD_STEPS.some((p) => p.kind === s.kind) || shotOf(s.kind) !== s)
+  const slot = (shot: Shot): React.JSX.Element => (
+    <div key={shot.backupId} className="pod-slot is-done">
+      <button type="button" className="pod-slot-img" onClick={() => setViewing(shot.img.url)}
+        aria-label={`ดูรูป${podKindLabel(shot.kind)}เต็มจอ`}>
+        <img src={shot.img.url} alt="" />
+        <span className="pod-slot-name">{podKindLabel(shot.kind)}</span>
+      </button>
+      <button type="button" className="pod-slot-del" onClick={() => removeShot(shot.backupId)}
+        aria-label={`ลบรูป${podKindLabel(shot.kind)}`} disabled={saving}>×</button>
+    </div>
+  )
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      size="sheet"
-      className="is-pod-photo"
-      title={storeName}
-      footer={
-        <div className="pod-foot">
-          <Button
-            size="lg"
-            className="dv-cta"
-            onClick={() => void submitPhotos()}
-            loading={saving}
-            disabled={shots.length === 0 || (missing.length > 0 && !relaxed)}
-          >
-            {missing.length > 0 && !relaxed ? `ยังขาด ${missing.length} มุม`
-              : sig ? 'ยืนยัน ส่งสำเร็จ' : 'บันทึกรูป · ไปเซ็นรับ'}
-          </Button>
-        </div>
-      }
-    >
+    <div className="pod-scope pod-page is-pod-photo" role="dialog" aria-modal="true" aria-label={`ถ่ายรูปหลักฐาน ${storeName}`}>
       {savingVeil}
-      {viewing && <PhotoViewer src={viewing} onClose={() => setViewing(null)} />}
-      {podSteps}
-
-      <section className="pod-card">
-        <div className="pod-card-head">
-          <b>รูปหลักฐาน {POD_STEPS.length} มุม</b>
-          <span className={`dv-chip ${missing.length === 0 ? 'is-ok' : 'is-time'}`}>
-            {POD_STEPS.length - missing.length}/{POD_STEPS.length}
-          </span>
-        </div>
+      {viewing && <PhotoView src={viewing} caption="ยังไม่ได้บันทึก" onClose={() => setViewing(null)} />}
+      {head('ถ่ายรูปหลักฐาน', storeName)}
+      <main className="pod-main">
+        <div className="pod-lead">ถ่ายให้ครบ {POD_STEPS.length} มุม: {POD_STEPS.map((p) => podKindLabel(p.kind)).join(' · ')}</div>
         <div className="pod-slots" role="group" aria-label="มุมของรูปที่ต้องถ่าย">
           {POD_STEPS.map((p) => {
             const shot = shotOf(p.kind)
-            return shot ? (
-              <div key={p.kind} className="pod-slot is-done">
-                <button type="button" className="pod-slot-img" onClick={() => setViewing(shot.img.url)}
-                  aria-label={`ดูรูป${podKindLabel(p.kind)}เต็มจอ`}>
-                  <img src={shot.img.url} alt="" />
-                  <span className="pod-slot-ok" aria-hidden>✓</span>
-                </button>
-                <button type="button" className="pod-slot-del" onClick={() => removeShot(shot.backupId)}
-                  aria-label={`ลบรูป${podKindLabel(p.kind)}`} disabled={saving}>✕</button>
-                <span className="pod-slot-label">{podKindLabel(p.kind)}</span>
-              </div>
-            ) : (
+            return shot ? slot(shot) : (
               <button key={p.kind} type="button" className="pod-slot is-empty" aria-pressed={kind === p.kind}
-                onClick={() => setKind(p.kind)} disabled={saving}>
-                <span className="pod-slot-box" aria-hidden>
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
-                </span>
-                <span className="pod-slot-label">{podKindLabel(p.kind)} · ถ่าย</span>
+                onClick={() => openCamera(p.kind)} disabled={saving} title={podStepHint(p.kind)}>
+                {camIcon}{podKindLabel(p.kind)}
               </button>
             )
           })}
-        </div>
-        {extras.length > 0 && (
-          <div className="pod-strip">
-            {extras.map((shot) => (
-              <div className="pod-shot" key={shot.backupId}>
-                <button type="button" className="pod-shot-view" onClick={() => setViewing(shot.img.url)}
-                  aria-label={`ดูรูป${podKindLabel(shot.kind)}เต็มจอ`}>
-                  <img src={shot.img.url} alt="" />
-                </button>
-                <button type="button" aria-label={`ลบรูป${podKindLabel(shot.kind)}`} onClick={() => removeShot(shot.backupId)}>✕</button>
-                <span className="pod-shot-kind">{podKindLabel(shot.kind)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        <button type="button" className="pod-more" aria-pressed={kind === 'other'} onClick={() => setKind('other')} disabled={saving}>
-          + ถ่ายรูปอื่นเพิ่ม
-        </button>
-      </section>
-
-      {/* ช่องมองภาพเปิดเองตั้งแต่เข้าหน้า — จอนี้คือกล้อง ไม่ใช่ฟอร์มที่มีปุ่มเปิดกล้องอยู่ข้างใน */}
-      <p className="pod-aim" role="status" aria-live="polite">
-        {missing.length === 0 && kind === 'other' ? 'ครบสามมุมแล้ว — ถ่ายเพิ่มได้ หรือกดยืนยันข้างล่าง'
-          : <>กำลังถ่าย: <b>{podKindLabel(kind)}</b>{podStepHint(kind) ? ` — ${podStepHint(kind)}` : ''}</>}
-      </p>
-      <CameraCapture stage onCapture={capture} disabled={saving} stamp={stampLines} />
-
-      {/* ถ่ายมุมที่ขาดไม่ได้จริง ๆ (ร้านไม่มีป้าย ไม่มีใบให้เซ็น) — ทางออกที่ต้องกดเอง */}
-      {missing.length > 0 && shots.length > 0 && (
-        relaxed ? (
-          <p className="pod-relaxed">
-            จะบันทึกโดยไม่มี{missing.map((k) => podKindLabel(k)).join(' และ ')}
-            {' '}
-            <button type="button" className="dv-link" onClick={() => setRelaxed(false)}>ยกเลิก</button>
-          </p>
-        ) : (
-          <button type="button" className="pod-relax" onClick={() => setRelaxed(true)} disabled={saving}>
-            ถ่าย{missing.map((k) => podKindLabel(k)).join('/')}ไม่ได้ — บันทึกเท่าที่ถ่ายได้
+          {extras.map(slot)}
+          <button type="button" className="pod-slot is-empty is-more" aria-pressed={kind === 'other'} onClick={() => openCamera('other')} disabled={saving}>
+            {camIcon}รูปอื่นเพิ่ม
           </button>
-        )
-      )}
+        </div>
 
-      <div className="pod-section">
-        <Field label="หมายเหตุ (ไม่บังคับ)">
-          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ฝากไว้กับ รปภ." />
-        </Field>
-      </div>
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void onFile(f) }} />
 
-      {!sig && (
-        <button type="button" className="dv-link pod-alt" onClick={() => setStep('sign')} disabled={saving}>
-          ไปหน้าเซ็นรับ
+        {missing.length > 0 && shots.length > 0 && (
+          relaxed ? (
+            <p className="pod-warnbox">
+              จะบันทึกโดยไม่มี{missing.map((k) => podKindLabel(k)).join(' และ ')}{' '}
+              <button type="button" className="pod-linkbtn" onClick={() => setRelaxed(false)}>ยกเลิก</button>
+            </p>
+          ) : (
+            <button type="button" className="pod-linkbtn" onClick={() => setRelaxed(true)} disabled={saving}>
+              ถ่าย{missing.map((k) => podKindLabel(k)).join('/')}ไม่ได้ — บันทึกเท่าที่ถ่ายได้
+            </button>
+          )
+        )}
+
+        <section className="pod-card">
+          <h2>สรุปก่อนบันทึก</h2>
+          <div className="pod-kv"><span>บิล</span><span>{orders.length} ใบ</span></div>
+          <div className="pod-kv"><span>รูปถ่าย</span>
+            <span className={missing.length ? 'is-warn' : 'is-ok'}>{shots.length} รูป{missing.length ? ` · ขาด ${missing.length} มุม` : ' · ครบ'}</span></div>
+          <div className="pod-kv"><span>ลายเซ็น</span>
+            {sig ? <span>{recipient.trim() || 'มีแล้ว'}</span>
+              : <button type="button" className="pod-linkbtn" onClick={() => setStep('sign')} disabled={saving}>ยังไม่มี · ไปเซ็นรับ</button>}</div>
+          <div className="pod-kv"><span>ตำแหน่ง</span>
+            <span className={coords ? 'is-ok' : 'is-muted'}>{coords ? 'บันทึกพิกัดแล้ว' : 'กำลังหาพิกัด'}</span></div>
+          <label className="pod-field">หมายเหตุ (ไม่บังคับ)
+            <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ฝากไว้กับ รปภ." />
+          </label>
+        </section>
+        {undoButton}
+      </main>
+      <div className="pod-bottom">
+        <button type="button" className="pod-btn pod-okbtn" onClick={() => void submitPhotos()}
+          disabled={saving || shots.length === 0 || (missing.length > 0 && !relaxed)}>
+          <svg className="pod-ic" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7" /></svg>
+          {missing.length > 0 && !relaxed ? `ยังขาด ${missing.length} มุม`
+            : sig ? 'บันทึกการส่ง ไปจุดถัดไป' : 'ไปเซ็นรับ'}
         </button>
-      )}
-      {undoButton}
-    </Modal>
+      </div>
+    </div>
   )
 }

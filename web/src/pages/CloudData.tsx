@@ -60,7 +60,7 @@ export default function CloudData(): React.JSX.Element {
         <div><b>ภาพรวมข้อมูล</b><div className="text-xs text-muted">ตารางด้านล่างเป็นตัวเลขอย่างเดียว ปุ่มที่ลบได้มีเฉพาะชุดข้อมูลทดสอบ</div></div>
       </div>
     </div>
-    <div className="card" style={{ padding: 18, borderLeft: '3px solid var(--warning)' }}>
+    <div className="card" style={{ padding: 18 }}>
       <b>ชุดข้อมูลทดสอบ</b>
       <p className="text-xs text-muted" style={{ margin: '6px 0 12px' }}>ระบบจะสร้างและจำเฉพาะรายการที่สร้างจากปุ่มนี้ การล้างจะไม่แตะข้อมูลจริงหรือข้อมูลจาก TMS</p>
       {/* สองข้อนี้เคยกินเวลาไล่หาจริงมาแล้ว เขียนไว้บนปุ่มดีกว่าให้คนไปเจอเอง

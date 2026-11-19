@@ -2360,7 +2360,7 @@
 .job-card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-left: 4px solid var(--line-strong);
+  border-left: 0;
   border-radius: var(--r-16);
   box-shadow: var(--sh-1);
   overflow: hidden;
@@ -2751,7 +2751,7 @@
 .job-focus {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-left: 4px solid var(--neutral);
+  border-left: 0;
   border-radius: var(--radius-lg);
   box-shadow: var(--sh-1);
   padding: var(--space-5);

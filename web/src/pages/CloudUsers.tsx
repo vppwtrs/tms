@@ -450,7 +450,7 @@ export default function CloudUsers(): React.JSX.Element {
 
       {/* รหัสโชว์ครั้งเดียว — ไม่มีที่ไหนเก็บไว้ ปิดกล่องแล้วต้องกดตั้งใหม่ถ้าลืมจด */}
       {secret && (
-        <div className="card" style={{ padding: 18, marginBottom: 18, borderLeft: '3px solid var(--accent)' }}>
+        <div className="card" style={{ padding: 18, marginBottom: 18 }}>
           <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>{secret.title}</h3>
           <div style={{ display: 'grid', gap: 6, fontSize: 14 }}>
             <div>บัญชีเป้าหมาย: <b className="cell-no">{secret.username}</b></div>
