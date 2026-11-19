@@ -1078,3 +1078,32 @@
 }
 .is-native-app[data-theme='dark'] .dv-head,
 .is-native-app[data-theme='dark'] .dv-nav { background: var(--surface-2); }
+
+/* เมนูล่าง: บอกชัดว่าอยู่หน้าไหน — แถบสีเลื่อนตาม + ปุ่มที่เลือกเด้งขึ้นพื้นทึบ */
+.is-native-app .dv-nav-ind {
+  position: absolute; top: 2px; left: 12px; height: 4px; border-radius: 999px;
+  width: calc((100% - 24px) / 3 * 0.5);
+  transform: translateX(calc((100% * 2) * var(--nav-i, 0) + 50%));
+  background: var(--fleet); transition: transform .28s cubic-bezier(.3,1.4,.5,1);
+}
+.is-native-app .dv-nav-pill { transition: background-color .2s, color .2s, transform .28s cubic-bezier(.3,1.6,.5,1); }
+.is-native-app .dv-nav-btn.is-active .dv-nav-pill {
+  background: var(--fleet); color: #fff; transform: translateY(-2px) scale(1.08);
+  animation: dv-nav-pop .32s cubic-bezier(.3,1.6,.5,1);
+}
+.is-native-app .dv-nav-btn:active .dv-nav-pill { transform: scale(.92); }
+@keyframes dv-nav-pop { 0% { transform: scale(.8); } 60% { transform: translateY(-3px) scale(1.14); } 100% { transform: translateY(-2px) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) {
+  .is-native-app .dv-nav-ind, .is-native-app .dv-nav-pill { transition: none; animation: none !important; }
+}
+/* แถบเมนูล่าง: มุมบนซ้าย/ขวามน */
+.is-native-app .dv-nav { border-radius: 18px 18px 0 0; overflow: hidden; }
+/* เส้นแบ่งระหว่างปุ่มเมนู ให้เห็นขอบเขตที่กด */
+.is-native-app .dv-nav-btn + .dv-nav-btn::before {
+  content: ''; position: absolute; left: 0; top: 22%; bottom: 22%; width: 1px; background: var(--line-card, #DCE3EC);
+}
+/* จัดสมดุลแนวตั้ง: ไม่ยกไอคอน ระยะบนล่างเท่ากัน แถบสีชิดขอบบน */
+.is-native-app .dv-nav { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+.is-native-app .dv-nav-btn.is-active .dv-nav-pill { transform: none; animation: dv-nav-pop2 .3s cubic-bezier(.3,1.6,.5,1); }
+@keyframes dv-nav-pop2 { 0% { transform: scale(.85); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.is-native-app .dv-nav-ind { top: 0; height: 3px; }

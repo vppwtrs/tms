@@ -34,6 +34,25 @@ function apply(): void {
 /** เรียกครั้งเดียวตอนเปิดแอป ให้ทุกหน้าย่อตามจอ */
 export function fitToScreen(): void {
   apply()
+  if (!fit.phone) return
+  /* iOS ซูมเข้าเองตอนแตะช่องกรอกที่ตัวอักษรเล็กกว่า 16px บนจอจริง แล้วค้างซูมไว้
+     หลัง login — ตั้งขนาดช่องกรอกให้ ≥16px หลังย่อ และเมื่อออกจากช่องกรอกหรือเปลี่ยนหน้า
+     เขียน meta ใหม่ให้ iOS ดีดกลับสเกลเดิม */
+  document.documentElement.style.setProperty('--fit-scale', fit.scale)
+  const reset = (): void => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]')
+    if (!meta) return
+    meta.content = FREE
+    requestAnimationFrame(() => apply())
+  }
+  document.addEventListener('focusout', (e) => {
+    if ((e.target as HTMLElement)?.matches?.('input, textarea, select')) setTimeout(reset, 50)
+  })
+  window.addEventListener('popstate', reset)
+  const push = history.pushState.bind(history)
+  history.pushState = (...a: Parameters<History['pushState']>) => { push(...a); reset() }
+  const rep = history.replaceState.bind(history)
+  history.replaceState = (...a: Parameters<History['replaceState']>) => { rep(...a); reset() }
 }
 
 export function setZoomLock(on: boolean): void {

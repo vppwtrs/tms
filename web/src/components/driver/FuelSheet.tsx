@@ -12,7 +12,6 @@ export interface FuelSheetProps {
   tripLabel?: string
 }
 
-const FUELS = ['ดีเซล', 'B7', 'แก๊สโซฮอล์']
 const PAYS = ['บัตรน้ำมัน', 'เงินสด', 'โอน']
 const toNum = (s: string) => {
   const n = Number(s.replace(/[,\s]/g, ''))
@@ -35,7 +34,6 @@ function Seg({ label, items, value, onChange }: { label: string; items: string[]
 
 /** หน้าบันทึกเติมน้ำมัน (mockup Fuel) — ส่งเป็น checkpoint 'fuel' */
 export default function FuelSheet({ tripId, open, onClose, tripLabel }: FuelSheetProps) {
-  const [fuelType, setFuelType] = useState(FUELS[0]!)
   const [pay, setPay] = useState(PAYS[0]!)
   const [liters, setLiters] = useState('')
   const [amount, setAmount] = useState('')
@@ -64,7 +62,6 @@ export default function FuelSheet({ tripId, open, onClose, tripLabel }: FuelShee
         return
       }
       await logCheckpoint(tripId, 'fuel', {
-        fuel_type: fuelType,
         liters: l,
         amount_baht: a,
         price_per_liter: l && a ? Math.round((a / l) * 100) / 100 : null,
@@ -93,7 +90,6 @@ export default function FuelSheet({ tripId, open, onClose, tripLabel }: FuelShee
         </div>
       </header>
       <main>
-        <div className="dbk-lbl">ชนิดน้ำมัน<Seg label="ชนิดน้ำมัน" items={FUELS} value={fuelType} onChange={setFuelType} /></div>
         <div className="dbk-2col">
           <label className="dbk-lbl">จำนวนลิตร<input className="dbk-inp" inputMode="decimal" value={liters} onChange={(e) => setLiters(e.target.value)} placeholder="0.00" /></label>
           <label className="dbk-lbl">ยอดเงิน (บาท)<input className="dbk-inp" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" /></label>

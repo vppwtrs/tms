@@ -27,3 +27,10 @@ export async function removePodPhotos(paths: string[]): Promise<number> {
   }
   return n
 }
+
+export type TripPhotoFolder = 'fuel' | 'odometer' | 'issue'
+
+/** เดโม: ไม่อัปจริง คืน path ปลอมให้ไหลต่อได้ */
+export async function uploadTripPhoto(tripId: number | string, folder: TripPhotoFolder, file: File): Promise<string> {
+  return `${folder}/${tripId}/demo-${Date.now()}-${file.name}`
+}

@@ -27,7 +27,7 @@ import { RangeCalendar, shortThai } from '../components/driver/RangeCalendar'
 import { PodSheet } from '../components/driver/PodSheet'
 import { IssueSheet } from '../components/driver/IssueSheet'
 import {
-  IconAlert, IconCalendar, IconChevronLeft, IconCheck, IconChevronRight, IconKey, IconLogout, IconMoon, IconSun, IconTruck, IconUsers,
+  IconAlert, IconCalendar, IconChevronLeft, IconCheck, IconClock, IconChevronRight, IconKey, IconLogout, IconMoon, IconSun, IconTruck, IconUsers,
 } from '../components/icons'
 import { OdoWarning } from '../components/driver/CloseTrip'
 import '../styles/driver-break.css'
@@ -863,7 +863,10 @@ export default function CloudMyJobs(): React.JSX.Element {
 
       {/* แถบล่างจอ — โครงเดียวกับแอปที่คนใช้ทุกวัน ถึงด้วยนิ้วโป้งข้างเดียว
           ไม่ใช่เมนูที่ต้องกดเปิดจากมุมบนซ้ายก่อนถึงจะเห็นว่ามีอะไรบ้าง */}
-      <nav className="dv-nav" aria-label="เมนูหลัก">
+      <nav className="dv-nav" aria-label="เมนูหลัก"
+        style={{ '--nav-i': tab === 'jobs' ? 0 : tab === 'history' ? 1 : 2 } as React.CSSProperties}>
+        {/* แถบสีเลื่อนไปอยู่เหนือเมนูที่เลือก — บอกว่าตอนนี้อยู่หน้าไหน */}
+        <span className="dv-nav-ind" aria-hidden />
         <button type="button" className={`dv-nav-btn${tab === 'jobs' ? ' is-active' : ''}`}
           aria-current={tab === 'jobs' ? 'page' : undefined}
           /* แตะ "งาน" ตอนอยู่ในเที่ยว = กลับไปรายการเที่ยว เหมือนแท็บของแอปทั่วไป */
@@ -874,7 +877,7 @@ export default function CloudMyJobs(): React.JSX.Element {
         </button>
         <button type="button" className={`dv-nav-btn${tab === 'history' ? ' is-active' : ''}`}
           aria-current={tab === 'history' ? 'page' : undefined} onClick={() => { setTab('history'); setHistoryJob(null) }}>
-          <span className="dv-nav-pill" aria-hidden><IconCheck size={22} /></span>
+          <span className="dv-nav-pill" aria-hidden><IconClock size={22} /></span>
           <span>ประวัติ</span>
         </button>
         <button type="button" className={`dv-nav-btn${tab === 'me' ? ' is-active' : ''}`}

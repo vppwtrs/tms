@@ -111,3 +111,5 @@ html.is-phone, html.is-phone body { overflow-x: hidden; overscroll-behavior-x: n
 /* มือถือ หน้า login: ตรึงทั้งหน้า ไม่เด้ง/ไม่เลื่อน — ถ้าจอเตี้ยกว่าฟอร์ม (คีย์บอร์ดขึ้น) เลื่อนในกล่องแทน */
 html.is-phone:has(.ops-login), html.is-phone:has(.ops-login) body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 html.is-phone .ops-login { height: 100dvh; min-height: 0; overflow-y: auto; overscroll-behavior: none; }
+/* มือถือ: ช่องกรอกต้องแสดงจริง ≥16px หลังย่อจอ ไม่งั้น iOS ซูมเข้าเองแล้วค้าง */
+html.is-phone input:not([type=checkbox]):not([type=radio]), html.is-phone textarea, html.is-phone select { font-size: max(16px, calc(16px / var(--fit-scale, 1))); }
