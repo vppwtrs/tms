@@ -14,7 +14,7 @@ const fit = (() => {
   const h = window.innerHeight
   const phone = Math.min(screen.width, screen.height) < 600 && !!window.matchMedia?.('(pointer: coarse)').matches
   const s = phone ? Math.min(1, w / DESIGN_W, h / DESIGN_H) : 1
-  return s >= 0.999 ? { width: 'device-width', scale: '1.0' } : { width: String(Math.round(w / s)), scale: s.toFixed(3) }
+  return s >= 0.999 ? { phone, width: 'device-width', scale: '1.0' } : { phone, width: String(Math.round(w / s)), scale: s.toFixed(3) }
 })()
 const LOCKED = `width=${fit.width}, initial-scale=${fit.scale}, maximum-scale=${fit.scale}, user-scalable=no, viewport-fit=cover`
 const FREE = `width=${fit.width}, initial-scale=${fit.scale}, viewport-fit=cover`
@@ -25,7 +25,9 @@ let unlockDepth = 0
 function apply(): void {
   const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]')
   if (!meta) return
-  meta.content = locked && unlockDepth === 0 ? LOCKED : FREE
+  /* มือถือล็อกทุกหน้า รวมหน้า login — เดสก์ท็อป/แท็บเล็ตล็อกเฉพาะตอนเปิดผิวคนขับ */
+  meta.content = (locked || fit.phone) && unlockDepth === 0 ? LOCKED : FREE
+  document.documentElement.classList.toggle('is-phone', fit.phone)
 }
 
 /** เปิดหรือปิดการล็อกซูมของทั้งหน้า — จอคนขับเปิด จอออฟฟิศปิด */

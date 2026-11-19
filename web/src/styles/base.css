@@ -104,3 +104,6 @@ textarea {
 #root {
   min-height: 100vh;
 }
+
+/* มือถือ: ห้ามเลื่อนซ้ายขวาทุกหน้า (viewportZoom ใส่คลาส is-phone) */
+html.is-phone, html.is-phone body { overflow-x: hidden; overscroll-behavior-x: none; max-width: 100%; }
