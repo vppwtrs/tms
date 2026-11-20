@@ -55,6 +55,7 @@ const DEMO_ACCOUNTS: Record<string, Profile> = {
       'customers.view', 'customers.write',
       'orders.view', 'orders.write',
       'dispatch.view', 'dispatch.write',
+      'tms.view', 'labels.print', 'documents.print', 'tracking.view',
       'drivers.view', 'drivers.write',
       'vehicles.view', 'vehicles.write',
       'pod.view', 'pod.write', 'pod.verify',

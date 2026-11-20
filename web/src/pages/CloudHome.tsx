@@ -110,7 +110,7 @@ export default function CloudHome(): React.JSX.Element {
   }, [load, range])
 
   const actions = [
-    can('dispatch.view') && { to: '/tms-trips', icon: IconTable, title: 'งานจาก TMS', desc: 'ไหลเข้าเองทุก 5 นาที' },
+    can('tms.view') && { to: '/tms-trips', icon: IconTable, title: 'งานจาก TMS', desc: 'ไหลเข้าเองทุก 5 นาที' },
     can('dispatch.view') && { to: '/dispatch', icon: IconRoute, title: 'จัดแผนงาน', desc: 'รถ คนขับ ลำดับงาน' },
     can('orders.view') && { to: '/orders', icon: IconBox, title: 'ติดตามออเดอร์', desc: 'งานอยู่ขั้นไหน' },
     can('myjobs.view') && { to: '/my-jobs', icon: IconTruckBig, title: 'งานของฉัน', desc: 'เที่ยวที่ได้รับมอบหมาย' },

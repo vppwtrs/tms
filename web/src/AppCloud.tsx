@@ -134,15 +134,15 @@ export default function AppCloud(): React.JSX.Element {
               ยังอยู่ คนที่รู้ URL จึงยังเปิดเจอหน้าที่ไม่มีใครดูแลแล้ว */}
           <Route path="/tms-pull" element={<Navigate to="/tms-trips" replace />} />
           <Route path="/tms-import" element={<Navigate to="/tms-trips" replace />} />
-          <Route path="/tms-trips" element={<RequirePermission permission="dispatch.view"><CloudTmsTrips /></RequirePermission>} />
+          <Route path="/tms-trips" element={<RequirePermission permission="tms.view"><CloudTmsTrips /></RequirePermission>} />
           <Route path="/orders" element={<RequirePermission permission="orders.view"><CloudOrders /></RequirePermission>} />
 
-          <Route path="/labels" element={<RequirePermission permission="orders.view"><CloudLabels /></RequirePermission>} />
-          <Route path="/delivery-documents" element={<RequirePermission permission="dispatch.view"><CloudDeliveryDocuments /></RequirePermission>} />
-          <Route path="/delivery-documents/archive" element={<RequirePermission permission="dispatch.view"><CloudDeliveryDocumentsArchive /></RequirePermission>} />
+          <Route path="/labels" element={<RequirePermission permission="labels.print"><CloudLabels /></RequirePermission>} />
+          <Route path="/delivery-documents" element={<RequirePermission permission="documents.print"><CloudDeliveryDocuments /></RequirePermission>} />
+          <Route path="/delivery-documents/archive" element={<RequirePermission permission="documents.print"><CloudDeliveryDocumentsArchive /></RequirePermission>} />
           <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
-          {/* ผู้วางแผนงานเข้าด้วย dispatch.view · คนขับเข้าด้วย myjobs.view เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}
-          <Route path="/tracking" element={<RequirePermission permission={['dispatch.view', 'myjobs.view']}><CloudTracking /></RequirePermission>} />
+          {/* ผู้วางแผนงานเข้าด้วย tracking.view · คนขับเข้าด้วย myjobs.view เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}
+          <Route path="/tracking" element={<RequirePermission permission={['tracking.view', 'myjobs.view']}><CloudTracking /></RequirePermission>} />
           <Route path="/reports" element={<RequirePermission permission="reports.view"><CloudReports /></RequirePermission>} />
           <Route path="/vehicles" element={<RequirePermission permission="vehicles.view"><CloudVehicles /></RequirePermission>} />
           <Route path="/drivers" element={<RequirePermission permission="drivers.view"><CloudDrivers /></RequirePermission>} />

@@ -254,7 +254,7 @@ export default function CloudTracking(): React.JSX.Element {
   const withoutSignal = useMemo(() => trips.filter((t) => !t.last_seen).length, [trips])
   const detailTrip = trips.find((t) => t.trip_id === detailId) ?? null
 
-  if (!can('dispatch.view') && !can('myjobs.view')) {
+  if (!can('tracking.view') && !can('myjobs.view')) {
     return <ErrorBox message="ไม่มีสิทธิ์ดูหน้าติดตามรถ" />
   }
 
