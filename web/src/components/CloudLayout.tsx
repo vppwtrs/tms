@@ -43,13 +43,13 @@ interface NavGroup {
 /* แบ่งกลุ่มตามจังหวะที่คนเปิดใช้ ไม่ใช่ตามชนิดของข้อมูล:
    งานที่แตะทุกวันอยู่บนสุด ข้อมูลหลักแก้เป็นครั้งคราว ระบบแทบไม่แตะเลย
    รายการ ปลายทาง และสิทธิ์ของทุกบรรทัดเท่าเดิม — จัดกลุ่มอย่างเดียว */
-const NAV: NavGroup[] = [
+export const NAV: NavGroup[] = [
   {
     label: 'ปฏิบัติการ',
     items: [
       /* หน้าแรกต้องมีบรรทัดของตัวเองในเมนู — ตอนที่มันเป็นแค่แผงลิงก์ การไม่มีทางกลับ
          ยังพอทน เพราะกลับไปก็ไม่มีอะไร ตอนนี้มันคือสรุปของทั้งวัน ทางกลับจึงต้องมี */
-      { to: '/', label: 'ภาพรวมวันนี้', icon: IconDashboard },
+      { to: '/', label: 'ภาพรวมวันนี้', icon: IconDashboard, perm: 'dashboard.view' },
       { to: '/my-jobs', label: 'งานของฉัน', icon: IconClipboard, perm: 'myjobs.view' },
       /* หน้าเดียวจบ — รอบดึงข้อมูลเดินอยู่บนหน้านี้เอง แยกเป็นสองหน้าแล้วรอบดึงจะหยุด
          ทันทีที่คนสลับมาดูเที่ยว ซึ่งเป็นสิ่งที่เกิดตลอดวัน */
@@ -59,9 +59,7 @@ const NAV: NavGroup[] = [
       { to: '/delivery-documents', label: 'พิมพ์ใบส่งสินค้า', icon: IconPrinter, perm: 'dispatch.view' },
       { to: '/dispatch', label: 'แผนงานขนส่ง', icon: IconRoute, perm: 'dispatch.view' },
       { to: '/tracking', label: 'ติดตามรถ', icon: IconPin, perm: ['dispatch.view', 'myjobs.view'] },
-      /* ผูกกับ dispatch.view ไปก่อน — ยังไม่มีสิทธิ์ reports.view ใน catalog ของฐาน
-         ใส่ชื่อสิทธิ์ที่ยังไม่มีจริง = can() คืน false ตลอด เมนูจะไม่ขึ้นให้ใครเลย */
-      { to: '/reports', label: 'รายงาน', icon: IconReport, perm: 'dispatch.view' },
+      { to: '/reports', label: 'รายงาน', icon: IconReport, perm: 'reports.view' },
     ],
   },
   {
@@ -81,6 +79,16 @@ const NAV: NavGroup[] = [
     ],
   },
 ]
+
+/** หน้าแรกที่เปิดได้จริงของคนที่ไม่มี dashboard.view — เรียงตามเมนู ใช้ NAV ชุดเดียวกันจะได้ไม่เพี้ยนกัน */
+export function firstAllowedRoute(can: (perm: string) => boolean): string | null {
+  for (const g of NAV) {
+    for (const i of g.items) {
+      if (i.to !== '/' && i.perm && [i.perm].flat().some((p) => can(p))) return i.to
+    }
+  }
+  return null
+}
 
 const RAIL_KEY = 'ops-rail-collapsed'
 

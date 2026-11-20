@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useCloudAuth } from './context/CloudAuthContext'
 import { useDriverSkin } from './hooks/useDriverSkin'
-import { CloudLayout } from './components/CloudLayout'
+import { CloudLayout, firstAllowedRoute } from './components/CloudLayout'
 import { ChangePasswordModal } from './components/ChangePasswordModal'
 
 /**
@@ -72,16 +72,17 @@ function Protected(): React.JSX.Element {
 }
 
 /** หน้าแรกขึ้นกับสิทธิ์ — คนขับไม่มีสิทธิ์ฝั่งออฟฟิศ พาไปหน้าออฟฟิศคือส่งไปเจอหน้าว่าง */
-function Home(): React.JSX.Element {
+export function Home(): React.JSX.Element {
   const { can, user } = useCloudAuth()
   /* คนขับเข้าหน้าออฟฟิศไปก็เจอหน้าว่าง พาไปงานของเขาเลย
      ตัดสินด้วย role ไม่ใช่ myjobs.view — ผู้ดูแลระบบก็มีสิทธิ์นั้นติดตัวมาด้วย
      เงื่อนไขเดิมจึงส่งคนออฟฟิศทุกคนที่มีสิทธิ์นั้นข้ามหน้าแรกไปที่จอคนขับ
      (เกณฑ์เดียวกับที่ CloudLayout ใช้เลือกโครงหน้าจอ) */
   if (user?.role === 'driver') return <Navigate to="/my-jobs" replace />
-  if (can('customers.view') || can('orders.view') || can('orders.write') || can('dispatch.view')) return <CloudHome />
-  if (can('myjobs.view')) return <Navigate to="/my-jobs" replace />
-  if (can('users.manage')) return <Navigate to="/users" replace />
+  if (can('dashboard.view')) return <CloudHome />
+  /* ไม่มี dashboard.view = พาไปหน้าแรกในเมนูที่เปิดได้ (Protected รอโปรไฟล์โหลดเสร็จก่อนแล้ว จึงไม่เด้งตอนยังโหลด) */
+  const target = firstAllowedRoute(can)
+  if (target) return <Navigate to={target} replace />
   /* ไม่เข้าเงื่อนไขไหนเลย = ล็อกอินได้แต่ไม่มีสิทธิ์เปิดหน้าไหนได้เลย
      ห้ามเด้งไป /login เด็ดขาด — PublicOnly จะเห็นว่ามี user แล้วเด้งกลับมาที่นี่ วนไม่จบ
      และผู้ใช้จะเห็นแค่หน้าล็อกอินค้างอยู่ เหมือนรหัสผิดทั้งที่เข้าระบบได้แล้ว */
@@ -142,7 +143,7 @@ export default function AppCloud(): React.JSX.Element {
           <Route path="/dispatch" element={<RequirePermission permission="dispatch.view"><CloudDispatch /></RequirePermission>} />
           {/* ผู้วางแผนงานเข้าด้วย dispatch.view · คนขับเข้าด้วย myjobs.view เห็นเฉพาะเส้นทางของตัวเอง ซึ่งบังคับที่ฝั่ง SQL */}
           <Route path="/tracking" element={<RequirePermission permission={['dispatch.view', 'myjobs.view']}><CloudTracking /></RequirePermission>} />
-          <Route path="/reports" element={<RequirePermission permission="dispatch.view"><CloudReports /></RequirePermission>} />
+          <Route path="/reports" element={<RequirePermission permission="reports.view"><CloudReports /></RequirePermission>} />
           <Route path="/vehicles" element={<RequirePermission permission="vehicles.view"><CloudVehicles /></RequirePermission>} />
           <Route path="/drivers" element={<RequirePermission permission="drivers.view"><CloudDrivers /></RequirePermission>} />
           <Route path="/customers" element={<RequirePermission permission="customers.view"><CloudCustomers /></RequirePermission>} />
