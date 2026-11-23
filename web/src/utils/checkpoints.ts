@@ -89,6 +89,14 @@ export async function logCheckpoint(
   kind: CheckpointKind,
   extra?: Record<string, unknown>,
 ): Promise<void> {
+  /* กันกดซ้ำ — เที่ยวหนึ่งจบได้ครั้งเดียว */
+  if (kind === 'trip_end') {
+    const key = `tms.tripEnd.${tripId}`
+    try {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, '1')
+    } catch { /* storage ปิด — ปล่อยผ่าน */ }
+  }
   const pos = await getPosition()
   const row: CheckpointRow = {
     trip_id: tripId,

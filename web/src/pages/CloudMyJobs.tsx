@@ -297,14 +297,16 @@ export default function CloudMyJobs(): React.JSX.Element {
         const km = parseKm(finishOdo)
         if (km !== null) await logOdometer(job.vehicle_id, km, 'end', finishSuspect !== null)
         /* รูปหน้าปัดไม่บังคับ — อัปไม่ผ่านไม่ขวางการจบงาน แจ้งเตือนแล้วไปต่อ */
+        let photoPath: string | null = null
         if (finishPhoto) {
           try {
-            const path = await uploadTripPhoto(job.id, 'odometer', finishPhoto)
-            void logCheckpoint(String(job.id), 'trip_end', { odometer_km: km, odometer_photo_path: path })
+            photoPath = await uploadTripPhoto(job.id, 'odometer', finishPhoto)
           } catch (err) {
             toast.push('warning', `อัปรูปหน้าปัดไม่สำเร็จ: ${(err as Error).message}`)
           }
         }
+        /* จุดเดียวที่บันทึก trip_end — มีหรือไม่มีรูปก็บันทึกพิกัดตอนจบเที่ยว */
+        void logCheckpoint(String(job.id), 'trip_end', { odometer_km: km, odometer_photo_path: photoPath })
       }
       await (action === 'accept' ? acceptTrip(job.id)
         : action === 'start' ? startTrip(job.id)

@@ -164,7 +164,9 @@ export function JobFocus({
   }
   const act = (action: 'start' | 'complete' | 'accept' | 'finish'): void => {
     if (action === 'start') checkpoint('trip_start')
-    if (action === 'finish' || action === 'complete') checkpoint('trip_end')
+    /* trip_end บันทึกที่เดียว ตอนยืนยันจบงานใน CloudMyJobs (มีเลขไมล์ + รูปหน้าปัด)
+       ที่นี่แค่เปิดหน้าจบงาน คนขับยังกดยกเลิกได้ และ 'complete' คือส่งร้านสุดท้ายเสร็จ
+       ไม่ใช่จบเที่ยว — เคยบันทึกทั้งสามจุดจนได้ trip_end 2–3 แถวต่อเที่ยว */
     onAct(job, action)
   }
   const deliver = (s: StopGroup): void => {
