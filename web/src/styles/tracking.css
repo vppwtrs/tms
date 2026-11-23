@@ -1,0 +1,323 @@
+﻿/* tracking.css — หน้าติดตามรถ (CloudTracking) แบบสองคอลัมน์ธีมสว่าง
+   ใช้ token ของระบบ จึงตามโหมดมืดได้เอง สีสถานะบนแผนที่เป็นสีคงที่เพราะวางบน tile ชุดเดียวกันทุกธีม */
+
+.trk-app {
+  --trk-pri: #6c4ef5;
+  --trk-cy: #0ea5e9;
+  --trk-ok: #10b981;
+  --trk-warn: #f59e0b;
+  --trk-bad: #ef4444;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: calc(100vh - var(--topbar-height) - 40px);
+  min-height: 520px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/* ---------- แผงซ้าย ---------- */
+.trk-side {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+  overflow: auto;
+  min-height: 0;
+}
+
+.trk-title {
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.trk-live {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--trk-ok);
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.trk-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--trk-ok);
+  animation: trk-live 1.4s infinite;
+}
+@keyframes trk-live {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  100% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+}
+
+.trk-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.trk-kpi {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 14px -8px rgba(108, 84, 230, 0.3);
+}
+.trk-kpi b { font-size: 18px; line-height: 1.2; display: block; }
+.trk-kpi b.is-ok { color: var(--trk-ok); }
+.trk-kpi b.is-warn { color: var(--trk-warn); }
+.trk-kpi span { font-size: 11px; color: var(--muted); }
+
+.trk-search {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+}
+.trk-search:focus { outline: 2px solid var(--trk-pri); outline-offset: 0; }
+
+.trk-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.trk-chip {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface);
+  cursor: pointer;
+}
+.trk-chip.on {
+  background: var(--trk-pri);
+  color: #fff;
+  border-color: transparent;
+}
+
+.trk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.trk-none { font-size: 13px; color: var(--muted); }
+
+.trk-trip-row { position: relative; }
+.trk-trip {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px 32px 10px 12px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.trk-trip:hover,
+.trk-trip.sel {
+  border-color: rgba(108, 84, 230, 0.55);
+  box-shadow: 0 12px 30px -14px rgba(108, 84, 230, 0.55);
+}
+.trk-more {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.trk-more:hover { background: rgba(108, 84, 230, 0.12); color: var(--trk-pri); }
+
+.trk-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.trk-plate { font-weight: 700; font-size: 15px; }
+.trk-mut { color: var(--muted); font-size: 12px; }
+
+.trk-st {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.trk-st.ok { background: rgba(16, 185, 129, 0.12); color: var(--trk-ok); }
+.trk-st.bad { background: rgba(239, 68, 68, 0.12); color: var(--trk-bad); }
+.trk-st.mute { background: rgba(122, 117, 151, 0.14); color: var(--muted); }
+
+.trk-bar {
+  display: block;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(108, 84, 230, 0.12);
+  overflow: hidden;
+}
+.trk-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--trk-pri), var(--trk-cy));
+}
+
+.trk-note { margin: 0; font-size: 12px; color: var(--muted); }
+
+/* ---------- แผนที่ ---------- */
+.trk-map { position: relative; min-height: 0; }
+.trk-leaflet { position: absolute; inset: 0; font-family: var(--font-sans); }
+
+/* ปรับสี tile พื้นให้เข้าธีม — เฉพาะกล่องแผนที่ของหน้านี้ และไม่แตะชั้นจราจร */
+.trk-map .trk-base-tiles {
+  filter: saturate(0.35) brightness(1.04) hue-rotate(200deg) contrast(0.95);
+}
+
+.trk-top {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  right: 70px; /* เว้นที่ให้ปุ่มซูมมุมขวาบน */
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  z-index: 500;
+  pointer-events: none;
+}
+.trk-top > * { pointer-events: auto; }
+
+.trk-glass {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  color: var(--ink);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  box-shadow: 0 10px 30px -12px rgba(29, 24, 56, 0.25);
+}
+.trk-seg { display: flex; gap: 4px; padding: 4px; }
+.trk-seg span { padding: 6px 12px; border-radius: 10px; color: var(--muted); }
+.trk-seg span.on { background: var(--trk-pri); color: #fff; }
+
+.trk-detail {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 340px;
+  max-height: calc(100% - 100px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  z-index: 500;
+}
+.trk-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+.trk-kv dt { color: var(--muted); }
+.trk-kv dd { margin: 0; text-align: right; }
+.trk-btns { display: flex; gap: 8px; }
+.trk-btns > * { flex: 1; }
+
+/* ---------- หมุดรถ ---------- */
+.trk-icon { background: none; border: 0; }
+.trk-truck {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  border: 3px solid #fff;
+  box-shadow: 0 6px 16px rgba(29, 24, 56, 0.3);
+  transition: transform 0.2s;
+}
+.trk-truck.is-active { transform: scale(1.18); }
+.trk-truck::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  animation: trk-ring 2s infinite;
+  opacity: 0.6;
+}
+@keyframes trk-ring {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.trk-label {
+  position: absolute;
+  left: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #fff;
+  color: #1d1838;
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 4px 10px rgba(29, 24, 56, 0.2);
+  white-space: nowrap;
+}
+
+/* ---------- จอแคบ: แผงรายการอยู่บน แผนที่อยู่ล่าง ---------- */
+@media (max-width: 900px) {
+  .trk-app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 480px;
+    height: auto;
+  }
+  .trk-side { border-right: 0; border-bottom: 1px solid var(--line); max-height: 60vh; }
+  .trk-detail { width: auto; left: 18px; }
+}
+
+/* ---------- หุบ/เปิดแผงซ้าย ---------- */
+.trk-app { transition: grid-template-columns 0.2s ease; }
+.trk-app.is-collapsed { grid-template-columns: 0 1fr; }
+.trk-app.is-collapsed .trk-side { padding: 0; border-right: 0; overflow: hidden; }
+.trk-collapse {
+  margin-left: auto;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+}
+.trk-collapse:hover { color: var(--trk-pri); border-color: var(--trk-pri); }
+.trk-open { font: inherit; font-size: 13px; cursor: pointer; color: var(--ink); }
+.trk-open:hover { color: var(--trk-pri); }
+@media (max-width: 900px) {
+  .trk-app.is-collapsed { grid-template-columns: 1fr; grid-template-rows: 480px; }
+  .trk-app.is-collapsed .trk-side { display: none; }
+}

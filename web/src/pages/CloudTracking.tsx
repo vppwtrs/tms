@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { trackingBoard, tripTrack, type TrackedTrip, type TrackPoint } from '../api/tracking'
 import { useCloudAuth } from '../context/CloudAuthContext'
-import { Badge, Button, EmptyState, ErrorBox, PageHeader, Skeleton } from '../components/ui'
-import { IconChevronLeft, IconChevronRight, IconTruck } from '../components/icons'
+import { Button, EmptyState, ErrorBox, Skeleton } from '../components/ui'
+import { IconChevronRight, IconTruck } from '../components/icons'
 import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { fmtDateTime } from '../utils/format'
+import '../styles/tracking.css'
 
 /**
  * หน้าติดตามรถ
@@ -94,6 +95,26 @@ const TRAFFIC_URL = LONGDO_KEY
 
 const TRAFFIC_PREF = 'tracking-traffic'
 
+const COLOR_ROUTE = '#6c4ef5'
+const COLOR_OK = '#10b981'
+const COLOR_LIVE = '#0ea5e9'
+const COLOR_STALE = '#ef4444'
+
+function isStale(t: TrackedTrip): boolean {
+  return t.status !== 'completed' && !!t.last_seen && minutesAgo(t.last_seen.recorded_at) * 60000 > STALE_MS
+}
+
+/** หมุดรถ: วงกลมสีตามสถานะ + วงคลื่น + ป้ายทะเบียน */
+function truckIcon(t: TrackedTrip, stale: boolean, active: boolean): L.DivIcon {
+  const c = stale ? COLOR_STALE : COLOR_LIVE
+  return L.divIcon({
+    className: 'trk-icon',
+    html: `<div class="trk-truck${active ? ' is-active' : ''}" style="background:${c};color:${c}"><span>🚚</span></div><div class="trk-label">${t.plate_no}</div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  })
+}
+
 export default function CloudTracking(): React.JSX.Element {
   const { can } = useCloudAuth()
   const [trips, setTrips] = useState<TrackedTrip[]>([])
@@ -108,13 +129,27 @@ export default function CloudTracking(): React.JSX.Element {
 
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
+  const trafficLayer = useRef<L.TileLayer | null>(null)
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<'all' | 'live' | 'stale'>('all')
+  const [traffic, setTraffic] = useState(() => localStorage.getItem(TRAFFIC_PREF) === '1')
+  const [syncedAt, setSyncedAt] = useState<Date | null>(null)
   /* แผนที่พร้อมวาดหรือยัง — ref เปลี่ยนค่าไม่ทำให้ effect วาดหมุดรันใหม่
      ต้องเป็น state ไม่งั้นแผนที่ที่เพิ่งเกิดจะว่างเปล่าจนกว่าข้อมูลจะเปลี่ยนรอบถัดไป */
   const [mapReady, setMapReady] = useState(false)
+  /* หุบแผงซ้ายได้เหมือนเมนู ให้แผนที่เต็มจอ — จำไว้ในเครื่อง */
+  const [sideOpen, setSideOpen] = useState(() => localStorage.getItem('tracking-side') !== '0')
+  useEffect(() => {
+    localStorage.setItem('tracking-side', sideOpen ? '1' : '0')
+    /* Leaflet ต้องรู้ว่ากล่องแผนที่เปลี่ยนขนาด ไม่งั้นมีขอบเทาค้าง */
+    const t = setTimeout(() => map.current?.invalidateSize(), 220)
+    return () => clearTimeout(t)
+  }, [sideOpen])
 
   const load = async (): Promise<void> => {
     try {
       setTrips(await trackingBoard())
+      setSyncedAt(new Date())
       setError('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'โหลดตำแหน่งไม่สำเร็จ')
@@ -147,30 +182,38 @@ export default function CloudTracking(): React.JSX.Element {
       map.current?.remove()
       map.current = null
       layer.current = null
+      trafficLayer.current = null
       setMapReady(false)
       return
     }
     if (map.current) return
-    const m = L.map(node).setView(HOME, 10)
-    L.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.credit }).addTo(m)
+    const m = L.map(node, { zoomControl: false }).setView(HOME, 10)
+    /* className ใช้ให้ CSS ปรับสีเฉพาะแผ่นพื้น ไม่แตะชั้นจราจรที่ต้องคงสีแดง-เขียวไว้ */
+    L.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.credit, className: 'trk-base-tiles' }).addTo(m)
+    L.control.zoom({ position: 'topright' }).addTo(m)
 
-    /* ปุ่มเปิด-ปิดจราจรของ Leaflet เอง ไม่ต้องมีปุ่มของเราให้ดูแลอีกอัน
-       ไม่มีคีย์ = ไม่มีชั้นนี้ และไม่มีปุ่มที่กดแล้วไม่เกิดอะไรขึ้นให้คนงง */
+    /* ชั้นจราจรสลับด้วยชิปในแผงซ้าย (effect ข้างล่าง) ไม่มีคีย์ = ไม่มีชั้นนี้และไม่มีชิป */
     if (TRAFFIC_URL) {
-      const traffic = L.tileLayer(TRAFFIC_URL, {
+      trafficLayer.current = L.tileLayer(TRAFFIC_URL, {
         maxZoom: 19,
         opacity: 0.85,
         attribution: '© Longdo Traffic Map',
       })
-      if (localStorage.getItem(TRAFFIC_PREF) === '1') traffic.addTo(m)
-      L.control.layers(undefined, { 'การจราจร': traffic }, { collapsed: false }).addTo(m)
-      m.on('overlayadd', () => localStorage.setItem(TRAFFIC_PREF, '1'))
-      m.on('overlayremove', () => localStorage.removeItem(TRAFFIC_PREF))
     }
     map.current = m
     layer.current = L.layerGroup().addTo(m)
     setMapReady(true)
   }, [])
+
+  useEffect(() => {
+    const m = map.current
+    const tl = trafficLayer.current
+    if (!m || !tl) return
+    if (traffic) tl.addTo(m)
+    else tl.remove()
+    if (traffic) localStorage.setItem(TRAFFIC_PREF, '1')
+    else localStorage.removeItem(TRAFFIC_PREF)
+  }, [traffic, mapReady])
 
   // วาดใหม่เมื่อข้อมูลเปลี่ยน — ล้างเฉพาะชั้นหมุด ไม่แตะแผนที่ข้างล่าง
   useEffect(() => {
@@ -186,16 +229,10 @@ export default function CloudTracking(): React.JSX.Element {
       seen.push(at)
       const stale = minutesAgo(t.last_seen.recorded_at) * 60000 > STALE_MS
 
-      L.circleMarker(at, {
-        radius: t.trip_id === selected ? 11 : 8,
-        color: stale ? mapColor('map-stale') : mapColor('map-live'),
-        fillColor: stale ? mapColor('map-stale-fill') : mapColor('map-live-fill'),
-        fillOpacity: 0.9,
-        weight: 2,
-      })
+      L.marker(at, { icon: truckIcon(t, stale, t.trip_id === selected), zIndexOffset: t.trip_id === selected ? 1000 : 0 })
         .bindTooltip(
           `${t.plate_no} · ${t.drivers ?? 'ไม่ระบุคนขับ'}<br>เห็นล่าสุด ${minutesAgo(t.last_seen.recorded_at)} นาทีที่แล้ว`,
-          { direction: 'top' },
+          { direction: 'top', offset: [0, -18] },
         )
         .on('click', () => setSelected(t.trip_id))
         .addTo(group)
@@ -212,11 +249,11 @@ export default function CloudTracking(): React.JSX.Element {
 
       for (const p of t.pod_points) {
         L.circleMarker([p.lat, p.lng], {
-          radius: 5,
-          color: mapColor('map-pod-fill'),
-          fillColor: mapColor('map-pod'),
+          radius: 6,
+          color: '#ffffff',
+          fillColor: COLOR_OK,
           fillOpacity: 1,
-          weight: 1,
+          weight: 2,
         })
           .bindTooltip(`ส่งเสร็จ ${fmtDateTime(p.collected_at)}`, { direction: 'top' })
           .addTo(group)
@@ -226,23 +263,28 @@ export default function CloudTracking(): React.JSX.Element {
     /* วาดทีละช่วง ไม่ใช่เส้นเดียวรวด — ช่วงที่ขาดการติดต่อนานคือเส้นที่เราเดาเอง
        ไม่ใช่ทางที่รถวิ่งจริง เคยเจอช่วงห่าง 26 นาทีลากตรง 26 กิโลพาดกลางเมือง
        ซึ่งอ่านแล้วเข้าใจว่ารถวิ่งเส้นนั้น เส้นประบอกว่า "ตรงนี้ไม่รู้" */
+    /* ส่วนที่วิ่งผ่านแล้ว: เส้นทึบ #6c4ef5 มีฮาโลกว้างโปร่ง 15% ข้างหลัง */
     for (let i = 1; i < track.length; i++) {
       const a = track[i - 1]
       const b = track[i]
       if (!a || !b) continue
       const gapMs = new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
       const lost = gapMs > GAP_MS
-      const line = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
-        color: lost ? mapColor('map-stale') : mapColor('map-track'),
-        weight: lost ? 2 : 3,
-        opacity: lost ? 0.55 : 0.65,
-        dashArray: lost ? '6 8' : undefined,
-      }).addTo(group)
+      const pts: [number, number][] = [[a.lat, a.lng], [b.lat, b.lng]]
       if (lost) {
+        const line = L.polyline(pts, {
+          color: COLOR_ROUTE,
+          weight: 3,
+          opacity: 0.6,
+          dashArray: '6 8',
+        }).addTo(group)
         line.bindTooltip(
           `ขาดช่วง ${Math.round(gapMs / 60000)} นาที — ไม่ใช่เส้นทางจริง`,
           { sticky: true },
         )
+      } else {
+        L.polyline(pts, { color: COLOR_ROUTE, weight: 9, opacity: 0.15, lineCap: 'round' }).addTo(group)
+        L.polyline(pts, { color: COLOR_ROUTE, weight: 4, lineCap: 'round' }).addTo(group)
       }
     }
 
@@ -254,113 +296,119 @@ export default function CloudTracking(): React.JSX.Element {
   const withoutSignal = useMemo(() => trips.filter((t) => !t.last_seen).length, [trips])
   const detailTrip = trips.find((t) => t.trip_id === detailId) ?? null
 
+  const stats = useMemo(() => {
+    let running = 0
+    let stale = 0
+    let delivered = 0
+    for (const t of trips) {
+      if (t.status !== 'completed') running++
+      if (isStale(t)) stale++
+      delivered += t.stops_done
+    }
+    return { running, stale, delivered }
+  }, [trips])
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return trips.filter((t) => {
+      if (filter === 'live' && (t.status === 'completed' || isStale(t))) return false
+      if (filter === 'stale' && !isStale(t)) return false
+      if (!q) return true
+      return [t.plate_no, t.drivers ?? '', t.trip_no].some((v) => v.toLowerCase().includes(q))
+    })
+  }, [trips, query, filter])
+
   if (!can('tracking.view') && !can('myjobs.view')) {
     return <ErrorBox message="ไม่มีสิทธิ์ดูหน้าติดตามรถ" />
   }
 
-  return (
-    <>
-      <PageHeader
-        title="ติดตามรถ"
-        subtitle="ตำแหน่งล่าสุดของเที่ยวที่กำลังวิ่ง และจุดที่เก็บหลักฐานการส่งไปแล้ว"
-      />
+  if (loading) return <Skeleton height={420} />
 
-      {error && <ErrorBox message={error} onRetry={() => void load()} />}
-
-      {/* บอกข้อจำกัดไว้บนหน้า ไม่ใช่ให้คนอ่านสรุปเอาเองว่าหมุดที่เห็นคือตำแหน่งสด */}
-      <p className="text-xs text-muted" style={{ marginBottom: 12 }}>
-        ตำแหน่งส่งเข้ามาเฉพาะตอนคนขับเปิดแอปค้างไว้ · เส้นประคือช่วงที่ขาดการติดต่อ
-        ไม่ใช่เส้นทางที่รถวิ่งจริง · เก็บย้อนหลัง 30 วันแล้วลบอัตโนมัติ
-      </p>
-
-      {loading ? (
-        <Skeleton height={420} />
-      ) : trips.length === 0 ? (
+  if (trips.length === 0) {
+    return (
+      <>
+        {error && <ErrorBox message={error} onRetry={() => void load()} />}
         <EmptyState
           icon={<IconTruck size={28} />}
           title="ยังไม่มีเที่ยวที่กำลังวิ่ง"
           desc="เมื่อฝ่ายวางแผนสั่งงานและคนขับกดรับ รถจะขึ้นบนแผนที่นี้"
         />
-      ) : (
-        <div className="ops-map-wrap">
-          <div ref={holder} className="ops-map" />
+      </>
+    )
+  }
 
-          {/* รายการรถลอยทับมุมซ้าย — แผนที่ได้พื้นที่ทั้งกรอบ
-              บนจอแคบ ops.css ดันแผงนี้ลงไปอยู่ใต้แผนที่แทน */}
-          <div className="ops-map-panel ops-dark">
-            {detailTrip ? (
-              /* รายละเอียดอยู่ในแผงนี้ ไม่ใช่แผงที่เลื่อนมาจากขวา — ของที่ต้องดูคู่กับ
-                 ไทม์ไลน์คือแผนที่ แผงขวาบังครึ่งขวาของแผนที่ไปทั้งแถบ */
-              <>
-                <div className="ops-map-panel-head">
-                  <button type="button" className="ops-map-back" onClick={() => setDetailId(null)}>
-                    <IconChevronLeft size={15} /> กลับ
-                  </button>
-                  {detailTrip.plate_no}
-                </div>
-                <div className="ops-map-list">
-                  <div className="ops-map-sub" style={{ marginBottom: 12 }}>
-                    {detailTrip.trip_no} · {detailTrip.drivers ?? 'ไม่ระบุคนขับ'}
-                  </div>
-                  <dl className="ops-kv" style={{ marginBottom: 16 }}>
-                    <dt>ส่งแล้ว</dt>
-                    <dd>{detailTrip.stops_done}/{detailTrip.stops_total} จุด</dd>
-                    {/* เที่ยวที่จบแล้วไม่ต้องนับนาทีตั้งแต่เห็นล่าสุด — คนขับปิดแอปไปแล้ว
-                        ตัวเลขจะโตขึ้นทั้งคืนแล้วอ่านเหมือนรถหาย ทั้งที่งานจบไปตั้งนานแล้ว */}
-                    {detailTrip.status !== 'completed' && (
-                      <>
-                        <dt>เห็นล่าสุด</dt>
-                        <dd>
-                          {detailTrip.last_seen
-                            ? `${minutesAgo(detailTrip.last_seen.recorded_at)} นาทีที่แล้ว`
-                            : 'ยังไม่ส่งตำแหน่งเข้ามา'}
-                        </dd>
-                      </>
-                    )}
-                    <dt>จุดที่บันทึกไว้</dt>
-                    <dd>{track.length} จุด</dd>
-                  </dl>
-                  <Timeline steps={timelineOf(detailTrip)} />
-                </div>
-              </>
-            ) : (
-            <>
-            <div className="ops-map-panel-head">
-              <IconTruck size={15} /> เที่ยววันนี้ {trips.length} คัน
-            </div>
-            <ul className="track-list ops-map-list">
-            {trips.map((t) => (
-              <li key={t.trip_id} className="ops-track-row">
+  const statusOf = (t: TrackedTrip): { label: string; cls: string } => {
+    if (t.status === 'completed') return { label: 'จบแล้ว', cls: 'ok' }
+    if (!t.last_seen) return { label: 'ยังไม่ส่งตำแหน่ง', cls: 'mute' }
+    if (isStale(t)) return { label: 'ขาดสัญญาณ', cls: 'bad' }
+    return { label: 'กำลังวิ่ง', cls: 'ok' }
+  }
+
+  const detailStatus = detailTrip ? statusOf(detailTrip) : null
+
+  return (
+    <div className={`trk-app${sideOpen ? '' : ' is-collapsed'}`}>
+      <aside className="trk-side">
+        <h1 className="trk-title">
+          ติดตามรถ <span className="trk-live"><i />LIVE</span>
+          <button type="button" className="trk-collapse" onClick={() => setSideOpen(false)} aria-label="หุบแผงรายการรถ" title="หุบแผง">‹</button>
+        </h1>
+
+        {error && <ErrorBox message={error} onRetry={() => void load()} />}
+
+        <div className="trk-kpis">
+          <div className="trk-kpi"><b>{stats.running}</b><span>กำลังวิ่ง</span></div>
+          <div className="trk-kpi"><b className="is-ok">{stats.delivered}</b><span>ส่งแล้ววันนี้</span></div>
+          <div className="trk-kpi"><b className="is-warn">{stats.stale}</b><span>ขาดสัญญาณ</span></div>
+        </div>
+
+        <input
+          className="trk-search"
+          type="search"
+          placeholder="ค้นทะเบียน คนขับ หรือเลขเที่ยว"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+
+        <div className="trk-chips">
+          <button type="button" className={`trk-chip${filter === 'all' ? ' on' : ''}`} onClick={() => setFilter('all')}>ทั้งหมด</button>
+          <button type="button" className={`trk-chip${filter === 'live' ? ' on' : ''}`} onClick={() => setFilter('live')}>กำลังวิ่ง</button>
+          <button type="button" className={`trk-chip${filter === 'stale' ? ' on' : ''}`} onClick={() => setFilter('stale')}>ขาดสัญญาณ</button>
+          {TRAFFIC_URL && (
+            <button type="button" className={`trk-chip${traffic ? ' on' : ''}`} onClick={() => setTraffic((v) => !v)}>จราจร</button>
+          )}
+        </div>
+
+        <ul className="trk-list">
+          {visible.length === 0 && <li className="trk-none">ไม่พบเที่ยวที่ตรงกับตัวกรอง</li>}
+          {visible.map((t) => {
+            const st = statusOf(t)
+            const pct = t.stops_total > 0 ? Math.round((t.stops_done / t.stops_total) * 100) : 0
+            return (
+              <li key={t.trip_id} className="trk-trip-row">
                 <button
                   type="button"
-                  className={`track-item${t.trip_id === selected ? ' is-active' : ''}`}
+                  className={`trk-trip${t.trip_id === selected ? ' sel' : ''}`}
                   onClick={() => setSelected(t.trip_id === selected ? null : t.trip_id)}
                 >
-                  <span className="track-item-plate">{t.plate_no}</span>
-                  <span className="track-item-driver">{t.drivers ?? 'ไม่ระบุคนขับ'}</span>
-                  <span className="track-item-meta">
-                    ส่งแล้ว {t.stops_done}/{t.stops_total} จุด
+                  <span className="trk-row">
+                    <span className="trk-plate">{t.plate_no}</span>
+                    <span className={`trk-st ${st.cls}`}>{st.label}</span>
                   </span>
-                  {/* เที่ยวที่จบแล้วไม่มี "เห็นล่าสุด" ที่มีความหมาย — คนขับปิดแอปไปแล้ว
-                      เลขนาทีที่โตขึ้นเรื่อย ๆ อ่านเหมือนรถขาดการติดต่อ ทั้งที่งานจบเรียบร้อย */}
-                  {t.status === 'completed' ? (
-                    <Badge label="จบแล้ว" tone="delivered" />
-                  ) : t.last_seen ? (
-                    <Badge
-                      label={`เห็นล่าสุด ${minutesAgo(t.last_seen.recorded_at)} นาที`}
-                      tone={minutesAgo(t.last_seen.recorded_at) * 60000 > STALE_MS ? 'warning' : 'success'}
-                    />
-                  ) : (
-                    <Badge label="ยังไม่ส่งตำแหน่ง" tone="neutral" />
-                  )}
+                  <span className="trk-row trk-mut">
+                    <span>{t.drivers ?? 'ไม่ระบุคนขับ'}</span>
+                    {/* เที่ยวที่จบแล้วไม่มี "เห็นล่าสุด" ที่มีความหมาย — คนขับปิดแอปไปแล้ว */}
+                    {t.status !== 'completed' && t.last_seen && (
+                      <span>อัปเดต {minutesAgo(t.last_seen.recorded_at)} นาทีก่อน</span>
+                    )}
+                  </span>
+                  <span className="trk-bar"><i style={{ width: `${pct}%` }} /></span>
+                  <span className="trk-mut">ส่งแล้ว {t.stops_done}/{t.stops_total} จุด</span>
                 </button>
-                {/* ปุ่มพี่น้อง ไม่ใช่ปุ่มซ้อนในปุ่ม — เที่ยวที่จบแล้วก็กดดูไทม์ไลน์ได้
-                    ซึ่งเป็นตอนที่คนอยากดูมากที่สุด */}
+                {/* ปุ่มพี่น้อง ไม่ใช่ปุ่มซ้อนในปุ่ม — เที่ยวที่จบแล้วก็กดดูไทม์ไลน์ได้ */}
                 <button
                   type="button"
-                  className="ops-track-more"
-                  /* เลือกคันนี้บนแผนที่ไปด้วย — เส้นทางที่กำลังอ่านอยู่ควรอยู่ตรงหน้า
-                     ไม่ใช่ต้องกลับไปกดอีกทีเพื่อให้มันขึ้น */
+                  className="trk-more"
                   onClick={() => { setDetailId(t.trip_id); setSelected(t.trip_id) }}
                   aria-label={`ไทม์ไลน์ของ ${t.plate_no}`}
                   title="ดูไทม์ไลน์ของเที่ยวนี้"
@@ -368,30 +416,78 @@ export default function CloudTracking(): React.JSX.Element {
                   <IconChevronRight size={16} />
                 </button>
               </li>
-            ))}
-            </ul>
-            </>
+            )
+          })}
+        </ul>
+
+        {/* บอกข้อจำกัดไว้บนหน้า ไม่ใช่ให้คนอ่านสรุปเอาเองว่าหมุดที่เห็นคือตำแหน่งสด */}
+        <p className="trk-note">
+          ตำแหน่งส่งเข้ามาเฉพาะตอนคนขับเปิดแอปค้างไว้ · เส้นประคือช่วงที่ขาดการติดต่อ
+          ไม่ใช่เส้นทางที่รถวิ่งจริง · เก็บย้อนหลัง 30 วันแล้วลบอัตโนมัติ
+        </p>
+        {withoutSignal > 0 && (
+          <p className="trk-note">
+            {withoutSignal} เที่ยวยังไม่ส่งตำแหน่งเข้ามา — คนขับอาจยังไม่กดรับงาน หรือปิดแอปไว้
+          </p>
+        )}
+        {selected != null && track.length === 0 && (
+          <p className="trk-note">เที่ยวนี้ยังไม่มีเส้นทางย้อนหลัง</p>
+        )}
+      </aside>
+
+      <main className="trk-map">
+        <div ref={holder} className="trk-leaflet" />
+
+        <div className="trk-top">
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!sideOpen && (
+              <button type="button" className="trk-glass trk-open" onClick={() => setSideOpen(true)} aria-label="เปิดแผงรายการรถ">☰ รายการรถ</button>
             )}
+            <div className="trk-glass trk-seg"><span className="on">สด</span></div>
+          </div>
+          <div className="trk-glass">
+            อัปเดตอัตโนมัติทุก {REFRESH_MS / 1000} วิ
+            {syncedAt && ` · ซิงก์ล่าสุด ${syncedAt.toLocaleTimeString('th-TH', { hour12: false })}`}
           </div>
         </div>
-      )}
 
-      {withoutSignal > 0 && (
-        <p className="text-xs text-muted" style={{ marginTop: 10 }}>
-          {withoutSignal} เที่ยวยังไม่ส่งตำแหน่งเข้ามา — คนขับอาจยังไม่กดรับงาน หรือปิดแอปไว้
-        </p>
-      )}
-
-      {selected != null && track.length === 0 && (
-        <p className="text-xs text-muted" style={{ marginTop: 6 }}>
-          เที่ยวนี้ยังไม่มีเส้นทางย้อนหลัง
-        </p>
-      )}
-
-      <Button variant="ghost" onClick={() => void load()} style={{ marginTop: 12 }}>
-        โหลดตำแหน่งใหม่
-      </Button>
-    </>
+        {detailTrip && detailStatus && (
+          <div className="trk-glass trk-detail">
+            <div className="trk-row">
+              <span className="trk-plate">{detailTrip.plate_no}</span>
+              <span className={`trk-st ${detailStatus.cls}`}>{detailStatus.label}</span>
+            </div>
+            <div className="trk-mut">
+              {detailTrip.trip_no} · {detailTrip.drivers ?? 'ไม่ระบุคนขับ'}
+            </div>
+            <dl className="trk-kv">
+              <dt>ส่งแล้ว</dt>
+              <dd>{detailTrip.stops_done}/{detailTrip.stops_total} จุด</dd>
+              {/* เที่ยวที่จบแล้วไม่ต้องนับนาทีตั้งแต่เห็นล่าสุด — ตัวเลขจะโตทั้งคืนแล้วอ่านเหมือนรถหาย */}
+              {detailTrip.status !== 'completed' && (
+                <>
+                  <dt>เห็นล่าสุด</dt>
+                  <dd>
+                    {detailTrip.last_seen
+                      ? `${minutesAgo(detailTrip.last_seen.recorded_at)} นาทีที่แล้ว`
+                      : 'ยังไม่ส่งตำแหน่งเข้ามา'}
+                  </dd>
+                </>
+              )}
+              <dt>จุดที่บันทึกไว้</dt>
+              <dd>{track.length} จุด</dd>
+            </dl>
+            <div className="trk-tl">
+              <Timeline steps={timelineOf(detailTrip)} />
+            </div>
+            <div className="trk-btns">
+              <Button variant="ghost" onClick={() => void load()}>โหลดตำแหน่งใหม่</Button>
+              <Button onClick={() => setDetailId(null)}>ปิด</Button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
   )
 }
 
