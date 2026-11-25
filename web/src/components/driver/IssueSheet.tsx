@@ -46,7 +46,7 @@ export function IssueSheet({ open, onClose, onSubmit, subtitle }: {
         <label className="iss-label iss-field">รายละเอียด{needNote ? ' (ต้องกรอก)' : ''}
           <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น ร้านปิด ป้ายเขียนหยุด 1 วัน" />
         </label>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
+        <input ref={fileRef} type="file" accept="image/*" hidden
           onChange={(e) => setPhoto(e.target.files?.[0])} />
         {preview ? (
           <div className="iss-photo">

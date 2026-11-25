@@ -144,7 +144,7 @@ export default function CloseTrip(props: CloseTripProps) {
           ) : null}
         </label>
         <label className="dbk-addrow">
-          <input type="file" accept="image/*" capture="environment" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+          <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
           <CamIcon />{photo ? 'ถ่ายรูปหน้าปัดแล้ว · ถ่ายใหม่' : 'ถ่ายรูปหน้าปัด'}
         </label>
         <div className="dbk-lbl">

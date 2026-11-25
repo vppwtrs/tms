@@ -134,10 +134,6 @@ export function PodSheet({ orders, onClose, onSaved, onUndo, initialNote }: {
     if (!file) return
     const k = pendingKind.current
     try {
-      if (Date.now() - file.lastModified > 10 * 60_000) {
-        toast.push('error', 'รูปนี้ไม่ได้ถ่ายตอนนี้ — กรุณาถ่ายใหม่ที่หน้าร้าน')
-        return
-      }
       capture(await compressFile(file, stampLines()), k)
     } catch (e) {
       toast.push('error', (e as Error).message)
@@ -409,7 +405,7 @@ export function PodSheet({ orders, onClose, onSaved, onUndo, initialNote }: {
           </button>
         </div>
 
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
+        <input ref={fileRef} type="file" accept="image/*" hidden
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void onFile(f) }} />
 
         {missing.length > 0 && shots.length > 0 && (

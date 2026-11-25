@@ -1048,7 +1048,7 @@ export default function CloudMyJobs(): React.JSX.Element {
                 )}
               </label>
               <label className="dbk-addrow">
-                <input type="file" accept="image/*" capture="environment" onChange={(e) => setFinishPhoto(e.target.files?.[0] ?? null)} />
+                <input type="file" accept="image/*" onChange={(e) => setFinishPhoto(e.target.files?.[0] ?? null)} />
                 <svg className="dbk-ic" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
                 {finishPhoto ? 'ถ่ายรูปหน้าปัดแล้ว · ถ่ายใหม่' : 'ถ่ายรูปหน้าปัด (ไม่บังคับ)'}
               </label>
