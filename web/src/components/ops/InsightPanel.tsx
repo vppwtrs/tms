@@ -25,7 +25,6 @@ const OWNER: Record<string, string> = {
   '/dispatch': 'ฝ่ายวางแผนการขนส่ง',
   '/drivers': 'ฝ่ายบุคคลขนส่ง',
   '/orders': 'ธุรการขนส่ง',
-  '/tms-trips': 'ธุรการขนส่ง',
 }
 
 /** เลขใบ JOB-DDMMYY-NN — เรียงตามลำดับที่แสดงบนจอ ไม่ใช่เลขจากฐาน

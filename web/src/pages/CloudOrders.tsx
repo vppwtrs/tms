@@ -23,7 +23,8 @@ import {
   Badge, Button, ConfirmDialog, EmptyState, ErrorBox, Field, Input, Modal,
   PageHeader, Pagination, SearchInput, Select, TableSkeleton,
 } from '../components/ui'
-import { IconBox, IconClock, IconDownload, IconEdit, IconPlus, IconPrinter, IconTrash } from '../components/icons'
+import { IconBox, IconClock, IconDownload, IconEdit, IconInbox, IconPlus, IconPrinter, IconTrash } from '../components/icons'
+import { TmsOrdersSection } from '../components/TmsOrdersSection'
 import { buildLabels, printLabels, type LabelStoreSummary } from '../utils/storeLabel'
 import { Timeline, type TimelineStep } from '../components/ops/Timeline'
 import { billNo, groupOrders, tripLabelSources, type StoreGroup, type TripGroup } from '../utils/orderGroups'
@@ -293,6 +294,10 @@ export default function CloudOrders(): React.JSX.Element {
   const canCancel = can('orders.cancel')
   /* เงื่อนไขเดียวกับปุ่มลบถาวรบนกระดานจัดคิว ไม่ได้เพิ่มสิทธิ์ใหม่ */
   const canPurge = can('users.manage')
+  /* งานจาก TMS: ปุ่ม แถบสถานะ และลิ้นชัก เฉพาะคนที่มี tms.view */
+  const canTms = can('tms.view')
+  const [tmsOpen, setTmsOpen] = useState(false)
+  const [tmsPending, setTmsPending] = useState<number | null>(null)
 
   const [data, setData] = useState<Paged<OrderListRow> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -588,8 +593,24 @@ export default function CloudOrders(): React.JSX.Element {
             <Button variant="ghost" size="sm" onClick={resetFilters}>กลับเป็นวันนี้</Button>
           )}
         </>}
-        actions={canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>สร้างออเดอร์</Button>}
+        actions={(canEdit || canTms) && <>
+          {canTms && (
+            <Button variant="outline" icon={<IconInbox size={16} />} onClick={() => setTmsOpen(true)}>
+              งานจาก TMS{tmsPending ? <span className="filter-count">{tmsPending}</span> : null}
+            </Button>
+          )}
+          {canEdit && <Button variant="accent" icon={<IconPlus size={16} />} onClick={openCreate}>สร้างออเดอร์</Button>}
+        </>}
       />
+
+      {canTms && (
+        <TmsOrdersSection
+          open={tmsOpen}
+          onOpenChange={setTmsOpen}
+          onPending={setTmsPending}
+          onChanged={() => void load()}
+        />
+      )}
 
       {moreOpen && (
         <div className="filter-more">

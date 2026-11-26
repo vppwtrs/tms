@@ -325,6 +325,40 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
   )
 }
 
+/* ---------- Drawer — แผงเลื่อนจากขวา ---------- */
+export function Drawer({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  const titleId = useId()
+  useEffect(() => {
+    if (!open) return
+    /* Esc ปิดเฉพาะแผงนี้ — ถ้ามี Modal ซ้อนอยู่ข้างบน Esc เป็นของ Modal นั้นก่อน */
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && document.querySelectorAll('.modal-overlay').length === 0) onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [open, onClose])
+
+  if (!open) return <></>
+  return (
+    <div className="drawer-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <aside className="drawer-panel" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <div className="modal-header">
+          <h3 className="modal-title" id={titleId}>{title}</h3>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="ปิด" className="btn-icon">
+            <IconX size={16} />
+          </Button>
+        </div>
+        <div className="drawer-body">{children}</div>
+      </aside>
+    </div>
+  )
+}
+
 /* ---------- ConfirmDialog ---------- */
 interface ConfirmProps {
   open: boolean

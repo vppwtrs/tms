@@ -4,7 +4,7 @@ import { useCloudAuth } from '../context/CloudAuthContext'
 import { ROLE_LABEL } from '../utils/constants'
 import { fmtDate, fmtLongToday, initials } from '../utils/format'
 import { applyTheme, currentTheme, type Theme } from '../utils/theme'
-import { IconBox, IconBuilding, IconClipboard, IconInbox, IconRoute, IconReport, IconKey, IconLogout, IconMenu, IconMoon, IconPanelLeft, IconPin, IconPrinter, IconChart, IconDashboard, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
+import { IconBox, IconBuilding, IconClipboard, IconRoute, IconReport, IconKey, IconLogout, IconMenu, IconMoon, IconPanelLeft, IconPin, IconPrinter, IconChart, IconDashboard, IconShield, IconSun, IconTable, IconTruckBig, IconUsers } from './icons'
 import { ChangePasswordModal } from './ChangePasswordModal'
 import { OpsSearch } from './ops/OpsSearch'
 
@@ -53,7 +53,6 @@ export const NAV: NavGroup[] = [
       { to: '/my-jobs', label: 'งานของฉัน', icon: IconClipboard, perm: 'myjobs.view' },
       /* หน้าเดียวจบ — รอบดึงข้อมูลเดินอยู่บนหน้านี้เอง แยกเป็นสองหน้าแล้วรอบดึงจะหยุด
          ทันทีที่คนสลับมาดูเที่ยว ซึ่งเป็นสิ่งที่เกิดตลอดวัน */
-      { to: '/tms-trips', label: 'งานจาก TMS', icon: IconInbox, perm: 'tms.view' },
       { to: '/orders', label: 'ออเดอร์', icon: IconBox, perm: 'orders.view' },
       { to: '/labels', label: 'พิมพ์ฉลาก', icon: IconPrinter, perm: 'labels.print' },
       { to: '/delivery-documents', label: 'พิมพ์ใบส่งสินค้า', icon: IconPrinter, perm: 'documents.print' },

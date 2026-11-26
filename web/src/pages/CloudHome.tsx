@@ -13,7 +13,7 @@ import { FleetTable } from '../components/ops/FleetTable'
 import { VolumeTrend } from '../components/ops/VolumeTrend'
 import { CancelReasons } from '../components/ops/CancelReasons'
 import { InsightPanel } from '../components/ops/InsightPanel'
-import { IconBox, IconRoute, IconTable, IconTruckBig } from '../components/icons'
+import { IconBox, IconRoute, IconTruckBig } from '../components/icons'
 import { fmtDate, fmtLongToday, todayIso } from '../utils/format'
 
 /** จำนวนวันในช่วง รวมปลายทั้งสอง */
@@ -110,7 +110,6 @@ export default function CloudHome(): React.JSX.Element {
   }, [load, range])
 
   const actions = [
-    can('tms.view') && { to: '/tms-trips', icon: IconTable, title: 'งานจาก TMS', desc: 'ไหลเข้าเองทุก 5 นาที' },
     can('dispatch.view') && { to: '/dispatch', icon: IconRoute, title: 'จัดแผนงาน', desc: 'รถ คนขับ ลำดับงาน' },
     can('orders.view') && { to: '/orders', icon: IconBox, title: 'ติดตามออเดอร์', desc: 'งานอยู่ขั้นไหน' },
     can('myjobs.view') && { to: '/my-jobs', icon: IconTruckBig, title: 'งานของฉัน', desc: 'เที่ยวที่ได้รับมอบหมาย' },

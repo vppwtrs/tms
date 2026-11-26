@@ -295,6 +295,13 @@ export const IconInbox = (p: IconProps) => (
   </svg>
 )
 
+export const IconRefresh = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4" />
+    <path d="M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4" />
+  </svg>
+)
+
 export const IconPrinter = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M6 9V3h12v6" />

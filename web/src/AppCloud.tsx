@@ -27,7 +27,6 @@ const CloudUsers = lazy(() => import('./pages/CloudUsers'))
 const CloudData = lazy(() => import('./pages/CloudData'))
 const CloudUsage = lazy(() => import('./pages/CloudUsage'))
 const CloudCustomers = lazy(() => import('./pages/CloudCustomers'))
-const CloudTmsTrips = lazy(() => import('./pages/CloudTmsTrips'))
 const CloudVehicles = lazy(() => import('./pages/CloudVehicles'))
 const CloudDrivers = lazy(() => import('./pages/CloudDrivers'))
 const CloudOrders = lazy(() => import('./pages/CloudOrders'))
@@ -132,9 +131,9 @@ export default function AppCloud(): React.JSX.Element {
               ตั้งแต่การนำเข้าย้ายไปอยู่ที่หน้าเที่ยว (auto_import_trips ตอนจบรอบดึง
               และปุ่มนำเข้ารายเที่ยว) ตัวหน้าถูกถอดออกจากเมนูไปก่อนหน้านี้ แต่ route
               ยังอยู่ คนที่รู้ URL จึงยังเปิดเจอหน้าที่ไม่มีใครดูแลแล้ว */}
-          <Route path="/tms-pull" element={<Navigate to="/tms-trips" replace />} />
-          <Route path="/tms-import" element={<Navigate to="/tms-trips" replace />} />
-          <Route path="/tms-trips" element={<RequirePermission permission="tms.view"><CloudTmsTrips /></RequirePermission>} />
+          <Route path="/tms-pull" element={<Navigate to="/orders" replace />} />
+          <Route path="/tms-import" element={<Navigate to="/orders" replace />} />
+          <Route path="/tms-trips" element={<Navigate to="/orders" replace />} />
           <Route path="/orders" element={<RequirePermission permission="orders.view"><CloudOrders /></RequirePermission>} />
 
           <Route path="/labels" element={<RequirePermission permission="labels.print"><CloudLabels /></RequirePermission>} />

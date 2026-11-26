@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRealtime } from '../hooks/useRealtime'
 import {
   previewTrips, importTrip, createDriverFromTms, mapTmsDriverToExisting, driversBusyOn,
-  linkOrdersToCustomers, tripDetail, autoImportReadyTrips, refreshOrderItemQty,
+  linkOrdersToCustomers, tripDetail, autoImportReadyTrips,
   type TmsTripsPreview, type TmsTripDetail, type TmsPickingList,
 } from '../api/tms'
 import { listDrivers } from '../api/vehicles'
 import type { DriverRow } from '../types/database'
-import { useTmsPull } from '../hooks/useTmsPull'
+import type { TmsPullEngine } from '../hooks/useTmsPull'
 import { useCloudAuth } from '../context/CloudAuthContext'
 import { useToast } from '../context/ToastContext'
-import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, PageHeader, Select } from '../components/ui'
-import { IconInfo, IconTruck } from '../components/icons'
-import { fmtDate, fmtDateTime, fmtMoney, todayIso } from '../utils/format'
+import { Badge, Button, EmptyState, ErrorBox, Field, Input, Modal, Select } from './ui'
+import { IconInfo, IconTruck } from './icons'
+import { fmtDate, fmtMoney, todayIso } from '../utils/format'
 
 /**
  * เที่ยวของ TMS -> เที่ยวของเรา
@@ -107,12 +107,15 @@ const nameKey = (raw: string): string =>
 const driverNames = (raw: string | null): string[] =>
   (raw ?? '').split(',').map((n) => n.trim()).filter(Boolean)
 
-export default function CloudTmsTrips(): React.JSX.Element {
+export function TmsTripsPanel({ pull, onChanged }: { pull: TmsPullEngine; onChanged?: () => void }): React.JSX.Element {
   const { can } = useCloudAuth()
   const { push } = useToast()
   const canDispatch = can('dispatch.write')
   const canDrivers = can('drivers.write')
   const canOrders = can('orders.write')
+  /* หน้าออเดอร์ที่ครอบอยู่ต้องโหลดใหม่เมื่อนำเข้าเที่ยวสำเร็จ — เก็บใน ref ไม่ให้ callback เปลี่ยนแล้วกระตุ้นรอบโหลด */
+  const changedRef = useRef(onChanged)
+  changedRef.current = onChanged
 
   const [date, setDate] = useState(() => todayIso())
   const [data, setData] = useState<TmsTripsPreview | null>(null)
@@ -203,6 +206,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
           (r.linked_orders ? ` · ผูกของเดิม ${r.linked_orders} ใบ` : '') +
           (r.orders_without_customer ? ` · ยังไม่ผูกลูกค้า ${r.orders_without_customer} ใบ` : ''))
       await load(date)
+      changedRef.current?.()
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'นำเข้าเที่ยวไม่สำเร็จ')
     } finally {
@@ -260,6 +264,7 @@ export default function CloudTmsTrips(): React.JSX.Element {
         /* จับคู่สำเร็จไปแล้ว ตรงนี้ล้มก็แค่ต้องกดสั่งงานเอง ไม่ใช่ความล้มเหลวของการจับคู่ */
       }
       await load(date)
+      changedRef.current?.()
     } catch (e) {
       push('error', e instanceof Error ? e.message : 'จับคู่พนักงานขับไม่สำเร็จ')
     } finally {
@@ -279,32 +284,10 @@ export default function CloudTmsTrips(): React.JSX.Element {
     }
   }
 
-  /* หน้าต่างรายละเอียดรอบดึง — ของที่คนดูนาน ๆ ครั้ง (ยอดรวม ความครอบคลุม ดึงย้อนหลัง)
-     ไม่ควรกินพื้นที่ถาวรบนหน้าที่คนเปิดจ้องทั้งวัน */
-  const [pullOpen, setPullOpen] = useState(false)
-
-  /* ปุ่มที่กดแล้วเห็นผลทันที — ของเดิมซ่อมให้เงียบ ๆ ท้ายรอบดึง แล้วถ้าไม่ได้ผล
-     ก็ไม่มีใครรู้ว่ามันทำงานหรือเปล่า ปุ่มนี้ตอบให้ชัดว่าแก้ไปกี่รายการ */
-  const fixQty = async (): Promise<void> => {
-    try {
-      const r = await refreshOrderItemQty()
-      push(r.fixed + r.added > 0 ? 'success' : 'warning',
-        r.fixed + r.added > 0
-          ? `ซ่อมจำนวนสินค้า ${r.fixed} รายการ · เติมรายการที่หาย ${r.added}`
-          : 'ไม่มีรายการที่ต้องซ่อม — จำนวนในออเดอร์ตรงกับใบดิบจาก TMS แล้ว')
-    } catch (e) {
-      push('error', e instanceof Error ? e.message : 'ซ่อมจำนวนไม่สำเร็จ')
-    }
-  }
-
   const tone = (id: number | null): string =>
     id === 5 ? 'success' : id === 6 ? 'danger' : id === 2 ? 'neutral' : 'accent'
 
   const nothing = data && data.trips.length === 0
-
-  /* เครื่องดึงข้อมูลเดินอยู่บนหน้านี้ — เดิมเป็นหน้าแยกที่ต้องเปิดค้างไว้อีกแท็บ
-     พอคนสลับมาดูหน้านี้ รอบดึงก็หยุด ซึ่งคือสถานะปกติของทุกวัน */
-  const pull = useTmsPull()
 
   /* รอบดึงจบแล้วตารางต้องตามทันที ไม่ใช่รอคนกดรีเฟรช — realtime จับเฉพาะแถวที่เปลี่ยน
      ส่วนตัวเลขสรุปในหน้านี้มาจาก RPC ที่ต้องเรียกใหม่เอง */
@@ -314,48 +297,21 @@ export default function CloudTmsTrips(): React.JSX.Element {
 
   return (
     <>
-      {/* วันที่คือตัวเลือกว่าตารางข้างล่างแสดงอะไร ซึ่งก็คือตัวกรอง เดิมมันอยู่ในการ์ด
-          ของตัวเองที่มีของอยู่ชิ้นเดียว คั่นกลางระหว่างหัวหน้าจอกับข้อมูล
-          ย้ายขึ้นไปอยู่กับหัวเหมือนตัวกรองของทุกหน้า */}
-      <PageHeader
-        title="เที่ยวจาก TMS"
-        subtitle="เที่ยวของกองรถบริษัท (Fleet Owner) — นำเข้าเป็นเที่ยววิ่งของระบบ"
-        filters={
-          <label className="inline-field">
-            วันที่ของเที่ยว
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value)
-                void load(e.target.value)
-              }}
-            />
-          </label>
-        }
-      />
-
-      {/* ปุ่มเล็ก ไม่ใช่หน้าเต็ม — ข้อมูลไหลเข้าเองอยู่แล้วทุก 5 นาที ปุ่มมีไว้เร่งรอบ
-          และบอกว่าตอนนี้ระบบยังต่อกับ TMS อยู่จริง */}
-      <div className="tms-pullbar">
-        <span className={`tms-pulldot${pull.busy ? ' is-busy' : ''}`} aria-hidden="true" />
-        <span className="text-xs text-muted">
-          {pull.busy
-            ? 'กำลังดึงข้อมูลจาก TMS…'
-            : pull.lastRun
-              ? `ดึงล่าสุด ${pull.lastRun}${pull.log ? ` · ${pull.log}` : ''}`
-              : 'กำลังเริ่มรอบดึงข้อมูล…'}
-        </span>
-        <div style={{ flex: 1 }} />
-        <Button variant="ghost" size="sm" onClick={() => void pull.cycle('poll')} disabled={pull.busy}>
-          ดึงเดี๋ยวนี้
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => setPullOpen(true)}>
-          รายละเอียด
-        </Button>
+      {/* วันที่คือตัวกรองว่าตารางข้างล่างแสดงเที่ยวของวันไหน */}
+      <div style={{ marginBottom: 4 }}>
+        <label className="inline-field">
+          วันที่ของเที่ยว
+          <Input
+            type="date"
+            value={date}
+            onChange={(e) => {
+              setDate(e.target.value)
+              void load(e.target.value)
+            }}
+          />
+        </label>
       </div>
 
-      {pull.error && <ErrorBox message={pull.error} />}
       {error && <ErrorBox message={error} onRetry={() => void load(date)} />}
 
       {/* เที่ยวที่ TMS ยกเลิกหลังจากเรานำเข้าไปแล้ว — ขึ้นบนสุดเสมอ ไม่ใช่ซ่อนท้ายหน้า
@@ -741,131 +697,6 @@ export default function CloudTmsTrips(): React.JSX.Element {
             ))}
           </>
         )}
-      </Modal>
-      {/* จอ "กำลังโหลด" ขึ้นเฉพาะรอบที่คนกดดึงย้อนหลังเอง ซึ่งกินเวลาเป็นนาที
-          รอบเฝ้าสถานะทุก 5 นาทีต้องไม่เด้งจอทับ ไม่งั้นคนจะปิดหน้านี้ทิ้ง แล้วข้อมูลก็หยุดไหล */}
-      <Modal open={pull.blocking} onClose={() => { /* ปิดเองไม่ได้ระหว่างดึง — ปิดแล้วรอบยังวิ่งอยู่ดี */ }} title="กำลังดึงข้อมูลจาก TMS">
-        <div style={{ display: 'grid', gap: 10, padding: '6px 0' }}>
-          <div className="tms-pullbars" aria-hidden="true"><span /><span /><span /></div>
-          <div style={{ fontSize: 13 }}>{pull.log || 'กำลังติดต่อ TMS…'}</div>
-          <div className="text-xs text-muted">
-            ดึงครบทุกคลังที่บัญชีนี้มีสิทธิ์ ({pull.warehouses.length} คลัง) — ช่วงวันที่ยาวใช้เวลาหลายนาที
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={pullOpen} onClose={() => setPullOpen(false)} title="การดึงข้อมูลจาก TMS">
-        <div style={{ display: 'grid', gap: 14 }}>
-          <div className="text-xs text-muted">
-            ระบบดึงเที่ยวของวันนี้ให้เองทุก 5 นาทีตราบที่เปิดหน้านี้ค้างไว้ ({pull.warehouses.length} คลัง)
-          </div>
-
-          <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13 }}>
-            <input type="checkbox" checked={pull.auto} onChange={(e) => pull.setAuto(e.target.checked)} />
-            เฝ้าสถานะให้อัตโนมัติทุก 5 นาที
-          </label>
-
-          {pull.board && (
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'baseline' }}>
-              <div>
-                <div className="text-xs text-muted">วันที่ล่าสุดที่มีงาน</div>
-                <div style={{ fontSize: 20, fontWeight: 660 }}>{fmtDate(pull.board.latest_date)}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted">เที่ยวของกองรถเรา</div>
-                <div style={{ fontSize: 20, fontWeight: 660 }} className="num">{pull.board.trips}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted">เที่ยวรอนำเข้า</div>
-                <div style={{ fontSize: 20, fontWeight: 660 }} className="num">{pull.board.trips_pending_import}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted">จำนวนคัน</div>
-                <div style={{ fontSize: 20, fontWeight: 660 }} className="num">{pull.board.total_qty}</div>
-              </div>
-            </div>
-          )}
-
-          {/* ชื่อ carrier ที่ระบบไม่รู้จักทำให้เที่ยวถูกทิ้งเงียบ ๆ ทั้งชุด
-              ซึ่งหน้าตาเหมือน "ไม่มีงาน" เป๊ะ เคยกินเวลาไล่หาสาเหตุมาแล้ว */}
-          {pull.tripPush && pull.tripPush.seen > 0 && pull.tripPush.skipped_carrier === pull.tripPush.seen && (
-            <div style={{ fontSize: 12.5, color: 'var(--danger)' }}>
-              ดึงมาได้ {pull.tripPush.seen} เที่ยว แต่ถูกกรองทิ้งทั้งหมดเพราะระบบไม่รู้จักชื่อผู้ให้บริการขนส่ง
-              — ต้องเพิ่มชื่อ carrier ลงตาราง tms_carriers ก่อน
-            </div>
-          )}
-
-          {pull.board && (
-            <div className="text-xs text-muted">
-              ดึงล่าสุด {fmtDateTime(pull.board.synced_at)} · สถานะเปลี่ยนล่าสุด {fmtDateTime(pull.board.last_change_at)}
-            </div>
-          )}
-
-          {/* บัญชี TMS แต่ละคนเห็นคลังไม่เท่ากัน — ต้องเห็นว่าวันนี้ทั้งบริษัทดึงคลังไหนไปแล้ว
-              ไม่ใช่เห็นแค่ผลของตัวเองแล้วเข้าใจว่าครบ */}
-          {pull.coverage && pull.coverage.runs > 0 && (
-            <div style={{ display: 'grid', gap: 6, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>รอบดึงใน 24 ชั่วโมง</div>
-              <div style={{ fontSize: 12.5 }}>
-                คลังที่ถูกดึงแล้ว: <b>{pull.coverage.warehouses.length ? pull.coverage.warehouses.join(', ') : 'ไม่มี'}</b>
-              </div>
-              {(() => {
-                const missing = pull.warehouses.map((w) => w.code).filter((c) => !pull.coverage?.warehouses.includes(c))
-                return missing.length > 0 ? (
-                  <div style={{ fontSize: 12.5, color: 'var(--danger)' }}>
-                    ยังไม่มีใครดึงคลัง: <b>{missing.join(', ')}</b>
-                  </div>
-                ) : null
-              })()}
-              {pull.coverage.last_run && !pull.coverage.last_run.ok && (
-                <div style={{ fontSize: 12.5, color: 'var(--danger)' }}>
-                  รอบล่าสุด ({pull.coverage.last_run.by ?? 'ไม่ทราบชื่อ'}) ล้มเหลว: {pull.coverage.last_run.error}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ตัวเลขนี้มีไว้ตัดสินใจเรื่องเดียว: ย้ายรอบซิงก์ไปฝั่งเซิร์ฟเวอร์แบบเก็บ token
-              แทนรหัสผ่าน คุ้มหรือไม่ */}
-          {pull.tokenLeft !== null && (
-            <div className="text-xs text-muted">
-              token ของ TMS หมดอายุในอีก{' '}
-              <b>
-                {pull.tokenLeft <= 0
-                  ? 'หมดอายุแล้ว'
-                  : pull.tokenLeft < 3600
-                    ? `${Math.floor(pull.tokenLeft / 60)} นาที`
-                    : pull.tokenLeft < 86400
-                      ? `${Math.floor(pull.tokenLeft / 3600)} ชั่วโมง`
-                      : `${Math.floor(pull.tokenLeft / 86400)} วัน`}
-              </b>
-            </div>
-          )}
-
-          <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 8 }}>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>ซ่อมจำนวนสินค้าในออเดอร์</div>
-            <div className="text-xs text-muted">
-              จำนวนในออเดอร์ถูกคำนวณตอนนำเข้า ไม่ได้อ่านสดจากใบดิบ ใบที่นำเข้าไปตอนที่ TMS
-              ยังส่งจำนวนมาไม่ครบจึงค้างเป็น 0 ปุ่มนี้คำนวณใหม่จากใบดิบที่มีอยู่ ไม่ต้องดึงจาก TMS ใหม่
-            </div>
-            <Button variant="outline" onClick={() => void fixQty()}>ซ่อมจำนวนสินค้า</Button>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 12 }}>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>ดึงย้อนหลังเอง</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Field label="ตั้งแต่วันที่" required>
-                <Input type="date" value={pull.from} onChange={(e) => pull.setFrom(e.target.value)} disabled={pull.busy} />
-              </Field>
-              <Field label="ถึงวันที่" required>
-                <Input type="date" value={pull.to} onChange={(e) => pull.setTo(e.target.value)} disabled={pull.busy} />
-              </Field>
-            </div>
-            <Button onClick={() => void pull.cycle('range')} loading={pull.busy} disabled={!pull.warehouses.length}>
-              ดึง Trip ช่วง {fmtDate(pull.from)} – {fmtDate(pull.to)}
-            </Button>
-          </div>
-        </div>
       </Modal>
     </>
   )
