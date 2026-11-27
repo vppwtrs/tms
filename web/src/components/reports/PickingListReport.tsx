@@ -73,7 +73,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
     const head = ['คลัง', 'เลข PL', 'ประเภท PL', 'วันที่วางแผนส่ง', 'เที่ยว', 'วันที่ของเที่ยว', 'สถานะใบ', 'สถานะเที่ยว', 'รหัสร้าน', 'ร้าน', 'จังหวัด', 'หน่วย', 'จำนวนรวม', 'รหัสสินค้า', 'ชื่อสินค้า', 'จำนวน', 'แบ่งส่ง']
     const body: (string | number)[][] = shown.map((r) => [
       r.warehouse, r.pickingListNo, r.plType, r.planDeliveryDate, r.tripNo, r.tripDate, r.plStatus, r.tripStatus,
-      r.dealerCode, r.dealerName, r.province,
+      r.dealerCode, r.shipToName || r.dealerName, r.province,
       r.unit ?? '', r.totalQty ?? '', r.itemNo, r.itemName, r.itemQty ?? '', r.itemSplitQty ?? '',
     ])
     downloadCsv(`picking-list-${range.from}-${range.to}.csv`, [head, ...body])
@@ -81,7 +81,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
 
   const pls = new Set(shown.map((r) => r.pickingListNo)).size
   const trips = new Set(shown.map((r) => r.tripNo).filter(Boolean)).size
-  const dealers = new Set(shown.map((r) => r.dealerCode).filter(Boolean)).size
+  const dealers = new Set(shown.map((r) => r.shipToName || r.dealerName).filter(Boolean)).size
 
   return (
     <>
@@ -164,7 +164,7 @@ export function PickingListReport({ range }: { range: { from: string; to: string
                         <td>{r.tripNo || <span className="text-muted">ยังไม่มีเที่ยว</span>}</td>
                         <td>{r.tripNo ? r.tripDate : <span className="text-muted">—</span>}</td>
                         <td>{r.plStatus}</td>
-                        <td>{r.dealerName || r.shipToName}</td>
+                        <td>{r.shipToName || r.dealerName}</td>
                         <td>{r.province || r.shipToProvince}</td>
                         <td className="r">{r.unit ?? <span className="text-muted">—</span>}</td>
                         <td>{r.itemName || <span className="text-muted">ไม่มีรายการสินค้า</span>}</td>
