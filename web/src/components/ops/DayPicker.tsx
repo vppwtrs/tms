@@ -3,7 +3,7 @@ import { Modal } from '../ui'
 import { IconChevronLeft, IconChevronRight, IconClock } from '../icons'
 import { todayIso } from '../../utils/format'
 import {
-  WEEKDAYS, inRange, isFutureDay, isFutureMonth, lastDays, monthGrid, monthTitle,
+  WEEKDAYS, inRange, lastDays, monthGrid, monthTitle,
   monthToDate, rangeButtonLabel, shiftMonth, ymOf,
 } from '../../utils/calendar'
 
@@ -111,7 +111,6 @@ export function DayPicker({ value, onChange }: {
               type="button"
               className="daypick-nav"
               aria-label="เดือนถัดไป"
-              disabled={isFutureMonth(next.y, next.m)}
               onClick={() => setView(next)}
             >
               <IconChevronRight size={16} />
@@ -138,7 +137,6 @@ export function DayPicker({ value, onChange }: {
                     `daypick-day${on ? ' is-in' : ''}${edge ? ' is-on' : ''}`
                     + `${iso === today ? ' is-today' : ''}`
                   }
-                  disabled={isFutureDay(iso)}
                   aria-current={edge ? 'date' : undefined}
                   onClick={() => clickDay(iso)}
                 >
@@ -151,7 +149,7 @@ export function DayPicker({ value, onChange }: {
           <p className="daypick-note">
             {start === null
               ? 'กดวันเริ่ม แล้วกดวันสิ้นสุด · กดวันเดิมซ้ำเพื่อดูวันเดียว'
-              : 'เลือกวันสิ้นสุด — วันในอนาคตเลือกไม่ได้'}
+              : 'เลือกวันสิ้นสุด — เลือกวันที่อนาคตได้'}
           </p>
         </div>
       </Modal>

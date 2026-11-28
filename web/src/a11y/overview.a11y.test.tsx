@@ -255,8 +255,8 @@ describe('TodayStats — หน่วยงานแยกประเภท', (
 describe('DayPicker', () => {
   const one = (iso: string): { from: string; to: string } => ({ from: iso, to: iso })
 
-  /* เทสต์กดวันที่ 2/3/5 ของเดือนนี้ แต่ปฏิทินห้ามเลือกวันในอนาคต — รันวันที่ 1–4
-     ของเดือนแล้วพังทุกครั้ง ล็อกนาฬิกาไว้กลางเดือนให้ผลไม่ขึ้นกับวันที่รัน
+  /* ล็อกนาฬิกาไว้กลางเดือนให้ทั้งวันย้อนหลังและวันอนาคตอยู่ในเดือนเดียวกัน
+     ผลการทดสอบจึงไม่ขึ้นกับวันที่รันจริง
      ปลอมแค่ Date ไม่แตะ timer เพราะ axe กับ findBy* ยังต้องใช้ setTimeout จริง */
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })
@@ -314,14 +314,21 @@ describe('DayPicker', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('วันในอนาคตกดไม่ได้', () => {
-    render(<DayPicker value={one(todayIso())} onChange={() => {}} />)
+  it('เลือกวันอนาคตได้และปิดกล่องหลังเลือกช่วงครบ', () => {
+    const seen: { from: string; to: string }[] = []
+    render(<DayPicker value={one(todayIso())} onChange={(r) => seen.push(r)} />)
     fireEvent.click(screen.getByRole('button', { name: /วันนี้/ }))
-    const tomorrow = new Date()
+    const today = new Date()
+    const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const cell = screen.queryByRole('button', { name: String(tomorrow.getDate()) })
-    if (cell && tomorrow.getMonth() === new Date().getMonth()) {
-      expect((cell as HTMLButtonElement).disabled).toBe(true)
-    }
+    const todayDay = String(today.getDate())
+    const tomorrowDay = String(tomorrow.getDate())
+    const start = screen.getByRole('button', { name: todayDay })
+    const end = screen.getByRole('button', { name: tomorrowDay })
+    expect((end as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(start)
+    fireEvent.click(end)
+    expect(seen).toEqual([{ from: todayIso(today), to: todayIso(tomorrow) }])
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
