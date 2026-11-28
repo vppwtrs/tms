@@ -18,7 +18,7 @@ export function shortThai(day: string): string {
 /**
  * ปฏิทินเลือกช่วงวันแบบมือถือ (mockup "ฟิลเตอร์วันที่")
  * แตะครั้งแรก = วันเริ่ม แตะครั้งที่สอง = วันจบ (แตะย้อนไปก่อนวันเริ่ม ระบบสลับให้เอง)
- * แตะวันเดิมซ้ำ = ดูวันเดียว วันในอนาคตแตะไม่ได้ — ประวัติไม่มีของวันพรุ่งนี้
+ * แตะวันเดิมซ้ำ = ดูวันเดียว รองรับเลือกช่วงวันที่ในอนาคตสำหรับวางแผนล่วงหน้า
  */
 export function RangeCalendar({ from, to, onChange }: {
   from: string
@@ -53,7 +53,7 @@ export function RangeCalendar({ from, to, onChange }: {
         <button type="button" className="dv-icon-btn" aria-label="เดือนก่อน" onClick={() => shift(-1)}>‹</button>
         <b>{MONTHS[view.m]} {view.y + 543}</b>
         <button type="button" className="dv-icon-btn" aria-label="เดือนถัดไป" onClick={() => shift(1)}
-          disabled={iso(view.y, view.m, 1) > today}>›</button>
+          >›</button>
       </div>
       <div className="dv-cal-grid" role="grid">
         {DOW.map((d) => <span key={d} className="dv-cal-dow">{d}</span>)}
@@ -67,7 +67,6 @@ export function RangeCalendar({ from, to, onChange }: {
               key={day}
               type="button"
               className={`dv-cal-day${edge ? ' is-edge' : ''}${inRange ? ' is-in' : ''}${day === from ? ' is-from' : ''}${day === end ? ' is-to' : ''}${day === today ? ' is-today' : ''}`}
-              disabled={day > today}
               aria-pressed={edge || Boolean(inRange)}
               aria-label={shortThai(day)}
               onClick={() => pick(day)}
