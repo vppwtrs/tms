@@ -314,14 +314,17 @@ describe('DayPicker', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('วันในอนาคตกดไม่ได้', () => {
-    render(<DayPicker value={one(todayIso())} onChange={() => {}} />)
+  it('เลือกวันอนาคตได้และปิดกล่องหลังเลือกช่วงครบ', () => {
+    const seen: { from: string; to: string }[] = []
+    render(<DayPicker value={one(todayIso())} onChange={(r) => seen.push(r)} />)
     fireEvent.click(screen.getByRole('button', { name: /วันนี้/ }))
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const cell = screen.queryByRole('button', { name: String(tomorrow.getDate()) })
-    if (cell && tomorrow.getMonth() === new Date().getMonth()) {
-      expect((cell as HTMLButtonElement).disabled).toBe(true)
-    }
+    const tomorrowDay = String(tomorrow.getDate())
+    const cell = screen.getByRole('button', { name: tomorrowDay })
+    expect((cell as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(cell)
+    expect(seen).toEqual([{ from: todayIso(), to: todayIso() }])
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
